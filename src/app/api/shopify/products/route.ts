@@ -151,7 +151,7 @@ export async function GET(request: NextRequest) {
     let nextPageUrl: string | null = `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/products.json?limit=250`;
     let pagesSearched = 0;
 
-    while (nextPageUrl && matchingProducts.length < 20 && pagesSearched < 10) {
+    while (nextPageUrl && matchingProducts.length < 50 && pagesSearched < 20) {
       pagesSearched++;
 
       const response: Response = await fetch(nextPageUrl, {
@@ -181,8 +181,9 @@ export async function GET(request: NextRequest) {
           const skuLower = variant.sku?.toLowerCase() || "";
           const variantTitleLower = variant.title?.toLowerCase() || "";
 
-          // Combine all searchable text
-          const searchableText = `${titleLower} ${variantTitleLower} ${skuLower}`;
+          // Combine all searchable text (replace hyphens with spaces for better matching)
+          const skuNormalized = skuLower.replace(/-/g, ' ');
+          const searchableText = `${titleLower} ${variantTitleLower} ${skuLower} ${skuNormalized}`;
 
           // Check if ALL search words are found somewhere in the combined text
           const allWordsMatch = searchWords.every(word => searchableText.includes(word));
@@ -201,10 +202,10 @@ export async function GET(request: NextRequest) {
             });
 
             // Stop if we have enough matches
-            if (matchingProducts.length >= 20) break;
+            if (matchingProducts.length >= 50) break;
           }
         }
-        if (matchingProducts.length >= 20) break;
+        if (matchingProducts.length >= 50) break;
       }
 
       // Check for next page in Link header

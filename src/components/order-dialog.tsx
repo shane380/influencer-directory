@@ -122,6 +122,8 @@ export function OrderDialog({
   });
 
   const [creatingOrder, setCreatingOrder] = useState(false);
+  const [savingSelects, setSavingSelects] = useState(false);
+  const [selectsSaved, setSelectsSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orderCreated, setOrderCreated] = useState(false);
   const [orderAdminUrl, setOrderAdminUrl] = useState<string | null>(null);
@@ -140,6 +142,7 @@ export function OrderDialog({
     setError(null);
     setOrderCreated(false);
     setOrderAdminUrl(null);
+    setSelectsSaved(false);
     setCustomerSearchQuery("");
     setCustomerSearchResults([]);
     setShowCustomerSearch(false);
@@ -561,7 +564,45 @@ export function OrderDialog({
     }
   };
 
+  const handleSaveSelects = async () => {
+    if (cart.length === 0) {
+      setError("Please add at least one product");
+      return;
+    }
+
+    setSavingSelects(true);
+    setError(null);
+
+    try {
+      const productSelectionsForDB = cart.map((item) => ({
+        sku: item.sku,
+        variant_id: item.variant_id,
+        quantity: item.quantity,
+        title: item.title,
+        variant_title: item.variant_title,
+        price: item.price,
+        image: item.image,
+      }));
+
+      const { error: updateError } = await (supabase.from("campaign_influencers") as any)
+        .update({
+          product_selections: productSelectionsForDB,
+        })
+        .eq("id", campaignInfluencer.id);
+
+      if (updateError) throw updateError;
+
+      setSelectsSaved(true);
+      onSave();
+    } catch (err: any) {
+      setError(err.message || "Failed to save selects");
+    } finally {
+      setSavingSelects(false);
+    }
+  };
+
   const hasExistingOrder = Boolean(campaignInfluencer.shopify_order_id);
+  const hasExistingSelects = Boolean(campaignInfluencer.product_selections && (campaignInfluencer.product_selections as CartItem[]).length > 0);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -569,7 +610,7 @@ export function OrderDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShoppingCart className="h-5 w-5" />
-            {hasExistingOrder ? "View Order" : "Create Order"} - {influencer.name}
+            {hasExistingOrder ? "View Order" : hasExistingSelects ? "Edit Selects" : "Add Selects"} - {influencer.name}
           </DialogTitle>
         </DialogHeader>
 
@@ -1127,12 +1168,15 @@ export function OrderDialog({
               )}
             </div>
 
-            {/* Cart */}
+            {/* Cart / Selects */}
             {cart.length > 0 && (
               <div>
                 <h3 className="font-medium mb-3 flex items-center gap-2">
                   <ShoppingCart className="h-4 w-4" />
-                  Order Items ({cart.length})
+                  Product Selects ({cart.length})
+                  {hasExistingSelects && !selectsSaved && (
+                    <Badge variant="secondary" className="text-xs">Saved</Badge>
+                  )}
                 </h3>
                 <div className="space-y-2">
                   {cart.map((item, index) => (
@@ -1193,8 +1237,28 @@ export function OrderDialog({
               Cancel
             </Button>
             <Button
+              variant="secondary"
+              onClick={handleSaveSelects}
+              disabled={savingSelects || cart.length === 0}
+            >
+              {savingSelects ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : selectsSaved ? (
+                <>
+                  <Check className="h-4 w-4 mr-2" />
+                  Selects Saved
+                </>
+              ) : (
+                "Save Selects"
+              )}
+            </Button>
+            <Button
               onClick={handleCreateOrder}
-              disabled={creatingOrder || cart.length === 0}
+              disabled={creatingOrder || cart.length === 0 || !shopifyCustomer || !customerConfirmed}
+              title={!shopifyCustomer || !customerConfirmed ? "Please confirm a customer first" : ""}
             >
               {creatingOrder ? (
                 <>

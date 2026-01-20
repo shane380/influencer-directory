@@ -41,6 +41,12 @@ export function AddInfluencerDialog({
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [instagramPreview, setInstagramPreview] = useState<{
+    username: string;
+    full_name: string;
+    profile_pic_url: string | null;
+    follower_count: number;
+  } | null>(null);
 
   const supabase = createClient();
 
@@ -52,6 +58,7 @@ export function AddInfluencerDialog({
       setInstagramHandle("");
       setDuplicateWarning(null);
       setError(null);
+      setInstagramPreview(null);
     }
   }, [open]);
 
@@ -111,6 +118,7 @@ export function AddInfluencerDialog({
     setLookingUp(true);
     setError(null);
     setDuplicateWarning(null);
+    setInstagramPreview(null);
 
     try {
       // Parse the input to extract username
@@ -141,15 +149,36 @@ export function AddInfluencerDialog({
 
       const profile = await response.json();
 
-      // Start photo upload immediately (in parallel)
+      // Show preview instead of auto-adding
+      setInstagramPreview({
+        username: profile.username,
+        full_name: profile.full_name || profile.username,
+        profile_pic_url: profile.profile_pic_url,
+        follower_count: profile.follower_count,
+      });
+    } catch (err: any) {
+      setError(err.message || "Failed to lookup Instagram profile");
+    } finally {
+      setLookingUp(false);
+    }
+  };
+
+  const handleConfirmAddFromInstagram = async () => {
+    if (!instagramPreview) return;
+
+    setAdding(true);
+    setError(null);
+
+    try {
+      // Start photo upload in parallel
       let photoPromise: Promise<string | null> = Promise.resolve(null);
-      if (profile.profile_pic_url) {
+      if (instagramPreview.profile_pic_url) {
         photoPromise = (async () => {
           try {
-            const photoResponse = await fetch(`/api/instagram/photo?url=${encodeURIComponent(profile.profile_pic_url)}`);
+            const photoResponse = await fetch(`/api/instagram/photo?url=${encodeURIComponent(instagramPreview.profile_pic_url!)}`);
             if (photoResponse.ok) {
               const photoBlob = await photoResponse.blob();
-              const fileName = `${profile.username}-${Date.now()}.jpg`;
+              const fileName = `${instagramPreview.username}-${Date.now()}.jpg`;
               const { error: uploadError } = await supabase.storage
                 .from("profile-photos")
                 .upload(fileName, photoBlob, { contentType: "image/jpeg" });
@@ -167,7 +196,7 @@ export function AddInfluencerDialog({
         })();
       }
 
-      // Wait for photo with a 3 second timeout - if it takes longer, continue without it
+      // Wait for photo with a 3 second timeout
       const photoUrl = await Promise.race([
         photoPromise,
         new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000))
@@ -175,10 +204,10 @@ export function AddInfluencerDialog({
 
       // Create new influencer
       const newInfluencerData: InfluencerInsert = {
-        name: profile.full_name || profile.username,
-        instagram_handle: profile.username,
+        name: instagramPreview.full_name,
+        instagram_handle: instagramPreview.username,
         profile_photo_url: photoUrl,
-        follower_count: profile.follower_count,
+        follower_count: instagramPreview.follower_count,
         tier: "C",
         partnership_type: "unassigned",
         relationship_status: "prospect",
@@ -197,7 +226,7 @@ export function AddInfluencerDialog({
       const newInfluencer = insertResult.data as Influencer;
 
       // If photo wasn't ready in time, update it when it completes
-      if (!photoUrl && profile.profile_pic_url) {
+      if (!photoUrl && instagramPreview.profile_pic_url) {
         photoPromise.then(async (url) => {
           if (url) {
             await (supabase.from("influencers") as any)
@@ -211,11 +240,12 @@ export function AddInfluencerDialog({
       await addInfluencerToCampaign(newInfluencer);
 
       setInstagramHandle("");
+      setInstagramPreview(null);
       fetchAllInfluencers();
     } catch (err: any) {
       setError(err.message || "Failed to add influencer");
     } finally {
-      setLookingUp(false);
+      setAdding(false);
     }
   };
 
@@ -278,7 +308,7 @@ export function AddInfluencerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg" onClose={onClose}>
+      <DialogContent className="max-w-3xl" style={{ width: "700px" }} onClose={onClose}>
         <DialogHeader>
           <DialogTitle>Add Influencer to Campaign</DialogTitle>
         </DialogHeader>
@@ -286,7 +316,7 @@ export function AddInfluencerDialog({
         <div className="space-y-6">
           {/* Add New via Instagram */}
           <div className="space-y-3">
-            <Label className="text-sm font-medium">Add New from Instagram</Label>
+            <Label className="text-sm font-medium">Search by Username or URL</Label>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Input
@@ -302,6 +332,7 @@ export function AddInfluencerDialog({
                       setInstagramHandle(value.replace("@", ""));
                     }
                     setDuplicateWarning(null);
+                    setInstagramPreview(null);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
@@ -325,6 +356,66 @@ export function AddInfluencerDialog({
               </Button>
             </div>
           </div>
+
+          {/* Instagram Preview */}
+          {instagramPreview && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm font-medium text-blue-800 mb-2">Found on Instagram</p>
+              <div className="flex items-center gap-3">
+                {instagramPreview.profile_pic_url ? (
+                  <img
+                    src={`/api/instagram/photo?url=${encodeURIComponent(instagramPreview.profile_pic_url)}`}
+                    alt={instagramPreview.full_name}
+                    width={48}
+                    height={48}
+                    className="rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-blue-200 flex items-center justify-center">
+                    <span className="text-blue-700 font-medium">
+                      {instagramPreview.full_name.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                )}
+                <div className="flex-1">
+                  <p className="font-medium">{instagramPreview.full_name}</p>
+                  <p className="text-sm text-gray-600">@{instagramPreview.username}</p>
+                  <p className="text-xs text-gray-500">
+                    {instagramPreview.follower_count.toLocaleString()} followers
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setInstagramPreview(null);
+                      setInstagramHandle("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleConfirmAddFromInstagram}
+                    disabled={adding}
+                  >
+                    {adding ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 mr-1" />
+                        Add
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Duplicate Warning */}
           {duplicateWarning && (

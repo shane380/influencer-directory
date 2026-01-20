@@ -41,6 +41,7 @@ import {
   Users,
   Trash2,
   ShoppingCart,
+  ExternalLink,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -249,17 +250,28 @@ export default function CampaignDetailPage() {
     }
   };
 
-  // Update campaign-specific partnership type
-  const handlePartnershipTypeChange = async (campaignInfluencerId: string, newType: PartnershipType) => {
-    const { error } = await (supabase.from("campaign_influencers") as any).update({
+  // Update campaign-specific partnership type and also update the influencer's global partnership type
+  const handlePartnershipTypeChange = async (campaignInfluencerId: string, influencerId: string, newType: PartnershipType) => {
+    // Update campaign-specific partnership type
+    const { error: campaignError } = await (supabase.from("campaign_influencers") as any).update({
       partnership_type: newType,
     }).eq("id", campaignInfluencerId);
 
-    if (error) {
-      console.error("Error updating partnership type:", error);
-    } else {
-      fetchCampaignInfluencers();
+    if (campaignError) {
+      console.error("Error updating campaign partnership type:", campaignError);
+      return;
     }
+
+    // Also update the influencer's global partnership type
+    const { error: influencerError } = await (supabase.from("influencers") as any).update({
+      partnership_type: newType,
+    }).eq("id", influencerId);
+
+    if (influencerError) {
+      console.error("Error updating influencer partnership type:", influencerError);
+    }
+
+    fetchCampaignInfluencers();
   };
 
   // Remove influencer from campaign (not delete their profile)
@@ -418,10 +430,21 @@ export default function CampaignDetailPage() {
                 </div>
               </div>
             </div>
-            <Button variant="outline" onClick={handleOpenCampaignDialog}>
-              <Settings className="h-4 w-4 mr-2" />
-              Edit Campaign
-            </Button>
+            <div className="flex gap-2">
+              {campaign.collection_deck_url && (
+                <Button
+                  variant="outline"
+                  onClick={() => window.open(campaign.collection_deck_url!, '_blank')}
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Collection Deck
+                </Button>
+              )}
+              <Button variant="outline" onClick={handleOpenCampaignDialog}>
+                <Settings className="h-4 w-4 mr-2" />
+                Edit Campaign
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -548,7 +571,7 @@ export default function CampaignDetailPage() {
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <Select
                         value={ci.partnership_type}
-                        onChange={(e) => handlePartnershipTypeChange(ci.id, e.target.value as PartnershipType)}
+                        onChange={(e) => handlePartnershipTypeChange(ci.id, ci.influencer_id, e.target.value as PartnershipType)}
                         className={`text-xs h-8 w-[130px] ${partnershipTypeColors[ci.partnership_type]} border-0`}
                       >
                         <option value="unassigned">Unassigned</option>
@@ -598,6 +621,13 @@ export default function CampaignDetailPage() {
                           onClick={() => handleOpenOrderDialog(ci)}
                         >
                           {orderStatusLabels[ci.shopify_order_status || "draft"]}
+                        </Badge>
+                      ) : ci.product_selections && (ci.product_selections as any[]).length > 0 ? (
+                        <Badge
+                          className="cursor-pointer bg-purple-100 text-purple-800"
+                          onClick={() => handleOpenOrderDialog(ci)}
+                        >
+                          Selects ({(ci.product_selections as any[]).length})
                         </Badge>
                       ) : (
                         <Button

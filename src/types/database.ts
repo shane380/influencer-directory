@@ -71,6 +71,7 @@ export interface Campaign {
   start_date: string | null;
   end_date: string | null;
   status: CampaignStatus;
+  collection_deck_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -81,6 +82,7 @@ export interface CampaignInsert {
   start_date?: string | null;
   end_date?: string | null;
   status?: CampaignStatus;
+  collection_deck_url?: string | null;
 }
 
 export type ShopifyOrderStatus = 'draft' | 'placed' | 'fulfilled';

@@ -50,6 +50,7 @@ const initialFormData: CampaignInsert = {
   start_date: null,
   end_date: null,
   status: "planning",
+  collection_deck_url: null,
 };
 
 export function CampaignDialog({
@@ -94,6 +95,7 @@ export function CampaignDialog({
           start_date: campaign.start_date,
           end_date: campaign.end_date,
           status: campaign.status,
+          collection_deck_url: campaign.collection_deck_url,
         });
         fetchCampaignInfluencers(campaign.id);
       } else {
@@ -474,6 +476,18 @@ export function CampaignDialog({
               value={formData.description || ""}
               onChange={handleChange}
               rows={2}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="collection_deck_url">Collection Deck URL</Label>
+            <Input
+              id="collection_deck_url"
+              name="collection_deck_url"
+              type="url"
+              placeholder="https://..."
+              value={formData.collection_deck_url || ""}
+              onChange={handleChange}
             />
           </div>
 
