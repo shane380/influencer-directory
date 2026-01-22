@@ -47,6 +47,7 @@ export function AddInfluencerDialog({
     profile_pic_url: string | null;
     follower_count: number;
   } | null>(null);
+  const [requiresApproval, setRequiresApproval] = useState(false);
 
   const supabase = createClient();
 
@@ -59,6 +60,7 @@ export function AddInfluencerDialog({
       setDuplicateWarning(null);
       setError(null);
       setInstagramPreview(null);
+      setRequiresApproval(false);
     }
   }, [open]);
 
@@ -271,13 +273,20 @@ export function AddInfluencerDialog({
         ? lastCampaignData[0].partnership_type
         : influencer.partnership_type;
 
+      const insertData: any = {
+        campaign_id: campaignId,
+        influencer_id: influencer.id,
+        partnership_type: partnershipType,
+      };
+
+      // Add approval status if approval is required
+      if (requiresApproval) {
+        insertData.approval_status = "pending";
+      }
+
       const insertResult = await (supabase
         .from("campaign_influencers") as any)
-        .insert({
-          campaign_id: campaignId,
-          influencer_id: influencer.id,
-          partnership_type: partnershipType,
-        });
+        .insert(insertData);
 
       if (insertResult.error) {
         setError(insertResult.error.message);
@@ -460,6 +469,25 @@ export function AddInfluencerDialog({
               </div>
             </div>
           )}
+
+          {/* Requires Approval Toggle */}
+          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+            <input
+              type="checkbox"
+              id="requires-approval"
+              checked={requiresApproval}
+              onChange={(e) => setRequiresApproval(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <div className="flex-1">
+              <Label htmlFor="requires-approval" className="text-sm font-medium cursor-pointer">
+                Requires Approval
+              </Label>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Flag this influencer for sign-off before proceeding
+              </p>
+            </div>
+          </div>
 
           {/* Divider */}
           <div className="relative">

@@ -1,8 +1,12 @@
 export type PartnershipType = 'unassigned' | 'gifted_no_ask' | 'gifted_soft_ask' | 'gifted_deliverable_ask' | 'gifted_recurring' | 'paid';
 export type Tier = 'S' | 'A' | 'B' | 'C';
-export type RelationshipStatus = 'prospect' | 'contacted' | 'followed_up' | 'lead_dead' | 'order_placed' | 'order_delivered' | 'order_follow_up_sent' | 'order_follow_up_two_sent' | 'posted';
+export type RelationshipStatus = 'prospect' | 'contacted' | 'followed_up' | 'lead_dead' | 'creator_wants_paid' | 'order_placed' | 'order_delivered' | 'order_follow_up_sent' | 'order_follow_up_two_sent' | 'posted';
 export type CampaignStatus = 'planning' | 'active' | 'completed' | 'cancelled';
 export type ClothingSize = 'XS' | 'S' | 'M' | 'L' | 'XL';
+export type PaymentStatus = 'not_paid' | 'deposit_paid' | 'paid_on_post' | 'paid_in_full';
+export type DeliverableType = 'ugc' | 'collab_post' | 'organic_post' | 'whitelisting' | 'other';
+export type ContentPostedType = 'none' | 'stories' | 'in_feed_post' | 'reel' | 'tiktok';
+export type ApprovalStatus = 'pending' | 'approved' | 'declined';
 
 export interface Profile {
   id: string;
@@ -107,6 +111,11 @@ export interface CampaignInfluencer {
   shopify_order_id: string | null;
   shopify_order_status: ShopifyOrderStatus | null;
   product_selections: ProductSelection[] | null;
+  content_posted: ContentPostedType;
+  approval_status: ApprovalStatus | null;
+  approval_note: string | null;
+  approved_at: string | null;
+  approved_by: string | null;
 }
 
 export interface CampaignInfluencerInsert {
@@ -119,6 +128,11 @@ export interface CampaignInfluencerInsert {
   shopify_order_id?: string | null;
   shopify_order_status?: ShopifyOrderStatus | null;
   product_selections?: ProductSelection[] | null;
+  content_posted?: ContentPostedType;
+  approval_status?: ApprovalStatus | null;
+  approval_note?: string | null;
+  approved_at?: string | null;
+  approved_by?: string | null;
 }
 
 export interface CampaignWithInfluencers extends Campaign {
@@ -127,6 +141,106 @@ export interface CampaignWithInfluencers extends Campaign {
 
 export interface InfluencerWithCampaigns extends Influencer {
   campaign_influencers: (CampaignInfluencer & { campaign: Campaign })[];
+}
+
+// Budget Tracking Types
+
+export interface MonthlyBudget {
+  id: string;
+  month: string;
+  budget_amount: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MonthlyBudgetInsert {
+  month: string;
+  budget_amount: number;
+}
+
+export interface InfluencerRates {
+  id: string;
+  influencer_id: string;
+  ugc_rate: number | null;
+  collab_post_rate: number | null;
+  organic_post_rate: number | null;
+  whitelisting_rate: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InfluencerRatesInsert {
+  influencer_id: string;
+  ugc_rate?: number | null;
+  collab_post_rate?: number | null;
+  organic_post_rate?: number | null;
+  whitelisting_rate?: number | null;
+  notes?: string | null;
+}
+
+export interface InfluencerMediaKit {
+  id: string;
+  influencer_id: string;
+  file_url: string;
+  file_name: string;
+  file_size: number | null;
+  uploaded_at: string;
+}
+
+export interface InfluencerMediaKitInsert {
+  influencer_id: string;
+  file_url: string;
+  file_name: string;
+  file_size?: number | null;
+}
+
+export interface Deliverable {
+  type: DeliverableType;
+  description?: string;
+  rate: number;
+  quantity: number;
+}
+
+export interface CampaignDeal {
+  id: string;
+  campaign_id: string;
+  influencer_id: string;
+  deliverables: Deliverable[];
+  total_deal_value: number;
+  payment_status: PaymentStatus;
+  deposit_amount: number | null;
+  deposit_paid_date: string | null;
+  final_paid_date: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CampaignDealInsert {
+  campaign_id: string;
+  influencer_id: string;
+  deliverables?: Deliverable[];
+  total_deal_value?: number;
+  payment_status?: PaymentStatus;
+  deposit_amount?: number | null;
+  deposit_paid_date?: string | null;
+  final_paid_date?: string | null;
+  notes?: string | null;
+}
+
+export interface CampaignDealWithInfluencer extends CampaignDeal {
+  influencer: Influencer;
+}
+
+export interface CampaignDealWithDetails extends CampaignDeal {
+  influencer: Influencer;
+  campaign: Campaign;
+}
+
+export interface InfluencerWithRates extends Influencer {
+  rates?: InfluencerRates | null;
+  media_kits?: InfluencerMediaKit[];
 }
 
 export interface Database {
@@ -148,6 +262,30 @@ export interface Database {
         Row: CampaignInfluencer;
         Insert: CampaignInfluencerInsert;
         Update: Partial<CampaignInfluencerInsert>;
+        Relationships: [];
+      };
+      monthly_budgets: {
+        Row: MonthlyBudget;
+        Insert: MonthlyBudgetInsert;
+        Update: Partial<MonthlyBudgetInsert>;
+        Relationships: [];
+      };
+      influencer_rates: {
+        Row: InfluencerRates;
+        Insert: InfluencerRatesInsert;
+        Update: Partial<InfluencerRatesInsert>;
+        Relationships: [];
+      };
+      influencer_media_kits: {
+        Row: InfluencerMediaKit;
+        Insert: InfluencerMediaKitInsert;
+        Update: Partial<InfluencerMediaKitInsert>;
+        Relationships: [];
+      };
+      campaign_deals: {
+        Row: CampaignDeal;
+        Insert: CampaignDealInsert;
+        Update: Partial<CampaignDealInsert>;
         Relationships: [];
       };
     };

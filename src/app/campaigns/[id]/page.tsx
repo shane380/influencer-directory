@@ -7,12 +7,15 @@ import {
   Influencer,
   Campaign,
   CampaignInfluencer,
+  CampaignDeal,
   PartnershipType,
   Tier,
   RelationshipStatus,
   CampaignStatus,
   Profile,
   ShopifyOrderStatus,
+  ContentPostedType,
+  ApprovalStatus,
 } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +33,9 @@ import { InfluencerDialog } from "@/components/influencer-dialog";
 import { CampaignDialog } from "@/components/campaign-dialog";
 import { AddInfluencerDialog } from "@/components/add-influencer-dialog";
 import { OrderDialog } from "@/components/order-dialog";
+import { DealDialog } from "@/components/deal-dialog";
+import { DealSummaryBadge } from "@/components/deal-summary-badge";
+import { ApprovalDialog } from "@/components/approval-dialog";
 import {
   Plus,
   Search,
@@ -42,6 +48,9 @@ import {
   Trash2,
   ShoppingCart,
   ExternalLink,
+  Clock,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -61,6 +70,7 @@ const statusColors: Record<RelationshipStatus, string> = {
   contacted: "bg-blue-100 text-blue-800",
   followed_up: "bg-yellow-100 text-yellow-800",
   lead_dead: "bg-red-100 text-red-800",
+  creator_wants_paid: "bg-pink-100 text-pink-800",
   order_placed: "bg-orange-100 text-orange-800",
   order_delivered: "bg-teal-100 text-teal-800",
   order_follow_up_sent: "bg-indigo-100 text-indigo-800",
@@ -73,6 +83,7 @@ const statusLabels: Record<RelationshipStatus, string> = {
   contacted: "Contacted",
   followed_up: "Followed Up",
   lead_dead: "Lead Dead",
+  creator_wants_paid: "Creator Wants Paid",
   order_placed: "Order Placed",
   order_delivered: "Order Delivered",
   order_follow_up_sent: "Order Follow Up Sent",
@@ -124,6 +135,22 @@ const orderStatusLabels: Record<ShopifyOrderStatus, string> = {
   fulfilled: "Fulfilled",
 };
 
+const contentPostedLabels: Record<ContentPostedType, string> = {
+  none: "No Content",
+  stories: "Stories",
+  in_feed_post: "In Feed Post",
+  reel: "Reel",
+  tiktok: "TikTok",
+};
+
+const contentPostedColors: Record<ContentPostedType, string> = {
+  none: "bg-gray-100 text-gray-600",
+  stories: "bg-pink-100 text-pink-800",
+  in_feed_post: "bg-blue-100 text-blue-800",
+  reel: "bg-purple-100 text-purple-800",
+  tiktok: "bg-black text-white",
+};
+
 interface CampaignInfluencerWithDetails extends CampaignInfluencer {
   influencer: Influencer;
 }
@@ -148,6 +175,12 @@ export default function CampaignDetailPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   const [selectedCampaignInfluencer, setSelectedCampaignInfluencer] = useState<CampaignInfluencerWithDetails | null>(null);
+  const [deals, setDeals] = useState<Map<string, CampaignDeal>>(new Map());
+  const [dealDialogOpen, setDealDialogOpen] = useState(false);
+  const [selectedDealInfluencer, setSelectedDealInfluencer] = useState<CampaignInfluencerWithDetails | null>(null);
+  const [approvalFilter, setApprovalFilter] = useState<string>("all");
+  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
+  const [selectedApprovalInfluencer, setSelectedApprovalInfluencer] = useState<CampaignInfluencerWithDetails | null>(null);
 
   const supabase = createClient();
 
@@ -193,11 +226,29 @@ export default function CampaignDetailPage() {
     setLoading(false);
   }, [supabase, campaignId]);
 
+  const fetchDeals = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("campaign_deals")
+      .select("*")
+      .eq("campaign_id", campaignId);
+
+    if (error) {
+      console.error("Error fetching deals:", error);
+    } else {
+      const dealsMap = new Map<string, CampaignDeal>();
+      (data || []).forEach((deal: CampaignDeal) => {
+        dealsMap.set(deal.influencer_id, deal);
+      });
+      setDeals(dealsMap);
+    }
+  }, [supabase, campaignId]);
+
   useEffect(() => {
     fetchCampaign();
     fetchCampaignInfluencers();
     fetchProfiles();
-  }, [fetchCampaign, fetchCampaignInfluencers, fetchProfiles]);
+    fetchDeals();
+  }, [fetchCampaign, fetchCampaignInfluencers, fetchProfiles, fetchDeals]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -320,12 +371,64 @@ export default function CampaignDetailPage() {
     fetchCampaignInfluencers();
   };
 
+  // Open deal dialog
+  const handleOpenDealDialog = (ci: CampaignInfluencerWithDetails) => {
+    setSelectedDealInfluencer(ci);
+    setDealDialogOpen(true);
+  };
+
+  // Close deal dialog
+  const handleCloseDealDialog = () => {
+    setDealDialogOpen(false);
+    setSelectedDealInfluencer(null);
+  };
+
+  // Handle deal save
+  const handleDealSave = () => {
+    fetchDeals();
+  };
+
+  // Open approval dialog
+  const handleOpenApprovalDialog = (ci: CampaignInfluencerWithDetails) => {
+    setSelectedApprovalInfluencer(ci);
+    setApprovalDialogOpen(true);
+  };
+
+  // Close approval dialog
+  const handleCloseApprovalDialog = () => {
+    setApprovalDialogOpen(false);
+    setSelectedApprovalInfluencer(null);
+  };
+
+  // Handle approval save
+  const handleApprovalSave = () => {
+    fetchCampaignInfluencers();
+  };
+
+  // Update content posted
+  const handleContentPostedChange = async (campaignInfluencerId: string, newContent: ContentPostedType) => {
+    const { error } = await (supabase.from("campaign_influencers") as any).update({
+      content_posted: newContent,
+    }).eq("id", campaignInfluencerId);
+
+    if (error) {
+      console.error("Error updating content posted:", error);
+    } else {
+      fetchCampaignInfluencers();
+    }
+  };
+
   // Filter and sort the influencers
   const filteredInfluencers = campaignInfluencers
     .filter((ci) => {
       const influencer = ci.influencer;
       if (statusFilter !== "all" && ci.status !== statusFilter) return false;
       if (partnershipTypeFilter !== "all" && ci.partnership_type !== partnershipTypeFilter) return false;
+      // Approval filter
+      if (approvalFilter === "pending" && ci.approval_status !== "pending") return false;
+      if (approvalFilter === "needs_review" && ci.approval_status !== "pending") return false;
+      if (approvalFilter === "approved" && ci.approval_status !== "approved") return false;
+      if (approvalFilter === "declined" && ci.approval_status !== "declined") return false;
       if (search) {
         const searchLower = search.toLowerCase();
         return (
@@ -404,30 +507,80 @@ export default function CampaignDetailPage() {
                   {campaign.end_date && <> - {formatDate(campaign.end_date)}</>}
                 </div>
               </div>
-              <div className="flex items-center gap-4 mt-2 text-sm">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                  <span className="text-gray-600">Seeding:</span>
-                  <span className="font-medium">
-                    {campaignInfluencers.filter((ci) =>
-                      ["gifted_no_ask", "gifted_soft_ask", "gifted_deliverable_ask"].includes(ci.partnership_type)
-                    ).length}
-                  </span>
+              {/* Stats Cards */}
+              <div className="flex flex-wrap gap-6 mt-4">
+                {/* Partnership Types */}
+                <div className="flex items-center gap-4">
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Partnerships</span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 rounded">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                      <span className="text-sm font-semibold text-blue-700">
+                        {campaignInfluencers.filter((ci) =>
+                          ["gifted_no_ask", "gifted_soft_ask", "gifted_deliverable_ask"].includes(ci.partnership_type)
+                        ).length}
+                      </span>
+                      <span className="text-xs text-blue-600">Seeding</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 rounded">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                      <span className="text-sm font-semibold text-green-700">
+                        {campaignInfluencers.filter((ci) => ci.partnership_type === "gifted_recurring").length}
+                      </span>
+                      <span className="text-xs text-green-600">Recurring</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2 py-1 bg-purple-50 rounded">
+                      <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                      <span className="text-sm font-semibold text-purple-700">
+                        {campaignInfluencers.filter((ci) => ci.partnership_type === "paid").length}
+                      </span>
+                      <span className="text-xs text-purple-600">Paid</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                  <span className="text-gray-600">Gifted Recurring:</span>
-                  <span className="font-medium">
-                    {campaignInfluencers.filter((ci) => ci.partnership_type === "gifted_recurring").length}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-                  <span className="text-gray-600">Paid:</span>
-                  <span className="font-medium">
-                    {campaignInfluencers.filter((ci) => ci.partnership_type === "paid").length}
-                  </span>
-                </div>
+
+                {/* Content Posted */}
+                {(() => {
+                  const stories = campaignInfluencers.filter((ci) => ci.content_posted === "stories").length;
+                  const inFeed = campaignInfluencers.filter((ci) => ci.content_posted === "in_feed_post").length;
+                  const reels = campaignInfluencers.filter((ci) => ci.content_posted === "reel").length;
+                  const tiktoks = campaignInfluencers.filter((ci) => ci.content_posted === "tiktok").length;
+                  const hasContent = stories + inFeed + reels + tiktoks > 0;
+
+                  if (!hasContent) return null;
+
+                  return (
+                    <div className="flex items-center gap-4 border-l border-gray-200 pl-6">
+                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Content</span>
+                      <div className="flex items-center gap-3">
+                        {stories > 0 && (
+                          <div className="flex items-center gap-1.5 px-2 py-1 bg-pink-50 rounded">
+                            <span className="text-sm font-semibold text-pink-700">{stories}</span>
+                            <span className="text-xs text-pink-600">{stories === 1 ? "Story" : "Stories"}</span>
+                          </div>
+                        )}
+                        {inFeed > 0 && (
+                          <div className="flex items-center gap-1.5 px-2 py-1 bg-sky-50 rounded">
+                            <span className="text-sm font-semibold text-sky-700">{inFeed}</span>
+                            <span className="text-xs text-sky-600">{inFeed === 1 ? "Post" : "Posts"}</span>
+                          </div>
+                        )}
+                        {reels > 0 && (
+                          <div className="flex items-center gap-1.5 px-2 py-1 bg-violet-50 rounded">
+                            <span className="text-sm font-semibold text-violet-700">{reels}</span>
+                            <span className="text-xs text-violet-600">{reels === 1 ? "Reel" : "Reels"}</span>
+                          </div>
+                        )}
+                        {tiktoks > 0 && (
+                          <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-100 rounded">
+                            <span className="text-sm font-semibold text-gray-700">{tiktoks}</span>
+                            <span className="text-xs text-gray-600">{tiktoks === 1 ? "TikTok" : "TikToks"}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
             <div className="flex gap-2">
@@ -467,6 +620,7 @@ export default function CampaignDetailPage() {
             <option value="contacted">Contacted</option>
             <option value="followed_up">Followed Up</option>
             <option value="lead_dead">Lead Dead</option>
+            <option value="creator_wants_paid">Creator Wants Paid</option>
             <option value="order_placed">Order Placed</option>
             <option value="order_delivered">Order Delivered</option>
             <option value="order_follow_up_sent">Order Follow Up Sent</option>
@@ -482,6 +636,26 @@ export default function CampaignDetailPage() {
             <option value="gifted_recurring">Gifted Recurring</option>
             <option value="paid">Paid</option>
           </Select>
+          {/* Approval Filter */}
+          {(() => {
+            const pendingCount = campaignInfluencers.filter(ci => ci.approval_status === "pending").length;
+            const hasApprovals = campaignInfluencers.some(ci => ci.approval_status !== null);
+            if (!hasApprovals && approvalFilter === "all") return null;
+            return (
+              <Select
+                value={approvalFilter}
+                onChange={(e) => setApprovalFilter(e.target.value)}
+                className={`w-auto sm:w-[160px] flex-shrink-0 ${pendingCount > 0 && approvalFilter === "all" ? "border-amber-300 bg-amber-50" : ""}`}
+              >
+                <option value="all">
+                  {pendingCount > 0 ? `Approvals (${pendingCount})` : "All Approvals"}
+                </option>
+                <option value="pending">Pending ({pendingCount})</option>
+                <option value="approved">Approved</option>
+                <option value="declined">Declined</option>
+              </Select>
+            );
+          })()}
           <Button onClick={() => setAddInfluencerDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Influencer
@@ -535,6 +709,8 @@ export default function CampaignDetailPage() {
                     </button>
                   </TableHead>
                   <TableHead>Order</TableHead>
+                  <TableHead>Content Posted</TableHead>
+                  <TableHead>Deal</TableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -565,7 +741,37 @@ export default function CampaignDetailPage() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="font-medium">{ci.influencer.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {ci.influencer.name}
+                        {ci.approval_status && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenApprovalDialog(ci);
+                            }}
+                            className={`inline-flex items-center justify-center w-5 h-5 rounded-full transition-colors ${
+                              ci.approval_status === "pending"
+                                ? "bg-amber-100 text-amber-600 hover:bg-amber-200"
+                                : ci.approval_status === "approved"
+                                ? "bg-green-100 text-green-600 hover:bg-green-200"
+                                : "bg-red-100 text-red-600 hover:bg-red-200"
+                            }`}
+                            title={
+                              ci.approval_status === "pending"
+                                ? "Pending approval"
+                                : ci.approval_status === "approved"
+                                ? "Approved"
+                                : "Declined"
+                            }
+                          >
+                            {ci.approval_status === "pending" && <Clock className="h-3 w-3" />}
+                            {ci.approval_status === "approved" && <CheckCircle2 className="h-3 w-3" />}
+                            {ci.approval_status === "declined" && <XCircle className="h-3 w-3" />}
+                          </button>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-gray-600">@{ci.influencer.instagram_handle}</TableCell>
                     <TableCell>{formatNumber(ci.influencer.follower_count)}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
@@ -591,8 +797,9 @@ export default function CampaignDetailPage() {
                         <option value="prospect">Prospect</option>
                         <option value="contacted">Contacted</option>
                         <option value="followed_up">Followed Up</option>
-                        <option value="lead_dead">Dead</option>
-                        <option value="order_placed">Placed</option>
+                        <option value="lead_dead">Lead Dead</option>
+                        <option value="creator_wants_paid">Wants Paid</option>
+                        <option value="order_placed">Order Placed</option>
                         <option value="order_delivered">Delivered</option>
                         <option value="order_follow_up_sent">Follow Up 1</option>
                         <option value="order_follow_up_two_sent">Follow Up 2</option>
@@ -638,6 +845,29 @@ export default function CampaignDetailPage() {
                           <ShoppingCart className="h-4 w-4 mr-1" />
                           Order
                         </Button>
+                      )}
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Select
+                        value={ci.content_posted || "none"}
+                        onChange={(e) => handleContentPostedChange(ci.id, e.target.value as ContentPostedType)}
+                        className={`text-xs h-8 w-[120px] ${contentPostedColors[ci.content_posted || "none"]} border-0`}
+                      >
+                        <option value="none">No Content</option>
+                        <option value="stories">Stories</option>
+                        <option value="in_feed_post">In Feed Post</option>
+                        <option value="reel">Reel</option>
+                        <option value="tiktok">TikTok</option>
+                      </Select>
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      {ci.partnership_type === "paid" ? (
+                        <DealSummaryBadge
+                          deal={deals.get(ci.influencer_id) || null}
+                          onClick={() => handleOpenDealDialog(ci)}
+                        />
+                      ) : (
+                        <span className="text-gray-300">-</span>
                       )}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
@@ -693,6 +923,28 @@ export default function CampaignDetailPage() {
           onSave={handleOrderSave}
           influencer={selectedCampaignInfluencer.influencer}
           campaignInfluencer={selectedCampaignInfluencer}
+        />
+      )}
+
+      {selectedDealInfluencer && campaign && (
+        <DealDialog
+          open={dealDialogOpen}
+          onClose={handleCloseDealDialog}
+          onSave={handleDealSave}
+          influencer={selectedDealInfluencer.influencer}
+          campaign={campaign}
+          deal={deals.get(selectedDealInfluencer.influencer_id) || null}
+        />
+      )}
+
+      {selectedApprovalInfluencer && (
+        <ApprovalDialog
+          open={approvalDialogOpen}
+          onClose={handleCloseApprovalDialog}
+          onSave={handleApprovalSave}
+          influencer={selectedApprovalInfluencer.influencer}
+          campaignInfluencer={selectedApprovalInfluencer}
+          profiles={profiles}
         />
       )}
     </div>

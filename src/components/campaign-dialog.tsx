@@ -237,6 +237,11 @@ export function CampaignDialog({
             shopify_order_id: null,
             shopify_order_status: null,
             product_selections: null,
+            content_posted: "none",
+            approval_status: null,
+            approval_note: null,
+            approved_at: null,
+            approved_by: null,
             influencer: newInfluencer,
           },
         ]);
@@ -305,6 +310,11 @@ export function CampaignDialog({
           shopify_order_id: null,
           shopify_order_status: null,
           product_selections: null,
+          content_posted: "none",
+          approval_status: null,
+          approval_note: null,
+          approved_at: null,
+          approved_by: null,
           influencer,
         },
       ]);

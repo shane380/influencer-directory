@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { InfluencerDialog } from "@/components/influencer-dialog";
 import { CampaignDialog } from "@/components/campaign-dialog";
+import { BudgetDashboard } from "@/components/budget-dashboard";
 import { Plus, Search, LogOut, ArrowUpDown, Users, Megaphone, ChevronDown, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -502,6 +503,9 @@ function HomePageContent() {
           </>
         ) : (
           <>
+            {/* Budget Dashboard */}
+            <BudgetDashboard onRefresh={fetchCampaigns} />
+
             {/* Campaign Filters */}
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
               <div className="relative flex-1 min-w-[200px]">

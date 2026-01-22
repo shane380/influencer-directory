@@ -10,7 +10,11 @@ import {
   RelationshipStatus,
   PartnershipType,
   Profile,
+  InfluencerRates,
+  InfluencerMediaKit,
 } from "@/types/database";
+import { InfluencerRatesSection } from "@/components/influencer-rates-section";
+import { MediaKitUpload } from "@/components/media-kit-upload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,6 +59,7 @@ const statusColors: Record<RelationshipStatus, string> = {
   contacted: "bg-blue-100 text-blue-800",
   followed_up: "bg-yellow-100 text-yellow-800",
   lead_dead: "bg-red-100 text-red-800",
+  creator_wants_paid: "bg-pink-100 text-pink-800",
   order_placed: "bg-orange-100 text-orange-800",
   order_delivered: "bg-teal-100 text-teal-800",
   order_follow_up_sent: "bg-indigo-100 text-indigo-800",
@@ -67,6 +72,7 @@ const statusLabels: Record<RelationshipStatus, string> = {
   contacted: "Contacted",
   followed_up: "Followed Up",
   lead_dead: "Lead Dead",
+  creator_wants_paid: "Creator Wants Paid",
   order_placed: "Order Placed",
   order_delivered: "Order Delivered",
   order_follow_up_sent: "Order Follow Up Sent",
@@ -129,6 +135,9 @@ export function InfluencerDialog({
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [rates, setRates] = useState<InfluencerRates | null>(null);
+  const [mediaKits, setMediaKits] = useState<InfluencerMediaKit[]>([]);
+  const [loadingRates, setLoadingRates] = useState(false);
   const supabase = createClient();
 
   // Fetch profiles and current user
@@ -223,6 +232,44 @@ export function InfluencerDialog({
     fetchCampaignHistory();
   }, [influencer, open, supabase]);
 
+  // Fetch rates and media kits for paid influencers
+  useEffect(() => {
+    async function fetchRatesAndMediaKits() {
+      if (!influencer || !open) {
+        setRates(null);
+        setMediaKits([]);
+        return;
+      }
+
+      setLoadingRates(true);
+      try {
+        // Fetch rates
+        const { data: ratesData } = await supabase
+          .from("influencer_rates")
+          .select("*")
+          .eq("influencer_id", influencer.id)
+          .single();
+
+        setRates(ratesData || null);
+
+        // Fetch media kits
+        const { data: mediaKitsData } = await supabase
+          .from("influencer_media_kits")
+          .select("*")
+          .eq("influencer_id", influencer.id)
+          .order("uploaded_at", { ascending: false });
+
+        setMediaKits(mediaKitsData || []);
+      } catch (err) {
+        console.error("Failed to fetch rates/media kits:", err);
+      } finally {
+        setLoadingRates(false);
+      }
+    }
+
+    fetchRatesAndMediaKits();
+  }, [influencer, open, supabase]);
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
@@ -236,6 +283,31 @@ export function InfluencerDialog({
             : parseFloat(value)
           : value || null,
     }));
+  };
+
+  const handleRatesChange = (updatedRates: Partial<InfluencerRates>) => {
+    setRates((prev) => ({
+      ...(prev || {
+        id: "",
+        influencer_id: influencer?.id || "",
+        ugc_rate: null,
+        collab_post_rate: null,
+        organic_post_rate: null,
+        whitelisting_rate: null,
+        notes: null,
+        created_at: "",
+        updated_at: "",
+      }),
+      ...updatedRates,
+    } as InfluencerRates));
+  };
+
+  const handleMediaKitUpload = (mediaKit: InfluencerMediaKit) => {
+    setMediaKits((prev) => [mediaKit, ...prev]);
+  };
+
+  const handleMediaKitDelete = (mediaKitId: string) => {
+    setMediaKits((prev) => prev.filter((mk) => mk.id !== mediaKitId));
   };
 
   const handleInstagramLookup = async () => {
@@ -318,6 +390,8 @@ export function InfluencerDialog({
           : null,
       };
 
+      let savedInfluencerId = influencer?.id;
+
       if (influencer) {
         const updateResult = await (supabase
           .from("influencers") as any)
@@ -332,9 +406,34 @@ export function InfluencerDialog({
           created_by: currentUserId,
           assigned_to: dataToSave.assigned_to || currentUserId,
         };
-        const insertResult = await (supabase.from("influencers") as any).insert(insertData);
+        const insertResult = await (supabase.from("influencers") as any)
+          .insert(insertData)
+          .select()
+          .single();
 
         if (insertResult.error) throw insertResult.error;
+        savedInfluencerId = insertResult.data?.id;
+      }
+
+      // Save rates if partnership type is paid and we have rates data
+      if (formData.partnership_type === "paid" && savedInfluencerId && rates) {
+        const ratesData = {
+          influencer_id: savedInfluencerId,
+          ugc_rate: rates.ugc_rate,
+          collab_post_rate: rates.collab_post_rate,
+          organic_post_rate: rates.organic_post_rate,
+          whitelisting_rate: rates.whitelisting_rate,
+          notes: rates.notes,
+        };
+
+        // Upsert rates (insert or update)
+        const { error: ratesError } = await supabase
+          .from("influencer_rates")
+          .upsert(ratesData, { onConflict: "influencer_id" });
+
+        if (ratesError) {
+          console.error("Failed to save rates:", ratesError);
+        }
       }
 
       onSave();
@@ -638,6 +737,7 @@ export function InfluencerDialog({
                 <option value="contacted">Contacted</option>
                 <option value="followed_up">Followed Up</option>
                 <option value="lead_dead">Lead Dead</option>
+                <option value="creator_wants_paid">Creator Wants Paid</option>
                 <option value="order_placed">Order Placed</option>
                 <option value="order_delivered">Order Delivered</option>
                 <option value="order_follow_up_sent">Order Follow Up Sent</option>
@@ -646,6 +746,24 @@ export function InfluencerDialog({
               </Select>
             </div>
           </div>
+
+          {/* Rate Card Section - Only for Paid partnership */}
+          {formData.partnership_type === "paid" && (
+            <InfluencerRatesSection
+              rates={rates}
+              onChange={handleRatesChange}
+            />
+          )}
+
+          {/* Media Kit Upload - Only for Paid partnership and existing influencers */}
+          {formData.partnership_type === "paid" && influencer && (
+            <MediaKitUpload
+              influencerId={influencer.id}
+              mediaKits={mediaKits}
+              onUpload={handleMediaKitUpload}
+              onDelete={handleMediaKitDelete}
+            />
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="last_contacted_at">Last Contacted</Label>
