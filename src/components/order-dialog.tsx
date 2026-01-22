@@ -588,7 +588,8 @@ export function OrderDialog({
   };
 
   const handleSaveSelects = async () => {
-    if (cart.length === 0) {
+    // Only block if cart is empty AND there were no existing selects to clear
+    if (cart.length === 0 && !hasExistingSelects) {
       setError("Please add at least one product");
       return;
     }
@@ -597,15 +598,17 @@ export function OrderDialog({
     setError(null);
 
     try {
-      const productSelectionsForDB = cart.map((item) => ({
-        sku: item.sku,
-        variant_id: item.variant_id,
-        quantity: item.quantity,
-        title: item.title,
-        variant_title: item.variant_title,
-        price: item.price,
-        image: item.image,
-      }));
+      const productSelectionsForDB = cart.length > 0
+        ? cart.map((item) => ({
+            sku: item.sku,
+            variant_id: item.variant_id,
+            quantity: item.quantity,
+            title: item.title,
+            variant_title: item.variant_title,
+            price: item.price,
+            image: item.image,
+          }))
+        : null; // Clear selects if cart is empty
 
       const { error: updateError } = await (supabase.from("campaign_influencers") as any)
         .update({
@@ -1276,7 +1279,7 @@ export function OrderDialog({
             <Button
               variant="secondary"
               onClick={handleSaveSelects}
-              disabled={savingSelects || cart.length === 0}
+              disabled={savingSelects || (cart.length === 0 && !hasExistingSelects)}
             >
               {savingSelects ? (
                 <>
@@ -1286,8 +1289,10 @@ export function OrderDialog({
               ) : selectsSaved ? (
                 <>
                   <Check className="h-4 w-4 mr-2" />
-                  Selects Saved
+                  {cart.length === 0 ? "Selects Cleared" : "Selects Saved"}
                 </>
+              ) : cart.length === 0 && hasExistingSelects ? (
+                "Clear Selects"
               ) : (
                 "Save Selects"
               )}
