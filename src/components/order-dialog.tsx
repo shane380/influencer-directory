@@ -312,6 +312,29 @@ export function OrderDialog({
     setCart(newCart);
   };
 
+  const handleClearSelects = async () => {
+    setSavingSelects(true);
+    setError(null);
+
+    try {
+      const { error: updateError } = await (supabase.from("campaign_influencers") as any)
+        .update({
+          product_selections: null,
+        })
+        .eq("id", campaignInfluencer.id);
+
+      if (updateError) throw updateError;
+
+      setCart([]);
+      setSelectsSaved(true);
+      onSave();
+    } catch (err: any) {
+      setError(err.message || "Failed to clear selects");
+    } finally {
+      setSavingSelects(false);
+    }
+  };
+
   const handleCreateCustomer = async () => {
     if (!newCustomerForm.email) {
       setCustomerError("Email is required to create a Shopify customer.");
@@ -1171,13 +1194,27 @@ export function OrderDialog({
             {/* Cart / Selects */}
             {cart.length > 0 && (
               <div>
-                <h3 className="font-medium mb-3 flex items-center gap-2">
-                  <ShoppingCart className="h-4 w-4" />
-                  Product Selects ({cart.length})
-                  {hasExistingSelects && !selectsSaved && (
-                    <Badge variant="secondary" className="text-xs">Saved</Badge>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-medium flex items-center gap-2">
+                    <ShoppingCart className="h-4 w-4" />
+                    Product Selects ({cart.length})
+                    {hasExistingSelects && !selectsSaved && (
+                      <Badge variant="secondary" className="text-xs">Saved</Badge>
+                    )}
+                  </h3>
+                  {hasExistingSelects && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={handleClearSelects}
+                      disabled={savingSelects}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Clear All
+                    </Button>
                   )}
-                </h3>
+                </div>
                 <div className="space-y-2">
                   {cart.map((item, index) => (
                     <div
