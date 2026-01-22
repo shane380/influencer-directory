@@ -620,6 +620,7 @@ export function OrderDialog({
 
       setSelectsSaved(true);
       onSave();
+      onClose();
     } catch (err: any) {
       setError(err.message || "Failed to save selects");
     } finally {
