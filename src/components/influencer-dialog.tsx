@@ -429,7 +429,7 @@ export function InfluencerDialog({
         // Upsert rates (insert or update)
         const { error: ratesError } = await supabase
           .from("influencer_rates")
-          .upsert(ratesData, { onConflict: "influencer_id" });
+          .upsert(ratesData as never, { onConflict: "influencer_id" });
 
         if (ratesError) {
           console.error("Failed to save rates:", ratesError);

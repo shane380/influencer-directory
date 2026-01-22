@@ -54,7 +54,7 @@ export function MediaKitUpload({
             file_url: urlData.publicUrl,
             file_name: file.name,
             file_size: file.size,
-          })
+          } as never)
           .select()
           .single();
 

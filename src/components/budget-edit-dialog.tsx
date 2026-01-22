@@ -55,14 +55,14 @@ export function BudgetEditDialog({
       if (budget) {
         const { error: updateError } = await supabase
           .from("monthly_budgets")
-          .update({ budget_amount: budgetAmount })
+          .update({ budget_amount: budgetAmount } as never)
           .eq("id", budget.id);
 
         if (updateError) throw updateError;
       } else {
         const { error: insertError } = await supabase
           .from("monthly_budgets")
-          .insert({ month, budget_amount: budgetAmount });
+          .insert({ month, budget_amount: budgetAmount } as never);
 
         if (insertError) throw insertError;
       }

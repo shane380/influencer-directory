@@ -185,7 +185,7 @@ export function DealDialog({
         // Update existing deal
         const { error: updateError } = await supabase
           .from("campaign_deals")
-          .update(dealData)
+          .update(dealData as never)
           .eq("id", deal.id);
 
         if (updateError) throw updateError;
@@ -193,7 +193,7 @@ export function DealDialog({
         // Insert new deal
         const { error: insertError } = await supabase
           .from("campaign_deals")
-          .insert(dealData);
+          .insert(dealData as never);
 
         if (insertError) throw insertError;
       }
