@@ -42,6 +42,12 @@ interface OrderDialogProps {
   campaignInfluencer: CampaignInfluencer;
 }
 
+interface LocationInventory {
+  location_id: number;
+  location_name: string;
+  available: number;
+}
+
 interface ShopifyProduct {
   product_id: number;
   variant_id: number;
@@ -50,6 +56,7 @@ interface ShopifyProduct {
   sku: string;
   price: string;
   inventory: number;
+  inventory_by_location: LocationInventory[];
   image: string | null;
   status: string;
 }
@@ -1150,47 +1157,95 @@ export function OrderDialog({
 
               {/* Search Results */}
               {searchResults.length > 0 && (
-                <div className="border rounded-lg max-h-64 overflow-y-auto mb-4">
-                  {searchResults.map((product) => (
-                    <div
-                      key={`${product.product_id}-${product.variant_id}`}
-                      className="flex items-center gap-3 p-3 border-b last:border-b-0 hover:bg-gray-50"
-                    >
-                      {product.image ? (
-                        <Image
-                          src={product.image}
-                          alt={product.title}
-                          width={48}
-                          height={48}
-                          className="rounded object-cover"
-                          unoptimized
-                        />
-                      ) : (
-                        <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center">
-                          <Package className="h-6 w-6 text-gray-400" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{product.title}</p>
-                        {product.variant_title && (
-                          <p className="text-sm text-gray-500">{product.variant_title}</p>
+                <div className="border rounded-lg max-h-80 overflow-y-auto mb-4">
+                  {searchResults.map((product) => {
+                    // Categorize inventory by region
+                    const usaStock = product.inventory_by_location?.find(loc =>
+                      loc.location_name.toLowerCase().includes('usa') ||
+                      loc.location_name.toLowerCase().includes('us ') ||
+                      loc.location_name.toLowerCase().includes('united states') ||
+                      loc.location_name.toLowerCase().includes('america')
+                    );
+                    const canadaStock = product.inventory_by_location?.find(loc =>
+                      loc.location_name.toLowerCase().includes('canada') ||
+                      loc.location_name.toLowerCase().includes('ca ')
+                    );
+                    // If no specific match, show all locations
+                    const hasLocationData = product.inventory_by_location && product.inventory_by_location.length > 0;
+
+                    return (
+                      <div
+                        key={`${product.product_id}-${product.variant_id}`}
+                        className="flex items-center gap-3 p-3 border-b last:border-b-0 hover:bg-gray-50"
+                      >
+                        {product.image ? (
+                          <Image
+                            src={product.image}
+                            alt={product.title}
+                            width={48}
+                            height={48}
+                            className="rounded object-cover"
+                            unoptimized
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center">
+                            <Package className="h-6 w-6 text-gray-400" />
+                          </div>
                         )}
-                        <p className="text-sm text-gray-500">
-                          SKU: {product.sku} | Stock: {product.inventory}
-                        </p>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{product.title}</p>
+                          {product.variant_title && (
+                            <p className="text-sm text-gray-500">{product.variant_title}</p>
+                          )}
+                          <p className="text-sm text-gray-500">SKU: {product.sku}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {/* Inventory by Location */}
+                          {hasLocationData ? (
+                            <div className="flex gap-2 text-xs">
+                              {usaStock || canadaStock ? (
+                                <>
+                                  {usaStock && (
+                                    <span className={`px-2 py-1 rounded ${usaStock.available > 0 ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-400'}`}>
+                                      🇺🇸 {usaStock.available}
+                                    </span>
+                                  )}
+                                  {canadaStock && (
+                                    <span className={`px-2 py-1 rounded ${canadaStock.available > 0 ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-400'}`}>
+                                      🇨🇦 {canadaStock.available}
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                // Show all locations if no USA/Canada match
+                                product.inventory_by_location.map(loc => (
+                                  <span
+                                    key={loc.location_id}
+                                    className={`px-2 py-1 rounded ${loc.available > 0 ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-400'}`}
+                                    title={loc.location_name}
+                                  >
+                                    {loc.location_name.substring(0, 8)}: {loc.available}
+                                  </span>
+                                ))
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-500">Stock: {product.inventory}</span>
+                          )}
+                          <div className="text-right">
+                            <p className="font-medium">${product.price}</p>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleAddToCart(product)}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-medium">${product.price}</p>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleAddToCart(product)}
-                        >
-                          <Plus className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
