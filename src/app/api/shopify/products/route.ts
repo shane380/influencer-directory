@@ -53,7 +53,8 @@ async function getLocations(storeUrl: string, accessToken: string): Promise<Shop
   });
 
   if (!response.ok) {
-    console.error("Failed to fetch locations");
+    const errorText = await response.text();
+    console.error("Failed to fetch locations:", response.status, errorText);
     return [];
   }
 
