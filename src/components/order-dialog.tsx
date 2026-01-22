@@ -1289,12 +1289,10 @@ export function OrderDialog({
               ) : selectsSaved ? (
                 <>
                   <Check className="h-4 w-4 mr-2" />
-                  {cart.length === 0 ? "Selects Cleared" : "Selects Saved"}
+                  Saved
                 </>
-              ) : cart.length === 0 && hasExistingSelects ? (
-                "Clear Selects"
               ) : (
-                "Save Selects"
+                "Save"
               )}
             </Button>
             <Button
