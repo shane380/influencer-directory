@@ -503,8 +503,7 @@ export default function MonthCampaignViewPage() {
     if (newCampaignId === ci.campaign_id) return;
 
     // Update the campaign_id on the existing campaign_influencers record
-    const { error } = await supabase
-      .from("campaign_influencers")
+    const { error } = await (supabase.from("campaign_influencers") as any)
       .update({ campaign_id: newCampaignId })
       .eq("id", ci.id);
 
