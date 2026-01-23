@@ -27,12 +27,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { InfluencerDialog } from "@/components/influencer-dialog";
+import { AddInfluencerDialog } from "@/components/add-influencer-dialog";
 import { OrderDialog } from "@/components/order-dialog";
 import { DealDialog } from "@/components/deal-dialog";
 import { DealSummaryBadge } from "@/components/deal-summary-badge";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ApprovalDialog } from "@/components/approval-dialog";
 import {
+  Plus,
   Search,
   ArrowUpDown,
   ChevronRight,
@@ -227,6 +229,8 @@ export default function MonthCampaignViewPage() {
   const [selectedDealInfluencer, setSelectedDealInfluencer] = useState<CampaignInfluencerWithDetails | null>(null);
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [selectedApprovalInfluencer, setSelectedApprovalInfluencer] = useState<CampaignInfluencerWithDetails | null>(null);
+  const [addInfluencerDialogOpen, setAddInfluencerDialogOpen] = useState(false);
+  const [selectedCampaignIdForAdd, setSelectedCampaignIdForAdd] = useState<string>("");
 
   const supabase = createClient();
 
@@ -270,6 +274,9 @@ export default function MonthCampaignViewPage() {
     }
 
     setCampaigns(data || []);
+    if (data && data.length > 0 && !selectedCampaignIdForAdd) {
+      setSelectedCampaignIdForAdd(data[0].id);
+    }
     return data || [];
   }, [supabase, monthKey, router]);
 
@@ -732,6 +739,23 @@ export default function MonthCampaignViewPage() {
             <option value="gifted_recurring">Gifted Recurring</option>
             <option value="paid">Paid</option>
           </Select>
+          <div className="flex items-center gap-2">
+            <Select
+              value={selectedCampaignIdForAdd}
+              onChange={(e) => setSelectedCampaignIdForAdd(e.target.value)}
+              className="w-auto sm:w-[140px] flex-shrink-0"
+            >
+              {campaigns.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {extractCollection(c.name)}
+                </option>
+              ))}
+            </Select>
+            <Button onClick={() => setAddInfluencerDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Influencer
+            </Button>
+          </div>
         </div>
 
         {/* Influencer Table */}
@@ -1033,6 +1057,21 @@ export default function MonthCampaignViewPage() {
           influencer={selectedApprovalInfluencer.influencer}
           campaignInfluencer={selectedApprovalInfluencer}
           profiles={profiles}
+        />
+      )}
+
+      {selectedCampaignIdForAdd && (
+        <AddInfluencerDialog
+          open={addInfluencerDialogOpen}
+          onClose={() => setAddInfluencerDialogOpen(false)}
+          onAdd={async () => {
+            const campaignList = await fetchCampaigns();
+            if (campaignList) {
+              await fetchCampaignInfluencers(campaignList);
+            }
+          }}
+          campaignId={selectedCampaignIdForAdd}
+          existingInfluencerIds={campaignInfluencers.map((ci) => ci.influencer_id)}
         />
       )}
     </div>
