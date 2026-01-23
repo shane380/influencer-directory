@@ -7,19 +7,18 @@ import {
   InfluencerInsert,
   Campaign,
   CampaignInfluencer,
-  RelationshipStatus,
-  PartnershipType,
   Profile,
   InfluencerRates,
   InfluencerMediaKit,
+  InfluencerOrder,
 } from "@/types/database";
-import { InfluencerRatesSection } from "@/components/influencer-rates-section";
-import { MediaKitUpload } from "@/components/media-kit-upload";
+import { InfluencerProfileHeader } from "@/components/influencer-profile-header";
+import { InfluencerOverviewTab } from "@/components/influencer-overview-tab";
+import { InfluencerOrdersTab } from "@/components/influencer-orders-tab";
+import { InfluencerCampaignsTab } from "@/components/influencer-campaigns-tab";
+import { InfluencerContentTab } from "@/components/influencer-content-tab";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -27,9 +26,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ExternalLink, Search, Loader2, Calendar, Megaphone, AlertTriangle } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import Image from "next/image";
+import { AlertTriangle } from "lucide-react";
 
 interface InfluencerDialogProps {
   open: boolean;
@@ -54,49 +51,22 @@ interface CampaignHistoryItem extends CampaignInfluencer {
   campaign: Campaign;
 }
 
-const statusColors: Record<RelationshipStatus, string> = {
-  prospect: "bg-gray-100 text-gray-800",
-  contacted: "bg-blue-100 text-blue-800",
-  followed_up: "bg-yellow-100 text-yellow-800",
-  lead_dead: "bg-red-100 text-red-800",
-  creator_wants_paid: "bg-pink-100 text-pink-800",
-  order_placed: "bg-orange-100 text-orange-800",
-  order_delivered: "bg-teal-100 text-teal-800",
-  order_follow_up_sent: "bg-indigo-100 text-indigo-800",
-  order_follow_up_two_sent: "bg-purple-100 text-purple-800",
-  posted: "bg-green-100 text-green-800",
-};
-
-const statusLabels: Record<RelationshipStatus, string> = {
-  prospect: "Prospect",
-  contacted: "Contacted",
-  followed_up: "Followed Up",
-  lead_dead: "Lead Dead",
-  creator_wants_paid: "Creator Wants Paid",
-  order_placed: "Order Placed",
-  order_delivered: "Order Delivered",
-  order_follow_up_sent: "Order Follow Up Sent",
-  order_follow_up_two_sent: "Order Follow Up Two Sent",
-  posted: "Posted",
-};
-
-const partnershipTypeLabels: Record<PartnershipType, string> = {
-  unassigned: "Unassigned",
-  gifted_no_ask: "Gifted No Ask",
-  gifted_soft_ask: "Gifted Soft Ask",
-  gifted_deliverable_ask: "Gifted Deliverable Ask",
-  gifted_recurring: "Gifted Recurring",
-  paid: "Paid",
-};
-
-const partnershipTypeColors: Record<PartnershipType, string> = {
-  unassigned: "bg-red-100 text-red-800",
-  gifted_no_ask: "bg-gray-100 text-gray-800",
-  gifted_soft_ask: "bg-blue-100 text-blue-800",
-  gifted_deliverable_ask: "bg-yellow-100 text-yellow-800",
-  gifted_recurring: "bg-green-100 text-green-800",
-  paid: "bg-purple-100 text-purple-800",
-};
+interface ShopifyCustomer {
+  id: number;
+  email: string;
+  name: string;
+  first_name: string;
+  last_name: string;
+  phone: string | null;
+  address?: {
+    address1: string;
+    address2?: string | null;
+    city: string;
+    province: string;
+    zip: string;
+    country: string;
+  } | null;
+}
 
 const initialFormData: InfluencerInsert = {
   name: "",
@@ -138,6 +108,14 @@ export function InfluencerDialog({
   const [rates, setRates] = useState<InfluencerRates | null>(null);
   const [mediaKits, setMediaKits] = useState<InfluencerMediaKit[]>([]);
   const [loadingRates, setLoadingRates] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("overview");
+
+  // Orders state
+  const [orders, setOrders] = useState<InfluencerOrder[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [refreshingOrders, setRefreshingOrders] = useState(false);
+  const [shopifyCustomer, setShopifyCustomer] = useState<ShopifyCustomer | null>(null);
+
   const supabase = createClient();
 
   // Fetch profiles and current user
@@ -145,13 +123,11 @@ export function InfluencerDialog({
     async function fetchProfilesAndUser() {
       if (!open) return;
 
-      // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setCurrentUserId(user.id);
       }
 
-      // Fetch all profiles
       const { data: profilesData } = await (supabase
         .from("profiles") as any)
         .select("*")
@@ -165,6 +141,7 @@ export function InfluencerDialog({
     fetchProfilesAndUser();
   }, [open, supabase]);
 
+  // Reset form when dialog opens/closes or influencer changes
   useEffect(() => {
     if (influencer) {
       setFormData({
@@ -189,19 +166,21 @@ export function InfluencerDialog({
       });
       setSearchHandle("");
     } else {
-      // For new influencers, set the assigned_to to current user
       setFormData({
         ...initialFormData,
         assigned_to: currentUserId,
       });
       setSearchHandle("");
       setCampaignHistory([]);
+      setOrders([]);
+      setShopifyCustomer(null);
     }
     setError(null);
     setShowDeleteConfirm(false);
+    setActiveTab("overview");
   }, [influencer, open, currentUserId]);
 
-  // Fetch campaign history when editing an existing influencer
+  // Fetch campaign history
   useEffect(() => {
     async function fetchCampaignHistory() {
       if (!influencer || !open) {
@@ -232,7 +211,7 @@ export function InfluencerDialog({
     fetchCampaignHistory();
   }, [influencer, open, supabase]);
 
-  // Fetch rates and media kits for paid influencers
+  // Fetch rates and media kits
   useEffect(() => {
     async function fetchRatesAndMediaKits() {
       if (!influencer || !open) {
@@ -243,7 +222,6 @@ export function InfluencerDialog({
 
       setLoadingRates(true);
       try {
-        // Fetch rates
         const { data: ratesData } = await supabase
           .from("influencer_rates")
           .select("*")
@@ -252,7 +230,6 @@ export function InfluencerDialog({
 
         setRates(ratesData || null);
 
-        // Fetch media kits
         const { data: mediaKitsData } = await supabase
           .from("influencer_media_kits")
           .select("*")
@@ -269,6 +246,44 @@ export function InfluencerDialog({
 
     fetchRatesAndMediaKits();
   }, [influencer, open, supabase]);
+
+  // Fetch Shopify customer and orders
+  useEffect(() => {
+    async function fetchShopifyData() {
+      if (!influencer || !open || !influencer.shopify_customer_id) {
+        setShopifyCustomer(null);
+        setOrders([]);
+        return;
+      }
+
+      setLoadingOrders(true);
+      try {
+        // Fetch Shopify customer details
+        const customerResponse = await fetch(
+          `/api/shopify/customers?id=${influencer.shopify_customer_id}`
+        );
+        if (customerResponse.ok) {
+          const customerData = await customerResponse.json();
+          setShopifyCustomer(customerData.customer);
+        }
+
+        // Fetch cached orders
+        const ordersResponse = await fetch(
+          `/api/influencers/${influencer.id}/orders`
+        );
+        if (ordersResponse.ok) {
+          const ordersData = await ordersResponse.json();
+          setOrders(ordersData.orders || []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch Shopify data:", err);
+      } finally {
+        setLoadingOrders(false);
+      }
+    }
+
+    fetchShopifyData();
+  }, [influencer, open]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -329,11 +344,9 @@ export function InfluencerDialog({
 
       const profile: InstagramProfile = await response.json();
 
-      // Download and upload Instagram photo to Supabase storage
       let permanentPhotoUrl: string | null = null;
       if (profile.profile_pic_url) {
         try {
-          // Fetch the Instagram photo through our API proxy
           const photoResponse = await fetch(`/api/instagram/photo?url=${encodeURIComponent(profile.profile_pic_url)}`);
           if (photoResponse.ok) {
             const photoBlob = await photoResponse.blob();
@@ -352,12 +365,10 @@ export function InfluencerDialog({
           }
         } catch (photoErr) {
           console.error("Failed to save Instagram photo:", photoErr);
-          // Fall back to Instagram URL if upload fails
           permanentPhotoUrl = profile.profile_pic_url;
         }
       }
 
-      // Auto-populate form with Instagram data
       setFormData((prev) => ({
         ...prev,
         name: profile.full_name || prev.name,
@@ -374,6 +385,83 @@ export function InfluencerDialog({
       setError(err.message || "Failed to look up Instagram profile");
     } finally {
       setLookingUp(false);
+    }
+  };
+
+  const handleRefreshOrders = async () => {
+    if (!influencer?.shopify_customer_id) {
+      console.log("No shopify_customer_id found for influencer");
+      return;
+    }
+
+    console.log("Refreshing orders for customer ID:", influencer.shopify_customer_id, "name:", influencer.name);
+    setRefreshingOrders(true);
+    try {
+      const response = await fetch("/api/shopify/orders/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          influencer_id: influencer.id,
+          shopify_customer_id: influencer.shopify_customer_id,
+          influencer_name: influencer.name,
+        }),
+      });
+
+      const data = await response.json();
+      console.log("Sync response:", response.status, data);
+
+      if (response.ok) {
+        setOrders(data.orders || []);
+        console.log("Orders synced:", data.orders?.length || 0);
+      } else {
+        console.error("Sync failed:", data.error);
+      }
+    } catch (err) {
+      console.error("Failed to refresh orders:", err);
+    } finally {
+      setRefreshingOrders(false);
+    }
+  };
+
+  const handleLinkCustomer = async (customerId: string) => {
+    if (!influencer) return;
+
+    try {
+      // Save customer ID to influencer
+      const { error: updateError } = await (supabase
+        .from("influencers") as any)
+        .update({ shopify_customer_id: customerId })
+        .eq("id", influencer.id);
+
+      if (updateError) throw updateError;
+
+      // Fetch customer details
+      const customerResponse = await fetch(`/api/shopify/customers?id=${customerId}`);
+      if (customerResponse.ok) {
+        const customerData = await customerResponse.json();
+        setShopifyCustomer(customerData.customer);
+      }
+
+      // Sync orders
+      setRefreshingOrders(true);
+      const syncResponse = await fetch("/api/shopify/orders/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          influencer_id: influencer.id,
+          shopify_customer_id: customerId,
+          influencer_name: influencer.name,
+        }),
+      });
+
+      if (syncResponse.ok) {
+        const syncData = await syncResponse.json();
+        setOrders(syncData.orders || []);
+      }
+    } catch (err) {
+      console.error("Failed to link customer:", err);
+    } finally {
+      setRefreshingOrders(false);
     }
   };
 
@@ -400,7 +488,6 @@ export function InfluencerDialog({
 
         if (updateResult.error) throw updateResult.error;
       } else {
-        // Set created_by and assigned_to (default to creator) for new influencers
         const insertData = {
           ...dataToSave,
           created_by: currentUserId,
@@ -415,7 +502,7 @@ export function InfluencerDialog({
         savedInfluencerId = insertResult.data?.id;
       }
 
-      // Save rates if partnership type is paid and we have rates data
+      // Save rates if partnership type is paid
       if (formData.partnership_type === "paid" && savedInfluencerId && rates) {
         const ratesData = {
           influencer_id: savedInfluencerId,
@@ -426,7 +513,6 @@ export function InfluencerDialog({
           notes: rates.notes,
         };
 
-        // Upsert rates (insert or update)
         const { error: ratesError } = await supabase
           .from("influencer_rates")
           .upsert(ratesData as never, { onConflict: "influencer_id" });
@@ -472,375 +558,87 @@ export function InfluencerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl" onClose={onClose}>
+      <DialogContent className="w-[672px] max-h-[90vh] overflow-y-auto" onClose={onClose}>
         <DialogHeader>
           <DialogTitle>
-            {influencer ? "Edit Influencer" : "Add New Influencer"}
+            {influencer ? "Influencer Profile" : "Add New Influencer"}
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Instagram Lookup Section */}
-          {!influencer && (
-            <div className="bg-gray-50 p-4 rounded-lg space-y-3">
-              <Label className="text-sm font-medium">Quick Add from Instagram</Label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">@</span>
-                  <Input
-                    placeholder="instagram_handle"
-                    value={searchHandle}
-                    onChange={(e) => setSearchHandle(e.target.value.replace("@", ""))}
-                    className="pl-8"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleInstagramLookup();
-                      }
-                    }}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Profile Header */}
+          <InfluencerProfileHeader
+            influencer={influencer}
+            formData={formData}
+            profiles={profiles}
+            onChange={handleChange}
+            onInstagramLookup={handleInstagramLookup}
+            lookingUp={lookingUp}
+            searchHandle={searchHandle}
+            onSearchHandleChange={setSearchHandle}
+          />
+
+          {/* Tabs - Only show for existing influencers */}
+          {influencer ? (
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="w-full justify-start">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="orders">Orders</TabsTrigger>
+                <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
+                <TabsTrigger value="content">Content</TabsTrigger>
+              </TabsList>
+
+              {/* Fixed size container for tab content to prevent modal resizing */}
+              <div className="h-[400px] w-full overflow-y-auto">
+                <TabsContent value="overview" className="mt-0 h-full w-full">
+                  <InfluencerOverviewTab
+                    influencer={influencer}
+                    formData={formData}
+                    onChange={handleChange}
+                    rates={rates}
+                    onRatesChange={handleRatesChange}
+                    mediaKits={mediaKits}
+                    onMediaKitUpload={handleMediaKitUpload}
+                    onMediaKitDelete={handleMediaKitDelete}
                   />
-                </div>
-                <Button
-                  type="button"
-                  onClick={handleInstagramLookup}
-                  disabled={lookingUp || !searchHandle.trim()}
-                >
-                  {lookingUp ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Search className="h-4 w-4" />
-                  )}
-                  <span className="ml-2">{lookingUp ? "Looking up..." : "Lookup"}</span>
-                </Button>
+                </TabsContent>
+
+                <TabsContent value="orders" className="mt-0 h-full w-full">
+                  <InfluencerOrdersTab
+                    influencer={influencer}
+                    orders={orders}
+                    loadingOrders={loadingOrders}
+                    onRefreshOrders={handleRefreshOrders}
+                    onLinkCustomer={handleLinkCustomer}
+                    refreshingOrders={refreshingOrders}
+                    shopifyCustomer={shopifyCustomer}
+                  />
+                </TabsContent>
+
+                <TabsContent value="campaigns" className="mt-0 h-full w-full">
+                  <InfluencerCampaignsTab
+                    campaignHistory={campaignHistory}
+                    loadingHistory={loadingHistory}
+                  />
+                </TabsContent>
+
+                <TabsContent value="content" className="mt-0 h-full w-full">
+                  <InfluencerContentTab />
+                </TabsContent>
               </div>
-              <p className="text-xs text-gray-500">
-                Enter an Instagram handle to auto-fill profile picture and followers
-              </p>
-            </div>
-          )}
-
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              {formData.profile_photo_url ? (
-                <Image
-                  src={formData.profile_photo_url}
-                  alt="Profile"
-                  width={80}
-                  height={80}
-                  className="rounded-full object-cover w-20 h-20"
-                  unoptimized
-                />
-              ) : (
-                <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center">
-                  <span className="text-gray-500 text-2xl font-medium">
-                    {formData.name?.charAt(0)?.toUpperCase() || "?"}
-                  </span>
-                </div>
-              )}
-            </div>
-            {formData.instagram_handle && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => window.open(`https://instagram.com/${formData.instagram_handle}`, '_blank')}
-              >
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Instagram Profile
-              </Button>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Name *</Label>
-              <Input
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="instagram_handle">Instagram Handle *</Label>
-              <Input
-                id="instagram_handle"
-                name="instagram_handle"
-                value={formData.instagram_handle}
-                onChange={handleChange}
-                placeholder="username"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="assigned_to">Assigned To</Label>
-            <Select
-              id="assigned_to"
-              name="assigned_to"
-              value={formData.assigned_to || ""}
+            </Tabs>
+          ) : (
+            // For new influencers, show the overview form directly
+            <InfluencerOverviewTab
+              influencer={influencer}
+              formData={formData}
               onChange={handleChange}
-            >
-              <option value="">Unassigned</option>
-              {profiles.map((profile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.display_name}
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="follower_count">Follower Count *</Label>
-            <Input
-              id="follower_count"
-              name="follower_count"
-              type="number"
-              value={formData.follower_count}
-              onChange={handleChange}
-              min={0}
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email || ""}
-                onChange={handleChange}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
-              <Input
-                id="phone"
-                name="phone"
-                type="tel"
-                value={formData.phone || ""}
-                onChange={handleChange}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="mailing_address">Mailing Address</Label>
-            <Textarea
-              id="mailing_address"
-              name="mailing_address"
-              value={formData.mailing_address || ""}
-              onChange={handleChange}
-              rows={2}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="top_size">Top Size</Label>
-              <Select
-                id="top_size"
-                name="top_size"
-                value={formData.top_size || ""}
-                onChange={handleChange}
-              >
-                <option value="">Select size...</option>
-                <option value="XS">XS</option>
-                <option value="S">S</option>
-                <option value="M">M</option>
-                <option value="L">L</option>
-                <option value="XL">XL</option>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="bottoms_size">Bottoms Size</Label>
-              <Select
-                id="bottoms_size"
-                name="bottoms_size"
-                value={formData.bottoms_size || ""}
-                onChange={handleChange}
-              >
-                <option value="">Select size...</option>
-                <option value="XS">XS</option>
-                <option value="S">S</option>
-                <option value="M">M</option>
-                <option value="L">L</option>
-                <option value="XL">XL</option>
-              </Select>
-            </div>
-          </div>
-
-          <div className="border-t pt-4">
-            <h3 className="font-medium mb-3">Agent Contact (Optional)</h3>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="agent_name">Agent Name</Label>
-                <Input
-                  id="agent_name"
-                  name="agent_name"
-                  value={formData.agent_name || ""}
-                  onChange={handleChange}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="agent_email">Agent Email</Label>
-                <Input
-                  id="agent_email"
-                  name="agent_email"
-                  type="email"
-                  value={formData.agent_email || ""}
-                  onChange={handleChange}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="agent_phone">Agent Phone</Label>
-                <Input
-                  id="agent_phone"
-                  name="agent_phone"
-                  type="tel"
-                  value={formData.agent_phone || ""}
-                  onChange={handleChange}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="partnership_type">Partnership Type *</Label>
-              <Select
-                id="partnership_type"
-                name="partnership_type"
-                value={formData.partnership_type}
-                onChange={handleChange}
-              >
-                <option value="unassigned">Unassigned</option>
-                <option value="gifted_no_ask">Gifted No Ask</option>
-                <option value="gifted_soft_ask">Gifted Soft Ask</option>
-                <option value="gifted_deliverable_ask">Gifted Deliverable Ask</option>
-                <option value="gifted_recurring">Gifted Recurring</option>
-                <option value="paid">Paid</option>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="relationship_status">Status *</Label>
-              <Select
-                id="relationship_status"
-                name="relationship_status"
-                value={formData.relationship_status}
-                onChange={handleChange}
-              >
-                <option value="prospect">Prospect</option>
-                <option value="contacted">Contacted</option>
-                <option value="followed_up">Followed Up</option>
-                <option value="lead_dead">Lead Dead</option>
-                <option value="creator_wants_paid">Creator Wants Paid</option>
-                <option value="order_placed">Order Placed</option>
-                <option value="order_delivered">Order Delivered</option>
-                <option value="order_follow_up_sent">Order Follow Up Sent</option>
-                <option value="order_follow_up_two_sent">Order Follow Up Two Sent</option>
-                <option value="posted">Posted</option>
-              </Select>
-            </div>
-          </div>
-
-          {/* Rate Card Section - Only for Paid partnership */}
-          {formData.partnership_type === "paid" && (
-            <InfluencerRatesSection
               rates={rates}
-              onChange={handleRatesChange}
-            />
-          )}
-
-          {/* Media Kit Upload - Only for Paid partnership and existing influencers */}
-          {formData.partnership_type === "paid" && influencer && (
-            <MediaKitUpload
-              influencerId={influencer.id}
+              onRatesChange={handleRatesChange}
               mediaKits={mediaKits}
-              onUpload={handleMediaKitUpload}
-              onDelete={handleMediaKitDelete}
+              onMediaKitUpload={handleMediaKitUpload}
+              onMediaKitDelete={handleMediaKitDelete}
             />
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="last_contacted_at">Last Contacted</Label>
-            <Input
-              id="last_contacted_at"
-              name="last_contacted_at"
-              type="date"
-              value={formData.last_contacted_at || ""}
-              onChange={handleChange}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea
-              id="notes"
-              name="notes"
-              value={formData.notes || ""}
-              onChange={handleChange}
-              rows={3}
-              placeholder="Add any relevant notes about this influencer..."
-            />
-          </div>
-
-          {/* Campaign History Section - only show when editing */}
-          {influencer && (
-            <div className="border-t pt-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Megaphone className="h-4 w-4 text-gray-500" />
-                <h3 className="font-medium">Campaign History</h3>
-              </div>
-              {loadingHistory ? (
-                <div className="flex items-center gap-2 text-gray-500 text-sm">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading campaigns...
-                </div>
-              ) : campaignHistory.length === 0 ? (
-                <p className="text-sm text-gray-500">No campaigns yet</p>
-              ) : (
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {campaignHistory.map((item) => {
-                    // Parse month/year without timezone issues
-                    let monthYear = "No date";
-                    if (item.campaign.start_date) {
-                      const dateParts = item.campaign.start_date.split('T')[0].split('-');
-                      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-                                        'July', 'August', 'September', 'October', 'November', 'December'];
-                      monthYear = `${monthNames[parseInt(dateParts[1], 10) - 1]} ${dateParts[0]}`;
-                    }
-
-                    return (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg text-sm"
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{item.campaign.name}</p>
-                          <span className="text-gray-500 text-xs">({monthYear})</span>
-                        </div>
-                        {item.compensation && (
-                          <p className="text-gray-500 text-xs mt-1">Compensation: {item.compensation}</p>
-                        )}
-                      </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <Badge className={partnershipTypeColors[item.partnership_type]}>
-                          {partnershipTypeLabels[item.partnership_type]}
-                        </Badge>
-                        <Badge className={statusColors[item.status]}>
-                          {statusLabels[item.status]}
-                        </Badge>
-                      </div>
-                    </div>
-                  )})}
-                </div>
-              )}
-            </div>
           )}
 
           {error && <p className="text-sm text-red-600">{error}</p>}

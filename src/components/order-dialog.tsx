@@ -7,6 +7,7 @@ import {
   CampaignInfluencer,
   ProductSelection,
   ShopifyOrderStatus,
+  InfluencerOrder,
 } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,8 +31,12 @@ import {
   ShoppingCart,
   Check,
   AlertCircle,
+  History,
+  ChevronDown,
+  Gift,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import Image from "next/image";
 
 interface OrderDialogProps {
@@ -134,6 +139,11 @@ export function OrderDialog({
   const [error, setError] = useState<string | null>(null);
   const [orderCreated, setOrderCreated] = useState(false);
   const [orderAdminUrl, setOrderAdminUrl] = useState<string | null>(null);
+
+  // Order history state
+  const [orderHistory, setOrderHistory] = useState<InfluencerOrder[]>([]);
+  const [loadingOrderHistory, setLoadingOrderHistory] = useState(false);
+  const [orderHistoryExpanded, setOrderHistoryExpanded] = useState(false);
 
   const supabase = createClient();
 
@@ -248,6 +258,51 @@ export function OrderDialog({
 
     matchCustomer();
   }, [open, influencer, supabase]);
+
+  // Fetch order history when customer is confirmed
+  useEffect(() => {
+    async function fetchOrderHistory() {
+      if (!open || !shopifyCustomer || !customerConfirmed || !influencer.id) {
+        setOrderHistory([]);
+        return;
+      }
+
+      setLoadingOrderHistory(true);
+      try {
+        // First try to get cached orders from our database
+        const cachedResponse = await fetch(`/api/influencers/${influencer.id}/orders`);
+        if (cachedResponse.ok) {
+          const cachedData = await cachedResponse.json();
+          if (cachedData.orders && cachedData.orders.length > 0) {
+            setOrderHistory(cachedData.orders);
+            setLoadingOrderHistory(false);
+            return;
+          }
+        }
+
+        // If no cached orders, sync from Shopify
+        const syncResponse = await fetch("/api/shopify/orders/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            influencer_id: influencer.id,
+            shopify_customer_id: String(shopifyCustomer.id),
+          }),
+        });
+
+        if (syncResponse.ok) {
+          const syncData = await syncResponse.json();
+          setOrderHistory(syncData.orders || []);
+        }
+      } catch (err) {
+        console.error("Error fetching order history:", err);
+      } finally {
+        setLoadingOrderHistory(false);
+      }
+    }
+
+    fetchOrderHistory();
+  }, [open, shopifyCustomer, customerConfirmed, influencer.id]);
 
   const handleProductSearch = async () => {
     if (!skuSearch.trim()) return;
@@ -1124,6 +1179,101 @@ export function OrderDialog({
               )}
             </div>
 
+            {/* Order History - Only show if customer is confirmed */}
+            {shopifyCustomer && customerConfirmed && (
+              <div className="border-b pb-6">
+                <Collapsible
+                  open={orderHistoryExpanded}
+                  onOpenChange={setOrderHistoryExpanded}
+                >
+                  <CollapsibleTrigger className="flex items-center justify-between w-full py-2 hover:no-underline">
+                    <div className="flex items-center gap-2 font-medium">
+                      <History className="h-4 w-4" />
+                      Order History
+                      {!loadingOrderHistory && (
+                        <span className="text-sm font-normal text-gray-500">
+                          ({orderHistory.length} orders · {orderHistory.reduce(
+                            (sum, order) => sum + order.line_items.reduce((s, li) => s + li.quantity, 0),
+                            0
+                          )} items)
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown
+                      className={`h-4 w-4 text-gray-500 transition-transform ${orderHistoryExpanded ? "rotate-180" : ""}`}
+                    />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-3">
+                    {loadingOrderHistory ? (
+                      <div className="flex items-center gap-2 text-gray-500 py-4">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading order history...
+                      </div>
+                    ) : orderHistory.length === 0 ? (
+                      <div className="text-gray-500 text-sm py-4">
+                        No past orders found for this customer.
+                      </div>
+                    ) : (
+                      <div className="space-y-3 max-h-64 overflow-y-auto">
+                        {orderHistory.map((order) => (
+                          <div
+                            key={order.id}
+                            className="border rounded-lg p-3 space-y-2"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm">
+                                  {new Date(order.order_date).toLocaleDateString("en-US", {
+                                    month: "short",
+                                    day: "numeric",
+                                    year: "numeric",
+                                  })}
+                                </span>
+                                <a
+                                  href={`https://${process.env.NEXT_PUBLIC_SHOPIFY_STORE_URL || "your-store.myshopify.com"}/admin/orders/${order.shopify_order_id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
+                                >
+                                  {order.order_number}
+                                  <ExternalLink className="h-3 w-3" />
+                                </a>
+                                {order.is_gift && (
+                                  <Badge className="bg-purple-100 text-purple-800">
+                                    <Gift className="h-3 w-3 mr-1" />
+                                    Gift
+                                  </Badge>
+                                )}
+                              </div>
+                              {!order.is_gift && (
+                                <span className="text-sm text-gray-600">
+                                  ${Number(order.total_amount).toFixed(2)}
+                                </span>
+                              )}
+                            </div>
+                            <div className="pl-4 space-y-1">
+                              {order.line_items.map((item, index) => (
+                                <div
+                                  key={index}
+                                  className="text-sm text-gray-600 flex items-center gap-2"
+                                >
+                                  <span className="text-gray-400">×{item.quantity}</span>
+                                  <span>{item.product_name}</span>
+                                  {item.variant_title && (
+                                    <span className="text-gray-400">({item.variant_title})</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+            )}
+
             {/* Product Search */}
             <div>
               <h3 className="font-medium mb-3 flex items-center gap-2">
@@ -1161,14 +1311,10 @@ export function OrderDialog({
                   {searchResults.map((product) => {
                     // Categorize inventory by region
                     const usaStock = product.inventory_by_location?.find(loc =>
-                      loc.location_name.toLowerCase().includes('usa') ||
-                      loc.location_name.toLowerCase().includes('us ') ||
-                      loc.location_name.toLowerCase().includes('united states') ||
-                      loc.location_name.toLowerCase().includes('america')
+                      loc.location_name.toLowerCase() === 'usa warehouse'
                     );
                     const canadaStock = product.inventory_by_location?.find(loc =>
-                      loc.location_name.toLowerCase().includes('canada') ||
-                      loc.location_name.toLowerCase().includes('ca ')
+                      loc.location_name.toLowerCase() === 'canada warehouse'
                     );
                     // If no specific match, show all locations
                     const hasLocationData = product.inventory_by_location && product.inventory_by_location.length > 0;

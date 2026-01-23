@@ -243,6 +243,40 @@ export interface InfluencerWithRates extends Influencer {
   media_kits?: InfluencerMediaKit[];
 }
 
+// Shopify Order History Types
+
+export interface OrderLineItem {
+  product_name: string;
+  variant_title: string | null;
+  sku: string;
+  quantity: number;
+}
+
+export interface InfluencerOrder {
+  id: string;
+  influencer_id: string;
+  shopify_order_id: string;
+  shopify_customer_id: string;
+  order_number: string;
+  order_date: string;
+  total_amount: number;
+  is_gift: boolean;
+  line_items: OrderLineItem[];
+  created_at: string;
+  synced_at: string;
+}
+
+export interface InfluencerOrderInsert {
+  influencer_id: string;
+  shopify_order_id: string;
+  shopify_customer_id: string;
+  order_number: string;
+  order_date: string;
+  total_amount?: number;
+  is_gift?: boolean;
+  line_items?: OrderLineItem[];
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -286,6 +320,12 @@ export interface Database {
         Row: CampaignDeal;
         Insert: CampaignDealInsert;
         Update: Partial<CampaignDealInsert>;
+        Relationships: [];
+      };
+      influencer_orders: {
+        Row: InfluencerOrder;
+        Insert: InfluencerOrderInsert;
+        Update: Partial<InfluencerOrderInsert>;
         Relationships: [];
       };
     };

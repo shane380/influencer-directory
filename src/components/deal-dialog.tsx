@@ -269,7 +269,7 @@ export function DealDialog({
                     key={d.id}
                     className="grid grid-cols-[1fr,100px,60px,auto] gap-2 items-end p-3 bg-gray-50 rounded-lg"
                   >
-                    <div className="space-y-1">
+                    <div>
                       <Label className="text-xs text-gray-500">Type</Label>
                       <Select
                         value={d.type}
@@ -286,7 +286,7 @@ export function DealDialog({
                       </Select>
                     </div>
 
-                    <div className="space-y-1">
+                    <div>
                       <Label className="text-xs text-gray-500">Rate</Label>
                       <div className="relative">
                         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">
@@ -308,7 +308,7 @@ export function DealDialog({
                       </div>
                     </div>
 
-                    <div className="space-y-1">
+                    <div>
                       <Label className="text-xs text-gray-500">Qty</Label>
                       <Input
                         type="number"

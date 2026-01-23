@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, Suspense, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Influencer, PartnershipType, Tier, Campaign, CampaignStatus, Profile } from "@/types/database";
 import { Button } from "@/components/ui/button";
@@ -18,9 +18,11 @@ import {
 import { InfluencerDialog } from "@/components/influencer-dialog";
 import { CampaignDialog } from "@/components/campaign-dialog";
 import { BudgetDashboard } from "@/components/budget-dashboard";
-import { Plus, Search, LogOut, ArrowUpDown, Users, Megaphone, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Search, LogOut, ArrowUpDown, Users, Megaphone, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
+
+const PAGE_SIZE = 50;
 
 type SortField = "name" | "follower_count" | "last_contacted_at";
 type SortDirection = "asc" | "desc";
@@ -75,9 +77,14 @@ function HomePageContent() {
 
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [influencers, setInfluencers] = useState<Influencer[]>([]);
+  const [influencersTotalCount, setInfluencersTotalCount] = useState(0);
   const [campaigns, setCampaigns] = useState<CampaignWithCount[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingInfluencers, setLoadingInfluencers] = useState(true);
+  const [loadingCampaigns, setLoadingCampaigns] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [campaignsLoaded, setCampaignsLoaded] = useState(false);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [partnershipTypeFilter, setPartnershipTypeFilter] = useState<string>("all");
   const [campaignStatusFilter, setCampaignStatusFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<SortField>("name");
@@ -89,6 +96,8 @@ function HomePageContent() {
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [assignedToFilter, setAssignedToFilter] = useState<string>("all");
+
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const supabase = createClient();
   const router = useRouter();
@@ -102,10 +111,23 @@ function HomePageContent() {
     }
   }, [supabase]);
 
-  const fetchInfluencers = useCallback(async () => {
-    setLoading(true);
-    let query = supabase.from("influencers").select("*");
+  const fetchInfluencers = useCallback(async (options: { loadMore?: boolean; currentCount?: number } = {}) => {
+    const { loadMore = false, currentCount = 0 } = options;
 
+    if (loadMore) {
+      setLoadingMore(true);
+    } else {
+      setLoadingInfluencers(true);
+    }
+
+    const offset = loadMore ? currentCount : 0;
+
+    // Build query with count
+    let query = supabase
+      .from("influencers")
+      .select("*", { count: "exact" });
+
+    // Apply filters
     if (partnershipTypeFilter !== "all") {
       query = query.eq("partnership_type", partnershipTypeFilter);
     }
@@ -117,21 +139,42 @@ function HomePageContent() {
       }
     }
 
-    const ascending = sortDirection === "asc";
-    query = query.order(sortField, { ascending, nullsFirst: false });
+    // Apply server-side search
+    if (debouncedSearch) {
+      const searchTerm = `%${debouncedSearch}%`;
+      query = query.or(`name.ilike.${searchTerm},instagram_handle.ilike.${searchTerm},email.ilike.${searchTerm}`);
+    }
 
-    const { data, error } = await query;
+    // Apply sorting and pagination
+    const ascending = sortDirection === "asc";
+    query = query
+      .order(sortField, { ascending, nullsFirst: false })
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    const { data, error, count } = await query;
 
     if (error) {
       console.error("Error fetching influencers:", error);
     } else {
-      setInfluencers(data || []);
+      if (loadMore) {
+        setInfluencers((prev) => [...prev, ...(data || [])]);
+      } else {
+        setInfluencers(data || []);
+      }
+      setInfluencersTotalCount(count || 0);
     }
-    setLoading(false);
-  }, [supabase, partnershipTypeFilter, assignedToFilter, sortField, sortDirection]);
 
-  const fetchCampaigns = useCallback(async () => {
-    setLoading(true);
+    setLoadingInfluencers(false);
+    setLoadingMore(false);
+  }, [supabase, partnershipTypeFilter, assignedToFilter, sortField, sortDirection, debouncedSearch]);
+
+  const fetchCampaigns = useCallback(async (forceRefresh = false) => {
+    // Skip if already loaded and not forcing refresh
+    if (campaignsLoaded && !forceRefresh) {
+      return;
+    }
+
+    setLoadingCampaigns(true);
     let query = supabase
       .from("campaigns")
       .select("*, campaign_influencers(count)")
@@ -151,9 +194,10 @@ function HomePageContent() {
         influencer_count: c.campaign_influencers?.[0]?.count || 0,
       }));
       setCampaigns(campaignsWithCount);
+      setCampaignsLoaded(true);
     }
-    setLoading(false);
-  }, [supabase, campaignStatusFilter]);
+    setLoadingCampaigns(false);
+  }, [supabase, campaignStatusFilter, campaignsLoaded]);
 
   // Fetch profiles on mount
   useEffect(() => {
@@ -168,13 +212,47 @@ function HomePageContent() {
     }
   }, [searchParams, activeTab]);
 
+  // Debounce search input
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    searchTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [search]);
+
+  // Reset campaignsLoaded when filter changes to force refetch
+  useEffect(() => {
+    setCampaignsLoaded(false);
+  }, [campaignStatusFilter]);
+
+  // Fetch influencers when filters/search/sort change (not on tab switch if data exists)
+  useEffect(() => {
+    if (activeTab === "influencers" && influencers.length === 0) {
+      fetchInfluencers();
+    }
+  }, [activeTab]);
+
+  // Refetch influencers when filters change
   useEffect(() => {
     if (activeTab === "influencers") {
       fetchInfluencers();
-    } else {
+    }
+  }, [partnershipTypeFilter, assignedToFilter, sortField, sortDirection, debouncedSearch]);
+
+  // Fetch campaigns only on first visit (not on tab switch if data exists)
+  useEffect(() => {
+    if (activeTab === "campaigns" && campaigns.length === 0 && !campaignsLoaded) {
       fetchCampaigns();
     }
-  }, [activeTab, fetchInfluencers, fetchCampaigns]);
+  }, [activeTab]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -203,7 +281,11 @@ function HomePageContent() {
 
   const handleInfluencerSave = () => {
     handleCloseInfluencerDialog();
-    fetchInfluencers();
+    fetchInfluencers(); // Refresh list after save
+  };
+
+  const loadMoreInfluencers = () => {
+    fetchInfluencers({ loadMore: true, currentCount: influencers.length });
   };
 
   const handleOpenCampaignDialog = (campaign?: Campaign) => {
@@ -218,35 +300,35 @@ function HomePageContent() {
 
   const handleCampaignSave = () => {
     handleCloseCampaignDialog();
-    fetchCampaigns();
+    fetchCampaigns(true); // Force refresh after save
   };
 
   const handleOwnerChange = async (influencerId: string, newOwnerId: string | null) => {
+    // Optimistically update the local state
+    setInfluencers((prev) =>
+      prev.map((inf) =>
+        inf.id === influencerId ? { ...inf, assigned_to: newOwnerId } : inf
+      )
+    );
+
     const { error } = await (supabase.from("influencers") as any)
       .update({ assigned_to: newOwnerId })
       .eq("id", influencerId);
 
     if (error) {
       console.error("Error updating owner:", error);
-    } else {
+      // Revert on error by refetching
       fetchInfluencers();
     }
   };
 
-  const filteredInfluencers = influencers.filter((influencer) => {
-    if (!search) return true;
-    const searchLower = search.toLowerCase();
-    return (
-      influencer.name.toLowerCase().includes(searchLower) ||
-      influencer.instagram_handle.toLowerCase().includes(searchLower) ||
-      (influencer.email?.toLowerCase().includes(searchLower) ?? false)
-    );
-  });
-
+  // Client-side filter for campaigns (small dataset)
   const filteredCampaigns = campaigns.filter((campaign) => {
     if (!search) return true;
     return campaign.name.toLowerCase().includes(search.toLowerCase());
   });
+
+  const hasMoreInfluencers = influencers.length < influencersTotalCount;
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -338,7 +420,7 @@ function HomePageContent() {
             variant={activeTab === "influencers" ? "default" : "outline"}
             onClick={() => {
               setActiveTab("influencers");
-              router.push("/?tab=influencers");
+              window.history.replaceState(null, "", "/?tab=influencers");
             }}
           >
             <Users className="h-4 w-4 mr-2" />
@@ -348,7 +430,7 @@ function HomePageContent() {
             variant={activeTab === "campaigns" ? "default" : "outline"}
             onClick={() => {
               setActiveTab("campaigns");
-              router.push("/?tab=campaigns");
+              window.history.replaceState(null, "", "/?tab=campaigns");
             }}
           >
             <Megaphone className="h-4 w-4 mr-2" />
@@ -356,258 +438,281 @@ function HomePageContent() {
           </Button>
         </div>
 
-        {activeTab === "influencers" ? (
-          <>
-            {/* Influencer Filters */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
-              <div className="relative flex-1 min-w-[200px]">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
-                <Input
-                  placeholder="Search by name, handle, or email..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10 w-full"
-                />
-              </div>
-              <Select value={partnershipTypeFilter} onChange={(e) => setPartnershipTypeFilter(e.target.value)} className="w-auto sm:w-[180px] flex-shrink-0">
-                <option value="all">All Partnership Types</option>
-                <option value="unassigned">Unassigned</option>
-                <option value="gifted_no_ask">Gifted No Ask</option>
-                <option value="gifted_soft_ask">Gifted Soft Ask</option>
-                <option value="gifted_deliverable_ask">Gifted Deliverable Ask</option>
-                <option value="gifted_recurring">Gifted Recurring</option>
-                <option value="paid">Paid</option>
-              </Select>
-              <Select value={assignedToFilter} onChange={(e) => setAssignedToFilter(e.target.value)} className="w-auto sm:w-[180px] flex-shrink-0">
-                <option value="all">All Owners</option>
-                <option value="unassigned">Unassigned</option>
-                {profiles.map((profile) => (
-                  <option key={profile.id} value={profile.id}>
-                    {profile.display_name}
-                  </option>
-                ))}
-              </Select>
-              <Button onClick={() => handleOpenInfluencerDialog()}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Influencer
-              </Button>
+        {/* Tab content wrapper */}
+        <div className="relative">
+          {/* Influencers Tab - always mounted */}
+          <div className={activeTab === "influencers" ? "" : "hidden"}>
+          {/* Influencer Filters */}
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
+              <Input
+                placeholder="Search by name, handle, or email..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10 w-full"
+              />
             </div>
+            <Select value={partnershipTypeFilter} onChange={(e) => setPartnershipTypeFilter(e.target.value)} className="w-auto sm:w-[180px] flex-shrink-0">
+              <option value="all">All Partnership Types</option>
+              <option value="unassigned">Unassigned</option>
+              <option value="gifted_no_ask">Gifted No Ask</option>
+              <option value="gifted_soft_ask">Gifted Soft Ask</option>
+              <option value="gifted_deliverable_ask">Gifted Deliverable Ask</option>
+              <option value="gifted_recurring">Gifted Recurring</option>
+              <option value="paid">Paid</option>
+            </Select>
+            <Select value={assignedToFilter} onChange={(e) => setAssignedToFilter(e.target.value)} className="w-auto sm:w-[180px] flex-shrink-0">
+              <option value="all">All Owners</option>
+              <option value="unassigned">Unassigned</option>
+              {profiles.map((profile) => (
+                <option key={profile.id} value={profile.id}>
+                  {profile.display_name}
+                </option>
+              ))}
+            </Select>
+            <Button onClick={() => handleOpenInfluencerDialog()}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Influencer
+            </Button>
+          </div>
 
-            {/* Influencer Table */}
-            <div className="bg-white rounded-lg border shadow-sm">
-              {loading ? (
-                <div className="p-8 text-center text-gray-500">Loading...</div>
-              ) : filteredInfluencers.length === 0 ? (
-                <div className="p-8 text-center text-gray-500">
-                  No influencers found. Add your first one!
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12"></TableHead>
-                      <TableHead>
-                        <button
-                          className="flex items-center gap-1 hover:text-gray-900"
-                          onClick={() => handleSort("name")}
-                        >
-                          Name
-                          <ArrowUpDown className="h-4 w-4" />
-                        </button>
-                      </TableHead>
-                      <TableHead>Handle</TableHead>
-                      <TableHead>
-                        <button
-                          className="flex items-center gap-1 hover:text-gray-900"
-                          onClick={() => handleSort("follower_count")}
-                        >
-                          Followers
-                          <ArrowUpDown className="h-4 w-4" />
-                        </button>
-                      </TableHead>
-                      <TableHead>Partnership</TableHead>
-                      <TableHead className="w-[140px]">Owner</TableHead>
-                      <TableHead>
-                        <button
-                          className="flex items-center gap-1 hover:text-gray-900"
-                          onClick={() => handleSort("last_contacted_at")}
-                        >
-                          Last Contact
-                          <ArrowUpDown className="h-4 w-4" />
-                        </button>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredInfluencers.map((influencer) => (
-                      <TableRow
-                        key={influencer.id}
-                        className="cursor-pointer"
-                        onClick={() => handleOpenInfluencerDialog(influencer)}
+          {/* Influencer Table */}
+          <div className="bg-white rounded-lg border shadow-sm min-h-[200px]">
+            {loadingInfluencers && influencers.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">Loading...</div>
+            ) : !loadingInfluencers && influencers.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                {debouncedSearch ? "No influencers match your search." : "No influencers found. Add your first one!"}
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12"></TableHead>
+                    <TableHead>
+                      <button
+                        className="flex items-center gap-1 hover:text-gray-900"
+                        onClick={() => handleSort("name")}
                       >
-                        <TableCell>
-                          <div className="w-14 h-14 flex-shrink-0">
-                            {influencer.profile_photo_url ? (
-                              <Image
-                                src={influencer.profile_photo_url}
-                                alt={influencer.name}
-                                width={56}
-                                height={56}
-                                className="rounded-full object-cover w-full h-full"
-                                unoptimized
-                              />
-                            ) : (
-                              <div className="w-full h-full rounded-full bg-gray-200 flex items-center justify-center">
-                                <span className="text-gray-500 text-lg font-medium">
-                                  {influencer.name.charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-medium">{influencer.name}</TableCell>
-                        <TableCell className="text-gray-600">@{influencer.instagram_handle}</TableCell>
-                        <TableCell>{formatNumber(influencer.follower_count)}</TableCell>
-                        <TableCell>
-                          <Badge className={partnershipTypeColors[influencer.partnership_type]}>
-                            {partnershipTypeLabels[influencer.partnership_type]}
-                          </Badge>
-                        </TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()} className="w-[140px]">
-                          <Select
-                            value={influencer.assigned_to || ""}
-                            onChange={(e) => handleOwnerChange(influencer.id, e.target.value || null)}
-                            className="text-xs h-8 w-[130px]"
-                          >
-                            <option value="">Unassigned</option>
-                            {profiles.map((profile) => (
-                              <option key={profile.id} value={profile.id}>
-                                {profile.display_name}
-                              </option>
-                            ))}
-                          </Select>
-                        </TableCell>
-                        <TableCell className="text-gray-600">
-                          {formatDate(influencer.last_contacted_at)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </div>
+                        Name
+                        <ArrowUpDown className="h-4 w-4" />
+                      </button>
+                    </TableHead>
+                    <TableHead>Handle</TableHead>
+                    <TableHead>
+                      <button
+                        className="flex items-center gap-1 hover:text-gray-900"
+                        onClick={() => handleSort("follower_count")}
+                      >
+                        Followers
+                        <ArrowUpDown className="h-4 w-4" />
+                      </button>
+                    </TableHead>
+                    <TableHead>Partnership</TableHead>
+                    <TableHead className="w-[140px]">Owner</TableHead>
+                    <TableHead>
+                      <button
+                        className="flex items-center gap-1 hover:text-gray-900"
+                        onClick={() => handleSort("last_contacted_at")}
+                      >
+                        Last Contact
+                        <ArrowUpDown className="h-4 w-4" />
+                      </button>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {influencers.map((influencer) => (
+                    <TableRow
+                      key={influencer.id}
+                      className="cursor-pointer"
+                      onClick={() => handleOpenInfluencerDialog(influencer)}
+                    >
+                      <TableCell>
+                        <div className="w-14 h-14 flex-shrink-0">
+                          {influencer.profile_photo_url ? (
+                            <Image
+                              src={influencer.profile_photo_url}
+                              alt={influencer.name}
+                              width={56}
+                              height={56}
+                              className="rounded-full object-cover w-full h-full"
+                              unoptimized
+                            />
+                          ) : (
+                            <div className="w-full h-full rounded-full bg-gray-200 flex items-center justify-center">
+                              <span className="text-gray-500 text-lg font-medium">
+                                {influencer.name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium">{influencer.name}</TableCell>
+                      <TableCell className="text-gray-600">@{influencer.instagram_handle}</TableCell>
+                      <TableCell>{formatNumber(influencer.follower_count)}</TableCell>
+                      <TableCell>
+                        <Badge className={partnershipTypeColors[influencer.partnership_type]}>
+                          {partnershipTypeLabels[influencer.partnership_type]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()} className="w-[140px]">
+                        <Select
+                          value={influencer.assigned_to || ""}
+                          onChange={(e) => handleOwnerChange(influencer.id, e.target.value || null)}
+                          className="text-xs h-8 w-[130px]"
+                        >
+                          <option value="">Unassigned</option>
+                          {profiles.map((profile) => (
+                            <option key={profile.id} value={profile.id}>
+                              {profile.display_name}
+                            </option>
+                          ))}
+                        </Select>
+                      </TableCell>
+                      <TableCell className="text-gray-600">
+                        {formatDate(influencer.last_contacted_at)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
 
-            <div className="mt-4 text-sm text-gray-500">
-              Showing {filteredInfluencers.length} of {influencers.length} influencers
-            </div>
-          </>
-        ) : (
-          <>
-            {/* Budget Dashboard */}
-            <BudgetDashboard onRefresh={fetchCampaigns} />
-
-            {/* Campaign Filters */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
-              <div className="relative flex-1 min-w-[200px]">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
-                <Input
-                  placeholder="Search campaigns..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10 w-full"
-                />
-              </div>
-              <Select value={campaignStatusFilter} onChange={(e) => setCampaignStatusFilter(e.target.value)} className="w-auto sm:w-[180px] flex-shrink-0">
-                <option value="all">All Statuses</option>
-                <option value="planning">Planning</option>
-                <option value="active">Active</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </Select>
-              <Button onClick={() => handleOpenCampaignDialog()}>
-                <Plus className="h-4 w-4 mr-2" />
-                New Campaign
+          {/* Load More Button */}
+          {hasMoreInfluencers && !loadingInfluencers && (
+            <div className="mt-4 flex justify-center">
+              <Button
+                variant="outline"
+                onClick={loadMoreInfluencers}
+                disabled={loadingMore}
+              >
+                {loadingMore ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  `Load more (${influencersTotalCount - influencers.length} remaining)`
+                )}
               </Button>
             </div>
+          )}
 
-            {/* Campaigns Grouped by Month */}
-            <div className="space-y-4">
-              {loading ? (
-                <div className="bg-white rounded-lg border shadow-sm p-8 text-center text-gray-500">
-                  Loading...
-                </div>
-              ) : groupedCampaigns.length === 0 ? (
-                <div className="bg-white rounded-lg border shadow-sm p-8 text-center text-gray-500">
-                  No campaigns found. Create your first one!
-                </div>
-              ) : (
-                groupedCampaigns.map((group) => (
-                  <div key={group.monthKey} className="bg-white rounded-lg border shadow-sm overflow-hidden">
-                    {/* Month Header */}
-                    <button
-                      className="w-full px-4 py-3 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors"
-                      onClick={() => toggleMonth(group.monthKey)}
-                    >
-                      <div className="flex items-center gap-3">
-                        {expandedMonths.has(group.monthKey) ? (
-                          <ChevronDown className="h-5 w-5 text-gray-500" />
-                        ) : (
-                          <ChevronRight className="h-5 w-5 text-gray-500" />
-                        )}
-                        <span className="font-semibold text-gray-900">{group.label}</span>
-                        <Badge variant="secondary" className="ml-2">
-                          {group.campaigns.length} campaign{group.campaigns.length !== 1 ? 's' : ''}
-                        </Badge>
-                      </div>
-                    </button>
+          <div className="mt-4 text-sm text-gray-500">
+            Showing {influencers.length} of {influencersTotalCount} influencers
+          </div>
+        </div>
 
-                    {/* Campaigns List */}
-                    {expandedMonths.has(group.monthKey) && (
-                      <div className="divide-y">
-                        {group.campaigns.map((campaign) => (
-                          <div
-                            key={campaign.id}
-                            className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors"
-                            onClick={() => router.push(`/campaigns/${campaign.id}`)}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-3">
-                                  <span className="font-medium text-gray-900">{campaign.name}</span>
-                                  <Badge className={campaignStatusColors[campaign.status]}>
-                                    {campaignStatusLabels[campaign.status]}
-                                  </Badge>
-                                </div>
-                                {campaign.description && (
-                                  <p className="text-sm text-gray-500 mt-1 line-clamp-1">
-                                    {campaign.description}
-                                  </p>
-                                )}
+          {/* Campaigns Tab - always mounted */}
+          <div className={activeTab === "campaigns" ? "" : "hidden"}>
+          {/* Budget Dashboard */}
+          <BudgetDashboard onRefresh={fetchCampaigns} />
+
+          {/* Campaign Filters */}
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
+              <Input
+                placeholder="Search campaigns..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10 w-full"
+              />
+            </div>
+            <Select value={campaignStatusFilter} onChange={(e) => setCampaignStatusFilter(e.target.value)} className="w-auto sm:w-[180px] flex-shrink-0">
+              <option value="all">All Statuses</option>
+              <option value="planning">Planning</option>
+              <option value="active">Active</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </Select>
+            <Button onClick={() => handleOpenCampaignDialog()}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Campaign
+            </Button>
+          </div>
+
+          {/* Campaigns Grouped by Month */}
+          <div className="space-y-4 min-h-[200px]">
+            {loadingCampaigns && campaigns.length === 0 ? (
+              <div className="bg-white rounded-lg border shadow-sm p-8 text-center text-gray-500">
+                Loading...
+              </div>
+            ) : !loadingCampaigns && groupedCampaigns.length === 0 ? (
+              <div className="bg-white rounded-lg border shadow-sm p-8 text-center text-gray-500">
+                No campaigns found. Create your first one!
+              </div>
+            ) : (
+              groupedCampaigns.map((group) => (
+                <div key={group.monthKey} className="bg-white rounded-lg border shadow-sm overflow-hidden">
+                  {/* Month Header */}
+                  <button
+                    className="w-full px-4 py-3 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors"
+                    onClick={() => toggleMonth(group.monthKey)}
+                  >
+                    <div className="flex items-center gap-3">
+                      {expandedMonths.has(group.monthKey) ? (
+                        <ChevronDown className="h-5 w-5 text-gray-500" />
+                      ) : (
+                        <ChevronRight className="h-5 w-5 text-gray-500" />
+                      )}
+                      <span className="font-semibold text-gray-900">{group.label}</span>
+                      <Badge variant="secondary" className="ml-2">
+                        {group.campaigns.length} campaign{group.campaigns.length !== 1 ? 's' : ''}
+                      </Badge>
+                    </div>
+                  </button>
+
+                  {/* Campaigns List */}
+                  {expandedMonths.has(group.monthKey) && (
+                    <div className="divide-y">
+                      {group.campaigns.map((campaign) => (
+                        <div
+                          key={campaign.id}
+                          className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors"
+                          onClick={() => router.push(`/campaigns/${campaign.id}`)}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3">
+                                <span className="font-medium text-gray-900">{campaign.name}</span>
+                                <Badge className={campaignStatusColors[campaign.status]}>
+                                  {campaignStatusLabels[campaign.status]}
+                                </Badge>
                               </div>
-                              <div className="flex items-center gap-6 text-sm text-gray-500">
-                                <div className="flex items-center gap-1">
-                                  <Users className="h-4 w-4" />
-                                  {campaign.influencer_count}
-                                </div>
-                                <div className="w-24 text-right">
-                                  {formatDate(campaign.start_date)}
-                                </div>
+                              {campaign.description && (
+                                <p className="text-sm text-gray-500 mt-1 line-clamp-1">
+                                  {campaign.description}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-6 text-sm text-gray-500">
+                              <div className="flex items-center gap-1">
+                                <Users className="h-4 w-4" />
+                                {campaign.influencer_count}
+                              </div>
+                              <div className="w-24 text-right">
+                                {formatDate(campaign.start_date)}
                               </div>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
 
-            <div className="mt-4 text-sm text-gray-500">
-              Showing {filteredCampaigns.length} of {campaigns.length} campaigns
-            </div>
-          </>
-        )}
+          <div className="mt-4 text-sm text-gray-500">
+            Showing {filteredCampaigns.length} of {campaigns.length} campaigns
+          </div>
+          </div>
+        </div>
       </main>
 
       <InfluencerDialog

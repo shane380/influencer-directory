@@ -218,6 +218,7 @@ export async function GET(request: NextRequest) {
   try {
     // Get locations first
     const locations = await getLocations(SHOPIFY_STORE_URL, SHOPIFY_ACCESS_TOKEN);
+    console.log("Fetched locations:", locations.length, locations.map(l => l.name));
 
     // Search products with pagination, stop early once we have enough matches
     const matchingProducts: {
