@@ -11,16 +11,13 @@ import {
   PartnershipType,
   Tier,
   RelationshipStatus,
-  CampaignStatus,
   Profile,
   ShopifyOrderStatus,
   ContentPostedType,
-  ApprovalStatus,
 } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -30,32 +27,25 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { InfluencerDialog } from "@/components/influencer-dialog";
-import { CampaignDialog } from "@/components/campaign-dialog";
-import { AddInfluencerDialog } from "@/components/add-influencer-dialog";
 import { OrderDialog } from "@/components/order-dialog";
 import { DealDialog } from "@/components/deal-dialog";
 import { DealSummaryBadge } from "@/components/deal-summary-badge";
 import { ApprovalDialog } from "@/components/approval-dialog";
 import {
-  Plus,
   Search,
   ArrowUpDown,
   ChevronRight,
   Home,
-  Settings,
-  Calendar,
-  Users,
   Trash2,
-  ShoppingCart,
-  ExternalLink,
   Clock,
   CheckCircle2,
   XCircle,
+  Calendar,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
-type SortField = "name" | "follower_count" | "added_at";
+type SortField = "name" | "follower_count" | "added_at" | "collection";
 type SortDirection = "asc" | "desc";
 
 const tierColors: Record<Tier, string> = {
@@ -136,20 +126,6 @@ const partnershipDots: Record<PartnershipType, string> = {
   paid: "bg-purple-500",
 };
 
-const campaignStatusColors: Record<CampaignStatus, string> = {
-  planning: "bg-blue-100 text-blue-800",
-  active: "bg-green-100 text-green-800",
-  completed: "bg-gray-100 text-gray-800",
-  cancelled: "bg-red-100 text-red-800",
-};
-
-const campaignStatusLabels: Record<CampaignStatus, string> = {
-  planning: "Planning",
-  active: "Active",
-  completed: "Completed",
-  cancelled: "Cancelled",
-};
-
 // Muted order status colors
 const orderStatusColors: Record<ShopifyOrderStatus, string> = {
   draft: "bg-gray-50 text-gray-600",
@@ -196,26 +172,50 @@ const contentDots: Record<ContentPostedType, string> = {
   tiktok: "bg-gray-800",
 };
 
+// Muted collection colors with dot indicators
+const collectionColors: Record<string, string> = {
+  "Body Butter": "text-gray-600",
+  "Pinstripe": "text-gray-600",
+  "Uncategorized": "text-gray-500",
+};
+
+// Collection dot colors
+const collectionDots: Record<string, string> = {
+  "Body Butter": "bg-amber-400",
+  "Pinstripe": "bg-indigo-400",
+  "Uncategorized": "bg-gray-300",
+};
+
 interface CampaignInfluencerWithDetails extends CampaignInfluencer {
   influencer: Influencer;
+  campaign: Campaign;
+  collection: string; // Extracted collection name (e.g., "Body Butter" from "JAN26 - Body Butter")
 }
 
-export default function CampaignDetailPage() {
+// Extract collection name from campaign name (e.g., "JAN26 - Body Butter" -> "Body Butter")
+function extractCollection(campaignName: string): string {
+  const parts = campaignName.split(" - ");
+  if (parts.length > 1) {
+    return parts.slice(1).join(" - ");
+  }
+  return campaignName;
+}
+
+export default function MonthCampaignViewPage() {
   const params = useParams();
   const router = useRouter();
-  const campaignId = params.id as string;
+  const monthKey = params.monthKey as string; // Format: "2026-01"
 
-  const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [campaignInfluencers, setCampaignInfluencers] = useState<CampaignInfluencerWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [partnershipTypeFilter, setPartnershipTypeFilter] = useState<string>("all");
+  const [collectionFilter, setCollectionFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [influencerDialogOpen, setInfluencerDialogOpen] = useState(false);
-  const [campaignDialogOpen, setCampaignDialogOpen] = useState(false);
-  const [addInfluencerDialogOpen, setAddInfluencerDialogOpen] = useState(false);
   const [selectedInfluencer, setSelectedInfluencer] = useState<Influencer | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
@@ -223,11 +223,22 @@ export default function CampaignDetailPage() {
   const [deals, setDeals] = useState<Map<string, CampaignDeal>>(new Map());
   const [dealDialogOpen, setDealDialogOpen] = useState(false);
   const [selectedDealInfluencer, setSelectedDealInfluencer] = useState<CampaignInfluencerWithDetails | null>(null);
-  const [approvalFilter, setApprovalFilter] = useState<string>("all");
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [selectedApprovalInfluencer, setSelectedApprovalInfluencer] = useState<CampaignInfluencerWithDetails | null>(null);
 
   const supabase = createClient();
+
+  // Parse month key to get month label
+  const getMonthLabel = (key: string): string => {
+    const [year, month] = key.split("-");
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    return `${monthNames[parseInt(month, 10) - 1]} ${year}`;
+  };
+
+  const monthLabel = getMonthLabel(monthKey);
 
   const fetchProfiles = useCallback(async () => {
     const { data } = await (supabase.from("profiles") as any)
@@ -238,62 +249,95 @@ export default function CampaignDetailPage() {
     }
   }, [supabase]);
 
-  const fetchCampaign = useCallback(async () => {
+  const fetchCampaigns = useCallback(async () => {
+    // Fetch campaigns that start in the given month
+    const [year, month] = monthKey.split("-");
+    const startDate = `${year}-${month}-01`;
+    const endDate = `${year}-${month}-31`;
+
     const { data, error } = await supabase
       .from("campaigns")
       .select("*")
-      .eq("id", campaignId)
-      .single();
+      .gte("start_date", startDate)
+      .lte("start_date", endDate);
 
     if (error) {
-      console.error("Error fetching campaign:", error);
-      router.push("/");
+      console.error("Error fetching campaigns:", error);
+      router.push("/?tab=campaigns");
       return;
     }
-    setCampaign(data);
-  }, [supabase, campaignId, router]);
 
-  const fetchCampaignInfluencers = useCallback(async () => {
-    setLoading(true);
+    setCampaigns(data || []);
+    return data || [];
+  }, [supabase, monthKey, router]);
+
+  const fetchCampaignInfluencers = useCallback(async (campaignList: Campaign[]) => {
+    if (campaignList.length === 0) {
+      setCampaignInfluencers([]);
+      setLoading(false);
+      return;
+    }
+
+    const campaignIds = campaignList.map(c => c.id);
+
     const { data, error } = await supabase
       .from("campaign_influencers")
       .select(`
         *,
-        influencer:influencers(*)
+        influencer:influencers(*),
+        campaign:campaigns(*)
       `)
-      .eq("campaign_id", campaignId);
+      .in("campaign_id", campaignIds);
 
     if (error) {
       console.error("Error fetching campaign influencers:", error);
     } else {
-      setCampaignInfluencers(data || []);
+      // Add collection property to each record
+      const withCollection = (data || []).map((ci: any) => ({
+        ...ci,
+        collection: extractCollection(ci.campaign.name),
+      }));
+      setCampaignInfluencers(withCollection);
     }
     setLoading(false);
-  }, [supabase, campaignId]);
+  }, [supabase]);
 
-  const fetchDeals = useCallback(async () => {
+  const fetchDeals = useCallback(async (campaignList: Campaign[]) => {
+    if (campaignList.length === 0) return;
+
+    const campaignIds = campaignList.map(c => c.id);
+
     const { data, error } = await supabase
       .from("campaign_deals")
       .select("*")
-      .eq("campaign_id", campaignId);
+      .in("campaign_id", campaignIds);
 
     if (error) {
       console.error("Error fetching deals:", error);
     } else {
       const dealsMap = new Map<string, CampaignDeal>();
       (data || []).forEach((deal: CampaignDeal) => {
-        dealsMap.set(deal.influencer_id, deal);
+        // Key by influencer_id + campaign_id for uniqueness
+        dealsMap.set(`${deal.influencer_id}-${deal.campaign_id}`, deal);
       });
       setDeals(dealsMap);
     }
-  }, [supabase, campaignId]);
+  }, [supabase]);
 
   useEffect(() => {
-    fetchCampaign();
-    fetchCampaignInfluencers();
-    fetchProfiles();
-    fetchDeals();
-  }, [fetchCampaign, fetchCampaignInfluencers, fetchProfiles, fetchDeals]);
+    const loadData = async () => {
+      setLoading(true);
+      const campaignList = await fetchCampaigns();
+      if (campaignList) {
+        await Promise.all([
+          fetchCampaignInfluencers(campaignList),
+          fetchDeals(campaignList),
+          fetchProfiles(),
+        ]);
+      }
+    };
+    loadData();
+  }, [fetchCampaigns, fetchCampaignInfluencers, fetchProfiles, fetchDeals]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -314,23 +358,12 @@ export default function CampaignDetailPage() {
     setSelectedInfluencer(null);
   };
 
-  const handleInfluencerSave = () => {
+  const handleInfluencerSave = async () => {
     handleCloseInfluencerDialog();
-    fetchCampaignInfluencers();
-  };
-
-  const handleOpenCampaignDialog = () => {
-    setCampaignDialogOpen(true);
-  };
-
-  const handleCloseCampaignDialog = () => {
-    setCampaignDialogOpen(false);
-  };
-
-  const handleCampaignSave = () => {
-    handleCloseCampaignDialog();
-    fetchCampaign();
-    fetchCampaignInfluencers();
+    const campaignList = await fetchCampaigns();
+    if (campaignList) {
+      await fetchCampaignInfluencers(campaignList);
+    }
   };
 
   // Update campaign-specific status
@@ -342,13 +375,13 @@ export default function CampaignDetailPage() {
     if (error) {
       console.error("Error updating status:", error);
     } else {
-      fetchCampaignInfluencers();
+      const campaignList = await fetchCampaigns();
+      if (campaignList) await fetchCampaignInfluencers(campaignList);
     }
   };
 
-  // Update campaign-specific partnership type and also update the influencer's global partnership type
+  // Update campaign-specific partnership type
   const handlePartnershipTypeChange = async (campaignInfluencerId: string, influencerId: string, newType: PartnershipType) => {
-    // Update campaign-specific partnership type
     const { error: campaignError } = await (supabase.from("campaign_influencers") as any).update({
       partnership_type: newType,
     }).eq("id", campaignInfluencerId);
@@ -358,7 +391,6 @@ export default function CampaignDetailPage() {
       return;
     }
 
-    // Also update the influencer's global partnership type
     const { error: influencerError } = await (supabase.from("influencers") as any).update({
       partnership_type: newType,
     }).eq("id", influencerId);
@@ -367,10 +399,11 @@ export default function CampaignDetailPage() {
       console.error("Error updating influencer partnership type:", influencerError);
     }
 
-    fetchCampaignInfluencers();
+    const campaignList = await fetchCampaigns();
+    if (campaignList) await fetchCampaignInfluencers(campaignList);
   };
 
-  // Remove influencer from campaign (not delete their profile)
+  // Remove influencer from campaign
   const handleRemoveFromCampaign = async (campaignInfluencerId: string, influencerName: string) => {
     if (!confirm(`Remove ${influencerName} from this campaign?`)) return;
 
@@ -382,7 +415,8 @@ export default function CampaignDetailPage() {
     if (error) {
       console.error("Error removing influencer from campaign:", error);
     } else {
-      fetchCampaignInfluencers();
+      const campaignList = await fetchCampaigns();
+      if (campaignList) await fetchCampaignInfluencers(campaignList);
     }
   };
 
@@ -395,7 +429,8 @@ export default function CampaignDetailPage() {
     if (error) {
       console.error("Error updating owner:", error);
     } else {
-      fetchCampaignInfluencers();
+      const campaignList = await fetchCampaigns();
+      if (campaignList) await fetchCampaignInfluencers(campaignList);
     }
   };
 
@@ -405,15 +440,14 @@ export default function CampaignDetailPage() {
     setOrderDialogOpen(true);
   };
 
-  // Close order dialog
   const handleCloseOrderDialog = () => {
     setOrderDialogOpen(false);
     setSelectedCampaignInfluencer(null);
   };
 
-  // Handle order save
-  const handleOrderSave = () => {
-    fetchCampaignInfluencers();
+  const handleOrderSave = async () => {
+    const campaignList = await fetchCampaigns();
+    if (campaignList) await fetchCampaignInfluencers(campaignList);
   };
 
   // Open deal dialog
@@ -422,15 +456,14 @@ export default function CampaignDetailPage() {
     setDealDialogOpen(true);
   };
 
-  // Close deal dialog
   const handleCloseDealDialog = () => {
     setDealDialogOpen(false);
     setSelectedDealInfluencer(null);
   };
 
-  // Handle deal save
-  const handleDealSave = () => {
-    fetchDeals();
+  const handleDealSave = async () => {
+    const campaignList = await fetchCampaigns();
+    if (campaignList) await fetchDeals(campaignList);
   };
 
   // Open approval dialog
@@ -439,15 +472,14 @@ export default function CampaignDetailPage() {
     setApprovalDialogOpen(true);
   };
 
-  // Close approval dialog
   const handleCloseApprovalDialog = () => {
     setApprovalDialogOpen(false);
     setSelectedApprovalInfluencer(null);
   };
 
-  // Handle approval save
-  const handleApprovalSave = () => {
-    fetchCampaignInfluencers();
+  const handleApprovalSave = async () => {
+    const campaignList = await fetchCampaigns();
+    if (campaignList) await fetchCampaignInfluencers(campaignList);
   };
 
   // Update content posted
@@ -459,9 +491,13 @@ export default function CampaignDetailPage() {
     if (error) {
       console.error("Error updating content posted:", error);
     } else {
-      fetchCampaignInfluencers();
+      const campaignList = await fetchCampaigns();
+      if (campaignList) await fetchCampaignInfluencers(campaignList);
     }
   };
+
+  // Get unique collections for filter
+  const collections = [...new Set(campaignInfluencers.map(ci => ci.collection))].sort();
 
   // Filter and sort the influencers
   const filteredInfluencers = campaignInfluencers
@@ -469,11 +505,7 @@ export default function CampaignDetailPage() {
       const influencer = ci.influencer;
       if (statusFilter !== "all" && ci.status !== statusFilter) return false;
       if (partnershipTypeFilter !== "all" && ci.partnership_type !== partnershipTypeFilter) return false;
-      // Approval filter
-      if (approvalFilter === "pending" && ci.approval_status !== "pending") return false;
-      if (approvalFilter === "needs_review" && ci.approval_status !== "pending") return false;
-      if (approvalFilter === "approved" && ci.approval_status !== "approved") return false;
-      if (approvalFilter === "declined" && ci.approval_status !== "declined") return false;
+      if (collectionFilter !== "all" && ci.collection !== collectionFilter) return false;
       if (search) {
         const searchLower = search.toLowerCase();
         return (
@@ -492,6 +524,8 @@ export default function CampaignDetailPage() {
         return multiplier * (a.influencer.follower_count - b.influencer.follower_count);
       } else if (sortField === "added_at") {
         return multiplier * (new Date(a.added_at).getTime() - new Date(b.added_at).getTime());
+      } else if (sortField === "collection") {
+        return multiplier * a.collection.localeCompare(b.collection);
       }
       return 0;
     });
@@ -507,10 +541,10 @@ export default function CampaignDetailPage() {
     return new Date(date).toLocaleDateString();
   };
 
-  if (!campaign) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-500">Loading campaign...</div>
+        <div className="text-gray-500">Loading campaigns...</div>
       </div>
     );
   }
@@ -530,118 +564,31 @@ export default function CampaignDetailPage() {
               Campaigns
             </Link>
             <ChevronRight className="h-4 w-4" />
-            <span className="text-gray-900 font-medium">{campaign.name}</span>
+            <span className="text-gray-900 font-medium">{monthLabel} (All)</span>
           </nav>
 
-          {/* Campaign Header */}
+          {/* Header */}
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold text-gray-900">{campaign.name}</h1>
-                <Badge className={campaignStatusColors[campaign.status]}>
-                  {campaignStatusLabels[campaign.status]}
-                </Badge>
+                <Calendar className="h-6 w-6 text-gray-400" />
+                <h1 className="text-2xl font-bold text-gray-900">{monthLabel} - All Campaigns</h1>
               </div>
-              {campaign.description && (
-                <p className="text-gray-600 mt-1">{campaign.description}</p>
-              )}
-              <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                <div className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
-                  {campaign.start_date ? formatDate(campaign.start_date) : "No start date"}
-                  {campaign.end_date && <> - {formatDate(campaign.end_date)}</>}
-                </div>
+              <p className="text-gray-600 mt-1">
+                Combined view of {campaigns.length} campaign{campaigns.length !== 1 ? "s" : ""}
+              </p>
+              {/* Campaign list */}
+              <div className="flex flex-wrap gap-2 mt-3">
+                {campaigns.map((c) => (
+                  <Link
+                    key={c.id}
+                    href={`/campaigns/${c.id}`}
+                    className="text-sm px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                  >
+                    {extractCollection(c.name)}
+                  </Link>
+                ))}
               </div>
-              {/* Stats Cards */}
-              <div className="flex flex-wrap gap-6 mt-4">
-                {/* Partnership Types */}
-                <div className="flex items-center gap-4">
-                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Partnerships</span>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 rounded">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                      <span className="text-sm font-semibold text-blue-700">
-                        {campaignInfluencers.filter((ci) =>
-                          ["gifted_no_ask", "gifted_soft_ask", "gifted_deliverable_ask"].includes(ci.partnership_type)
-                        ).length}
-                      </span>
-                      <span className="text-xs text-blue-600">Seeding</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 rounded">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                      <span className="text-sm font-semibold text-green-700">
-                        {campaignInfluencers.filter((ci) => ci.partnership_type === "gifted_recurring").length}
-                      </span>
-                      <span className="text-xs text-green-600">Recurring</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 px-2 py-1 bg-purple-50 rounded">
-                      <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
-                      <span className="text-sm font-semibold text-purple-700">
-                        {campaignInfluencers.filter((ci) => ci.partnership_type === "paid").length}
-                      </span>
-                      <span className="text-xs text-purple-600">Paid</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Content Posted */}
-                {(() => {
-                  const stories = campaignInfluencers.filter((ci) => ci.content_posted === "stories").length;
-                  const inFeed = campaignInfluencers.filter((ci) => ci.content_posted === "in_feed_post").length;
-                  const reels = campaignInfluencers.filter((ci) => ci.content_posted === "reel").length;
-                  const tiktoks = campaignInfluencers.filter((ci) => ci.content_posted === "tiktok").length;
-                  const hasContent = stories + inFeed + reels + tiktoks > 0;
-
-                  if (!hasContent) return null;
-
-                  return (
-                    <div className="flex items-center gap-4 border-l border-gray-200 pl-6">
-                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Content</span>
-                      <div className="flex items-center gap-3">
-                        {stories > 0 && (
-                          <div className="flex items-center gap-1.5 px-2 py-1 bg-pink-50 rounded">
-                            <span className="text-sm font-semibold text-pink-700">{stories}</span>
-                            <span className="text-xs text-pink-600">{stories === 1 ? "Story" : "Stories"}</span>
-                          </div>
-                        )}
-                        {inFeed > 0 && (
-                          <div className="flex items-center gap-1.5 px-2 py-1 bg-sky-50 rounded">
-                            <span className="text-sm font-semibold text-sky-700">{inFeed}</span>
-                            <span className="text-xs text-sky-600">{inFeed === 1 ? "Post" : "Posts"}</span>
-                          </div>
-                        )}
-                        {reels > 0 && (
-                          <div className="flex items-center gap-1.5 px-2 py-1 bg-violet-50 rounded">
-                            <span className="text-sm font-semibold text-violet-700">{reels}</span>
-                            <span className="text-xs text-violet-600">{reels === 1 ? "Reel" : "Reels"}</span>
-                          </div>
-                        )}
-                        {tiktoks > 0 && (
-                          <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-100 rounded">
-                            <span className="text-sm font-semibold text-gray-700">{tiktoks}</span>
-                            <span className="text-xs text-gray-600">{tiktoks === 1 ? "TikTok" : "TikToks"}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-            </div>
-            <div className="flex gap-2">
-              {campaign.collection_deck_url && (
-                <Button
-                  variant="outline"
-                  onClick={() => window.open(campaign.collection_deck_url!, '_blank')}
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Collection Deck
-                </Button>
-              )}
-              <Button variant="outline" onClick={handleOpenCampaignDialog}>
-                <Settings className="h-4 w-4 mr-2" />
-                Edit Campaign
-              </Button>
             </div>
           </div>
         </div>
@@ -659,6 +606,12 @@ export default function CampaignDetailPage() {
               className="pl-10 w-full"
             />
           </div>
+          <Select value={collectionFilter} onChange={(e) => setCollectionFilter(e.target.value)} className="w-auto sm:w-[180px] flex-shrink-0">
+            <option value="all">All Collections</option>
+            {collections.map((col) => (
+              <option key={col} value={col}>{col}</option>
+            ))}
+          </Select>
           <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-auto sm:w-[180px] flex-shrink-0">
             <option value="all">All Statuses</option>
             <option value="prospect">Prospect</option>
@@ -681,40 +634,14 @@ export default function CampaignDetailPage() {
             <option value="gifted_recurring">Gifted Recurring</option>
             <option value="paid">Paid</option>
           </Select>
-          {/* Approval Filter */}
-          {(() => {
-            const pendingCount = campaignInfluencers.filter(ci => ci.approval_status === "pending").length;
-            const hasApprovals = campaignInfluencers.some(ci => ci.approval_status !== null);
-            if (!hasApprovals && approvalFilter === "all") return null;
-            return (
-              <Select
-                value={approvalFilter}
-                onChange={(e) => setApprovalFilter(e.target.value)}
-                className={`w-auto sm:w-[160px] flex-shrink-0 ${pendingCount > 0 && approvalFilter === "all" ? "border-amber-300 bg-amber-50" : ""}`}
-              >
-                <option value="all">
-                  {pendingCount > 0 ? `Approvals (${pendingCount})` : "All Approvals"}
-                </option>
-                <option value="pending">Pending ({pendingCount})</option>
-                <option value="approved">Approved</option>
-                <option value="declined">Declined</option>
-              </Select>
-            );
-          })()}
-          <Button onClick={() => setAddInfluencerDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Influencer
-          </Button>
         </div>
 
         {/* Influencer Table */}
         <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
-          {loading ? (
-            <div className="p-8 text-center text-gray-500">Loading...</div>
-          ) : filteredInfluencers.length === 0 ? (
+          {filteredInfluencers.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
               {campaignInfluencers.length === 0
-                ? "No influencers in this campaign yet. Click 'Add Influencer' to get started!"
+                ? "No influencers in these campaigns yet."
                 : "No influencers match your filters."}
             </div>
           ) : (
@@ -735,6 +662,15 @@ export default function CampaignDetailPage() {
                   <TableHead>
                     <button
                       className="flex items-center gap-1 hover:text-gray-900"
+                      onClick={() => handleSort("collection")}
+                    >
+                      Collection
+                      <ArrowUpDown className="h-4 w-4" />
+                    </button>
+                  </TableHead>
+                  <TableHead>
+                    <button
+                      className="flex items-center gap-1 hover:text-gray-900"
                       onClick={() => handleSort("follower_count")}
                     >
                       Followers
@@ -744,17 +680,8 @@ export default function CampaignDetailPage() {
                   <TableHead>Partnership</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Owner</TableHead>
-                  <TableHead>
-                    <button
-                      className="flex items-center gap-1 hover:text-gray-900"
-                      onClick={() => handleSort("added_at")}
-                    >
-                      Added
-                      <ArrowUpDown className="h-4 w-4" />
-                    </button>
-                  </TableHead>
                   <TableHead>Order</TableHead>
-                  <TableHead>Content Posted</TableHead>
+                  <TableHead>Content</TableHead>
                   <TableHead>Deal</TableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
@@ -818,6 +745,14 @@ export default function CampaignDetailPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-gray-600">@{ci.influencer.instagram_handle}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${collectionDots[ci.collection] || "bg-gray-300"}`}></span>
+                        <span className={`text-xs ${collectionColors[ci.collection] || "text-gray-600"}`}>
+                          {ci.collection}
+                        </span>
+                      </div>
+                    </TableCell>
                     <TableCell>{formatNumber(ci.influencer.follower_count)}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <Select
@@ -868,7 +803,6 @@ export default function CampaignDetailPage() {
                         ))}
                       </Select>
                     </TableCell>
-                    <TableCell className="text-gray-600">{formatDate(ci.added_at)}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {ci.shopify_order_id ? (
                         <button
@@ -928,7 +862,7 @@ export default function CampaignDetailPage() {
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {ci.partnership_type === "paid" ? (
                         <DealSummaryBadge
-                          deal={deals.get(ci.influencer_id) || null}
+                          deal={deals.get(`${ci.influencer_id}-${ci.campaign_id}`) || null}
                           onClick={() => handleOpenDealDialog(ci)}
                         />
                       ) : (
@@ -953,7 +887,7 @@ export default function CampaignDetailPage() {
         </div>
 
         <div className="mt-4 text-sm text-gray-500">
-          Showing {filteredInfluencers.length} of {campaignInfluencers.length} influencers in this campaign
+          Showing {filteredInfluencers.length} of {campaignInfluencers.length} influencers across {campaigns.length} campaigns
         </div>
       </main>
 
@@ -962,23 +896,6 @@ export default function CampaignDetailPage() {
         onClose={handleCloseInfluencerDialog}
         onSave={handleInfluencerSave}
         influencer={selectedInfluencer}
-      />
-
-      <CampaignDialog
-        open={campaignDialogOpen}
-        onClose={handleCloseCampaignDialog}
-        onSave={handleCampaignSave}
-        campaign={campaign}
-      />
-
-      <AddInfluencerDialog
-        open={addInfluencerDialogOpen}
-        onClose={() => setAddInfluencerDialogOpen(false)}
-        onAdd={() => {
-          fetchCampaignInfluencers();
-        }}
-        campaignId={campaignId}
-        existingInfluencerIds={campaignInfluencers.map((ci) => ci.influencer_id)}
       />
 
       {selectedCampaignInfluencer && (
@@ -991,14 +908,14 @@ export default function CampaignDetailPage() {
         />
       )}
 
-      {selectedDealInfluencer && campaign && (
+      {selectedDealInfluencer && selectedDealInfluencer.campaign && (
         <DealDialog
           open={dealDialogOpen}
           onClose={handleCloseDealDialog}
           onSave={handleDealSave}
           influencer={selectedDealInfluencer.influencer}
-          campaign={campaign}
-          deal={deals.get(selectedDealInfluencer.influencer_id) || null}
+          campaign={selectedDealInfluencer.campaign}
+          deal={deals.get(`${selectedDealInfluencer.influencer_id}-${selectedDealInfluencer.campaign_id}`) || null}
         />
       )}
 

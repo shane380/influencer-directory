@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Influencer, PartnershipType, Tier, Campaign, CampaignStatus, Profile } from "@/types/database";
+import { Influencer, PartnershipType, Campaign, CampaignStatus, Profile } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -28,13 +28,6 @@ type SortField = "name" | "follower_count" | "last_contacted_at";
 type SortDirection = "asc" | "desc";
 type Tab = "influencers" | "campaigns";
 
-const tierColors: Record<Tier, string> = {
-  S: "bg-purple-100 text-purple-800",
-  A: "bg-blue-100 text-blue-800",
-  B: "bg-green-100 text-green-800",
-  C: "bg-gray-100 text-gray-800",
-};
-
 const partnershipTypeLabels: Record<PartnershipType, string> = {
   unassigned: "Unassigned",
   gifted_no_ask: "Gifted No Ask",
@@ -42,15 +35,6 @@ const partnershipTypeLabels: Record<PartnershipType, string> = {
   gifted_deliverable_ask: "Gifted Deliverable Ask",
   gifted_recurring: "Gifted Recurring",
   paid: "Paid",
-};
-
-const partnershipTypeColors: Record<PartnershipType, string> = {
-  unassigned: "bg-red-100 text-red-800",
-  gifted_no_ask: "bg-gray-100 text-gray-800",
-  gifted_soft_ask: "bg-blue-100 text-blue-800",
-  gifted_deliverable_ask: "bg-yellow-100 text-yellow-800",
-  gifted_recurring: "bg-green-100 text-green-800",
-  paid: "bg-purple-100 text-purple-800",
 };
 
 const campaignStatusColors: Record<CampaignStatus, string> = {
@@ -526,7 +510,7 @@ function HomePageContent() {
                   {influencers.map((influencer) => (
                     <TableRow
                       key={influencer.id}
-                      className="cursor-pointer"
+                      className="cursor-pointer hover:bg-gray-50 transition-colors"
                       onClick={() => handleOpenInfluencerDialog(influencer)}
                     >
                       <TableCell>
@@ -552,10 +536,8 @@ function HomePageContent() {
                       <TableCell className="font-medium">{influencer.name}</TableCell>
                       <TableCell className="text-gray-600">@{influencer.instagram_handle}</TableCell>
                       <TableCell>{formatNumber(influencer.follower_count)}</TableCell>
-                      <TableCell>
-                        <Badge className={partnershipTypeColors[influencer.partnership_type]}>
-                          {partnershipTypeLabels[influencer.partnership_type]}
-                        </Badge>
+                      <TableCell className="text-gray-600 text-sm">
+                        {partnershipTypeLabels[influencer.partnership_type]}
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()} className="w-[140px]">
                         <Select
@@ -649,11 +631,11 @@ function HomePageContent() {
               groupedCampaigns.map((group) => (
                 <div key={group.monthKey} className="bg-white rounded-lg border shadow-sm overflow-hidden">
                   {/* Month Header */}
-                  <button
-                    className="w-full px-4 py-3 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors"
-                    onClick={() => toggleMonth(group.monthKey)}
-                  >
-                    <div className="flex items-center gap-3">
+                  <div className="w-full px-4 py-3 flex items-center justify-between bg-gray-50">
+                    <button
+                      className="flex items-center gap-3 hover:bg-gray-100 -ml-2 px-2 py-1 rounded transition-colors"
+                      onClick={() => toggleMonth(group.monthKey)}
+                    >
                       {expandedMonths.has(group.monthKey) ? (
                         <ChevronDown className="h-5 w-5 text-gray-500" />
                       ) : (
@@ -663,8 +645,21 @@ function HomePageContent() {
                       <Badge variant="secondary" className="ml-2">
                         {group.campaigns.length} campaign{group.campaigns.length !== 1 ? 's' : ''}
                       </Badge>
-                    </div>
-                  </button>
+                    </button>
+                    {group.campaigns.length > 1 && group.monthKey !== 'no-date' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/campaigns/month/${group.monthKey}`);
+                        }}
+                      >
+                        <Users className="h-4 w-4 mr-1" />
+                        View All ({group.campaigns.reduce((sum, c) => sum + c.influencer_count, 0)})
+                      </Button>
+                    )}
+                  </div>
 
                   {/* Campaigns List */}
                   {expandedMonths.has(group.monthKey) && (
