@@ -5,8 +5,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Influencer Directory",
-  description: "Internal influencer management tool",
+  title: "Partnerships Dashboard",
+  description: "Internal partnerships management tool",
 };
 
 export default function RootLayout({

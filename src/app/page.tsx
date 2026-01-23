@@ -18,7 +18,8 @@ import {
 import { InfluencerDialog } from "@/components/influencer-dialog";
 import { CampaignDialog } from "@/components/campaign-dialog";
 import { BudgetDashboard } from "@/components/budget-dashboard";
-import { Plus, Search, LogOut, ArrowUpDown, Users, Megaphone, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { Plus, Search, ArrowUpDown, Users, Megaphone, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { AccountDropdown } from "@/components/account-dropdown";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -80,11 +81,30 @@ function HomePageContent() {
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [assignedToFilter, setAssignedToFilter] = useState<string>("all");
+  const [currentUser, setCurrentUser] = useState<{ displayName: string; email: string; profilePhotoUrl: string | null; isAdmin: boolean } | null>(null);
 
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const supabase = createClient();
   const router = useRouter();
+
+  const fetchCurrentUser = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      // Try to get display name, photo, and admin status from profile
+      const { data: profile } = await (supabase.from("profiles") as any)
+        .select("display_name, profile_photo_url, is_admin")
+        .eq("id", user.id)
+        .single();
+
+      setCurrentUser({
+        displayName: profile?.display_name || user.email?.split("@")[0] || "User",
+        email: user.email || "",
+        profilePhotoUrl: profile?.profile_photo_url || null,
+        isAdmin: profile?.is_admin || false,
+      });
+    }
+  }, [supabase]);
 
   const fetchProfiles = useCallback(async () => {
     const { data } = await (supabase.from("profiles") as any)
@@ -183,10 +203,11 @@ function HomePageContent() {
     setLoadingCampaigns(false);
   }, [supabase, campaignStatusFilter, campaignsLoaded]);
 
-  // Fetch profiles on mount
+  // Fetch profiles and current user on mount
   useEffect(() => {
     fetchProfiles();
-  }, [fetchProfiles]);
+    fetchCurrentUser();
+  }, [fetchProfiles, fetchCurrentUser]);
 
   // Sync active tab with URL parameter
   useEffect(() => {
@@ -388,11 +409,16 @@ function HomePageContent() {
       <header className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900">Influencer Directory</h1>
-            <Button variant="ghost" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign out
-            </Button>
+            <h1 className="text-2xl font-bold text-gray-900">Partnerships Dashboard</h1>
+            {currentUser && (
+              <AccountDropdown
+                displayName={currentUser.displayName}
+                email={currentUser.email}
+                profilePhotoUrl={currentUser.profilePhotoUrl}
+                isAdmin={currentUser.isAdmin}
+                onLogout={handleLogout}
+              />
+            )}
           </div>
         </div>
       </header>

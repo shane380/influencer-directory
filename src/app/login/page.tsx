@@ -40,8 +40,8 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Influencer Directory</CardTitle>
-          <CardDescription>Sign in to access the influencer directory</CardDescription>
+          <CardTitle className="text-2xl font-bold">Partnerships Dashboard</CardTitle>
+          <CardDescription>Sign in to access the partnerships dashboard</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
