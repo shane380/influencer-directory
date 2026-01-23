@@ -273,11 +273,12 @@ export default function MonthCampaignViewPage() {
       return;
     }
 
-    setCampaigns(data || []);
-    if (data && data.length > 0 && !selectedCampaignIdForAdd) {
-      setSelectedCampaignIdForAdd(data[0].id);
+    const campaigns = (data || []) as Campaign[];
+    setCampaigns(campaigns);
+    if (campaigns.length > 0 && !selectedCampaignIdForAdd) {
+      setSelectedCampaignIdForAdd(campaigns[0].id);
     }
-    return data || [];
+    return campaigns;
   }, [supabase, monthKey, router]);
 
   const fetchCampaignInfluencers = useCallback(async (campaignList: Campaign[]) => {
