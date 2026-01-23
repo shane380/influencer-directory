@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Influencer, InfluencerOrder } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,12 +16,6 @@ import {
   User,
   Check
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
 interface ShopifyCustomer {
   id: number;
@@ -85,21 +79,45 @@ export function InfluencerOrdersTab({
   refreshingOrders,
   shopifyCustomer,
 }: InfluencerOrdersTabProps) {
-  const [showSearchModal, setShowSearchModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<ShopifyCustomer[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const hasAutoSearched = useRef(false);
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
+  // Auto-search when no customer linked
+  useEffect(() => {
+    if (
+      influencer &&
+      !influencer.shopify_customer_id &&
+      !shopifyCustomer &&
+      influencer.name &&
+      !hasAutoSearched.current
+    ) {
+      hasAutoSearched.current = true;
+      setSearchQuery(influencer.name);
+      // Auto-search after a brief delay
+      const timer = setTimeout(() => {
+        searchCustomers(influencer.name);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [influencer, shopifyCustomer]);
+
+  // Reset auto-search flag when influencer changes
+  useEffect(() => {
+    hasAutoSearched.current = false;
+  }, [influencer?.id]);
+
+  const searchCustomers = async (query: string) => {
+    if (!query.trim()) return;
 
     setSearching(true);
     setSearchError(null);
 
     try {
       const response = await fetch(
-        `/api/shopify/customers?name=${encodeURIComponent(searchQuery)}`
+        `/api/shopify/customers?name=${encodeURIComponent(query)}`
       );
 
       if (!response.ok) {
@@ -120,11 +138,8 @@ export function InfluencerOrdersTab({
     }
   };
 
-  const handleSelectCustomer = (customer: ShopifyCustomer) => {
-    onLinkCustomer(String(customer.id));
-    setShowSearchModal(false);
-    setSearchQuery("");
-    setSearchResults([]);
+  const handleSearch = () => {
+    searchCustomers(searchQuery);
   };
 
   // Calculate summary stats
@@ -145,76 +160,79 @@ export function InfluencerOrdersTab({
     );
   }
 
-  // No Shopify customer linked
+  // No Shopify customer linked - show inline search
   if (!influencer.shopify_customer_id && !shopifyCustomer) {
     return (
-      <div className="text-center py-8">
-        <User className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-        <p className="text-gray-600 mb-4">No Shopify customer linked</p>
-        <Button onClick={() => setShowSearchModal(true)}>
-          <Search className="h-4 w-4 mr-2" />
-          Search Shopify Customers
-        </Button>
+      <div className="space-y-4 pt-4">
+        <div className="text-sm text-gray-600 mb-2">Link Shopify Customer</div>
 
-        {/* Search Modal */}
-        <Dialog open={showSearchModal} onOpenChange={setShowSearchModal}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Link Shopify Customer</DialogTitle>
-            </DialogHeader>
+        {/* Inline Search */}
+        <div className="flex gap-2">
+          <Input
+            placeholder="Search by name or email..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleSearch();
+              }
+            }}
+          />
+          <Button onClick={handleSearch} disabled={searching}>
+            {searching ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Search className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
 
-            <div className="space-y-4">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Search by name or email..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleSearch();
-                    }
-                  }}
-                />
-                <Button onClick={handleSearch} disabled={searching}>
-                  {searching ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    "Search"
+        {/* Loading State */}
+        {searching && searchResults.length === 0 && (
+          <div className="text-center py-4 text-gray-500">
+            <Loader2 className="h-6 w-6 mx-auto mb-2 animate-spin" />
+            <p className="text-sm">Searching Shopify customers...</p>
+          </div>
+        )}
+
+        {/* Error */}
+        {searchError && !searching && (
+          <p className="text-sm text-gray-500 text-center py-2">{searchError}</p>
+        )}
+
+        {/* Results */}
+        {searchResults.length > 0 && (
+          <div className="border rounded-lg max-h-64 overflow-y-auto">
+            {searchResults.map((customer) => (
+              <button
+                key={customer.id}
+                type="button"
+                className="w-full p-3 flex items-center justify-between hover:bg-gray-50 border-b last:border-b-0 text-left"
+                onClick={() => onLinkCustomer(String(customer.id))}
+              >
+                <div>
+                  <p className="font-medium">{customer.name}</p>
+                  <p className="text-sm text-gray-500">{customer.email}</p>
+                  {customer.orders_count !== undefined && (
+                    <p className="text-xs text-gray-400">
+                      {customer.orders_count} orders
+                    </p>
                   )}
-                </Button>
-              </div>
-
-              {searchError && (
-                <p className="text-sm text-red-600">{searchError}</p>
-              )}
-
-              {searchResults.length > 0 && (
-                <div className="border rounded-lg max-h-64 overflow-y-auto">
-                  {searchResults.map((customer) => (
-                    <button
-                      key={customer.id}
-                      type="button"
-                      className="w-full p-3 flex items-center justify-between hover:bg-gray-50 border-b last:border-b-0 text-left"
-                      onClick={() => handleSelectCustomer(customer)}
-                    >
-                      <div>
-                        <p className="font-medium">{customer.name}</p>
-                        <p className="text-sm text-gray-500">{customer.email}</p>
-                        {customer.orders_count !== undefined && (
-                          <p className="text-xs text-gray-400">
-                            {customer.orders_count} orders
-                          </p>
-                        )}
-                      </div>
-                      <Check className="h-4 w-4 text-gray-400" />
-                    </button>
-                  ))}
                 </div>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
+                <Check className="h-4 w-4 text-gray-400" />
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* No results and not searching */}
+        {!searching && searchResults.length === 0 && !searchError && searchQuery && (
+          <div className="text-center py-4 text-gray-400">
+            <User className="h-8 w-8 mx-auto mb-2" />
+            <p className="text-sm">Press Enter or click Search</p>
+          </div>
+        )}
       </div>
     );
   }
