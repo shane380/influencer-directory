@@ -608,6 +608,150 @@ export default function MonthCampaignViewPage() {
                   </Link>
                 ))}
               </div>
+
+              {/* Stats Cards */}
+              <div className="flex flex-wrap gap-6 mt-4">
+                {/* Partnership Types */}
+                <div className="flex items-center gap-4">
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Partnerships</span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 rounded">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                      <span className="text-sm font-semibold text-blue-700">
+                        {campaignInfluencers.filter((ci) =>
+                          ["gifted_no_ask", "gifted_soft_ask", "gifted_deliverable_ask"].includes(ci.partnership_type)
+                        ).length}
+                      </span>
+                      <span className="text-xs text-blue-600">Seeding</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 rounded">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                      <span className="text-sm font-semibold text-green-700">
+                        {campaignInfluencers.filter((ci) => ci.partnership_type === "gifted_recurring").length}
+                      </span>
+                      <span className="text-xs text-green-600">Recurring</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2 py-1 bg-purple-50 rounded">
+                      <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                      <span className="text-sm font-semibold text-purple-700">
+                        {campaignInfluencers.filter((ci) => ci.partnership_type === "paid").length}
+                      </span>
+                      <span className="text-xs text-purple-600">Paid</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status Summary */}
+                <div className="flex items-center gap-4 border-l border-gray-200 pl-6">
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Status</span>
+                  <div className="flex items-center gap-3">
+                    {(() => {
+                      const outreach = campaignInfluencers.filter((ci) =>
+                        ["prospect", "contacted", "followed_up"].includes(ci.status)
+                      ).length;
+                      const orderPlaced = campaignInfluencers.filter((ci) => ci.status === "order_placed").length;
+                      const delivered = campaignInfluencers.filter((ci) => ci.status === "order_delivered").length;
+                      const followUp = campaignInfluencers.filter((ci) =>
+                        ["order_follow_up_sent", "order_follow_up_two_sent"].includes(ci.status)
+                      ).length;
+                      const posted = campaignInfluencers.filter((ci) => ci.status === "posted").length;
+                      const issues = campaignInfluencers.filter((ci) =>
+                        ["lead_dead", "creator_wants_paid"].includes(ci.status)
+                      ).length;
+
+                      return (
+                        <>
+                          {outreach > 0 && (
+                            <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 rounded">
+                              <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                              <span className="text-sm font-semibold text-gray-700">{outreach}</span>
+                              <span className="text-xs text-gray-600">Outreach</span>
+                            </div>
+                          )}
+                          {orderPlaced > 0 && (
+                            <div className="flex items-center gap-1.5 px-2 py-1 bg-orange-50 rounded">
+                              <span className="w-1.5 h-1.5 rounded-full bg-orange-400"></span>
+                              <span className="text-sm font-semibold text-orange-700">{orderPlaced}</span>
+                              <span className="text-xs text-orange-600">Placed</span>
+                            </div>
+                          )}
+                          {delivered > 0 && (
+                            <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 rounded">
+                              <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                              <span className="text-sm font-semibold text-green-700">{delivered}</span>
+                              <span className="text-xs text-green-600">Delivered</span>
+                            </div>
+                          )}
+                          {followUp > 0 && (
+                            <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-50 rounded">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                              <span className="text-sm font-semibold text-amber-700">{followUp}</span>
+                              <span className="text-xs text-amber-600">Follow Up</span>
+                            </div>
+                          )}
+                          {posted > 0 && (
+                            <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 rounded">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              <span className="text-sm font-semibold text-emerald-700">{posted}</span>
+                              <span className="text-xs text-emerald-600">Posted</span>
+                            </div>
+                          )}
+                          {issues > 0 && (
+                            <div className="flex items-center gap-1.5 px-2 py-1 bg-red-50 rounded">
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                              <span className="text-sm font-semibold text-red-700">{issues}</span>
+                              <span className="text-xs text-red-600">Dead Leads</span>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                {/* Content Posted */}
+                {(() => {
+                  const stories = campaignInfluencers.filter((ci) => ci.content_posted === "stories").length;
+                  const inFeed = campaignInfluencers.filter((ci) => ci.content_posted === "in_feed_post").length;
+                  const reels = campaignInfluencers.filter((ci) => ci.content_posted === "reel").length;
+                  const tiktoks = campaignInfluencers.filter((ci) => ci.content_posted === "tiktok").length;
+                  const hasContent = stories + inFeed + reels + tiktoks > 0;
+
+                  if (!hasContent) return null;
+
+                  return (
+                    <div className="flex items-center gap-4 border-l border-gray-200 pl-6">
+                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Content</span>
+                      <div className="flex items-center gap-3">
+                        {stories > 0 && (
+                          <div className="flex items-center gap-1.5 px-2 py-1 bg-pink-50 rounded">
+                            <span className="text-sm font-semibold text-pink-700">{stories}</span>
+                            <span className="text-xs text-pink-600">{stories === 1 ? "Story" : "Stories"}</span>
+                          </div>
+                        )}
+                        {inFeed > 0 && (
+                          <div className="flex items-center gap-1.5 px-2 py-1 bg-sky-50 rounded">
+                            <span className="text-sm font-semibold text-sky-700">{inFeed}</span>
+                            <span className="text-xs text-sky-600">{inFeed === 1 ? "Post" : "Posts"}</span>
+                          </div>
+                        )}
+                        {reels > 0 && (
+                          <div className="flex items-center gap-1.5 px-2 py-1 bg-violet-50 rounded">
+                            <span className="text-sm font-semibold text-violet-700">{reels}</span>
+                            <span className="text-xs text-violet-600">{reels === 1 ? "Reel" : "Reels"}</span>
+                          </div>
+                        )}
+                        {tiktoks > 0 && (
+                          <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-100 rounded">
+                            <span className="text-sm font-semibold text-gray-700">{tiktoks}</span>
+                            <span className="text-xs text-gray-600">{tiktoks === 1 ? "TikTok" : "TikToks"}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
           </div>
         </div>
@@ -763,7 +907,7 @@ export default function MonthCampaignViewPage() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-gray-600">@{ci.influencer.instagram_handle}</TableCell>
+                    <TableCell className="text-xs text-gray-600">@{ci.influencer.instagram_handle}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-1.5">
                         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${collectionDots[ci.collection] || "bg-gray-300"}`}></span>
@@ -780,7 +924,7 @@ export default function MonthCampaignViewPage() {
                         </Select>
                       </div>
                     </TableCell>
-                    <TableCell>{formatNumber(ci.influencer.follower_count)}</TableCell>
+                    <TableCell className="text-xs text-gray-600">{formatNumber(ci.influencer.follower_count)}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <Select
                         value={ci.partnership_type}
