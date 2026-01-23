@@ -888,10 +888,10 @@ export default function CampaignDetailPage() {
                         </button>
                       ) : (
                         <button
-                          className="text-xs text-gray-300 hover:text-gray-500"
+                          className="text-xs text-gray-400 hover:text-gray-600"
                           onClick={() => handleOpenOrderDialog(ci)}
                         >
-                          —
+                          <ShoppingCart className="h-4 w-4" />
                         </button>
                       )}
                     </TableCell>
