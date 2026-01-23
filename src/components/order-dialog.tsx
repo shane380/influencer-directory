@@ -611,7 +611,7 @@ export function OrderDialog({
             quantity: item.quantity,
           })),
           note: `Influencer gifting - ${influencer.name} (@${influencer.instagram_handle})`,
-          tags: "influencer-gifting",
+          tags: "influencer",
         }),
       });
 
