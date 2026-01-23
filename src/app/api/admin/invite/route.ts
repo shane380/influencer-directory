@@ -18,8 +18,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: profile } = await supabase
-      .from("profiles")
+    const { data: profile } = await (supabase.from("profiles") as any)
       .select("is_admin")
       .eq("id", user.id)
       .single();
