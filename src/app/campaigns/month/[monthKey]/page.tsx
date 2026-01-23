@@ -497,6 +497,24 @@ export default function MonthCampaignViewPage() {
     }
   };
 
+  // Change influencer's sub-campaign (collection)
+  const handleCollectionChange = async (ci: CampaignInfluencerWithDetails, newCampaignId: string) => {
+    if (newCampaignId === ci.campaign_id) return;
+
+    // Update the campaign_id on the existing campaign_influencers record
+    const { error } = await supabase
+      .from("campaign_influencers")
+      .update({ campaign_id: newCampaignId })
+      .eq("id", ci.id);
+
+    if (error) {
+      console.error("Error changing collection:", error);
+    } else {
+      const campaignList = await fetchCampaigns();
+      if (campaignList) await fetchCampaignInfluencers(campaignList);
+    }
+  };
+
   // Get unique collections for filter
   const collections = [...new Set(campaignInfluencers.map(ci => ci.collection))].sort();
 
@@ -746,12 +764,20 @@ export default function MonthCampaignViewPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-gray-600">@{ci.influencer.instagram_handle}</TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-1.5">
                         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${collectionDots[ci.collection] || "bg-gray-300"}`}></span>
-                        <span className={`text-xs ${collectionColors[ci.collection] || "text-gray-600"}`}>
-                          {ci.collection}
-                        </span>
+                        <Select
+                          value={ci.campaign_id}
+                          onChange={(e) => handleCollectionChange(ci, e.target.value)}
+                          className="text-xs h-7 w-[100px] bg-transparent border-0 text-gray-600 px-0 focus:ring-0"
+                        >
+                          {campaigns.map((campaign) => (
+                            <option key={campaign.id} value={campaign.id}>
+                              {extractCollection(campaign.name)}
+                            </option>
+                          ))}
+                        </Select>
                       </div>
                     </TableCell>
                     <TableCell>{formatNumber(ci.influencer.follower_count)}</TableCell>
