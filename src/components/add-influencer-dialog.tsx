@@ -141,8 +141,14 @@ export function AddInfluencerDialog({
         return;
       }
 
-      // If not, fetch from Instagram API
-      const response = await fetch(`/api/instagram?handle=${encodeURIComponent(username)}`);
+      // Try Apify first (better rate limits), fall back to RapidAPI if not configured
+      let response = await fetch(`/api/instagram-apify?handle=${encodeURIComponent(username)}`);
+
+      // If Apify returns 500 (likely not configured), fall back to RapidAPI
+      if (!response.ok && response.status === 500) {
+        console.log("Apify not configured, falling back to RapidAPI");
+        response = await fetch(`/api/instagram?handle=${encodeURIComponent(username)}`);
+      }
 
       if (!response.ok) {
         const data = await response.json();
