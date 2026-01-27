@@ -295,7 +295,16 @@ export function AddInfluencerDialog({
         .insert(insertData);
 
       if (insertResult.error) {
-        setError(insertResult.error.message);
+        // Check for unique constraint violation (duplicate campaign-influencer combo)
+        if (
+          insertResult.error.code === "23505" ||
+          insertResult.error.message?.includes("duplicate key") ||
+          insertResult.error.message?.includes("campaign_influencers_campaign_id_influencer_id_key")
+        ) {
+          setError("This influencer is already in this campaign");
+        } else {
+          setError(insertResult.error.message);
+        }
         return;
       }
 
@@ -434,12 +443,26 @@ export function AddInfluencerDialog({
 
           {/* Duplicate Warning */}
           {duplicateWarning && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+            <div className={`border rounded-lg p-3 ${
+              existingInfluencerIds.includes(duplicateWarning.id)
+                ? "bg-red-50 border-red-200"
+                : "bg-yellow-50 border-yellow-200"
+            }`}>
               <div className="flex items-start gap-2">
-                <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                <AlertCircle className={`h-5 w-5 flex-shrink-0 mt-0.5 ${
+                  existingInfluencerIds.includes(duplicateWarning.id)
+                    ? "text-red-600"
+                    : "text-yellow-600"
+                }`} />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-yellow-800">
-                    This influencer already exists in your directory
+                  <p className={`text-sm font-medium ${
+                    existingInfluencerIds.includes(duplicateWarning.id)
+                      ? "text-red-800"
+                      : "text-yellow-800"
+                  }`}>
+                    {existingInfluencerIds.includes(duplicateWarning.id)
+                      ? "This influencer is already in this campaign"
+                      : "This influencer already exists in your directory"}
                   </p>
                   <div className="flex items-center gap-2 mt-2">
                     {duplicateWarning.profile_photo_url && (
@@ -452,25 +475,29 @@ export function AddInfluencerDialog({
                         unoptimized
                       />
                     )}
-                    <span className="text-sm text-yellow-700">
+                    <span className={`text-sm ${
+                      existingInfluencerIds.includes(duplicateWarning.id)
+                        ? "text-red-700"
+                        : "text-yellow-700"
+                    }`}>
                       {duplicateWarning.name} (@{duplicateWarning.instagram_handle})
                     </span>
                   </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="mt-2"
-                    onClick={() => {
-                      addInfluencerToCampaign(duplicateWarning);
-                      setDuplicateWarning(null);
-                      setInstagramHandle("");
-                    }}
-                    disabled={adding || existingInfluencerIds.includes(duplicateWarning.id)}
-                  >
-                    {existingInfluencerIds.includes(duplicateWarning.id)
-                      ? "Already in Campaign"
-                      : "Add Existing to Campaign"}
-                  </Button>
+                  {!existingInfluencerIds.includes(duplicateWarning.id) && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => {
+                        addInfluencerToCampaign(duplicateWarning);
+                        setDuplicateWarning(null);
+                        setInstagramHandle("");
+                      }}
+                      disabled={adding}
+                    >
+                      Add Existing to Campaign
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
