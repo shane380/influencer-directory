@@ -185,10 +185,14 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
 
                 {/* Campaigns submenu */}
                 {item.id === "campaigns" && campaignsExpanded && (
-                  <ul className="mt-1 ml-3 pl-3 border-l border-gray-200 space-y-1">
+                  <ul
+                    className="mt-1 ml-3 pl-3 border-l border-gray-200 space-y-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <li>
                       <button
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           onTabChange("campaigns");
                           router.push("/?tab=campaigns");
                         }}
