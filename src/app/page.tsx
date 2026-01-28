@@ -388,10 +388,12 @@ function HomePageContent() {
     }
   }, [activeTab]);
 
-  // Pre-fetch paid collabs on mount so data is ready before tab switch
+  // Fetch paid collabs on first visit (not on tab switch if data exists)
   useEffect(() => {
-    fetchPaidCollabs();
-  }, []);
+    if (activeTab === "paid_collabs" && paidCollabs.length === 0 && !paidCollabsLoaded) {
+      fetchPaidCollabs();
+    }
+  }, [activeTab]);
 
   // Refetch paid collabs when filters change
   useEffect(() => {
@@ -609,8 +611,8 @@ function HomePageContent() {
       <main className="flex-1 ml-48 px-8 pt-12 pb-8">
         {/* Tab content wrapper */}
         <div className="relative max-w-6xl">
-          {/* Influencers Tab - always mounted */}
-          <div className={activeTab === "influencers" ? "" : "hidden"}>
+          {/* Influencers Tab */}
+          {activeTab === "influencers" && <div>
           {/* Influencer Filters */}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="relative flex-1 min-w-[200px]">
@@ -771,10 +773,10 @@ function HomePageContent() {
           <div className="mt-4 text-sm text-gray-500">
             Showing {influencers.length} of {influencersTotalCount} influencers
           </div>
-        </div>
+        </div>}
 
-          {/* Campaigns Tab - always mounted */}
-          <div className={activeTab === "campaigns" ? "" : "hidden"}>
+          {/* Campaigns Tab */}
+          {activeTab === "campaigns" && <div>
           {/* Campaign Filters */}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="relative flex-1 min-w-[200px]">
@@ -888,15 +890,17 @@ function HomePageContent() {
           <div className="mt-4 text-sm text-gray-500">
             Showing {filteredCampaigns.length} of {campaigns.length} campaigns
           </div>
-          </div>
+          </div>}
 
-          {/* Paid Collabs Tab - always mounted */}
-          <div className={activeTab === "paid_collabs" ? "" : "hidden"}>
-          {/* Budget Bar */}
-          <PaidCollabsBudgetBar
-            deals={paidCollabs}
-            onBudgetChange={() => fetchPaidCollabs(true)}
-          />
+          {/* Paid Collabs Tab */}
+          {activeTab === "paid_collabs" && <div>
+          {/* Budget Bar - only render after deals have loaded to prevent flicker */}
+          {paidCollabsLoaded && (
+            <PaidCollabsBudgetBar
+              deals={paidCollabs}
+              onBudgetChange={() => fetchPaidCollabs(true)}
+            />
+          )}
 
           {/* Paid Collabs Filters */}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -929,6 +933,11 @@ function HomePageContent() {
           </div>
 
           {/* Paid Collabs Table */}
+          {loadingPaidCollabs && paidCollabs.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">Loading...</div>
+          ) : !loadingPaidCollabs && paidCollabs.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">No paid collaborations yet.</div>
+          ) : (
           <div className="bg-white rounded-lg border shadow-sm">
               <Table>
                 <TableHeader>
@@ -1050,11 +1059,12 @@ function HomePageContent() {
                 </TableBody>
               </Table>
           </div>
+          )}
 
           <div className="mt-4 text-sm text-gray-500">
             Showing {filteredPaidCollabs.length} of {paidCollabs.length} paid collaborations
           </div>
-          </div>
+          </div>}
         </div>
       </main>
 

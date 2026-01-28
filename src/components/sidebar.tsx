@@ -135,7 +135,6 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
     if (id === "campaigns") {
       setCampaignsExpanded(!campaignsExpanded);
     } else {
-      onTabChange(id);
       router.push(`/?tab=${id}`);
     }
   };
@@ -193,7 +192,6 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onTabChange("campaigns");
                           router.push("/?tab=campaigns");
                         }}
                         className="w-full text-left px-2 py-1.5 text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
