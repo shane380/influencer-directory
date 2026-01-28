@@ -929,16 +929,7 @@ function HomePageContent() {
           </div>
 
           {/* Paid Collabs Table */}
-          <div className="bg-white rounded-lg border shadow-sm min-h-[200px]">
-            <div className={!paidCollabsLoaded ? "" : "hidden"}>
-              <div className="p-8 text-center text-gray-500">Loading...</div>
-            </div>
-            <div className={paidCollabsLoaded && filteredPaidCollabs.length === 0 ? "" : "hidden"}>
-              <div className="p-8 text-center text-gray-500">
-                {search ? "No paid collabs match your search." : "No paid collaborations found."}
-              </div>
-            </div>
-            <div className={paidCollabsLoaded && filteredPaidCollabs.length > 0 ? "" : "hidden"}>
+          <div className="bg-white rounded-lg border shadow-sm">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1058,7 +1049,6 @@ function HomePageContent() {
                   ))}
                 </TableBody>
               </Table>
-            </div>
           </div>
 
           <div className="mt-4 text-sm text-gray-500">
