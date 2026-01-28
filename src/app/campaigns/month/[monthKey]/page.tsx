@@ -210,6 +210,8 @@ export default function MonthCampaignViewPage() {
   const router = useRouter();
   const monthKey = params.monthKey as string; // Format: "2026-01"
 
+  console.log('[MonthPage] Component mounted/rendered with params:', params, 'monthKey:', monthKey);
+
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [campaignInfluencers, setCampaignInfluencers] = useState<CampaignInfluencerWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
@@ -261,19 +263,25 @@ export default function MonthCampaignViewPage() {
     const startDate = `${year}-${month}-01`;
     const endDate = `${year}-${month}-31`;
 
+    console.log('[MonthPage] monthKey received:', monthKey);
+    console.log('[MonthPage] Querying date range:', startDate, 'to', endDate);
+
     const { data, error } = await supabase
       .from("campaigns")
       .select("*")
       .gte("start_date", startDate)
       .lte("start_date", endDate);
 
+    console.log('[MonthPage] Query result - error:', error, 'data count:', data?.length, 'data:', data);
+
     if (error) {
-      console.error("Error fetching campaigns:", error);
+      console.error("[MonthPage] Error fetching campaigns, redirecting:", error);
       router.push("/?tab=campaigns");
       return;
     }
 
     const campaigns = (data || []) as Campaign[];
+    console.log('[MonthPage] Setting campaigns:', campaigns.length, 'items');
     setCampaigns(campaigns);
     if (campaigns.length > 0 && !selectedCampaignIdForAdd) {
       setSelectedCampaignIdForAdd(campaigns[0].id);

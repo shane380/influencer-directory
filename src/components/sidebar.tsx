@@ -142,7 +142,9 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
 
   const handleMonthClick = (e: React.MouseEvent, monthKey: string) => {
     e.stopPropagation();
-    router.push(`/campaigns/month/${monthKey}`);
+    const url = `/campaigns/month/${monthKey}`;
+    console.log('[Sidebar] Navigating to:', url, 'monthKey:', monthKey);
+    router.push(url);
   };
 
   return (
