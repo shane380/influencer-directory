@@ -21,7 +21,7 @@ import { PaidCollabDialog } from "@/components/paid-collab-dialog";
 import { PaidCollabsBudgetBar } from "@/components/paid-collabs-budget-bar";
 import { OrderDialog } from "@/components/order-dialog";
 import { Sidebar } from "@/components/sidebar";
-import { Plus, Search, ArrowUpDown, ChevronDown, ChevronRight, Loader2, Users, ShoppingCart } from "lucide-react";
+import { Plus, Search, ArrowUpDown, ChevronDown, ChevronRight, Loader2, Users, ShoppingCart, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -469,6 +469,22 @@ function HomePageContent() {
 
   const handleOrderSave = () => {
     fetchPaidCollabs(true); // Force refresh after save
+  };
+
+  const handleDeletePaidCollab = async (dealId: string) => {
+    if (!confirm("Are you sure you want to delete this paid collab?")) return;
+
+    const { error } = await supabase
+      .from("campaign_deals")
+      .delete()
+      .eq("id", dealId);
+
+    if (error) {
+      console.error("Error deleting paid collab:", error);
+      alert("Failed to delete paid collab.");
+    } else {
+      setPaidCollabs((prev) => prev.filter((c) => c.id !== dealId));
+    }
   };
 
   const handleOwnerChange = async (influencerId: string, newOwnerId: string | null) => {
@@ -952,6 +968,7 @@ function HomePageContent() {
                     <TableHead>Order</TableHead>
                     <TableHead>Content</TableHead>
                     <TableHead>Payment</TableHead>
+                    <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1053,6 +1070,15 @@ function HomePageContent() {
                         <Badge className={paymentStatusColors[collab.payment_status]}>
                           {paymentStatusLabels[collab.payment_status]}
                         </Badge>
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <button
+                          className="text-gray-300 hover:text-red-500 transition-colors"
+                          onClick={() => handleDeletePaidCollab(collab.id)}
+                          title="Delete paid collab"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </TableCell>
                     </TableRow>
                   ))}
