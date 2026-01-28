@@ -937,9 +937,9 @@ function HomePageContent() {
 
           {/* Paid Collabs Table */}
           <div className="bg-white rounded-lg border shadow-sm min-h-[200px]">
-            {loadingPaidCollabs && paidCollabs.length === 0 ? (
+            {!paidCollabsLoaded || (loadingPaidCollabs && paidCollabs.length === 0) ? (
               <div className="p-8 text-center text-gray-500">Loading...</div>
-            ) : !loadingPaidCollabs && filteredPaidCollabs.length === 0 ? (
+            ) : filteredPaidCollabs.length === 0 ? (
               <div className="p-8 text-center text-gray-500">
                 {search ? "No paid collabs match your search." : "No paid collaborations found."}
               </div>
