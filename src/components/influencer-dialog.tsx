@@ -18,6 +18,7 @@ import { InfluencerOverviewTab } from "@/components/influencer-overview-tab";
 import { InfluencerOrdersTab } from "@/components/influencer-orders-tab";
 import { InfluencerCampaignsTab } from "@/components/influencer-campaigns-tab";
 import { InfluencerContentTab } from "@/components/influencer-content-tab";
+import { DealDialog } from "@/components/deal-dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,7 +28,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Pencil } from "lucide-react";
 
 interface InfluencerDialogProps {
   open: boolean;
@@ -122,6 +123,8 @@ export function InfluencerDialog({
   // Deals state
   const [deals, setDeals] = useState<(CampaignDeal & { campaign: Campaign })[]>([]);
   const [loadingDeals, setLoadingDeals] = useState(false);
+  const [dealDialogOpen, setDealDialogOpen] = useState(false);
+  const [selectedDeal, setSelectedDeal] = useState<(CampaignDeal & { campaign: Campaign }) | null>(null);
 
   const supabase = createClient();
 
@@ -503,6 +506,34 @@ export function InfluencerDialog({
     }
   };
 
+  const handleOpenDealDialog = (deal: CampaignDeal & { campaign: Campaign }) => {
+    setSelectedDeal(deal);
+    setDealDialogOpen(true);
+  };
+
+  const handleCloseDealDialog = () => {
+    setDealDialogOpen(false);
+    setSelectedDeal(null);
+  };
+
+  const handleDealSave = async () => {
+    // Refresh deals after save
+    if (!influencer) return;
+
+    const { data } = await supabase
+      .from("campaign_deals")
+      .select(`
+        *,
+        campaign:campaigns(*)
+      `)
+      .eq("influencer_id", influencer.id)
+      .order("created_at", { ascending: false });
+
+    if (data) {
+      setDeals(data);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -595,6 +626,7 @@ export function InfluencerDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl" style={{ width: "700px" }} onClose={onClose}>
         <DialogHeader>
@@ -728,21 +760,32 @@ export function InfluencerDialog({
                                 <h4 className="font-medium text-gray-900">{deal.campaign?.name || "Unknown Campaign"}</h4>
                                 <p className="text-sm text-gray-500">Created {new Date(deal.created_at).toLocaleDateString()}</p>
                               </div>
-                              <div className="text-right">
-                                <p className="text-lg font-semibold text-green-600">
-                                  {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(deal.total_deal_value)} USD
-                                </p>
-                                <span className={`inline-block px-2 py-1 text-xs rounded-full ${
-                                  deal.payment_status === 'paid_in_full' ? 'bg-green-100 text-green-800' :
-                                  deal.payment_status === 'deposit_paid' ? 'bg-yellow-100 text-yellow-800' :
-                                  deal.payment_status === 'paid_on_post' ? 'bg-blue-100 text-blue-800' :
-                                  'bg-red-100 text-red-800'
-                                }`}>
+                              <div className="flex items-center gap-3">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleOpenDealDialog(deal)}
+                                >
+                                  <Pencil className="h-3 w-3 mr-1" />
+                                  Edit
+                                </Button>
+                                <div className="text-right">
+                                  <p className="text-lg font-semibold text-green-600">
+                                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(deal.total_deal_value)} USD
+                                  </p>
+                                  <span className={`inline-block px-2 py-1 text-xs rounded-full ${
+                                    deal.payment_status === 'paid_in_full' ? 'bg-green-100 text-green-800' :
+                                    deal.payment_status === 'deposit_paid' ? 'bg-yellow-100 text-yellow-800' :
+                                    deal.payment_status === 'paid_on_post' ? 'bg-blue-100 text-blue-800' :
+                                    'bg-red-100 text-red-800'
+                                  }`}>
                                   {deal.payment_status === 'paid_in_full' ? 'Paid in Full' :
                                    deal.payment_status === 'deposit_paid' ? 'Deposit Paid' :
                                    deal.payment_status === 'paid_on_post' ? 'Paid on Post' :
                                    'Not Paid'}
                                 </span>
+                                </div>
                               </div>
                             </div>
 
@@ -919,5 +962,18 @@ export function InfluencerDialog({
         </form>
       </DialogContent>
     </Dialog>
+
+    {/* Deal Edit Dialog */}
+    {selectedDeal && influencer && (
+      <DealDialog
+        open={dealDialogOpen}
+        onClose={handleCloseDealDialog}
+        onSave={handleDealSave}
+        influencer={influencer}
+        campaign={selectedDeal.campaign}
+        deal={selectedDeal}
+      />
+    )}
+    </>
   );
 }
