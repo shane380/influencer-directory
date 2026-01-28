@@ -146,8 +146,16 @@ export function DealDialog({
           setPaymentTermsType("custom");
         }
       } else {
+        // No existing payment terms - generate default 50/50 milestones
         setPaymentTermsType("50_50");
-        setPaymentMilestones([]);
+        const total = (deal.deliverables || []).reduce(
+          (sum: number, d: Deliverable) => sum + (d.rate || 0) * (d.quantity || 1),
+          0
+        );
+        setPaymentMilestones([
+          { id: "m1", description: "Upon execution", percentage: 50, amount: total * 0.5, is_paid: false, paid_date: null, paid_by: null },
+          { id: "m2", description: "Content is live", percentage: 50, amount: total * 0.5, is_paid: false, paid_date: null, paid_by: null },
+        ]);
       }
       setNotes(deal.notes || "");
       // Load status tracking fields
