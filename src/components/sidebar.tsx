@@ -154,7 +154,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
 
       {/* Navigation */}
       <nav className="flex-1 px-2 py-3 overflow-y-auto">
-        <ul className="space-y-0.5">
+        <ul className="space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id ||
@@ -164,7 +164,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
               <li key={item.id}>
                 <button
                   onClick={() => handleNavClick(item.id)}
-                  className={`w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm transition-colors ${
+                  className={`w-full flex items-center justify-between px-2 py-2 rounded-md text-sm transition-colors ${
                     isActive
                       ? "bg-gray-100 text-gray-900 font-medium"
                       : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
@@ -185,26 +185,26 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
 
                 {/* Campaigns submenu */}
                 {item.id === "campaigns" && campaignsExpanded && (
-                  <ul className="mt-0.5 ml-3 pl-3 border-l border-gray-200 space-y-0.5">
+                  <ul className="mt-1 ml-3 pl-3 border-l border-gray-200 space-y-1">
                     <li>
                       <button
                         onClick={() => {
                           onTabChange("campaigns");
                           router.push("/?tab=campaigns");
                         }}
-                        className="w-full text-left px-2 py-1 text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
+                        className="w-full text-left px-2 py-1.5 text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
                       >
                         View All
                       </button>
                     </li>
                     {loadingCampaigns ? (
-                      <li className="px-2 py-1 text-sm text-gray-400">Loading...</li>
+                      <li className="px-2 py-1.5 text-sm text-gray-400">Loading...</li>
                     ) : (
                       groupedCampaigns.slice(0, 6).map((group) => (
                         <li key={group.monthKey}>
                           <button
                             onClick={(e) => handleMonthClick(e, group.monthKey)}
-                            className={`w-full text-left px-2 py-1 text-sm rounded-md transition-colors truncate ${
+                            className={`w-full text-left px-2 py-1.5 text-sm rounded-md transition-colors truncate ${
                               pathname === `/campaigns/month/${group.monthKey}`
                                 ? "text-gray-900 bg-gray-100 font-medium"
                                 : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
