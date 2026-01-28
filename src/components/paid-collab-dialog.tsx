@@ -508,6 +508,7 @@ export function PaidCollabDialog({
           quantity,
         })),
         total_deal_value: totalDealValue,
+        deal_status: "negotiating",
         payment_status: calculatePaymentStatus(),
         payment_terms: paymentMilestones,
         notes: notes || null,

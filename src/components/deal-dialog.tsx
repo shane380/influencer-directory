@@ -12,6 +12,7 @@ import {
   InfluencerRates,
   ContentStatus,
   WhitelistingStatus,
+  DealStatus,
 } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +58,7 @@ export function DealDialog({
   const [rates, setRates] = useState<InfluencerRates | null>(null);
 
   // Status tracking state
+  const [dealStatus, setDealStatus] = useState<DealStatus>("negotiating");
   const [contentStatus, setContentStatus] = useState<ContentStatus>("not_started");
   const [contentLiveDate, setContentLiveDate] = useState<string | null>(null);
   const [whitelistingStatus, setWhitelistingStatus] = useState<WhitelistingStatus>("not_applicable");
@@ -159,6 +161,7 @@ export function DealDialog({
       }
       setNotes(deal.notes || "");
       // Load status tracking fields
+      setDealStatus(deal.deal_status || "negotiating");
       setContentStatus(deal.content_status || "not_started");
       setContentLiveDate(deal.content_live_date || null);
       setWhitelistingStatus(deal.whitelisting_status || "not_applicable");
@@ -168,6 +171,7 @@ export function DealDialog({
       setPaymentTermsType("50_50");
       setPaymentMilestones([]);
       setNotes("");
+      setDealStatus("negotiating");
       setContentStatus("not_started");
       setContentLiveDate(null);
       setWhitelistingStatus("not_applicable");
@@ -328,6 +332,7 @@ export function DealDialog({
           quantity,
         })),
         total_deal_value: totalDealValue,
+        deal_status: dealStatus,
         payment_status: calculatePaymentStatus(),
         payment_terms: paymentMilestones,
         notes: notes || null,
@@ -683,6 +688,22 @@ export function DealDialog({
           <div className="border-t pt-4">
             <Label className="text-sm font-medium mb-3 block">Status Tracking</Label>
             <div className="space-y-4">
+              {/* Deal Status */}
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <Label className="text-xs text-gray-500 mb-1 block">Deal Status</Label>
+                  <select
+                    value={dealStatus}
+                    onChange={(e) => setDealStatus(e.target.value as DealStatus)}
+                    className="w-full h-9 px-3 border rounded-md text-sm bg-white"
+                  >
+                    <option value="negotiating">Negotiating</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+              </div>
+
               {/* Content Status */}
               <div className="flex items-center gap-4">
                 <div className="flex-1">

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Influencer, PartnershipType, Campaign, CampaignStatus, Profile, CampaignDeal, PaymentStatus } from "@/types/database";
+import { Influencer, PartnershipType, Campaign, CampaignStatus, Profile, CampaignDeal, PaymentStatus, DealStatus } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -18,7 +18,7 @@ import {
 import { InfluencerDialog } from "@/components/influencer-dialog";
 import { CampaignDialog } from "@/components/campaign-dialog";
 import { PaidCollabDialog } from "@/components/paid-collab-dialog";
-import { BudgetDashboard } from "@/components/budget-dashboard";
+import { PaidCollabsBudgetBar } from "@/components/paid-collabs-budget-bar";
 import { Plus, Search, ArrowUpDown, Users, Megaphone, ChevronDown, ChevronRight, Loader2, DollarSign } from "lucide-react";
 import { AccountDropdown } from "@/components/account-dropdown";
 import Image from "next/image";
@@ -67,6 +67,18 @@ const paymentStatusLabels: Record<PaymentStatus, string> = {
   paid_in_full: "Paid in Full",
 };
 
+const dealStatusColors: Record<DealStatus, string> = {
+  negotiating: "bg-yellow-100 text-yellow-800",
+  confirmed: "bg-green-100 text-green-800",
+  cancelled: "bg-gray-100 text-gray-800",
+};
+
+const dealStatusLabels: Record<DealStatus, string> = {
+  negotiating: "Negotiating",
+  confirmed: "Confirmed",
+  cancelled: "Cancelled",
+};
+
 interface CampaignWithCount extends Campaign {
   influencer_count: number;
 }
@@ -92,6 +104,7 @@ function HomePageContent() {
   const [campaignsLoaded, setCampaignsLoaded] = useState(false);
   const [paidCollabsLoaded, setPaidCollabsLoaded] = useState(false);
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>("all");
+  const [dealStatusFilter, setDealStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [partnershipTypeFilter, setPartnershipTypeFilter] = useState<string>("all");
@@ -246,6 +259,10 @@ function HomePageContent() {
       query = query.eq("payment_status", paymentStatusFilter);
     }
 
+    if (dealStatusFilter !== "all") {
+      query = query.eq("deal_status", dealStatusFilter);
+    }
+
     const { data, error } = await query;
 
     if (error) {
@@ -255,7 +272,7 @@ function HomePageContent() {
       setPaidCollabsLoaded(true);
     }
     setLoadingPaidCollabs(false);
-  }, [supabase, paymentStatusFilter, paidCollabsLoaded]);
+  }, [supabase, paymentStatusFilter, dealStatusFilter, paidCollabsLoaded]);
 
   // Fetch profiles and current user on mount
   useEffect(() => {
@@ -295,7 +312,7 @@ function HomePageContent() {
   // Reset paidCollabsLoaded when filter changes to force refetch
   useEffect(() => {
     setPaidCollabsLoaded(false);
-  }, [paymentStatusFilter]);
+  }, [paymentStatusFilter, dealStatusFilter]);
 
   // Fetch influencers when filters/search/sort change (not on tab switch if data exists)
   useEffect(() => {
@@ -330,7 +347,7 @@ function HomePageContent() {
     if (activeTab === "paid_collabs") {
       fetchPaidCollabs();
     }
-  }, [paymentStatusFilter]);
+  }, [paymentStatusFilter, dealStatusFilter]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -732,9 +749,6 @@ function HomePageContent() {
 
           {/* Campaigns Tab - always mounted */}
           <div className={activeTab === "campaigns" ? "" : "hidden"}>
-          {/* Budget Dashboard */}
-          <BudgetDashboard onRefresh={fetchCampaigns} />
-
           {/* Campaign Filters */}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="relative flex-1 min-w-[200px]">
@@ -852,6 +866,12 @@ function HomePageContent() {
 
           {/* Paid Collabs Tab - always mounted */}
           <div className={activeTab === "paid_collabs" ? "" : "hidden"}>
+          {/* Budget Bar */}
+          <PaidCollabsBudgetBar
+            deals={paidCollabs}
+            onBudgetChange={() => fetchPaidCollabs(true)}
+          />
+
           {/* Paid Collabs Filters */}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="relative flex-1 min-w-[200px]">
@@ -863,8 +883,14 @@ function HomePageContent() {
                 className="pl-10 w-full"
               />
             </div>
-            <Select value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value)} className="w-auto sm:w-[180px] flex-shrink-0">
-              <option value="all">All Payment Statuses</option>
+            <Select value={dealStatusFilter} onChange={(e) => setDealStatusFilter(e.target.value)} className="w-auto sm:w-[140px] flex-shrink-0">
+              <option value="all">All Deal Statuses</option>
+              <option value="negotiating">Negotiating</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="cancelled">Cancelled</option>
+            </Select>
+            <Select value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value)} className="w-auto sm:w-[160px] flex-shrink-0">
+              <option value="all">All Payments</option>
               <option value="not_paid">Not Paid</option>
               <option value="deposit_paid">Deposit Paid</option>
               <option value="paid_on_post">Paid on Post</option>
@@ -894,7 +920,8 @@ function HomePageContent() {
                     <TableHead>Campaign</TableHead>
                     <TableHead>Deliverables</TableHead>
                     <TableHead>Deal Value</TableHead>
-                    <TableHead>Payment Status</TableHead>
+                    <TableHead>Deal Status</TableHead>
+                    <TableHead>Payment</TableHead>
                     <TableHead>Created</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -950,6 +977,11 @@ function HomePageContent() {
                       </TableCell>
                       <TableCell className="font-medium text-green-600">
                         {formatCurrency(collab.total_deal_value)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={dealStatusColors[(collab.deal_status || "negotiating") as DealStatus]}>
+                          {dealStatusLabels[(collab.deal_status || "negotiating") as DealStatus]}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <Badge className={paymentStatusColors[collab.payment_status]}>

@@ -9,6 +9,7 @@ export type ContentPostedType = 'none' | 'stories' | 'in_feed_post' | 'reel' | '
 export type ApprovalStatus = 'pending' | 'approved' | 'declined';
 export type ContentStatus = 'not_started' | 'content_approved' | 'content_live';
 export type WhitelistingStatus = 'not_applicable' | 'pending' | 'live' | 'ended';
+export type DealStatus = 'negotiating' | 'confirmed' | 'cancelled';
 
 export interface Profile {
   id: string;
@@ -221,6 +222,7 @@ export interface CampaignDeal {
   influencer_id: string;
   deliverables: Deliverable[];
   total_deal_value: number;
+  deal_status: DealStatus;
   payment_status: PaymentStatus;
   payment_terms: PaymentMilestone[] | null;
   deposit_amount: number | null;
@@ -246,6 +248,7 @@ export interface CampaignDealInsert {
   influencer_id: string;
   deliverables?: Deliverable[];
   total_deal_value?: number;
+  deal_status?: DealStatus;
   payment_status?: PaymentStatus;
   payment_terms?: PaymentMilestone[] | null;
   deposit_amount?: number | null;

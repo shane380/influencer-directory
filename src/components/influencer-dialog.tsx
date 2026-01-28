@@ -715,6 +715,24 @@ export function InfluencerDialog({
                           (d: { description: string }) => d.description?.toLowerCase().includes("whitelist")
                         );
 
+                        const getDealStatusLabel = (status: string) => {
+                          switch (status) {
+                            case "negotiating": return "Negotiating";
+                            case "confirmed": return "Confirmed";
+                            case "cancelled": return "Cancelled";
+                            default: return status;
+                          }
+                        };
+
+                        const getDealStatusColor = (status: string) => {
+                          switch (status) {
+                            case "negotiating": return "bg-yellow-100 text-yellow-800";
+                            case "confirmed": return "bg-green-100 text-green-800";
+                            case "cancelled": return "bg-gray-100 text-gray-800";
+                            default: return "bg-gray-100 text-gray-800";
+                          }
+                        };
+
                         const getContentStatusLabel = (status: string) => {
                           switch (status) {
                             case "not_started": return "Not Started";
@@ -791,6 +809,12 @@ export function InfluencerDialog({
 
                             {/* Status Tracking */}
                             <div className="flex flex-wrap gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-500">Deal:</span>
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full ${getDealStatusColor(deal.deal_status || "negotiating")}`}>
+                                  {getDealStatusLabel(deal.deal_status || "negotiating")}
+                                </span>
+                              </div>
                               <div className="flex items-center gap-2">
                                 <span className="text-xs text-gray-500">Content:</span>
                                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full ${getContentStatusColor(deal.content_status || "not_started")}`}>
