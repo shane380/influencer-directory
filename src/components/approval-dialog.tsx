@@ -138,7 +138,7 @@ export function ApprovalDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md" onClose={onClose}>
+      <DialogContent className="max-w-3xl" style={{ width: "700px" }} onClose={onClose}>
         <DialogHeader>
           <DialogTitle>Approval Review</DialogTitle>
         </DialogHeader>

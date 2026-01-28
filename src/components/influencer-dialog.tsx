@@ -558,7 +558,7 @@ export function InfluencerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="w-[672px] max-h-[90vh] overflow-y-auto" onClose={onClose}>
+      <DialogContent className="max-w-3xl" style={{ width: "700px" }} onClose={onClose}>
         <DialogHeader>
           <DialogTitle>
             {influencer ? "Influencer Profile" : "Add New Influencer"}

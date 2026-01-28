@@ -79,7 +79,7 @@ export function BudgetEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="sm:max-w-md" onClose={onClose}>
+      <DialogContent className="max-w-3xl" style={{ width: "700px" }} onClose={onClose}>
         <DialogHeader>
           <DialogTitle>Set Budget for {monthLabel}</DialogTitle>
         </DialogHeader>

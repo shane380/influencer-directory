@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Influencer, PartnershipType, Campaign, CampaignStatus, Profile } from "@/types/database";
+import { Influencer, PartnershipType, Campaign, CampaignStatus, Profile, CampaignDeal, PaymentStatus, DeliverableType } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -17,8 +17,9 @@ import {
 } from "@/components/ui/table";
 import { InfluencerDialog } from "@/components/influencer-dialog";
 import { CampaignDialog } from "@/components/campaign-dialog";
+import { PaidCollabDialog } from "@/components/paid-collab-dialog";
 import { BudgetDashboard } from "@/components/budget-dashboard";
-import { Plus, Search, ArrowUpDown, Users, Megaphone, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { Plus, Search, ArrowUpDown, Users, Megaphone, ChevronDown, ChevronRight, Loader2, DollarSign } from "lucide-react";
 import { AccountDropdown } from "@/components/account-dropdown";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -27,7 +28,7 @@ const PAGE_SIZE = 50;
 
 type SortField = "name" | "follower_count" | "last_contacted_at";
 type SortDirection = "asc" | "desc";
-type Tab = "influencers" | "campaigns";
+type Tab = "influencers" | "campaigns" | "paid_collabs";
 
 const partnershipTypeLabels: Record<PartnershipType, string> = {
   unassigned: "Unassigned",
@@ -52,8 +53,35 @@ const campaignStatusLabels: Record<CampaignStatus, string> = {
   cancelled: "Cancelled",
 };
 
+const paymentStatusColors: Record<PaymentStatus, string> = {
+  not_paid: "bg-red-100 text-red-800",
+  deposit_paid: "bg-yellow-100 text-yellow-800",
+  paid_on_post: "bg-blue-100 text-blue-800",
+  paid_in_full: "bg-green-100 text-green-800",
+};
+
+const paymentStatusLabels: Record<PaymentStatus, string> = {
+  not_paid: "Not Paid",
+  deposit_paid: "Deposit Paid",
+  paid_on_post: "Paid on Post",
+  paid_in_full: "Paid in Full",
+};
+
+const deliverableTypeLabels: Record<DeliverableType, string> = {
+  ugc: "UGC",
+  collab_post: "Collab Post",
+  organic_post: "Organic Post",
+  whitelisting: "Whitelisting",
+  other: "Other",
+};
+
 interface CampaignWithCount extends Campaign {
   influencer_count: number;
+}
+
+interface PaidCollabWithDetails extends CampaignDeal {
+  influencer: Influencer;
+  campaign: Campaign;
 }
 
 function HomePageContent() {
@@ -64,10 +92,14 @@ function HomePageContent() {
   const [influencers, setInfluencers] = useState<Influencer[]>([]);
   const [influencersTotalCount, setInfluencersTotalCount] = useState(0);
   const [campaigns, setCampaigns] = useState<CampaignWithCount[]>([]);
+  const [paidCollabs, setPaidCollabs] = useState<PaidCollabWithDetails[]>([]);
   const [loadingInfluencers, setLoadingInfluencers] = useState(true);
   const [loadingCampaigns, setLoadingCampaigns] = useState(false);
+  const [loadingPaidCollabs, setLoadingPaidCollabs] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [campaignsLoaded, setCampaignsLoaded] = useState(false);
+  const [paidCollabsLoaded, setPaidCollabsLoaded] = useState(false);
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [partnershipTypeFilter, setPartnershipTypeFilter] = useState<string>("all");
@@ -76,6 +108,7 @@ function HomePageContent() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [influencerDialogOpen, setInfluencerDialogOpen] = useState(false);
   const [campaignDialogOpen, setCampaignDialogOpen] = useState(false);
+  const [paidCollabDialogOpen, setPaidCollabDialogOpen] = useState(false);
   const [selectedInfluencer, setSelectedInfluencer] = useState<Influencer | null>(null);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
@@ -203,6 +236,34 @@ function HomePageContent() {
     setLoadingCampaigns(false);
   }, [supabase, campaignStatusFilter, campaignsLoaded]);
 
+  const fetchPaidCollabs = useCallback(async (forceRefresh = false) => {
+    // Skip if already loaded and not forcing refresh
+    if (paidCollabsLoaded && !forceRefresh) {
+      return;
+    }
+
+    setLoadingPaidCollabs(true);
+
+    let query = supabase
+      .from("campaign_deals")
+      .select("*, influencer:influencers(*), campaign:campaigns(*)")
+      .order("created_at", { ascending: false });
+
+    if (paymentStatusFilter !== "all") {
+      query = query.eq("payment_status", paymentStatusFilter);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("Error fetching paid collabs:", error);
+    } else {
+      setPaidCollabs((data || []) as PaidCollabWithDetails[]);
+      setPaidCollabsLoaded(true);
+    }
+    setLoadingPaidCollabs(false);
+  }, [supabase, paymentStatusFilter, paidCollabsLoaded]);
+
   // Fetch profiles and current user on mount
   useEffect(() => {
     fetchProfiles();
@@ -238,6 +299,11 @@ function HomePageContent() {
     setCampaignsLoaded(false);
   }, [campaignStatusFilter]);
 
+  // Reset paidCollabsLoaded when filter changes to force refetch
+  useEffect(() => {
+    setPaidCollabsLoaded(false);
+  }, [paymentStatusFilter]);
+
   // Fetch influencers when filters/search/sort change (not on tab switch if data exists)
   useEffect(() => {
     if (activeTab === "influencers" && influencers.length === 0) {
@@ -258,6 +324,20 @@ function HomePageContent() {
       fetchCampaigns();
     }
   }, [activeTab]);
+
+  // Fetch paid collabs only on first visit (not on tab switch if data exists)
+  useEffect(() => {
+    if (activeTab === "paid_collabs" && paidCollabs.length === 0 && !paidCollabsLoaded) {
+      fetchPaidCollabs();
+    }
+  }, [activeTab]);
+
+  // Refetch paid collabs when filters change
+  useEffect(() => {
+    if (activeTab === "paid_collabs") {
+      fetchPaidCollabs();
+    }
+  }, [paymentStatusFilter]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -308,6 +388,11 @@ function HomePageContent() {
     fetchCampaigns(true); // Force refresh after save
   };
 
+  const handlePaidCollabSave = () => {
+    setPaidCollabDialogOpen(false);
+    fetchPaidCollabs(true); // Force refresh after save
+  };
+
   const handleOwnerChange = async (influencerId: string, newOwnerId: string | null) => {
     // Optimistically update the local state
     setInfluencers((prev) =>
@@ -333,6 +418,17 @@ function HomePageContent() {
     return campaign.name.toLowerCase().includes(search.toLowerCase());
   });
 
+  // Client-side filter for paid collabs
+  const filteredPaidCollabs = paidCollabs.filter((collab) => {
+    if (!search) return true;
+    const searchLower = search.toLowerCase();
+    return (
+      collab.influencer?.name?.toLowerCase().includes(searchLower) ||
+      collab.influencer?.instagram_handle?.toLowerCase().includes(searchLower) ||
+      collab.campaign?.name?.toLowerCase().includes(searchLower)
+    );
+  });
+
   const hasMoreInfluencers = influencers.length < influencersTotalCount;
 
   const formatNumber = (num: number) => {
@@ -344,6 +440,22 @@ function HomePageContent() {
   const formatDate = (date: string | null) => {
     if (!date) return "-";
     return new Date(date).toLocaleDateString();
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  const formatDeliverables = (deliverables: { type: DeliverableType; quantity: number }[]) => {
+    if (!deliverables || deliverables.length === 0) return "-";
+    return deliverables
+      .map((d) => `${d.quantity}x ${deliverableTypeLabels[d.type]}`)
+      .join(", ");
   };
 
   // Group campaigns by month based on start_date
@@ -445,6 +557,16 @@ function HomePageContent() {
           >
             <Megaphone className="h-4 w-4 mr-2" />
             Campaigns
+          </Button>
+          <Button
+            variant={activeTab === "paid_collabs" ? "default" : "outline"}
+            onClick={() => {
+              setActiveTab("paid_collabs");
+              window.history.replaceState(null, "", "/?tab=paid_collabs");
+            }}
+          >
+            <DollarSign className="h-4 w-4 mr-2" />
+            Paid Collabs
           </Button>
         </div>
 
@@ -733,6 +855,112 @@ function HomePageContent() {
             Showing {filteredCampaigns.length} of {campaigns.length} campaigns
           </div>
           </div>
+
+          {/* Paid Collabs Tab - always mounted */}
+          <div className={activeTab === "paid_collabs" ? "" : "hidden"}>
+          {/* Paid Collabs Filters */}
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
+              <Input
+                placeholder="Search by influencer or campaign..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10 w-full"
+              />
+            </div>
+            <Select value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value)} className="w-auto sm:w-[180px] flex-shrink-0">
+              <option value="all">All Payment Statuses</option>
+              <option value="not_paid">Not Paid</option>
+              <option value="deposit_paid">Deposit Paid</option>
+              <option value="paid_on_post">Paid on Post</option>
+              <option value="paid_in_full">Paid in Full</option>
+            </Select>
+            <Button onClick={() => setPaidCollabDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Paid Collab
+            </Button>
+          </div>
+
+          {/* Paid Collabs Table */}
+          <div className="bg-white rounded-lg border shadow-sm min-h-[200px]">
+            {loadingPaidCollabs && paidCollabs.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">Loading...</div>
+            ) : !loadingPaidCollabs && filteredPaidCollabs.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                {search ? "No paid collabs match your search." : "No paid collaborations found."}
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12"></TableHead>
+                    <TableHead>Influencer</TableHead>
+                    <TableHead>Handle</TableHead>
+                    <TableHead>Campaign</TableHead>
+                    <TableHead>Deliverables</TableHead>
+                    <TableHead>Deal Value</TableHead>
+                    <TableHead>Payment Status</TableHead>
+                    <TableHead>Created</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredPaidCollabs.map((collab) => (
+                    <TableRow
+                      key={collab.id}
+                      className="cursor-pointer hover:bg-gray-50 transition-colors"
+                      onClick={() => router.push(`/campaigns/${collab.campaign_id}`)}
+                    >
+                      <TableCell>
+                        <div className="w-14 h-14 flex-shrink-0">
+                          {collab.influencer?.profile_photo_url ? (
+                            <Image
+                              src={collab.influencer.profile_photo_url}
+                              alt={collab.influencer.name}
+                              width={56}
+                              height={56}
+                              className="rounded-full object-cover w-full h-full"
+                              unoptimized
+                            />
+                          ) : (
+                            <div className="w-full h-full rounded-full bg-gray-200 flex items-center justify-center">
+                              <span className="text-gray-500 text-lg font-medium">
+                                {collab.influencer?.name?.charAt(0).toUpperCase() || "?"}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium">{collab.influencer?.name || "-"}</TableCell>
+                      <TableCell className="text-gray-600">
+                        {collab.influencer?.instagram_handle ? `@${collab.influencer.instagram_handle}` : "-"}
+                      </TableCell>
+                      <TableCell className="text-gray-600">{collab.campaign?.name || "-"}</TableCell>
+                      <TableCell className="text-gray-600 text-sm max-w-[200px] truncate">
+                        {formatDeliverables(collab.deliverables)}
+                      </TableCell>
+                      <TableCell className="font-medium text-green-600">
+                        {formatCurrency(collab.total_deal_value)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={paymentStatusColors[collab.payment_status]}>
+                          {paymentStatusLabels[collab.payment_status]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-gray-600">
+                        {formatDate(collab.created_at)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+
+          <div className="mt-4 text-sm text-gray-500">
+            Showing {filteredPaidCollabs.length} of {paidCollabs.length} paid collaborations
+          </div>
+          </div>
         </div>
       </main>
 
@@ -748,6 +976,12 @@ function HomePageContent() {
         onClose={handleCloseCampaignDialog}
         onSave={handleCampaignSave}
         campaign={selectedCampaign}
+      />
+
+      <PaidCollabDialog
+        open={paidCollabDialogOpen}
+        onClose={() => setPaidCollabDialogOpen(false)}
+        onSave={handlePaidCollabSave}
       />
     </div>
   );

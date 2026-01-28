@@ -234,7 +234,7 @@ export function DealDialog({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="max-w-xl" onClose={onClose}>
+      <DialogContent className="max-w-3xl" style={{ width: "700px" }} onClose={onClose}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <DollarSign className="h-5 w-5 text-purple-600" />
