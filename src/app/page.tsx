@@ -624,7 +624,7 @@ function HomePageContent() {
       />
 
       {/* Main content */}
-      <main className="flex-1 ml-48 px-8 pt-12 pb-8">
+      <main className="flex-1 ml-48 px-8 pt-12 pb-8 min-w-0">
         {/* Tab content wrapper */}
         <div className="relative max-w-6xl">
           {/* Influencers Tab */}
@@ -954,7 +954,7 @@ function HomePageContent() {
           ) : !loadingPaidCollabs && paidCollabs.length === 0 ? (
             <div className="p-8 text-center text-gray-500">No paid collaborations yet.</div>
           ) : (
-          <div className="bg-white rounded-lg border shadow-sm">
+          <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
