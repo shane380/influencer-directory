@@ -367,11 +367,6 @@ function HomePageContent() {
     setCampaignsLoaded(false);
   }, [campaignStatusFilter]);
 
-  // Reset paidCollabsLoaded when filter changes to force refetch
-  useEffect(() => {
-    setPaidCollabsLoaded(false);
-  }, [paymentStatusFilter, dealStatusFilter]);
-
   // Fetch influencers when filters/search/sort change (not on tab switch if data exists)
   useEffect(() => {
     if (activeTab === "influencers" && influencers.length === 0) {
@@ -393,24 +388,17 @@ function HomePageContent() {
     }
   }, [activeTab]);
 
-  // Fetch paid collabs when tab is active and filters change
-  // Using a ref to track if this is the initial load vs filter change
-  const paidCollabsInitialLoadRef = useRef(false);
-
+  // Pre-fetch paid collabs on mount so data is ready before tab switch
   useEffect(() => {
-    if (activeTab === "paid_collabs") {
-      if (!paidCollabsInitialLoadRef.current) {
-        // Initial load - fetch if not already loaded
-        paidCollabsInitialLoadRef.current = true;
-        if (!paidCollabsLoaded) {
-          fetchPaidCollabs();
-        }
-      } else {
-        // Filter changed - always refetch
-        fetchPaidCollabs(true);
-      }
+    fetchPaidCollabs();
+  }, []);
+
+  // Refetch paid collabs when filters change
+  useEffect(() => {
+    if (paidCollabsLoaded) {
+      fetchPaidCollabs(true);
     }
-  }, [activeTab, paymentStatusFilter, dealStatusFilter]);
+  }, [paymentStatusFilter, dealStatusFilter]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -941,8 +929,8 @@ function HomePageContent() {
           </div>
 
           {/* Paid Collabs Table */}
-          <div className="bg-white rounded-lg border shadow-sm min-h-[200px]">
-            {!paidCollabsLoaded || (loadingPaidCollabs && paidCollabs.length === 0) ? (
+          <div className={`bg-white rounded-lg border shadow-sm min-h-[200px] transition-opacity duration-150 ${loadingPaidCollabs && paidCollabs.length === 0 ? "opacity-50" : ""}`}>
+            {!paidCollabsLoaded ? (
               <div className="p-8 text-center text-gray-500">Loading...</div>
             ) : filteredPaidCollabs.length === 0 ? (
               <div className="p-8 text-center text-gray-500">
