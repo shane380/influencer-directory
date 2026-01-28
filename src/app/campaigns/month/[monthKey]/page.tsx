@@ -37,8 +37,6 @@ import {
   Plus,
   Search,
   ArrowUpDown,
-  ChevronRight,
-  Home,
   Trash2,
   ShoppingCart,
   Clock,
@@ -48,6 +46,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { Sidebar } from "@/components/sidebar";
 
 type SortField = "name" | "follower_count" | "added_at" | "collection";
 type SortDirection = "asc" | "desc";
@@ -233,6 +232,7 @@ export default function MonthCampaignViewPage() {
   const [selectedApprovalInfluencer, setSelectedApprovalInfluencer] = useState<CampaignInfluencerWithDetails | null>(null);
   const [addInfluencerDialogOpen, setAddInfluencerDialogOpen] = useState(false);
   const [selectedCampaignIdForAdd, setSelectedCampaignIdForAdd] = useState<string>("");
+  const [currentUser, setCurrentUser] = useState<{ displayName: string; email: string; profilePhotoUrl: string | null; isAdmin: boolean } | null>(null);
 
   const supabase = createClient();
 
@@ -256,6 +256,27 @@ export default function MonthCampaignViewPage() {
       setProfiles(data);
     }
   }, [supabase]);
+
+  const fetchCurrentUser = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await (supabase.from("profiles") as any)
+        .select("display_name, profile_photo_url, is_admin")
+        .eq("id", user.id)
+        .single();
+      setCurrentUser({
+        displayName: profile?.display_name || user.email?.split("@")[0] || "User",
+        email: user.email || "",
+        profilePhotoUrl: profile?.profile_photo_url || null,
+        isAdmin: profile?.is_admin || false,
+      });
+    }
+  }, [supabase]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
 
   const fetchCampaigns = useCallback(async () => {
     // Fetch campaigns that start in the given month
@@ -353,6 +374,7 @@ export default function MonthCampaignViewPage() {
           fetchCampaignInfluencers(campaignList),
           fetchDeals(campaignList),
           fetchProfiles(),
+          fetchCurrentUser(),
         ]);
       }
     };
@@ -580,52 +602,50 @@ export default function MonthCampaignViewPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-500">Loading campaigns...</div>
+      <div className="min-h-screen bg-gray-50 flex">
+        <Sidebar
+          activeTab="campaigns"
+          onTabChange={(tab) => router.push(`/?tab=${tab}`)}
+          currentUser={currentUser}
+          onLogout={handleLogout}
+        />
+        <div className="flex-1 ml-48 flex items-center justify-center">
+          <div className="text-gray-500">Loading campaigns...</div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          {/* Breadcrumbs */}
-          <nav className="flex items-center gap-2 text-sm text-gray-500 mb-4">
-            <Link href="/" className="hover:text-gray-900 flex items-center gap-1">
-              <Home className="h-4 w-4" />
-              Dashboard
-            </Link>
-            <ChevronRight className="h-4 w-4" />
-            <Link href="/?tab=campaigns" className="hover:text-gray-900">
-              Campaigns
-            </Link>
-            <ChevronRight className="h-4 w-4" />
-            <span className="text-gray-900 font-medium">{monthLabel} (All)</span>
-          </nav>
-
-          {/* Header */}
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-3">
-                <Calendar className="h-6 w-6 text-gray-400" />
-                <h1 className="text-2xl font-bold text-gray-900">{monthLabel} - All Campaigns</h1>
-              </div>
-              <p className="text-gray-600 mt-1">
-                Combined view of {campaigns.length} campaign{campaigns.length !== 1 ? "s" : ""}
-              </p>
-              {/* Campaign list */}
-              <div className="flex flex-wrap gap-2 mt-3">
-                {campaigns.map((c) => (
-                  <Link
-                    key={c.id}
-                    href={`/campaigns/${c.id}`}
-                    className="text-sm px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
-                  >
-                    {extractCollection(c.name)}
-                  </Link>
-                ))}
-              </div>
+    <div className="min-h-screen bg-gray-50 flex">
+      <Sidebar
+        activeTab="campaigns"
+        onTabChange={(tab) => router.push(`/?tab=${tab}`)}
+        currentUser={currentUser}
+        onLogout={handleLogout}
+      />
+      <main className="flex-1 ml-48 px-8 pt-12 pb-8">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3">
+            <Calendar className="h-6 w-6 text-gray-400" />
+            <h1 className="text-2xl font-bold text-gray-900">{monthLabel} - All Campaigns</h1>
+          </div>
+          <p className="text-gray-600 mt-1">
+            Combined view of {campaigns.length} campaign{campaigns.length !== 1 ? "s" : ""}
+          </p>
+          {/* Campaign list */}
+          <div className="flex flex-wrap gap-2 mt-3">
+            {campaigns.map((c) => (
+              <Link
+                key={c.id}
+                href={`/campaigns/${c.id}`}
+                className="text-sm px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+              >
+                {extractCollection(c.name)}
+              </Link>
+            ))}
+          </div>
 
               {/* Stats Summary Line */}
               {(() => {
@@ -705,12 +725,8 @@ export default function MonthCampaignViewPage() {
                   </div>
                 );
               })()}
-            </div>
-          </div>
         </div>
-      </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="relative flex-1 min-w-[200px]">
