@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Influencer, PartnershipType, Campaign, CampaignStatus, Profile, CampaignDeal, PaymentStatus, DeliverableType } from "@/types/database";
+import { Influencer, PartnershipType, Campaign, CampaignStatus, Profile, CampaignDeal, PaymentStatus } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -65,14 +65,6 @@ const paymentStatusLabels: Record<PaymentStatus, string> = {
   deposit_paid: "Deposit Paid",
   paid_on_post: "Paid on Post",
   paid_in_full: "Paid in Full",
-};
-
-const deliverableTypeLabels: Record<DeliverableType, string> = {
-  ugc: "UGC",
-  collab_post: "Collab Post",
-  organic_post: "Organic Post",
-  whitelisting: "Whitelisting",
-  other: "Other",
 };
 
 interface CampaignWithCount extends Campaign {
@@ -451,10 +443,10 @@ function HomePageContent() {
     }).format(amount);
   };
 
-  const formatDeliverables = (deliverables: { type: DeliverableType; quantity: number }[]) => {
+  const formatDeliverables = (deliverables: { description: string; quantity: number }[]) => {
     if (!deliverables || deliverables.length === 0) return "-";
     return deliverables
-      .map((d) => `${d.quantity}x ${deliverableTypeLabels[d.type]}`)
+      .map((d) => d.quantity > 1 ? `${d.quantity}x ${d.description || "Unknown"}` : (d.description || "Unknown"))
       .join(", ");
   };
 

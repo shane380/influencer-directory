@@ -198,8 +198,7 @@ export interface InfluencerMediaKitInsert {
 }
 
 export interface Deliverable {
-  type: DeliverableType;
-  description?: string;
+  description: string;
   rate: number;
   quantity: number;
 }

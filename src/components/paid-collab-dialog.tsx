@@ -7,9 +7,9 @@ import {
   InfluencerInsert,
   Campaign,
   Deliverable,
-  DeliverableType,
   PaymentStatus,
   InfluencerRates,
+  CampaignDeal,
 } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,8 +26,6 @@ import {
 } from "@/components/ui/dialog";
 import {
   formatCurrency,
-  deliverableTypeLabels,
-  deliverableTypes,
   paymentStatusLabels,
   paymentStatuses,
   paymentStatusColors,
@@ -75,6 +73,10 @@ export function PaidCollabDialog({
   const [error, setError] = useState<string | null>(null);
   const [rates, setRates] = useState<InfluencerRates | null>(null);
 
+  // Autocomplete state
+  const [previousDeliverables, setPreviousDeliverables] = useState<string[]>([]);
+  const [activeAutocompleteId, setActiveAutocompleteId] = useState<string | null>(null);
+
   const supabase = createClient();
 
   // Fetch current user
@@ -90,13 +92,13 @@ export function PaidCollabDialog({
     }
   }, [open, supabase]);
 
-  // Fetch influencers and campaigns when dialog opens
+  // Fetch influencers, campaigns, and previous deliverables when dialog opens
   useEffect(() => {
     async function fetchData() {
       if (!open) return;
       setLoadingData(true);
 
-      const [influencersRes, campaignsRes] = await Promise.all([
+      const [influencersRes, campaignsRes, dealsRes] = await Promise.all([
         supabase
           .from("influencers")
           .select("*")
@@ -106,10 +108,29 @@ export function PaidCollabDialog({
           .select("*")
           .in("status", ["planning", "active"])
           .order("created_at", { ascending: false }),
+        supabase
+          .from("campaign_deals")
+          .select("deliverables")
+          .order("created_at", { ascending: false })
+          .limit(100),
       ]);
 
       if (influencersRes.data) setInfluencers(influencersRes.data);
       if (campaignsRes.data) setCampaigns(campaignsRes.data);
+
+      // Extract unique deliverable descriptions from previous deals
+      if (dealsRes.data) {
+        const descriptions = new Set<string>();
+        dealsRes.data.forEach((deal: { deliverables: Deliverable[] }) => {
+          (deal.deliverables || []).forEach((d) => {
+            if (d.description) {
+              descriptions.add(d.description);
+            }
+          });
+        });
+        setPreviousDeliverables(Array.from(descriptions).sort());
+      }
+
       setLoadingData(false);
     }
 
@@ -279,7 +300,7 @@ export function PaidCollabDialog({
       ...prev,
       {
         id: `new-${Date.now()}`,
-        type: "ugc" as DeliverableType,
+        description: "",
         rate: 0,
         quantity: 1,
       },
@@ -294,21 +315,22 @@ export function PaidCollabDialog({
     setDeliverables((prev) =>
       prev.map((d) => {
         if (d.id !== id) return d;
-
-        // If changing type, auto-fill rate from influencer rates
-        if (field === "type" && rates) {
-          const type = value as DeliverableType;
-          let autoRate = d.rate;
-          if (type === "ugc" && rates.ugc_rate) autoRate = rates.ugc_rate;
-          if (type === "collab_post" && rates.collab_post_rate) autoRate = rates.collab_post_rate;
-          if (type === "organic_post" && rates.organic_post_rate) autoRate = rates.organic_post_rate;
-          if (type === "whitelisting" && rates.whitelisting_rate) autoRate = rates.whitelisting_rate;
-          return { ...d, type, rate: autoRate };
-        }
-
         return { ...d, [field]: value };
       })
     );
+  };
+
+  const getFilteredSuggestions = (query: string) => {
+    if (!query || query.length < 2) return [];
+    const lowerQuery = query.toLowerCase();
+    return previousDeliverables
+      .filter((desc) => desc.toLowerCase().includes(lowerQuery))
+      .slice(0, 5);
+  };
+
+  const selectSuggestion = (id: string, suggestion: string) => {
+    updateDeliverable(id, "description", suggestion);
+    setActiveAutocompleteId(null);
   };
 
   const removeDeliverable = (id: string) => {
@@ -389,11 +411,10 @@ export function PaidCollabDialog({
       const dealData = {
         campaign_id: selectedCampaign.id,
         influencer_id: selectedInfluencer.id,
-        deliverables: deliverables.map(({ type, rate, quantity, description }) => ({
-          type,
+        deliverables: deliverables.map(({ description, rate, quantity }) => ({
+          description,
           rate,
           quantity,
-          ...(description && { description }),
         })),
         total_deal_value: totalDealValue,
         payment_status: paymentStatus,
@@ -643,27 +664,37 @@ export function PaidCollabDialog({
                         {deliverables.map((d) => (
                           <div
                             key={d.id}
-                            className="grid grid-cols-[1fr,100px,60px,auto] gap-2 items-end p-3 bg-gray-50 rounded-lg"
+                            className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg"
                           >
-                            <div>
-                              <Label className="text-xs text-gray-500">Type</Label>
-                              <Select
-                                value={d.type}
-                                onChange={(e) =>
-                                  updateDeliverable(d.id, "type", e.target.value)
-                                }
+                            <div className="flex-1 relative">
+                              <Input
+                                placeholder="e.g., 1 Reel + 2 Stories, Whitelisting 30 days, UGC Video 60 sec"
+                                value={d.description || ""}
+                                onChange={(e) => {
+                                  updateDeliverable(d.id, "description", e.target.value);
+                                  setActiveAutocompleteId(d.id);
+                                }}
+                                onFocus={() => setActiveAutocompleteId(d.id)}
+                                onBlur={() => setTimeout(() => setActiveAutocompleteId(null), 200)}
                                 className="h-9"
-                              >
-                                {deliverableTypes.map((type) => (
-                                  <option key={type} value={type}>
-                                    {deliverableTypeLabels[type]}
-                                  </option>
-                                ))}
-                              </Select>
+                              />
+                              {activeAutocompleteId === d.id && getFilteredSuggestions(d.description || "").length > 0 && (
+                                <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto">
+                                  {getFilteredSuggestions(d.description || "").map((suggestion, idx) => (
+                                    <button
+                                      key={idx}
+                                      type="button"
+                                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 truncate"
+                                      onMouseDown={() => selectSuggestion(d.id, suggestion)}
+                                    >
+                                      {suggestion}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
                             </div>
 
-                            <div>
-                              <Label className="text-xs text-gray-500">Rate</Label>
+                            <div className="w-24">
                               <div className="relative">
                                 <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">
                                   $
@@ -671,6 +702,7 @@ export function PaidCollabDialog({
                                 <Input
                                   type="number"
                                   min="0"
+                                  placeholder="Rate"
                                   value={d.rate || ""}
                                   onChange={(e) =>
                                     updateDeliverable(
@@ -684,11 +716,11 @@ export function PaidCollabDialog({
                               </div>
                             </div>
 
-                            <div>
-                              <Label className="text-xs text-gray-500">Qty</Label>
+                            <div className="w-16">
                               <Input
                                 type="number"
                                 min="1"
+                                placeholder="Qty"
                                 value={d.quantity || 1}
                                 onChange={(e) =>
                                   updateDeliverable(
@@ -705,7 +737,7 @@ export function PaidCollabDialog({
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="h-9 w-9 p-0 text-red-500 hover:text-red-700"
+                              className="h-9 w-9 p-0 text-red-500 hover:text-red-700 flex-shrink-0"
                               onClick={() => removeDeliverable(d.id)}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -722,15 +754,6 @@ export function PaidCollabDialog({
                           </div>
                         </div>
                       </div>
-                    )}
-
-                    {rates && (
-                      <p className="text-xs text-gray-400 mt-2">
-                        Rate card: UGC {rates.ugc_rate ? formatCurrency(rates.ugc_rate) : "-"} |
-                        Collab {rates.collab_post_rate ? formatCurrency(rates.collab_post_rate) : "-"} |
-                        Organic {rates.organic_post_rate ? formatCurrency(rates.organic_post_rate) : "-"} |
-                        Whitelisting {rates.whitelisting_rate ? formatCurrency(rates.whitelisting_rate) : "-"}
-                      </p>
                     )}
                   </div>
 
