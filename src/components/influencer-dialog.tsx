@@ -206,11 +206,29 @@ export function InfluencerDialog({
             *,
             campaign:campaigns(*)
           `)
-          .eq("influencer_id", influencer.id)
-          .order("added_at", { ascending: false });
+          .eq("influencer_id", influencer.id);
 
         if (error) throw error;
-        setCampaignHistory(data || []);
+
+        // Sort by campaign start_date descending (most recent first)
+        const historyData = data as CampaignHistoryItem[] || [];
+        const sortedData = historyData.sort((a, b) => {
+          const dateA = a.campaign?.start_date || "";
+          const dateB = b.campaign?.start_date || "";
+          return dateB.localeCompare(dateA);
+        });
+
+        setCampaignHistory(sortedData);
+
+        // Update influencer's partnership_type and status from most recent campaign
+        if (sortedData.length > 0) {
+          const mostRecent = sortedData[0];
+          setFormData((prev) => ({
+            ...prev,
+            partnership_type: mostRecent.partnership_type,
+            relationship_status: mostRecent.status,
+          }));
+        }
       } catch (err) {
         console.error("Failed to fetch campaign history:", err);
       } finally {
