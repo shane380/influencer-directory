@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Influencer, PartnershipType, Campaign, CampaignStatus, Profile, CampaignDeal, PaymentStatus, DealStatus, ContentStatus } from "@/types/database";
+import { Influencer, PartnershipType, Campaign, CampaignStatus, Profile, CampaignDeal, PaymentStatus, DealStatus, ContentStatus, ShopifyOrderStatus } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -89,6 +89,20 @@ const contentStatusLabels: Record<ContentStatus, string> = {
   not_started: "Not Started",
   content_approved: "Approved",
   content_live: "Live",
+};
+
+const orderStatusColors: Record<ShopifyOrderStatus | "none", string> = {
+  none: "bg-gray-100 text-gray-600",
+  draft: "bg-amber-100 text-amber-800",
+  placed: "bg-blue-100 text-blue-800",
+  fulfilled: "bg-green-100 text-green-800",
+};
+
+const orderStatusLabels: Record<ShopifyOrderStatus | "none", string> = {
+  none: "No Order",
+  draft: "Draft",
+  placed: "Placed",
+  fulfilled: "Fulfilled",
 };
 
 interface CampaignWithCount extends Campaign {
@@ -279,10 +293,40 @@ function HomePageContent() {
 
     if (error) {
       console.error("Error fetching paid collabs:", error);
-    } else {
-      setPaidCollabs((data || []) as PaidCollabWithDetails[]);
-      setPaidCollabsLoaded(true);
+      setLoadingPaidCollabs(false);
+      return;
     }
+
+    const deals = (data || []) as PaidCollabWithDetails[];
+
+    // Fetch campaign_influencers to get order status
+    if (deals.length > 0) {
+      const pairs = deals.map(d => ({ influencer_id: d.influencer_id, campaign_id: d.campaign_id }));
+      const { data: ciData } = await supabase
+        .from("campaign_influencers")
+        .select("influencer_id, campaign_id, shopify_order_id, shopify_order_status")
+        .or(pairs.map(p => `and(influencer_id.eq.${p.influencer_id},campaign_id.eq.${p.campaign_id})`).join(','));
+
+      // Merge order status into deals
+      const ciMap = new Map<string, { shopify_order_id: string | null; shopify_order_status: string | null }>();
+      (ciData || []).forEach((ci: { influencer_id: string; campaign_id: string; shopify_order_id: string | null; shopify_order_status: string | null }) => {
+        ciMap.set(`${ci.influencer_id}-${ci.campaign_id}`, {
+          shopify_order_id: ci.shopify_order_id,
+          shopify_order_status: ci.shopify_order_status,
+        });
+      });
+
+      deals.forEach(deal => {
+        const orderInfo = ciMap.get(`${deal.influencer_id}-${deal.campaign_id}`);
+        if (orderInfo) {
+          (deal as any).shopify_order_id = orderInfo.shopify_order_id;
+          (deal as any).shopify_order_status = orderInfo.shopify_order_status;
+        }
+      });
+    }
+
+    setPaidCollabs(deals);
+    setPaidCollabsLoaded(true);
     setLoadingPaidCollabs(false);
   }, [supabase, paymentStatusFilter, dealStatusFilter, paidCollabsLoaded]);
 
@@ -894,6 +938,7 @@ function HomePageContent() {
                     <TableHead>Deliverables</TableHead>
                     <TableHead>Deal Value</TableHead>
                     <TableHead>Deal</TableHead>
+                    <TableHead>Order</TableHead>
                     <TableHead>Content</TableHead>
                     <TableHead>Payment</TableHead>
                   </TableRow>
@@ -954,6 +999,11 @@ function HomePageContent() {
                       <TableCell>
                         <Badge className={dealStatusColors[(collab.deal_status || "negotiating") as DealStatus]}>
                           {dealStatusLabels[(collab.deal_status || "negotiating") as DealStatus]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={orderStatusColors[((collab as any).shopify_order_status || "none") as ShopifyOrderStatus | "none"]}>
+                          {orderStatusLabels[((collab as any).shopify_order_status || "none") as ShopifyOrderStatus | "none"]}
                         </Badge>
                       </TableCell>
                       <TableCell>
