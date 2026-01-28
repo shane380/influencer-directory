@@ -20,6 +20,7 @@ import { CampaignDialog } from "@/components/campaign-dialog";
 import { PaidCollabDialog } from "@/components/paid-collab-dialog";
 import { PaidCollabsBudgetBar } from "@/components/paid-collabs-budget-bar";
 import { Sidebar } from "@/components/sidebar";
+import { AccountDropdown } from "@/components/account-dropdown";
 import { Plus, Search, ArrowUpDown, ChevronDown, ChevronRight, Loader2, Users } from "lucide-react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -548,12 +549,23 @@ function HomePageContent() {
           setActiveTab(tab as Tab);
           window.history.replaceState(null, "", `/?tab=${tab}`);
         }}
-        currentUser={currentUser}
-        onLogout={handleLogout}
       />
 
       {/* Main content */}
       <main className="flex-1 ml-60 px-8 pt-12 pb-8">
+        {/* Account dropdown in top right */}
+        {currentUser && (
+          <div className="absolute top-4 right-8">
+            <AccountDropdown
+              displayName={currentUser.displayName}
+              email={currentUser.email}
+              profilePhotoUrl={currentUser.profilePhotoUrl}
+              isAdmin={currentUser.isAdmin}
+              onLogout={handleLogout}
+            />
+          </div>
+        )}
+
         {/* Tab content wrapper */}
         <div className="relative max-w-6xl">
           {/* Influencers Tab - always mounted */}

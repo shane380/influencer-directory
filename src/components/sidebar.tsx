@@ -11,20 +11,11 @@ import {
   Settings,
   ChevronDown,
   ChevronRight,
-  LogOut
 } from "lucide-react";
-import Image from "next/image";
 
 interface SidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
-  currentUser: {
-    displayName: string;
-    email: string;
-    profilePhotoUrl: string | null;
-    isAdmin: boolean;
-  } | null;
-  onLogout: () => void;
 }
 
 interface GroupedCampaigns {
@@ -33,7 +24,7 @@ interface GroupedCampaigns {
   campaigns: Campaign[];
 }
 
-export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: SidebarProps) {
+export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const [campaignsExpanded, setCampaignsExpanded] = useState(false);
   const [groupedCampaigns, setGroupedCampaigns] = useState<GroupedCampaigns[]>([]);
   const [loadingCampaigns, setLoadingCampaigns] = useState(false);
@@ -205,42 +196,6 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
           <Settings className="h-4 w-4" />
           Settings
         </button>
-
-        {/* User */}
-        {currentUser && (
-          <div className="px-4 py-3 border-t flex items-center justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              {currentUser.profilePhotoUrl ? (
-                <Image
-                  src={currentUser.profilePhotoUrl}
-                  alt={currentUser.displayName}
-                  width={32}
-                  height={32}
-                  className="rounded-full"
-                  unoptimized
-                />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                  <span className="text-sm font-medium text-gray-600">
-                    {currentUser.displayName.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-              )}
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {currentUser.displayName}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={onLogout}
-              className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors"
-              title="Sign out"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
