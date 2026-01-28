@@ -330,7 +330,7 @@ function HomePageContent() {
     setPaidCollabs(deals);
     setPaidCollabsLoaded(true);
     setLoadingPaidCollabs(false);
-  }, [supabase, paymentStatusFilter, dealStatusFilter, paidCollabsLoaded]);
+  }, [supabase, paymentStatusFilter, dealStatusFilter]);
 
   // Fetch profiles and current user on mount
   useEffect(() => {
@@ -393,19 +393,24 @@ function HomePageContent() {
     }
   }, [activeTab]);
 
-  // Fetch paid collabs only on first visit (not on tab switch if data exists)
-  useEffect(() => {
-    if (activeTab === "paid_collabs" && paidCollabs.length === 0 && !paidCollabsLoaded) {
-      fetchPaidCollabs();
-    }
-  }, [activeTab]);
+  // Fetch paid collabs when tab is active and filters change
+  // Using a ref to track if this is the initial load vs filter change
+  const paidCollabsInitialLoadRef = useRef(false);
 
-  // Refetch paid collabs when filters change
   useEffect(() => {
     if (activeTab === "paid_collabs") {
-      fetchPaidCollabs();
+      if (!paidCollabsInitialLoadRef.current) {
+        // Initial load - fetch if not already loaded
+        paidCollabsInitialLoadRef.current = true;
+        if (!paidCollabsLoaded) {
+          fetchPaidCollabs();
+        }
+      } else {
+        // Filter changed - always refetch
+        fetchPaidCollabs(true);
+      }
     }
-  }, [paymentStatusFilter, dealStatusFilter]);
+  }, [activeTab, paymentStatusFilter, dealStatusFilter]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
