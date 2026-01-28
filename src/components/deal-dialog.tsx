@@ -10,6 +10,8 @@ import {
   PaymentStatus,
   PaymentMilestone,
   InfluencerRates,
+  ContentStatus,
+  WhitelistingStatus,
 } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,11 +56,31 @@ export function DealDialog({
   const [error, setError] = useState<string | null>(null);
   const [rates, setRates] = useState<InfluencerRates | null>(null);
 
+  // Status tracking state
+  const [contentStatus, setContentStatus] = useState<ContentStatus>("not_started");
+  const [contentLiveDate, setContentLiveDate] = useState<string | null>(null);
+  const [whitelistingStatus, setWhitelistingStatus] = useState<WhitelistingStatus>("not_applicable");
+  const [whitelistingLiveDate, setWhitelistingLiveDate] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
   // Autocomplete state
   const [previousDeliverables, setPreviousDeliverables] = useState<string[]>([]);
   const [activeAutocompleteId, setActiveAutocompleteId] = useState<string | null>(null);
 
   const supabase = createClient();
+
+  // Fetch current user
+  useEffect(() => {
+    async function fetchCurrentUser() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    }
+    if (open) {
+      fetchCurrentUser();
+    }
+  }, [open, supabase]);
 
   // Fetch influencer rates and previous deliverables when dialog opens
   useEffect(() => {
@@ -128,11 +150,20 @@ export function DealDialog({
         setPaymentMilestones([]);
       }
       setNotes(deal.notes || "");
+      // Load status tracking fields
+      setContentStatus(deal.content_status || "not_started");
+      setContentLiveDate(deal.content_live_date || null);
+      setWhitelistingStatus(deal.whitelisting_status || "not_applicable");
+      setWhitelistingLiveDate(deal.whitelisting_live_date || null);
     } else {
       setDeliverables([]);
       setPaymentTermsType("50_50");
       setPaymentMilestones([]);
       setNotes("");
+      setContentStatus("not_started");
+      setContentLiveDate(null);
+      setWhitelistingStatus("not_applicable");
+      setWhitelistingLiveDate(null);
     }
     setError(null);
   }, [deal, open]);
@@ -184,17 +215,22 @@ export function DealDialog({
     0
   );
 
+  // Check if whitelisting is part of deliverables
+  const hasWhitelisting = deliverables.some(
+    (d) => d.description?.toLowerCase().includes("whitelist")
+  );
+
   // Generate payment milestones based on preset
   const generateMilestones = (type: string, total: number): PaymentMilestone[] => {
     switch (type) {
       case "50_50":
         return [
-          { id: "m1", description: "Upon execution", percentage: 50, amount: total * 0.5, is_paid: false, paid_date: null },
-          { id: "m2", description: "Content is live", percentage: 50, amount: total * 0.5, is_paid: false, paid_date: null },
+          { id: "m1", description: "Upon execution", percentage: 50, amount: total * 0.5, is_paid: false, paid_date: null, paid_by: null },
+          { id: "m2", description: "Content is live", percentage: 50, amount: total * 0.5, is_paid: false, paid_date: null, paid_by: null },
         ];
       case "100_upfront":
         return [
-          { id: "m1", description: "Upon execution", percentage: 100, amount: total, is_paid: false, paid_date: null },
+          { id: "m1", description: "Upon execution", percentage: 100, amount: total, is_paid: false, paid_date: null, paid_by: null },
         ];
       case "custom":
         return paymentMilestones.length > 0 ? paymentMilestones : [];
@@ -223,6 +259,7 @@ export function DealDialog({
       amount: 0,
       is_paid: false,
       paid_date: null,
+      paid_by: null,
     };
     setPaymentMilestones((prev) => [...prev, newMilestone]);
   };
@@ -244,10 +281,12 @@ export function DealDialog({
     setPaymentMilestones((prev) =>
       prev.map((m) => {
         if (m.id !== id) return m;
+        const nowPaid = !m.is_paid;
         return {
           ...m,
-          is_paid: !m.is_paid,
-          paid_date: !m.is_paid ? new Date().toISOString().split("T")[0] : null,
+          is_paid: nowPaid,
+          paid_date: nowPaid ? new Date().toISOString().split("T")[0] : null,
+          paid_by: nowPaid ? currentUserId : null,
         };
       })
     );
@@ -271,6 +310,7 @@ export function DealDialog({
     setError(null);
 
     try {
+      const now = new Date().toISOString();
       const dealData = {
         campaign_id: campaign.id,
         influencer_id: influencer.id,
@@ -283,6 +323,15 @@ export function DealDialog({
         payment_status: calculatePaymentStatus(),
         payment_terms: paymentMilestones,
         notes: notes || null,
+        content_status: contentStatus,
+        content_live_date: contentLiveDate,
+        content_status_updated_by: deal?.content_status !== contentStatus ? currentUserId : deal?.content_status_updated_by,
+        content_status_updated_at: deal?.content_status !== contentStatus ? now : deal?.content_status_updated_at,
+        whitelisting_status: hasWhitelisting ? whitelistingStatus : "not_applicable",
+        whitelisting_live_date: whitelistingLiveDate,
+        whitelisting_status_updated_by: deal?.whitelisting_status !== whitelistingStatus ? currentUserId : deal?.whitelisting_status_updated_by,
+        whitelisting_status_updated_at: deal?.whitelisting_status !== whitelistingStatus ? now : deal?.whitelisting_status_updated_at,
+        updated_by: currentUserId,
       };
 
       if (deal) {
@@ -294,10 +343,10 @@ export function DealDialog({
 
         if (updateError) throw updateError;
       } else {
-        // Insert new deal
+        // Insert new deal with created_by
         const { error: insertError } = await supabase
           .from("campaign_deals")
-          .insert(dealData as never);
+          .insert({ ...dealData, created_by: currentUserId } as never);
 
         if (insertError) throw insertError;
       }
@@ -620,6 +669,83 @@ export function DealDialog({
                 })()}
               </div>
             )}
+          </div>
+
+          {/* Status Tracking Section */}
+          <div className="border-t pt-4">
+            <Label className="text-sm font-medium mb-3 block">Status Tracking</Label>
+            <div className="space-y-4">
+              {/* Content Status */}
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <Label className="text-xs text-gray-500 mb-1 block">Content Status</Label>
+                  <select
+                    value={contentStatus}
+                    onChange={(e) => {
+                      const newStatus = e.target.value as ContentStatus;
+                      setContentStatus(newStatus);
+                      // Auto-fill date when status changes to live
+                      if (newStatus === "content_live" && !contentLiveDate) {
+                        setContentLiveDate(new Date().toISOString().split("T")[0]);
+                      }
+                    }}
+                    className="w-full h-9 px-3 border rounded-md text-sm bg-white"
+                  >
+                    <option value="not_started">Not Started</option>
+                    <option value="content_approved">Content Approved</option>
+                    <option value="content_live">Content Live</option>
+                  </select>
+                </div>
+                {contentStatus === "content_live" && (
+                  <div className="w-40">
+                    <Label className="text-xs text-gray-500 mb-1 block">Live Date</Label>
+                    <Input
+                      type="date"
+                      value={contentLiveDate || ""}
+                      onChange={(e) => setContentLiveDate(e.target.value || null)}
+                      className="h-9"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Whitelisting Status - only show if deliverables contain "whitelist" */}
+              {hasWhitelisting && (
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <Label className="text-xs text-gray-500 mb-1 block">Whitelisting Status</Label>
+                    <select
+                      value={whitelistingStatus}
+                      onChange={(e) => {
+                        const newStatus = e.target.value as WhitelistingStatus;
+                        setWhitelistingStatus(newStatus);
+                        // Auto-fill date when status changes to live
+                        if (newStatus === "live" && !whitelistingLiveDate) {
+                          setWhitelistingLiveDate(new Date().toISOString().split("T")[0]);
+                        }
+                      }}
+                      className="w-full h-9 px-3 border rounded-md text-sm bg-white"
+                    >
+                      <option value="not_applicable">N/A</option>
+                      <option value="pending">Pending</option>
+                      <option value="live">Live</option>
+                      <option value="ended">Ended</option>
+                    </select>
+                  </div>
+                  {(whitelistingStatus === "live" || whitelistingStatus === "ended") && (
+                    <div className="w-40">
+                      <Label className="text-xs text-gray-500 mb-1 block">Live Date</Label>
+                      <Input
+                        type="date"
+                        value={whitelistingLiveDate || ""}
+                        onChange={(e) => setWhitelistingLiveDate(e.target.value || null)}
+                        className="h-9"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Notes Section */}

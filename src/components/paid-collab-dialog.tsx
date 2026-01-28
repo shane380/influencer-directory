@@ -11,6 +11,7 @@ import {
   PaymentMilestone,
   InfluencerRates,
   CampaignDeal,
+  WhitelistingStatus,
 } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -346,12 +347,12 @@ export function PaidCollabDialog({
     switch (type) {
       case "50_50":
         return [
-          { id: "m1", description: "Upon execution", percentage: 50, amount: total * 0.5, is_paid: false, paid_date: null },
-          { id: "m2", description: "Content is live", percentage: 50, amount: total * 0.5, is_paid: false, paid_date: null },
+          { id: "m1", description: "Upon execution", percentage: 50, amount: total * 0.5, is_paid: false, paid_date: null, paid_by: null },
+          { id: "m2", description: "Content is live", percentage: 50, amount: total * 0.5, is_paid: false, paid_date: null, paid_by: null },
         ];
       case "100_upfront":
         return [
-          { id: "m1", description: "Upon execution", percentage: 100, amount: total, is_paid: false, paid_date: null },
+          { id: "m1", description: "Upon execution", percentage: 100, amount: total, is_paid: false, paid_date: null, paid_by: null },
         ];
       case "custom":
         return paymentMilestones.length > 0 ? paymentMilestones : [];
@@ -380,6 +381,7 @@ export function PaidCollabDialog({
       amount: 0,
       is_paid: false,
       paid_date: null,
+      paid_by: null,
     };
     setPaymentMilestones((prev) => [...prev, newMilestone]);
   };
@@ -401,10 +403,12 @@ export function PaidCollabDialog({
     setPaymentMilestones((prev) =>
       prev.map((m) => {
         if (m.id !== id) return m;
+        const nowPaid = !m.is_paid;
         return {
           ...m,
-          is_paid: !m.is_paid,
-          paid_date: !m.is_paid ? new Date().toISOString().split("T")[0] : null,
+          is_paid: nowPaid,
+          paid_date: nowPaid ? new Date().toISOString().split("T")[0] : null,
+          paid_by: nowPaid ? currentUserId : null,
         };
       })
     );
@@ -488,6 +492,12 @@ export function PaidCollabDialog({
         return;
       }
 
+      // Determine initial whitelisting status based on deliverables
+      const hasWhitelisting = deliverables.some(
+        (d) => d.description?.toLowerCase().includes("whitelist")
+      );
+      const initialWhitelistingStatus: WhitelistingStatus = hasWhitelisting ? "pending" : "not_applicable";
+
       // Create the deal
       const dealData = {
         campaign_id: selectedCampaign.id,
@@ -501,6 +511,10 @@ export function PaidCollabDialog({
         payment_status: calculatePaymentStatus(),
         payment_terms: paymentMilestones,
         notes: notes || null,
+        content_status: "not_started",
+        whitelisting_status: initialWhitelistingStatus,
+        created_by: currentUserId,
+        updated_by: currentUserId,
       };
 
       const { error: dealError } = await supabase

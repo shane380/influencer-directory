@@ -7,6 +7,8 @@ export type PaymentStatus = 'not_paid' | 'deposit_paid' | 'paid_on_post' | 'paid
 export type DeliverableType = 'ugc' | 'collab_post' | 'organic_post' | 'whitelisting' | 'other';
 export type ContentPostedType = 'none' | 'stories' | 'in_feed_post' | 'reel' | 'tiktok';
 export type ApprovalStatus = 'pending' | 'approved' | 'declined';
+export type ContentStatus = 'not_started' | 'content_approved' | 'content_live';
+export type WhitelistingStatus = 'not_applicable' | 'pending' | 'live' | 'ended';
 
 export interface Profile {
   id: string;
@@ -210,6 +212,7 @@ export interface PaymentMilestone {
   amount: number;
   is_paid: boolean;
   paid_date: string | null;
+  paid_by: string | null;
 }
 
 export interface CampaignDeal {
@@ -224,6 +227,16 @@ export interface CampaignDeal {
   deposit_paid_date: string | null;
   final_paid_date: string | null;
   notes: string | null;
+  content_status: ContentStatus;
+  content_live_date: string | null;
+  content_status_updated_by: string | null;
+  content_status_updated_at: string | null;
+  whitelisting_status: WhitelistingStatus;
+  whitelisting_live_date: string | null;
+  whitelisting_status_updated_by: string | null;
+  whitelisting_status_updated_at: string | null;
+  created_by: string | null;
+  updated_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -234,10 +247,21 @@ export interface CampaignDealInsert {
   deliverables?: Deliverable[];
   total_deal_value?: number;
   payment_status?: PaymentStatus;
+  payment_terms?: PaymentMilestone[] | null;
   deposit_amount?: number | null;
   deposit_paid_date?: string | null;
   final_paid_date?: string | null;
   notes?: string | null;
+  content_status?: ContentStatus;
+  content_live_date?: string | null;
+  content_status_updated_by?: string | null;
+  content_status_updated_at?: string | null;
+  whitelisting_status?: WhitelistingStatus;
+  whitelisting_live_date?: string | null;
+  whitelisting_status_updated_by?: string | null;
+  whitelisting_status_updated_at?: string | null;
+  created_by?: string | null;
+  updated_by?: string | null;
 }
 
 export interface CampaignDealWithInfluencer extends CampaignDeal {
