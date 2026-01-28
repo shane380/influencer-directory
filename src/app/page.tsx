@@ -19,8 +19,8 @@ import { InfluencerDialog } from "@/components/influencer-dialog";
 import { CampaignDialog } from "@/components/campaign-dialog";
 import { PaidCollabDialog } from "@/components/paid-collab-dialog";
 import { PaidCollabsBudgetBar } from "@/components/paid-collabs-budget-bar";
-import { Plus, Search, ArrowUpDown, Users, Megaphone, ChevronDown, ChevronRight, Loader2, DollarSign } from "lucide-react";
-import { AccountDropdown } from "@/components/account-dropdown";
+import { Sidebar } from "@/components/sidebar";
+import { Plus, Search, ArrowUpDown, ChevronDown, ChevronRight, Loader2, Users } from "lucide-react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -540,61 +540,22 @@ function HomePageContent() {
   const groupedCampaigns = groupCampaignsByMonth(filteredCampaigns);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900">Partnerships Dashboard</h1>
-            {currentUser && (
-              <AccountDropdown
-                displayName={currentUser.displayName}
-                email={currentUser.email}
-                profilePhotoUrl={currentUser.profilePhotoUrl}
-                isAdmin={currentUser.isAdmin}
-                onLogout={handleLogout}
-              />
-            )}
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <Sidebar
+        activeTab={activeTab}
+        onTabChange={(tab) => {
+          setActiveTab(tab as Tab);
+          window.history.replaceState(null, "", `/?tab=${tab}`);
+        }}
+        currentUser={currentUser}
+        onLogout={handleLogout}
+      />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tabs */}
-        <div className="flex gap-2 mb-6">
-          <Button
-            variant={activeTab === "influencers" ? "default" : "outline"}
-            onClick={() => {
-              setActiveTab("influencers");
-              window.history.replaceState(null, "", "/?tab=influencers");
-            }}
-          >
-            <Users className="h-4 w-4 mr-2" />
-            Influencers
-          </Button>
-          <Button
-            variant={activeTab === "campaigns" ? "default" : "outline"}
-            onClick={() => {
-              setActiveTab("campaigns");
-              window.history.replaceState(null, "", "/?tab=campaigns");
-            }}
-          >
-            <Megaphone className="h-4 w-4 mr-2" />
-            Campaigns
-          </Button>
-          <Button
-            variant={activeTab === "paid_collabs" ? "default" : "outline"}
-            onClick={() => {
-              setActiveTab("paid_collabs");
-              window.history.replaceState(null, "", "/?tab=paid_collabs");
-            }}
-          >
-            <DollarSign className="h-4 w-4 mr-2" />
-            Paid Collabs
-          </Button>
-        </div>
-
+      {/* Main content */}
+      <main className="flex-1 ml-60 p-8">
         {/* Tab content wrapper */}
-        <div className="relative">
+        <div className="relative max-w-6xl">
           {/* Influencers Tab - always mounted */}
           <div className={activeTab === "influencers" ? "" : "hidden"}>
           {/* Influencer Filters */}
