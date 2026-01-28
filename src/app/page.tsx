@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Influencer, PartnershipType, Campaign, CampaignStatus, Profile, CampaignDeal, PaymentStatus, DealStatus, ContentStatus, ShopifyOrderStatus } from "@/types/database";
+import { Influencer, PartnershipType, Campaign, CampaignStatus, Profile, CampaignDeal, PaymentStatus, DealStatus, ContentStatus, ShopifyOrderStatus, CampaignInfluencer } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -19,8 +19,9 @@ import { InfluencerDialog } from "@/components/influencer-dialog";
 import { CampaignDialog } from "@/components/campaign-dialog";
 import { PaidCollabDialog } from "@/components/paid-collab-dialog";
 import { PaidCollabsBudgetBar } from "@/components/paid-collabs-budget-bar";
+import { OrderDialog } from "@/components/order-dialog";
 import { Sidebar } from "@/components/sidebar";
-import { Plus, Search, ArrowUpDown, ChevronDown, ChevronRight, Loader2, Users } from "lucide-react";
+import { Plus, Search, ArrowUpDown, ChevronDown, ChevronRight, Loader2, Users, ShoppingCart } from "lucide-react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -112,6 +113,7 @@ interface CampaignWithCount extends Campaign {
 interface PaidCollabWithDetails extends CampaignDeal {
   influencer: Influencer;
   campaign: Campaign;
+  campaign_influencer?: CampaignInfluencer & { influencer?: Influencer };
 }
 
 function HomePageContent() {
@@ -147,6 +149,8 @@ function HomePageContent() {
   const [assignedToFilter, setAssignedToFilter] = useState<string>("all");
   const [currentUser, setCurrentUser] = useState<{ displayName: string; email: string; profilePhotoUrl: string | null; isAdmin: boolean } | null>(null);
   const [influencerDialogInitialTab, setInfluencerDialogInitialTab] = useState<string>("overview");
+  const [orderDialogOpen, setOrderDialogOpen] = useState(false);
+  const [selectedOrderCollab, setSelectedOrderCollab] = useState<PaidCollabWithDetails | null>(null);
 
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -299,28 +303,26 @@ function HomePageContent() {
 
     const deals = (data || []) as PaidCollabWithDetails[];
 
-    // Fetch campaign_influencers to get order status
+    // Fetch campaign_influencers to get order status and full record for OrderDialog
     if (deals.length > 0) {
       const pairs = deals.map(d => ({ influencer_id: d.influencer_id, campaign_id: d.campaign_id }));
       const { data: ciData } = await supabase
         .from("campaign_influencers")
-        .select("influencer_id, campaign_id, shopify_order_id, shopify_order_status")
+        .select("*, influencer:influencers(*)")
         .or(pairs.map(p => `and(influencer_id.eq.${p.influencer_id},campaign_id.eq.${p.campaign_id})`).join(','));
 
-      // Merge order status into deals
-      const ciMap = new Map<string, { shopify_order_id: string | null; shopify_order_status: string | null }>();
-      (ciData || []).forEach((ci: { influencer_id: string; campaign_id: string; shopify_order_id: string | null; shopify_order_status: string | null }) => {
-        ciMap.set(`${ci.influencer_id}-${ci.campaign_id}`, {
-          shopify_order_id: ci.shopify_order_id,
-          shopify_order_status: ci.shopify_order_status,
-        });
+      // Merge campaign_influencer into deals
+      const ciMap = new Map<string, CampaignInfluencer & { influencer?: Influencer }>();
+      (ciData || []).forEach((ci: CampaignInfluencer & { influencer?: Influencer }) => {
+        ciMap.set(`${ci.influencer_id}-${ci.campaign_id}`, ci);
       });
 
       deals.forEach(deal => {
-        const orderInfo = ciMap.get(`${deal.influencer_id}-${deal.campaign_id}`);
-        if (orderInfo) {
-          (deal as any).shopify_order_id = orderInfo.shopify_order_id;
-          (deal as any).shopify_order_status = orderInfo.shopify_order_status;
+        const ci = ciMap.get(`${deal.influencer_id}-${deal.campaign_id}`);
+        if (ci) {
+          deal.campaign_influencer = ci;
+          (deal as any).shopify_order_id = ci.shopify_order_id;
+          (deal as any).shopify_order_status = ci.shopify_order_status;
         }
       });
     }
@@ -457,6 +459,20 @@ function HomePageContent() {
 
   const handlePaidCollabSave = () => {
     setPaidCollabDialogOpen(false);
+    fetchPaidCollabs(true); // Force refresh after save
+  };
+
+  const handleOpenOrderDialog = (collab: PaidCollabWithDetails) => {
+    setSelectedOrderCollab(collab);
+    setOrderDialogOpen(true);
+  };
+
+  const handleCloseOrderDialog = () => {
+    setOrderDialogOpen(false);
+    setSelectedOrderCollab(null);
+  };
+
+  const handleOrderSave = () => {
     fetchPaidCollabs(true); // Force refresh after save
   };
 
@@ -1001,10 +1017,37 @@ function HomePageContent() {
                           {dealStatusLabels[(collab.deal_status || "negotiating") as DealStatus]}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        <Badge className={orderStatusColors[((collab as any).shopify_order_status || "none") as ShopifyOrderStatus | "none"]}>
-                          {orderStatusLabels[((collab as any).shopify_order_status || "none") as ShopifyOrderStatus | "none"]}
-                        </Badge>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        {collab.campaign_influencer ? (
+                          (collab as any).shopify_order_id ? (
+                            <button
+                              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900"
+                              onClick={() => handleOpenOrderDialog(collab)}
+                            >
+                              <Badge className={orderStatusColors[((collab as any).shopify_order_status || "none") as ShopifyOrderStatus | "none"]}>
+                                {orderStatusLabels[((collab as any).shopify_order_status || "none") as ShopifyOrderStatus | "none"]}
+                              </Badge>
+                            </button>
+                          ) : collab.campaign_influencer.product_selections && (collab.campaign_influencer.product_selections as any[]).length > 0 ? (
+                            <button
+                              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900"
+                              onClick={() => handleOpenOrderDialog(collab)}
+                            >
+                              <Badge className="bg-purple-100 text-purple-800">
+                                {(collab.campaign_influencer.product_selections as any[]).length} items
+                              </Badge>
+                            </button>
+                          ) : (
+                            <button
+                              className="text-xs text-gray-400 hover:text-gray-600"
+                              onClick={() => handleOpenOrderDialog(collab)}
+                            >
+                              <ShoppingCart className="h-4 w-4" />
+                            </button>
+                          )
+                        ) : (
+                          <span className="text-gray-300">-</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge className={contentStatusColors[(collab.content_status || "not_started") as ContentStatus]}>
@@ -1050,6 +1093,16 @@ function HomePageContent() {
         onClose={() => setPaidCollabDialogOpen(false)}
         onSave={handlePaidCollabSave}
       />
+
+      {selectedOrderCollab && selectedOrderCollab.campaign_influencer && (
+        <OrderDialog
+          open={orderDialogOpen}
+          onClose={handleCloseOrderDialog}
+          onSave={handleOrderSave}
+          influencer={selectedOrderCollab.influencer}
+          campaignInfluencer={selectedOrderCollab.campaign_influencer as any}
+        />
+      )}
     </div>
   );
 }
