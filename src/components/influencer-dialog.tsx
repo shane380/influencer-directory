@@ -889,7 +889,7 @@ export function InfluencerDialog({
                                   onClick={() => handleOpenDealDialog(deal)}
                                 >
                                   <Pencil className="h-3 w-3 mr-1" />
-                                  Edit
+                                  Update
                                 </Button>
                               </div>
 
