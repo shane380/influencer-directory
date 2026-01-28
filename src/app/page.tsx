@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Influencer, PartnershipType, Campaign, CampaignStatus, Profile, CampaignDeal, PaymentStatus, DealStatus } from "@/types/database";
+import { Influencer, PartnershipType, Campaign, CampaignStatus, Profile, CampaignDeal, PaymentStatus, DealStatus, ContentStatus } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -77,6 +77,18 @@ const dealStatusLabels: Record<DealStatus, string> = {
   negotiating: "Negotiating",
   confirmed: "Confirmed",
   cancelled: "Cancelled",
+};
+
+const contentStatusColors: Record<ContentStatus, string> = {
+  not_started: "bg-gray-100 text-gray-800",
+  content_approved: "bg-yellow-100 text-yellow-800",
+  content_live: "bg-green-100 text-green-800",
+};
+
+const contentStatusLabels: Record<ContentStatus, string> = {
+  not_started: "Not Started",
+  content_approved: "Approved",
+  content_live: "Live",
 };
 
 interface CampaignWithCount extends Campaign {
@@ -920,9 +932,9 @@ function HomePageContent() {
                     <TableHead>Campaign</TableHead>
                     <TableHead>Deliverables</TableHead>
                     <TableHead>Deal Value</TableHead>
-                    <TableHead>Deal Status</TableHead>
+                    <TableHead>Deal</TableHead>
+                    <TableHead>Content</TableHead>
                     <TableHead>Payment</TableHead>
-                    <TableHead>Created</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -984,12 +996,14 @@ function HomePageContent() {
                         </Badge>
                       </TableCell>
                       <TableCell>
+                        <Badge className={contentStatusColors[(collab.content_status || "not_started") as ContentStatus]}>
+                          {contentStatusLabels[(collab.content_status || "not_started") as ContentStatus]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
                         <Badge className={paymentStatusColors[collab.payment_status]}>
                           {paymentStatusLabels[collab.payment_status]}
                         </Badge>
-                      </TableCell>
-                      <TableCell className="text-gray-600">
-                        {formatDate(collab.created_at)}
                       </TableCell>
                     </TableRow>
                   ))}
