@@ -261,7 +261,9 @@ export default function MonthCampaignViewPage() {
     // Fetch campaigns that start in the given month
     const [year, month] = monthKey.split("-");
     const startDate = `${year}-${month}-01`;
-    const endDate = `${year}-${month}-31`;
+    // Calculate the actual last day of the month
+    const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+    const endDate = `${year}-${month}-${lastDay.toString().padStart(2, '0')}`;
 
     console.log('[MonthPage] monthKey received:', monthKey);
     console.log('[MonthPage] Querying date range:', startDate, 'to', endDate);
