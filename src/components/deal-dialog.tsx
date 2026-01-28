@@ -8,14 +8,13 @@ import {
   CampaignDeal,
   Deliverable,
   PaymentStatus,
+  PaymentMilestone,
   InfluencerRates,
 } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -23,13 +22,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  formatCurrency,
-  paymentStatusLabels,
-  paymentStatuses,
-  paymentStatusColors,
-} from "@/lib/constants";
-import { Plus, Trash2, Loader2, DollarSign } from "lucide-react";
+import { formatCurrency } from "@/lib/constants";
+import { Plus, Trash2, Loader2, DollarSign, Check } from "lucide-react";
 
 interface DealDialogProps {
   open: boolean;
@@ -53,10 +47,8 @@ export function DealDialog({
   deal,
 }: DealDialogProps) {
   const [deliverables, setDeliverables] = useState<DeliverableRow[]>([]);
-  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("not_paid");
-  const [depositAmount, setDepositAmount] = useState("");
-  const [depositPaidDate, setDepositPaidDate] = useState("");
-  const [finalPaidDate, setFinalPaidDate] = useState("");
+  const [paymentTermsType, setPaymentTermsType] = useState<string>("50_50");
+  const [paymentMilestones, setPaymentMilestones] = useState<PaymentMilestone[]>([]);
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -118,17 +110,28 @@ export function DealDialog({
           id: `existing-${i}`,
         }))
       );
-      setPaymentStatus(deal.payment_status);
-      setDepositAmount(deal.deposit_amount?.toString() || "");
-      setDepositPaidDate(deal.deposit_paid_date?.split("T")[0] || "");
-      setFinalPaidDate(deal.final_paid_date?.split("T")[0] || "");
+      // Load payment terms if they exist
+      if (deal.payment_terms && deal.payment_terms.length > 0) {
+        setPaymentMilestones(deal.payment_terms);
+        // Determine type based on milestones
+        if (deal.payment_terms.length === 1 && deal.payment_terms[0].percentage === 100) {
+          setPaymentTermsType("100_upfront");
+        } else if (deal.payment_terms.length === 2 &&
+          deal.payment_terms[0].percentage === 50 &&
+          deal.payment_terms[1].percentage === 50) {
+          setPaymentTermsType("50_50");
+        } else {
+          setPaymentTermsType("custom");
+        }
+      } else {
+        setPaymentTermsType("50_50");
+        setPaymentMilestones([]);
+      }
       setNotes(deal.notes || "");
     } else {
       setDeliverables([]);
-      setPaymentStatus("not_paid");
-      setDepositAmount("");
-      setDepositPaidDate("");
-      setFinalPaidDate("");
+      setPaymentTermsType("50_50");
+      setPaymentMilestones([]);
       setNotes("");
     }
     setError(null);
@@ -181,6 +184,88 @@ export function DealDialog({
     0
   );
 
+  // Generate payment milestones based on preset
+  const generateMilestones = (type: string, total: number): PaymentMilestone[] => {
+    switch (type) {
+      case "50_50":
+        return [
+          { id: "m1", description: "Upon execution", percentage: 50, amount: total * 0.5, is_paid: false, paid_date: null },
+          { id: "m2", description: "Content is live", percentage: 50, amount: total * 0.5, is_paid: false, paid_date: null },
+        ];
+      case "100_upfront":
+        return [
+          { id: "m1", description: "Upon execution", percentage: 100, amount: total, is_paid: false, paid_date: null },
+        ];
+      case "custom":
+        return paymentMilestones.length > 0 ? paymentMilestones : [];
+      default:
+        return [];
+    }
+  };
+
+  // Update milestones when total or type changes
+  useEffect(() => {
+    if (paymentTermsType !== "custom") {
+      setPaymentMilestones(generateMilestones(paymentTermsType, totalDealValue));
+    } else if (paymentMilestones.length > 0) {
+      // Update amounts for custom milestones based on new total
+      setPaymentMilestones((prev) =>
+        prev.map((m) => ({ ...m, amount: totalDealValue * (m.percentage / 100) }))
+      );
+    }
+  }, [totalDealValue, paymentTermsType]);
+
+  const addCustomMilestone = () => {
+    const newMilestone: PaymentMilestone = {
+      id: `custom-${Date.now()}`,
+      description: "",
+      percentage: 0,
+      amount: 0,
+      is_paid: false,
+      paid_date: null,
+    };
+    setPaymentMilestones((prev) => [...prev, newMilestone]);
+  };
+
+  const updateMilestone = (id: string, field: keyof PaymentMilestone, value: string | number | boolean) => {
+    setPaymentMilestones((prev) =>
+      prev.map((m) => {
+        if (m.id !== id) return m;
+        if (field === "percentage") {
+          const percentage = Number(value);
+          return { ...m, percentage, amount: totalDealValue * (percentage / 100) };
+        }
+        return { ...m, [field]: value };
+      })
+    );
+  };
+
+  const toggleMilestonePaid = (id: string) => {
+    setPaymentMilestones((prev) =>
+      prev.map((m) => {
+        if (m.id !== id) return m;
+        return {
+          ...m,
+          is_paid: !m.is_paid,
+          paid_date: !m.is_paid ? new Date().toISOString().split("T")[0] : null,
+        };
+      })
+    );
+  };
+
+  const removeMilestone = (id: string) => {
+    setPaymentMilestones((prev) => prev.filter((m) => m.id !== id));
+  };
+
+  // Calculate overall payment status from milestones
+  const calculatePaymentStatus = (): PaymentStatus => {
+    if (paymentMilestones.length === 0) return "not_paid";
+    const paidCount = paymentMilestones.filter((m) => m.is_paid).length;
+    if (paidCount === 0) return "not_paid";
+    if (paidCount === paymentMilestones.length) return "paid_in_full";
+    return "deposit_paid";
+  };
+
   const handleSave = async () => {
     setLoading(true);
     setError(null);
@@ -195,10 +280,8 @@ export function DealDialog({
           quantity,
         })),
         total_deal_value: totalDealValue,
-        payment_status: paymentStatus,
-        deposit_amount: depositAmount ? parseFloat(depositAmount) : null,
-        deposit_paid_date: depositPaidDate || null,
-        final_paid_date: finalPaidDate || null,
+        payment_status: calculatePaymentStatus(),
+        payment_terms: paymentMilestones,
         notes: notes || null,
       };
 
@@ -373,7 +456,7 @@ export function DealDialog({
                   <div className="text-right">
                     <span className="text-sm text-gray-500">Total:</span>
                     <span className="ml-2 text-lg font-semibold">
-                      {formatCurrency(totalDealValue)}
+                      {formatCurrency(totalDealValue)} USD
                     </span>
                   </div>
                 </div>
@@ -381,88 +464,162 @@ export function DealDialog({
             )}
           </div>
 
-          {/* Payment Section */}
+          {/* Payment Terms Section */}
           <div className="border-t pt-4">
-            <Label className="text-sm font-medium mb-3 block">Payment</Label>
+            <Label className="text-sm font-medium mb-3 block">Payment Terms</Label>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="payment_status" className="text-xs text-gray-500">
-                  Status
-                </Label>
-                <Select
-                  id="payment_status"
-                  value={paymentStatus}
-                  onChange={(e) => setPaymentStatus(e.target.value as PaymentStatus)}
+            {/* Preset Options */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              <button
+                type="button"
+                onClick={() => setPaymentTermsType("50_50")}
+                className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
+                  paymentTermsType === "50_50"
+                    ? "bg-purple-100 border-purple-300 text-purple-800"
+                    : "bg-white border-gray-300 text-gray-600 hover:border-gray-400"
+                }`}
+              >
+                50% / 50%
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentTermsType("100_upfront")}
+                className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
+                  paymentTermsType === "100_upfront"
+                    ? "bg-purple-100 border-purple-300 text-purple-800"
+                    : "bg-white border-gray-300 text-gray-600 hover:border-gray-400"
+                }`}
+              >
+                100% Upfront
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPaymentTermsType("custom");
+                  if (paymentMilestones.length === 0) {
+                    addCustomMilestone();
+                  }
+                }}
+                className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
+                  paymentTermsType === "custom"
+                    ? "bg-purple-100 border-purple-300 text-purple-800"
+                    : "bg-white border-gray-300 text-gray-600 hover:border-gray-400"
+                }`}
+              >
+                Custom
+              </button>
+            </div>
+
+            {/* Payment Milestones */}
+            <div className="space-y-2">
+              {paymentMilestones.map((milestone) => (
+                <div
+                  key={milestone.id}
+                  className={`flex items-center gap-2 p-3 rounded-lg ${
+                    milestone.is_paid ? "bg-green-50 border border-green-200" : "bg-gray-50"
+                  }`}
                 >
-                  {paymentStatuses.map((status) => (
-                    <option key={status} value={status}>
-                      {paymentStatusLabels[status]}
-                    </option>
-                  ))}
-                </Select>
-              </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleMilestonePaid(milestone.id)}
+                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                      milestone.is_paid
+                        ? "bg-green-500 border-green-500 text-white"
+                        : "border-gray-300 hover:border-gray-400"
+                    }`}
+                  >
+                    {milestone.is_paid && <Check className="h-4 w-4" />}
+                  </button>
 
-              {(paymentStatus === "deposit_paid" || paymentStatus === "paid_on_post") && (
-                <div className="space-y-2">
-                  <Label htmlFor="deposit_amount" className="text-xs text-gray-500">
-                    Deposit Amount
-                  </Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
-                      $
-                    </span>
-                    <Input
-                      id="deposit_amount"
-                      type="number"
-                      min="0"
-                      value={depositAmount}
-                      onChange={(e) => setDepositAmount(e.target.value)}
-                      placeholder="0"
-                      className="pl-7"
-                    />
+                  {paymentTermsType === "custom" ? (
+                    <>
+                      <Input
+                        placeholder="Description (e.g., Upon signing)"
+                        value={milestone.description}
+                        onChange={(e) => updateMilestone(milestone.id, "description", e.target.value)}
+                        className="flex-1 h-8"
+                      />
+                      <div className="w-20">
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            placeholder="%"
+                            value={milestone.percentage || ""}
+                            onChange={(e) => updateMilestone(milestone.id, "percentage", parseFloat(e.target.value) || 0)}
+                            className="h-8 pr-6"
+                          />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex-1">
+                      <span className={`text-sm ${milestone.is_paid ? "line-through text-gray-500" : ""}`}>
+                        {milestone.description}
+                      </span>
+                      <span className="text-xs text-gray-500 ml-2">({milestone.percentage}%)</span>
+                    </div>
+                  )}
+
+                  <div className="text-sm font-medium w-24 text-right">
+                    {formatCurrency(milestone.amount)}
                   </div>
+
+                  {milestone.is_paid && milestone.paid_date && (
+                    <Input
+                      type="date"
+                      value={milestone.paid_date}
+                      onChange={(e) => updateMilestone(milestone.id, "paid_date", e.target.value)}
+                      className="w-32 h-8 text-xs"
+                    />
+                  )}
+
+                  {paymentTermsType === "custom" && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                      onClick={() => removeMilestone(milestone.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
+              ))}
+
+              {paymentTermsType === "custom" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addCustomMilestone}
+                  className="w-full"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Payment Milestone
+                </Button>
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              {(paymentStatus === "deposit_paid" ||
-                paymentStatus === "paid_on_post" ||
-                paymentStatus === "paid_in_full") && (
-                <div className="space-y-2">
-                  <Label htmlFor="deposit_paid_date" className="text-xs text-gray-500">
-                    {paymentStatus === "paid_in_full" ? "Payment Date" : "Deposit Paid Date"}
-                  </Label>
-                  <Input
-                    id="deposit_paid_date"
-                    type="date"
-                    value={depositPaidDate}
-                    onChange={(e) => setDepositPaidDate(e.target.value)}
-                  />
-                </div>
-              )}
-
-              {paymentStatus === "paid_in_full" && (
-                <div className="space-y-2">
-                  <Label htmlFor="final_paid_date" className="text-xs text-gray-500">
-                    Final Payment Date
-                  </Label>
-                  <Input
-                    id="final_paid_date"
-                    type="date"
-                    value={finalPaidDate}
-                    onChange={(e) => setFinalPaidDate(e.target.value)}
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="mt-4">
-              <Badge className={paymentStatusColors[paymentStatus]}>
-                {paymentStatusLabels[paymentStatus]}
-              </Badge>
-            </div>
+            {/* Total percentage check for custom */}
+            {paymentTermsType === "custom" && paymentMilestones.length > 0 && (
+              <div className="mt-2 text-xs">
+                {(() => {
+                  const totalPercentage = paymentMilestones.reduce((sum, m) => sum + m.percentage, 0);
+                  if (totalPercentage !== 100) {
+                    return (
+                      <span className="text-amber-600">
+                        Total: {totalPercentage}% (should equal 100%)
+                      </span>
+                    );
+                  }
+                  return <span className="text-green-600">Total: 100%</span>;
+                })()}
+              </div>
+            )}
           </div>
 
           {/* Notes Section */}

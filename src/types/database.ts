@@ -203,6 +203,15 @@ export interface Deliverable {
   quantity: number;
 }
 
+export interface PaymentMilestone {
+  id: string;
+  description: string;
+  percentage: number;
+  amount: number;
+  is_paid: boolean;
+  paid_date: string | null;
+}
+
 export interface CampaignDeal {
   id: string;
   campaign_id: string;
@@ -210,6 +219,7 @@ export interface CampaignDeal {
   deliverables: Deliverable[];
   total_deal_value: number;
   payment_status: PaymentStatus;
+  payment_terms: PaymentMilestone[] | null;
   deposit_amount: number | null;
   deposit_paid_date: string | null;
   final_paid_date: string | null;
