@@ -145,15 +145,15 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
   };
 
   return (
-    <div className="w-60 h-screen bg-white border-r flex flex-col fixed left-0 top-0">
+    <div className="w-44 h-screen bg-white border-r flex flex-col fixed left-0 top-0">
       {/* Logo / Title */}
-      <div className="px-5 py-4 border-b">
-        <h1 className="text-lg font-semibold text-gray-900">Partnerships</h1>
+      <div className="px-4 py-3 border-b">
+        <h1 className="text-base font-semibold text-gray-900">Partnerships</h1>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 overflow-y-auto">
-        <ul className="space-y-1">
+      <nav className="flex-1 px-2 py-3 overflow-y-auto">
+        <ul className="space-y-0.5">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id ||
@@ -163,47 +163,47 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
               <li key={item.id}>
                 <button
                   onClick={() => handleNavClick(item.id)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${
+                  className={`w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm transition-colors ${
                     isActive
                       ? "bg-gray-100 text-gray-900 font-medium"
                       : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                   }`}
                 >
-                  <span className="flex items-center gap-3">
-                    <Icon className="h-4 w-4" />
-                    {item.label}
+                  <span className="flex items-center gap-2">
+                    <Icon className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">{item.label}</span>
                   </span>
                   {item.expandable && (
                     campaignsExpanded ? (
-                      <ChevronDown className="h-4 w-4 text-gray-400" />
+                      <ChevronDown className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
                     ) : (
-                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                      <ChevronRight className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
                     )
                   )}
                 </button>
 
                 {/* Campaigns submenu */}
                 {item.id === "campaigns" && campaignsExpanded && (
-                  <ul className="mt-1 ml-4 pl-4 border-l border-gray-200 space-y-1">
+                  <ul className="mt-0.5 ml-3 pl-3 border-l border-gray-200 space-y-0.5">
                     <li>
                       <button
                         onClick={() => {
                           onTabChange("campaigns");
                           router.push("/?tab=campaigns");
                         }}
-                        className="w-full text-left px-3 py-1.5 text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
+                        className="w-full text-left px-2 py-1 text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
                       >
                         View All
                       </button>
                     </li>
                     {loadingCampaigns ? (
-                      <li className="px-3 py-1.5 text-sm text-gray-400">Loading...</li>
+                      <li className="px-2 py-1 text-sm text-gray-400">Loading...</li>
                     ) : (
                       groupedCampaigns.slice(0, 6).map((group) => (
                         <li key={group.monthKey}>
                           <button
                             onClick={() => handleMonthClick(group.monthKey)}
-                            className={`w-full text-left px-3 py-1.5 text-sm rounded-md transition-colors ${
+                            className={`w-full text-left px-2 py-1 text-sm rounded-md transition-colors truncate ${
                               pathname === `/campaigns/month/${group.monthKey}`
                                 ? "text-gray-900 bg-gray-100 font-medium"
                                 : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
@@ -227,21 +227,21 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
         <div className="border-t relative" ref={userMenuRef}>
           <button
             onClick={() => setUserMenuOpen(!userMenuOpen)}
-            className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-gray-50 transition-colors"
           >
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
               {currentUser.profilePhotoUrl ? (
                 <Image
                   src={currentUser.profilePhotoUrl}
                   alt={currentUser.displayName}
-                  width={32}
-                  height={32}
-                  className="rounded-full"
+                  width={28}
+                  height={28}
+                  className="rounded-full flex-shrink-0"
                   unoptimized
                 />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                  <span className="text-sm font-medium text-gray-600">
+                <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                  <span className="text-xs font-medium text-gray-600">
                     {currentUser.displayName.charAt(0).toUpperCase()}
                   </span>
                 </div>
@@ -252,18 +252,18 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                 </p>
               </div>
             </div>
-            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${userMenuOpen ? "rotate-180" : ""}`} />
+            <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform flex-shrink-0 ${userMenuOpen ? "rotate-180" : ""}`} />
           </button>
 
           {/* Dropdown menu */}
           {userMenuOpen && (
-            <div className="absolute bottom-full left-0 right-0 mb-1 mx-2 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+            <div className="absolute bottom-full left-0 right-0 mb-1 mx-1.5 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
               <button
                 onClick={() => {
                   setUserMenuOpen(false);
                   router.push("/account");
                 }}
-                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 <User className="h-4 w-4 text-gray-400" />
                 Account Settings
@@ -274,7 +274,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                     setUserMenuOpen(false);
                     router.push("/admin/users");
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   <Users className="h-4 w-4 text-gray-400" />
                   Manage Users
@@ -285,7 +285,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                   setUserMenuOpen(false);
                   // Placeholder - can link to help/docs later
                 }}
-                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 <HelpCircle className="h-4 w-4 text-gray-400" />
                 Help & Support
@@ -296,7 +296,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                   setUserMenuOpen(false);
                   onLogout();
                 }}
-                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 <LogOut className="h-4 w-4 text-gray-400" />
                 Sign out
