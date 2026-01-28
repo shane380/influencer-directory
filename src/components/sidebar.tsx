@@ -140,12 +140,13 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
     }
   };
 
-  const handleMonthClick = (monthKey: string) => {
+  const handleMonthClick = (e: React.MouseEvent, monthKey: string) => {
+    e.stopPropagation();
     router.push(`/campaigns/month/${monthKey}`);
   };
 
   return (
-    <div className="w-44 h-screen bg-white border-r flex flex-col fixed left-0 top-0">
+    <div className="w-48 h-screen bg-white border-r flex flex-col fixed left-0 top-0">
       {/* Logo / Title */}
       <div className="px-4 py-3 border-b">
         <h1 className="text-base font-semibold text-gray-900">Partnerships</h1>
@@ -202,7 +203,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                       groupedCampaigns.slice(0, 6).map((group) => (
                         <li key={group.monthKey}>
                           <button
-                            onClick={() => handleMonthClick(group.monthKey)}
+                            onClick={(e) => handleMonthClick(e, group.monthKey)}
                             className={`w-full text-left px-2 py-1 text-sm rounded-md transition-colors truncate ${
                               pathname === `/campaigns/month/${group.monthKey}`
                                 ? "text-gray-900 bg-gray-100 font-medium"
