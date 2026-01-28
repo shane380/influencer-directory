@@ -34,7 +34,7 @@ interface GroupedCampaigns {
 }
 
 export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: SidebarProps) {
-  const [campaignsExpanded, setCampaignsExpanded] = useState(true);
+  const [campaignsExpanded, setCampaignsExpanded] = useState(false);
   const [groupedCampaigns, setGroupedCampaigns] = useState<GroupedCampaigns[]>([]);
   const [loadingCampaigns, setLoadingCampaigns] = useState(false);
   const router = useRouter();
