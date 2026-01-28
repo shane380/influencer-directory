@@ -7,6 +7,7 @@ import {
   InfluencerInsert,
   Campaign,
   CampaignInfluencer,
+  CampaignDeal,
   Profile,
   InfluencerRates,
   InfluencerMediaKit,
@@ -33,6 +34,7 @@ interface InfluencerDialogProps {
   onClose: () => void;
   onSave: () => void;
   influencer: Influencer | null;
+  initialTab?: string;
 }
 
 interface InstagramProfile {
@@ -94,6 +96,7 @@ export function InfluencerDialog({
   onClose,
   onSave,
   influencer,
+  initialTab = "overview",
 }: InfluencerDialogProps) {
   const [formData, setFormData] = useState<InfluencerInsert>(initialFormData);
   const [loading, setLoading] = useState(false);
@@ -115,6 +118,10 @@ export function InfluencerDialog({
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [refreshingOrders, setRefreshingOrders] = useState(false);
   const [shopifyCustomer, setShopifyCustomer] = useState<ShopifyCustomer | null>(null);
+
+  // Deals state
+  const [deals, setDeals] = useState<(CampaignDeal & { campaign: Campaign })[]>([]);
+  const [loadingDeals, setLoadingDeals] = useState(false);
 
   const supabase = createClient();
 
@@ -177,8 +184,8 @@ export function InfluencerDialog({
     }
     setError(null);
     setShowDeleteConfirm(false);
-    setActiveTab("overview");
-  }, [influencer, open, currentUserId]);
+    setActiveTab(initialTab);
+  }, [influencer, open, currentUserId, initialTab]);
 
   // Fetch campaign history
   useEffect(() => {
@@ -209,6 +216,37 @@ export function InfluencerDialog({
     }
 
     fetchCampaignHistory();
+  }, [influencer, open, supabase]);
+
+  // Fetch deals
+  useEffect(() => {
+    async function fetchDeals() {
+      if (!influencer || !open) {
+        setDeals([]);
+        return;
+      }
+
+      setLoadingDeals(true);
+      try {
+        const { data, error } = await supabase
+          .from("campaign_deals")
+          .select(`
+            *,
+            campaign:campaigns(*)
+          `)
+          .eq("influencer_id", influencer.id)
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+        setDeals(data || []);
+      } catch (err) {
+        console.error("Failed to fetch deals:", err);
+      } finally {
+        setLoadingDeals(false);
+      }
+    }
+
+    fetchDeals();
   }, [influencer, open, supabase]);
 
   // Fetch rates and media kits
@@ -586,6 +624,7 @@ export function InfluencerDialog({
                 <TabsTrigger value="orders">Orders</TabsTrigger>
                 <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
                 <TabsTrigger value="content">Content</TabsTrigger>
+                <TabsTrigger value="deal">Deal</TabsTrigger>
               </TabsList>
 
               {/* Fixed size container for tab content to prevent modal resizing */}
@@ -624,6 +663,96 @@ export function InfluencerDialog({
 
                 <TabsContent value="content" className="mt-0 h-full w-full">
                   <InfluencerContentTab />
+                </TabsContent>
+
+                <TabsContent value="deal" className="mt-0 h-full w-full">
+                  <div className="p-4 space-y-4">
+                    {loadingDeals ? (
+                      <div className="text-center text-gray-500 py-8">Loading deals...</div>
+                    ) : deals.length === 0 ? (
+                      <div className="text-center text-gray-500 py-8">No deals found for this influencer.</div>
+                    ) : (
+                      deals.map((deal) => (
+                        <div key={deal.id} className="border rounded-lg p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h4 className="font-medium text-gray-900">{deal.campaign?.name || "Unknown Campaign"}</h4>
+                              <p className="text-sm text-gray-500">Created {new Date(deal.created_at).toLocaleDateString()}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-lg font-semibold text-green-600">
+                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(deal.total_deal_value)} USD
+                              </p>
+                              <span className={`inline-block px-2 py-1 text-xs rounded-full ${
+                                deal.payment_status === 'paid_in_full' ? 'bg-green-100 text-green-800' :
+                                deal.payment_status === 'deposit_paid' ? 'bg-yellow-100 text-yellow-800' :
+                                deal.payment_status === 'paid_on_post' ? 'bg-blue-100 text-blue-800' :
+                                'bg-red-100 text-red-800'
+                              }`}>
+                                {deal.payment_status === 'paid_in_full' ? 'Paid in Full' :
+                                 deal.payment_status === 'deposit_paid' ? 'Deposit Paid' :
+                                 deal.payment_status === 'paid_on_post' ? 'Paid on Post' :
+                                 'Not Paid'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Deliverables */}
+                          {deal.deliverables && deal.deliverables.length > 0 && (
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 mb-1">Deliverables:</p>
+                              <ul className="text-sm text-gray-600 space-y-1">
+                                {deal.deliverables.map((d: { description: string; quantity: number; rate: number }, idx: number) => (
+                                  <li key={idx} className="flex justify-between">
+                                    <span>{d.quantity > 1 ? `${d.quantity}x ` : ''}{d.description}</span>
+                                    <span className="text-gray-500">${d.rate * d.quantity}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Payment Milestones */}
+                          {deal.payment_terms && deal.payment_terms.length > 0 && (
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 mb-1">Payment Terms:</p>
+                              <ul className="text-sm space-y-1">
+                                {deal.payment_terms.map((milestone: { id: string; description: string; percentage: number; amount: number; is_paid: boolean; paid_date: string | null }) => (
+                                  <li key={milestone.id} className="flex items-center justify-between">
+                                    <span className="flex items-center gap-2">
+                                      {milestone.is_paid ? (
+                                        <span className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center text-white text-xs">✓</span>
+                                      ) : (
+                                        <span className="w-4 h-4 rounded-full border-2 border-gray-300"></span>
+                                      )}
+                                      <span className={milestone.is_paid ? 'text-gray-500 line-through' : 'text-gray-700'}>
+                                        {milestone.description} ({milestone.percentage}%)
+                                      </span>
+                                    </span>
+                                    <span className={milestone.is_paid ? 'text-green-600' : 'text-gray-500'}>
+                                      ${milestone.amount}
+                                      {milestone.is_paid && milestone.paid_date && (
+                                        <span className="text-xs text-gray-400 ml-1">
+                                          - {new Date(milestone.paid_date).toLocaleDateString()}
+                                        </span>
+                                      )}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {deal.notes && (
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 mb-1">Notes:</p>
+                              <p className="text-sm text-gray-600">{deal.notes}</p>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </TabsContent>
               </div>
             </Tabs>

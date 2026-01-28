@@ -107,6 +107,7 @@ function HomePageContent() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [assignedToFilter, setAssignedToFilter] = useState<string>("all");
   const [currentUser, setCurrentUser] = useState<{ displayName: string; email: string; profilePhotoUrl: string | null; isAdmin: boolean } | null>(null);
+  const [influencerDialogInitialTab, setInfluencerDialogInitialTab] = useState<string>("overview");
 
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -348,6 +349,7 @@ function HomePageContent() {
 
   const handleOpenInfluencerDialog = (influencer?: Influencer) => {
     setSelectedInfluencer(influencer || null);
+    setInfluencerDialogInitialTab("overview");
     setInfluencerDialogOpen(true);
   };
 
@@ -900,8 +902,14 @@ function HomePageContent() {
                   {filteredPaidCollabs.map((collab) => (
                     <TableRow
                       key={collab.id}
-                      className="cursor-pointer hover:bg-gray-50 transition-colors"
-                      onClick={() => router.push(`/campaigns/${collab.campaign_id}`)}
+                      className="hover:bg-gray-50 transition-colors cursor-pointer"
+                      onClick={() => {
+                        if (collab.influencer) {
+                          setSelectedInfluencer(collab.influencer);
+                          setInfluencerDialogInitialTab("deal");
+                          setInfluencerDialogOpen(true);
+                        }
+                      }}
                     >
                       <TableCell>
                         <div className="w-14 h-14 flex-shrink-0">
@@ -923,11 +931,20 @@ function HomePageContent() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="font-medium">{collab.influencer?.name || "-"}</TableCell>
+                      <TableCell className="font-medium">
+                        {collab.influencer?.name || "-"}
+                      </TableCell>
                       <TableCell className="text-gray-600">
                         {collab.influencer?.instagram_handle ? `@${collab.influencer.instagram_handle}` : "-"}
                       </TableCell>
-                      <TableCell className="text-gray-600">{collab.campaign?.name || "-"}</TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <button
+                          className="text-gray-600 text-left hover:text-purple-600 hover:underline cursor-pointer"
+                          onClick={() => router.push(`/campaigns/${collab.campaign_id}`)}
+                        >
+                          {collab.campaign?.name || "-"}
+                        </button>
+                      </TableCell>
                       <TableCell className="text-gray-600 text-sm max-w-[200px] truncate">
                         {formatDeliverables(collab.deliverables)}
                       </TableCell>
@@ -961,6 +978,7 @@ function HomePageContent() {
         onClose={handleCloseInfluencerDialog}
         onSave={handleInfluencerSave}
         influencer={selectedInfluencer}
+        initialTab={influencerDialogInitialTab}
       />
 
       <CampaignDialog
