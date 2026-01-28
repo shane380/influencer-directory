@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Campaign } from "@/types/database";
@@ -8,14 +8,24 @@ import {
   Users,
   Megaphone,
   DollarSign,
-  Settings,
   ChevronDown,
   ChevronRight,
+  User,
+  HelpCircle,
+  LogOut,
 } from "lucide-react";
+import Image from "next/image";
 
 interface SidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  currentUser: {
+    displayName: string;
+    email: string;
+    profilePhotoUrl: string | null;
+    isAdmin: boolean;
+  } | null;
+  onLogout: () => void;
 }
 
 interface GroupedCampaigns {
@@ -24,10 +34,12 @@ interface GroupedCampaigns {
   campaigns: Campaign[];
 }
 
-export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
+export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: SidebarProps) {
   const [campaignsExpanded, setCampaignsExpanded] = useState(false);
   const [groupedCampaigns, setGroupedCampaigns] = useState<GroupedCampaigns[]>([]);
   const [loadingCampaigns, setLoadingCampaigns] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -88,6 +100,30 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
 
     fetchCampaigns();
   }, [supabase]);
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Close on escape key
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, []);
 
   const navItems = [
     { id: "influencers", label: "Influencers", icon: Users },
@@ -186,17 +222,89 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
         </ul>
       </nav>
 
-      {/* Bottom section */}
-      <div className="border-t">
-        {/* Settings */}
-        <button
-          onClick={() => router.push("/account")}
-          className="w-full flex items-center gap-3 px-6 py-3 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
-        >
-          <Settings className="h-4 w-4" />
-          Settings
-        </button>
-      </div>
+      {/* User section at bottom */}
+      {currentUser && (
+        <div className="border-t relative" ref={userMenuRef}>
+          <button
+            onClick={() => setUserMenuOpen(!userMenuOpen)}
+            className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              {currentUser.profilePhotoUrl ? (
+                <Image
+                  src={currentUser.profilePhotoUrl}
+                  alt={currentUser.displayName}
+                  width={32}
+                  height={32}
+                  className="rounded-full"
+                  unoptimized
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                  <span className="text-sm font-medium text-gray-600">
+                    {currentUser.displayName.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+              )}
+              <div className="min-w-0 text-left">
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  {currentUser.displayName}
+                </p>
+              </div>
+            </div>
+            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${userMenuOpen ? "rotate-180" : ""}`} />
+          </button>
+
+          {/* Dropdown menu */}
+          {userMenuOpen && (
+            <div className="absolute bottom-full left-0 right-0 mb-1 mx-2 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+              <button
+                onClick={() => {
+                  setUserMenuOpen(false);
+                  router.push("/account");
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <User className="h-4 w-4 text-gray-400" />
+                Account Settings
+              </button>
+              {currentUser.isAdmin && (
+                <button
+                  onClick={() => {
+                    setUserMenuOpen(false);
+                    router.push("/admin/users");
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <Users className="h-4 w-4 text-gray-400" />
+                  Manage Users
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  setUserMenuOpen(false);
+                  // Placeholder - can link to help/docs later
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <HelpCircle className="h-4 w-4 text-gray-400" />
+                Help & Support
+              </button>
+              <div className="border-t border-gray-100 my-1" />
+              <button
+                onClick={() => {
+                  setUserMenuOpen(false);
+                  onLogout();
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <LogOut className="h-4 w-4 text-gray-400" />
+                Sign out
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
