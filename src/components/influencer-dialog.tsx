@@ -28,7 +28,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { AlertTriangle, Pencil } from "lucide-react";
+import { AlertTriangle, Pencil, Plus, DollarSign } from "lucide-react";
 
 interface InfluencerDialogProps {
   open: boolean;
@@ -552,6 +552,47 @@ export function InfluencerDialog({
     }
   };
 
+  const handleToggleMilestonePaid = async (deal: CampaignDeal & { campaign: Campaign }, milestoneId: string) => {
+    if (!deal.payment_terms) return;
+
+    const updatedMilestones = deal.payment_terms.map((m) => {
+      if (m.id !== milestoneId) return m;
+      const nowPaid = !m.is_paid;
+      return {
+        ...m,
+        is_paid: nowPaid,
+        paid_date: nowPaid ? new Date().toISOString().split("T")[0] : null,
+        paid_by: nowPaid ? currentUserId : null,
+      };
+    });
+
+    // Calculate new payment status
+    const allPaid = updatedMilestones.every((m) => m.is_paid);
+    const somePaid = updatedMilestones.some((m) => m.is_paid);
+    const newPaymentStatus = allPaid ? "paid_in_full" : somePaid ? "deposit_paid" : "not_paid";
+
+    // Update in database
+    const { error } = await supabase
+      .from("campaign_deals")
+      .update({
+        payment_terms: updatedMilestones,
+        payment_status: newPaymentStatus,
+        updated_by: currentUserId,
+      } as never)
+      .eq("id", deal.id);
+
+    if (!error) {
+      // Update local state
+      setDeals((prev) =>
+        prev.map((d) =>
+          d.id === deal.id
+            ? { ...d, payment_terms: updatedMilestones, payment_status: newPaymentStatus as any }
+            : d
+        )
+      );
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -720,210 +761,198 @@ export function InfluencerDialog({
                     {loadingDeals ? (
                       <div className="text-center text-gray-500 py-8">Loading deals...</div>
                     ) : deals.length === 0 ? (
-                      <div className="text-center text-gray-500 py-8">No deals found for this influencer.</div>
+                      <div className="text-center py-8">
+                        <DollarSign className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                        <p className="text-gray-500">No paid collaborations</p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="mt-3"
+                          onClick={() => handleOpenDealDialog({
+                            id: "",
+                            campaign_id: "",
+                            influencer_id: influencer?.id || "",
+                            deliverables: [],
+                            total_deal_value: 0,
+                            deal_status: "negotiating",
+                            payment_status: "not_paid",
+                            payment_terms: null,
+                            deposit_amount: null,
+                            deposit_paid_date: null,
+                            final_paid_date: null,
+                            notes: null,
+                            content_status: "not_started",
+                            content_live_date: null,
+                            content_status_updated_by: null,
+                            content_status_updated_at: null,
+                            whitelisting_status: "not_applicable",
+                            whitelisting_live_date: null,
+                            whitelisting_status_updated_by: null,
+                            whitelisting_status_updated_at: null,
+                            created_by: null,
+                            updated_by: null,
+                            created_at: "",
+                            updated_at: "",
+                            campaign: {} as Campaign,
+                          })}
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Add Deal
+                        </Button>
+                      </div>
                     ) : (
-                      deals.map((deal) => {
-                        const getUserName = (userId: string | null) => {
-                          if (!userId) return null;
-                          const profile = profiles.find((p) => p.id === userId);
-                          return profile?.display_name || "Unknown user";
-                        };
+                      // Sort deals by campaign start_date (most recent first)
+                      [...deals]
+                        .sort((a, b) => {
+                          const dateA = a.campaign?.start_date || "";
+                          const dateB = b.campaign?.start_date || "";
+                          return dateB.localeCompare(dateA);
+                        })
+                        .map((deal) => {
+                          const formatCurrency = (amount: number) => {
+                            return new Intl.NumberFormat('en-US', {
+                              style: 'currency',
+                              currency: 'USD',
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }).format(amount);
+                          };
 
-                        const hasWhitelisting = deal.deliverables?.some(
-                          (d: { description: string }) => d.description?.toLowerCase().includes("whitelist")
-                        );
+                          const formatMonth = (dateString: string | null) => {
+                            if (!dateString) return "No date";
+                            const dateParts = dateString.split('T')[0].split('-');
+                            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                                              'July', 'August', 'September', 'October', 'November', 'December'];
+                            return `${monthNames[parseInt(dateParts[1], 10) - 1]} ${dateParts[0]}`;
+                          };
 
-                        const getDealStatusLabel = (status: string) => {
-                          switch (status) {
-                            case "negotiating": return "Negotiating";
-                            case "confirmed": return "Confirmed";
-                            case "cancelled": return "Cancelled";
-                            default: return status;
-                          }
-                        };
+                          const getDealStatusLabel = (status: string) => {
+                            switch (status) {
+                              case "negotiating": return "Negotiating";
+                              case "confirmed": return "Confirmed";
+                              case "cancelled": return "Cancelled";
+                              default: return status;
+                            }
+                          };
 
-                        const getDealStatusColor = (status: string) => {
-                          switch (status) {
-                            case "negotiating": return "bg-yellow-100 text-yellow-800";
-                            case "confirmed": return "bg-green-100 text-green-800";
-                            case "cancelled": return "bg-gray-100 text-gray-800";
-                            default: return "bg-gray-100 text-gray-800";
-                          }
-                        };
+                          const getContentStatusLabel = (status: string) => {
+                            switch (status) {
+                              case "not_started": return "Not Started";
+                              case "content_approved": return "Content Approved";
+                              case "content_live": return "Content Live";
+                              default: return status;
+                            }
+                          };
 
-                        const getContentStatusLabel = (status: string) => {
-                          switch (status) {
-                            case "not_started": return "Not Started";
-                            case "content_approved": return "Content Approved";
-                            case "content_live": return "Content Live";
-                            default: return status;
-                          }
-                        };
+                          const getPaymentStatusLabel = () => {
+                            if (!deal.payment_terms || deal.payment_terms.length === 0) {
+                              return deal.payment_status === 'paid_in_full' ? 'Paid' : 'Not Paid';
+                            }
+                            const paidCount = deal.payment_terms.filter((m) => m.is_paid).length;
+                            if (paidCount === 0) return 'Not Paid';
+                            if (paidCount === deal.payment_terms.length) return 'Paid';
+                            return 'Partial';
+                          };
 
-                        const getContentStatusColor = (status: string) => {
-                          switch (status) {
-                            case "not_started": return "bg-gray-100 text-gray-800";
-                            case "content_approved": return "bg-yellow-100 text-yellow-800";
-                            case "content_live": return "bg-green-100 text-green-800";
-                            default: return "bg-gray-100 text-gray-800";
-                          }
-                        };
+                          const getPaymentStatusColor = () => {
+                            const label = getPaymentStatusLabel();
+                            if (label === 'Paid') return 'text-green-600';
+                            if (label === 'Partial') return 'text-yellow-600';
+                            return 'text-gray-500';
+                          };
 
-                        const getWhitelistingStatusLabel = (status: string) => {
-                          switch (status) {
-                            case "not_applicable": return "N/A";
-                            case "pending": return "Pending";
-                            case "live": return "Live";
-                            case "ended": return "Ended";
-                            default: return status;
-                          }
-                        };
-
-                        const getWhitelistingStatusColor = (status: string) => {
-                          switch (status) {
-                            case "not_applicable": return "bg-gray-100 text-gray-800";
-                            case "pending": return "bg-yellow-100 text-yellow-800";
-                            case "live": return "bg-green-100 text-green-800";
-                            case "ended": return "bg-blue-100 text-blue-800";
-                            default: return "bg-gray-100 text-gray-800";
-                          }
-                        };
-
-                        return (
-                          <div key={deal.id} className="border rounded-lg p-4 space-y-3">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h4 className="font-medium text-gray-900">{deal.campaign?.name || "Unknown Campaign"}</h4>
-                                <p className="text-sm text-gray-500">Created {new Date(deal.created_at).toLocaleDateString()}</p>
+                          return (
+                            <div key={deal.id} className="border rounded-lg overflow-hidden">
+                              {/* Header: Month + Amount */}
+                              <div className="px-4 py-3 bg-gray-50 flex items-center justify-between">
+                                <span className="font-semibold text-gray-900">
+                                  {formatMonth(deal.campaign?.start_date)}
+                                </span>
+                                <span className="text-lg font-bold text-gray-900">
+                                  {formatCurrency(deal.total_deal_value)}
+                                </span>
                               </div>
-                              <div className="flex items-center gap-3">
+
+                              {/* Status row + Edit button */}
+                              <div className="px-4 py-2 border-b flex items-center justify-between">
+                                <div className="flex items-center gap-3 text-xs text-gray-500">
+                                  <span>Deal: <span className="text-gray-700">{getDealStatusLabel(deal.deal_status || "negotiating")}</span></span>
+                                  <span className="text-gray-300">·</span>
+                                  <span>Content: <span className="text-gray-700">{getContentStatusLabel(deal.content_status || "not_started")}</span></span>
+                                </div>
                                 <Button
                                   type="button"
-                                  variant="outline"
+                                  variant="ghost"
                                   size="sm"
+                                  className="h-7 px-2 text-xs"
                                   onClick={() => handleOpenDealDialog(deal)}
                                 >
                                   <Pencil className="h-3 w-3 mr-1" />
                                   Edit
                                 </Button>
-                                <div className="text-right">
-                                  <p className="text-lg font-semibold text-green-600">
-                                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(deal.total_deal_value)} USD
-                                  </p>
-                                  <span className={`inline-block px-2 py-1 text-xs rounded-full ${
-                                    deal.payment_status === 'paid_in_full' ? 'bg-green-100 text-green-800' :
-                                    deal.payment_status === 'deposit_paid' ? 'bg-yellow-100 text-yellow-800' :
-                                    deal.payment_status === 'paid_on_post' ? 'bg-blue-100 text-blue-800' :
-                                    'bg-red-100 text-red-800'
-                                  }`}>
-                                  {deal.payment_status === 'paid_in_full' ? 'Paid in Full' :
-                                   deal.payment_status === 'deposit_paid' ? 'Deposit Paid' :
-                                   deal.payment_status === 'paid_on_post' ? 'Paid on Post' :
-                                   'Not Paid'}
-                                </span>
-                                </div>
                               </div>
-                            </div>
 
-                            {/* Status Tracking */}
-                            <div className="flex flex-wrap gap-2">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-gray-500">Deal:</span>
-                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full ${getDealStatusColor(deal.deal_status || "negotiating")}`}>
-                                  {getDealStatusLabel(deal.deal_status || "negotiating")}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-gray-500">Content:</span>
-                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full ${getContentStatusColor(deal.content_status || "not_started")}`}>
-                                  {getContentStatusLabel(deal.content_status || "not_started")}
-                                  {deal.content_status === "content_live" && deal.content_live_date && (
-                                    <span className="text-xs opacity-75">({new Date(deal.content_live_date).toLocaleDateString()})</span>
-                                  )}
-                                </span>
-                              </div>
-                              {hasWhitelisting && deal.whitelisting_status && deal.whitelisting_status !== "not_applicable" && (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs text-gray-500">Whitelisting:</span>
-                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full ${getWhitelistingStatusColor(deal.whitelisting_status)}`}>
-                                    {getWhitelistingStatusLabel(deal.whitelisting_status)}
-                                    {(deal.whitelisting_status === "live" || deal.whitelisting_status === "ended") && deal.whitelisting_live_date && (
-                                      <span className="text-xs opacity-75">({new Date(deal.whitelisting_live_date).toLocaleDateString()})</span>
-                                    )}
-                                  </span>
+                              {/* Deliverables */}
+                              {deal.deliverables && deal.deliverables.length > 0 && (
+                                <div className="px-4 py-3 border-b">
+                                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Deliverables</p>
+                                  <ul className="text-sm space-y-1">
+                                    {deal.deliverables.map((d: { description: string; quantity: number; rate: number }, idx: number) => (
+                                      <li key={idx} className="flex justify-between">
+                                        <span className="text-gray-700">
+                                          {d.quantity > 1 ? `${d.quantity}x ` : ''}{d.description}
+                                        </span>
+                                        <span className="text-gray-900 font-medium">
+                                          {formatCurrency(d.rate * d.quantity)}
+                                        </span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              {/* Payment Terms */}
+                              {deal.payment_terms && deal.payment_terms.length > 0 && (
+                                <div className="px-4 py-3">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Payment Terms</p>
+                                    <span className={`text-xs font-medium ${getPaymentStatusColor()}`}>
+                                      {getPaymentStatusLabel()}
+                                    </span>
+                                  </div>
+                                  <ul className="space-y-2">
+                                    {deal.payment_terms.map((milestone: { id: string; description: string; percentage: number; amount: number; is_paid: boolean; paid_date: string | null; paid_by?: string | null }) => (
+                                      <li key={milestone.id} className="flex items-center justify-between">
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                          <input
+                                            type="checkbox"
+                                            checked={milestone.is_paid}
+                                            onChange={() => handleToggleMilestonePaid(deal, milestone.id)}
+                                            className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                          />
+                                          <span className={milestone.is_paid ? 'text-gray-400 line-through text-sm' : 'text-gray-700 text-sm'}>
+                                            {milestone.description} ({milestone.percentage}%)
+                                          </span>
+                                        </label>
+                                        <span className={milestone.is_paid ? 'text-green-600 text-sm font-medium' : 'text-gray-600 text-sm'}>
+                                          {milestone.is_paid ? 'Paid' : formatCurrency(milestone.amount)}
+                                        </span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              {/* Notes (if any) */}
+                              {deal.notes && (
+                                <div className="px-4 py-2 border-t bg-gray-50">
+                                  <p className="text-xs text-gray-500">{deal.notes}</p>
                                 </div>
                               )}
                             </div>
-
-                            {/* Deliverables */}
-                            {deal.deliverables && deal.deliverables.length > 0 && (
-                              <div>
-                                <p className="text-sm font-medium text-gray-700 mb-1">Deliverables:</p>
-                                <ul className="text-sm text-gray-600 space-y-1">
-                                  {deal.deliverables.map((d: { description: string; quantity: number; rate: number }, idx: number) => (
-                                    <li key={idx} className="flex justify-between">
-                                      <span>{d.quantity > 1 ? `${d.quantity}x ` : ''}{d.description}</span>
-                                      <span className="text-gray-500">${d.rate * d.quantity}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            {/* Payment Milestones */}
-                            {deal.payment_terms && deal.payment_terms.length > 0 && (
-                              <div>
-                                <p className="text-sm font-medium text-gray-700 mb-1">Payment Terms:</p>
-                                <ul className="text-sm space-y-1">
-                                  {deal.payment_terms.map((milestone: { id: string; description: string; percentage: number; amount: number; is_paid: boolean; paid_date: string | null; paid_by?: string | null }) => (
-                                    <li key={milestone.id} className="flex items-center justify-between">
-                                      <span className="flex items-center gap-2">
-                                        {milestone.is_paid ? (
-                                          <span className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center text-white text-xs">✓</span>
-                                        ) : (
-                                          <span className="w-4 h-4 rounded-full border-2 border-gray-300"></span>
-                                        )}
-                                        <span className={milestone.is_paid ? 'text-gray-500 line-through' : 'text-gray-700'}>
-                                          {milestone.description} ({milestone.percentage}%)
-                                        </span>
-                                      </span>
-                                      <span className={milestone.is_paid ? 'text-green-600' : 'text-gray-500'}>
-                                        ${milestone.amount}
-                                        {milestone.is_paid && milestone.paid_date && (
-                                          <span className="text-xs text-gray-400 ml-1">
-                                            - {new Date(milestone.paid_date).toLocaleDateString()}
-                                            {milestone.paid_by && (
-                                              <span> by {getUserName(milestone.paid_by)}</span>
-                                            )}
-                                          </span>
-                                        )}
-                                      </span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            {deal.notes && (
-                              <div>
-                                <p className="text-sm font-medium text-gray-700 mb-1">Notes:</p>
-                                <p className="text-sm text-gray-600">{deal.notes}</p>
-                              </div>
-                            )}
-
-                            {/* Audit Info */}
-                            {(deal.updated_by || deal.created_by) && (
-                              <div className="pt-2 border-t text-xs text-gray-400">
-                                {deal.updated_by && deal.updated_at ? (
-                                  <span>Last updated by {getUserName(deal.updated_by)} on {new Date(deal.updated_at).toLocaleDateString()}</span>
-                                ) : deal.created_by ? (
-                                  <span>Created by {getUserName(deal.created_by)} on {new Date(deal.created_at).toLocaleDateString()}</span>
-                                ) : null}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })
+                          );
+                        })
                     )}
                   </div>
                 </TabsContent>
