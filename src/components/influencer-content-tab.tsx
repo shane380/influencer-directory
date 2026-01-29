@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { InfluencerContent } from "@/types/database";
-import { Camera, Play, ExternalLink, ChevronDown, ChevronRight, X } from "lucide-react";
+import { Camera, Play, ExternalLink, ChevronDown, ChevronRight, X, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { format, parseISO } from "date-fns";
 import Image from "next/image";
@@ -61,6 +62,8 @@ export function InfluencerContentTab({ influencerId }: InfluencerContentTabProps
   const [loading, setLoading] = useState(true);
   const [selectedContent, setSelectedContent] = useState<InfluencerContent | null>(null);
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
+  const [scraping, setScraping] = useState(false);
+  const [scrapeResult, setScrapeResult] = useState<string | null>(null);
 
   const supabase = createClient();
 
@@ -86,6 +89,33 @@ export function InfluencerContentTab({ influencerId }: InfluencerContentTabProps
     fetchContent();
   }, [influencerId, supabase]);
 
+  const handleScrape = async () => {
+    setScraping(true);
+    setScrapeResult(null);
+    try {
+      const response = await fetch("/api/content/scrape-stories", {
+        method: "POST",
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setScrapeResult(`Done: ${data.totalProcessed} new, ${data.totalSkipped} skipped`);
+        // Refresh content list
+        const { data: refreshed } = await supabase
+          .from("content")
+          .select("*")
+          .eq("influencer_id", influencerId)
+          .order("posted_at", { ascending: false, nullsFirst: false });
+        if (refreshed) setContent(refreshed);
+      } else {
+        setScrapeResult(`Error: ${data.error}`);
+      }
+    } catch (err: any) {
+      setScrapeResult(`Failed: ${err.message}`);
+    } finally {
+      setScraping(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="text-center py-12 text-gray-500">Loading content...</div>
@@ -102,6 +132,20 @@ export function InfluencerContentTab({ influencerId }: InfluencerContentTabProps
         <p className="text-gray-500 max-w-sm mx-auto">
           Stories and posts tagging @nama will appear here automatically.
         </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-4"
+          onClick={handleScrape}
+          disabled={scraping}
+        >
+          <RefreshCw className={`h-3 w-3 mr-1 ${scraping ? "animate-spin" : ""}`} />
+          {scraping ? "Scanning..." : "Scan Now"}
+        </Button>
+        {scrapeResult && (
+          <p className="text-xs text-gray-500 mt-2">{scrapeResult}</p>
+        )}
       </div>
     );
   }
@@ -126,12 +170,27 @@ export function InfluencerContentTab({ influencerId }: InfluencerContentTabProps
   return (
     <div className="p-4 space-y-4">
       {/* Summary stats */}
-      <div className="text-sm text-gray-600">
-        {content.length} total
-        {stories > 0 && <span> &middot; {stories} {stories === 1 ? "Story" : "Stories"}</span>}
-        {posts > 0 && <span> &middot; {posts} {posts === 1 ? "Post" : "Posts"}</span>}
-        {reels > 0 && <span> &middot; {reels} {reels === 1 ? "Reel" : "Reels"}</span>}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-gray-600">
+          {content.length} total
+          {stories > 0 && <span> &middot; {stories} {stories === 1 ? "Story" : "Stories"}</span>}
+          {posts > 0 && <span> &middot; {posts} {posts === 1 ? "Post" : "Posts"}</span>}
+          {reels > 0 && <span> &middot; {reels} {reels === 1 ? "Reel" : "Reels"}</span>}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleScrape}
+          disabled={scraping}
+        >
+          <RefreshCw className={`h-3 w-3 mr-1 ${scraping ? "animate-spin" : ""}`} />
+          {scraping ? "Scanning..." : "Scan Now"}
+        </Button>
       </div>
+      {scrapeResult && (
+        <p className="text-xs text-gray-500">{scrapeResult}</p>
+      )}
 
       {/* Grouped by month */}
       {grouped.map((group) => {
