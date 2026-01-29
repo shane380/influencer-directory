@@ -5,58 +5,32 @@ import { ApifyClient } from "apify-client";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-const NAMA_TAG = "nama";
-const BATCH_SIZE = 20;
+const NAMA_HANDLE = "nama";
 
-interface StoryResult {
+interface TaggedPost {
   id?: string;
   url?: string;
-  mediaUrl?: string;
+  displayUrl?: string;
   videoUrl?: string;
-  thumbnailUrl?: string;
+  images?: string[];
   type?: string;
+  productType?: string;
   caption?: string;
-  takenAt?: string;
   timestamp?: string;
   mentions?: string[];
-  stickers?: Array<{ type?: string; text?: string; mention?: string }>;
-  owner?: { username?: string };
-  username?: string;
+  ownerUsername?: string;
+  ownerFullName?: string;
+  ownerId?: string;
+  likesCount?: number;
+  commentsCount?: number;
+  taggedUsers?: Array<{ username?: string }>;
   [key: string]: unknown;
-}
-
-function hasNamaMention(story: StoryResult): boolean {
-  const tag = NAMA_TAG.toLowerCase();
-
-  // Check mentions array
-  if (story.mentions?.some((m) => m.toLowerCase().includes(tag))) {
-    return true;
-  }
-
-  // Check caption
-  if (story.caption?.toLowerCase().includes(`@${tag}`)) {
-    return true;
-  }
-
-  // Check stickers for mentions
-  if (
-    story.stickers?.some(
-      (s) =>
-        s.mention?.toLowerCase().includes(tag) ||
-        s.text?.toLowerCase().includes(`@${tag}`)
-    )
-  ) {
-    return true;
-  }
-
-  return false;
 }
 
 function getMediaExtension(contentType: string | null, url: string): string {
   if (contentType?.includes("video")) return "mp4";
   if (contentType?.includes("png")) return "png";
   if (contentType?.includes("webp")) return "webp";
-  // Check URL for extension hints
   if (url.includes(".mp4")) return "mp4";
   if (url.includes(".png")) return "png";
   if (url.includes(".webp")) return "webp";
@@ -73,12 +47,18 @@ function generateHash(input: string): string {
   return Math.abs(hash).toString(36);
 }
 
+function getContentType(post: TaggedPost): string {
+  if (post.productType === "clips" || post.type === "Video") return "reel";
+  if (post.videoUrl) return "reel";
+  return "post";
+}
+
 async function downloadAndUpload(
   supabase: any,
   mediaUrl: string,
   handle: string,
   retryCount = 0
-): Promise<{ storedUrl: string; thumbnailUrl?: string } | null> {
+): Promise<string | null> {
   try {
     const response = await fetch(mediaUrl);
     if (!response.ok) {
@@ -113,7 +93,7 @@ async function downloadAndUpload(
       .from("influencer-content")
       .getPublicUrl(fileName);
 
-    return { storedUrl: urlData.publicUrl };
+    return urlData.publicUrl;
   } catch (err) {
     if (retryCount === 0) {
       return downloadAndUpload(supabase, mediaUrl, handle, 1);
@@ -123,149 +103,8 @@ async function downloadAndUpload(
   }
 }
 
-async function processStories(
-  supabase: any,
-  items: StoryResult[],
-  influencerMap: Map<string, string>
-): Promise<{ processed: number; skipped: number; errors: string[] }> {
-  let processed = 0;
-  let skipped = 0;
-  const errors: string[] = [];
-
-  for (const story of items) {
-    try {
-      if (!hasNamaMention(story)) {
-        skipped++;
-        continue;
-      }
-
-      const handle = (
-        story.username ||
-        story.owner?.username ||
-        ""
-      ).toLowerCase();
-      const influencerId = influencerMap.get(handle);
-
-      if (!influencerId) {
-        skipped++;
-        continue;
-      }
-
-      const originalUrl =
-        story.url || story.mediaUrl || story.videoUrl || "";
-      if (!originalUrl) {
-        skipped++;
-        continue;
-      }
-
-      // Check for duplicate
-      const { data: existing } = await supabase
-        .from("content")
-        .select("id")
-        .eq("original_url", originalUrl)
-        .maybeSingle();
-
-      if (existing) {
-        skipped++;
-        continue;
-      }
-
-      const sourceMediaUrl = story.videoUrl || story.mediaUrl || "";
-      if (!sourceMediaUrl) {
-        skipped++;
-        continue;
-      }
-
-      const uploadResult = await downloadAndUpload(
-        supabase,
-        sourceMediaUrl,
-        handle
-      );
-      if (!uploadResult) {
-        errors.push(`Failed to download media for ${handle}: ${originalUrl}`);
-        continue;
-      }
-
-      // Upload thumbnail separately if it's a video
-      let thumbnailUrl: string | undefined;
-      if (story.videoUrl && story.thumbnailUrl) {
-        const thumbResult = await downloadAndUpload(
-          supabase,
-          story.thumbnailUrl,
-          handle
-        );
-        thumbnailUrl = thumbResult?.storedUrl;
-      }
-
-      const contentType = story.videoUrl
-        ? "story"
-        : story.type?.toLowerCase() === "reel"
-        ? "reel"
-        : story.type?.toLowerCase() === "post"
-        ? "post"
-        : "story";
-
-      const postedAt =
-        story.takenAt || story.timestamp
-          ? new Date(
-              story.takenAt || story.timestamp || ""
-            ).toISOString()
-          : null;
-
-      // Try to find active campaign for this influencer during posted_at
-      let campaignId: string | null = null;
-      if (postedAt) {
-        const { data: activeCampaign } = await supabase
-          .from("campaign_influencers")
-          .select("campaign_id, campaigns!inner(start_date, end_date, status)")
-          .eq("influencer_id", influencerId)
-          .limit(1)
-          .maybeSingle();
-
-        if (activeCampaign) {
-          campaignId = activeCampaign.campaign_id;
-        }
-      }
-
-      const { error: insertError } = await supabase.from("content").insert({
-        influencer_id: influencerId,
-        type: contentType,
-        media_url: uploadResult.storedUrl,
-        original_url: originalUrl,
-        thumbnail_url: thumbnailUrl || null,
-        caption: story.caption || null,
-        posted_at: postedAt,
-        campaign_id: campaignId,
-        metadata: {
-          mentions: story.mentions || [],
-          stickers: story.stickers || [],
-        },
-      });
-
-      if (insertError) {
-        // Unique constraint violation means duplicate - skip silently
-        if (insertError.code === "23505") {
-          skipped++;
-        } else {
-          errors.push(
-            `Insert error for ${handle}: ${insertError.message}`
-          );
-        }
-        continue;
-      }
-
-      processed++;
-    } catch (err: any) {
-      errors.push(`Error processing story: ${err.message}`);
-    }
-  }
-
-  return { processed, skipped, errors };
-}
-
 // GET handler for Vercel cron
 export async function GET(request: NextRequest) {
-  // Verify cron secret if configured
   const authHeader = request.headers.get("authorization");
   if (
     process.env.CRON_SECRET &&
@@ -300,7 +139,7 @@ async function runScrape(): Promise<NextResponse> {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
   const apify = new ApifyClient({ token: process.env.APIFY_API_TOKEN });
 
-  // Fetch all influencer handles
+  // Fetch all influencer handles for matching
   const { data: influencers, error: fetchError } = await supabase
     .from("influencers")
     .select("id, instagram_handle")
@@ -313,68 +152,144 @@ async function runScrape(): Promise<NextResponse> {
     );
   }
 
-  if (!influencers || influencers.length === 0) {
-    return NextResponse.json({ message: "No influencers found", results: [] });
-  }
-
   // Build handle -> id map (case-insensitive)
   const influencerMap = new Map<string, string>();
-  for (const inf of influencers) {
+  for (const inf of influencers || []) {
     influencerMap.set(inf.instagram_handle.toLowerCase(), inf.id);
   }
 
-  const handles = influencers.map((i) => i.instagram_handle);
-  const allResults: {
-    batch: number;
-    processed: number;
-    skipped: number;
-    errors: string[];
-  }[] = [];
-
-  // Process in batches
-  for (let i = 0; i < handles.length; i += BATCH_SIZE) {
-    const batch = handles.slice(i, i + BATCH_SIZE);
-    const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-
-    try {
-      const run = await apify
-        .actor("apify/instagram-story-scraper")
-        .call({
-          usernames: batch,
-          resultsLimit: 50,
-        });
-
-      const { items } = await apify
-        .dataset(run.defaultDatasetId)
-        .listItems();
-
-      const result = await processStories(
-        supabase,
-        items as StoryResult[],
-        influencerMap
-      );
-
-      allResults.push({ batch: batchNum, ...result });
-    } catch (err: any) {
-      console.error(`Batch ${batchNum} failed:`, err.message);
-      allResults.push({
-        batch: batchNum,
-        processed: 0,
-        skipped: 0,
-        errors: [`Batch failed: ${err.message}`],
+  // Scrape posts tagged @nama using the tagged posts scraper
+  let items: TaggedPost[] = [];
+  try {
+    const run = await apify
+      .actor("apify/instagram-tagged-scraper")
+      .call({
+        username: [NAMA_HANDLE],
+        resultsLimit: 100,
       });
+
+    const result = await apify
+      .dataset(run.defaultDatasetId)
+      .listItems();
+
+    items = (result.items || []) as TaggedPost[];
+  } catch (err: any) {
+    console.error("Tagged scraper failed:", err.message);
+    return NextResponse.json(
+      { error: `Scraper failed: ${err.message}` },
+      { status: 500 }
+    );
+  }
+
+  let processed = 0;
+  let skipped = 0;
+  const errors: string[] = [];
+
+  for (const post of items) {
+    try {
+      const handle = (post.ownerUsername || "").toLowerCase();
+      const influencerId = influencerMap.get(handle);
+
+      if (!influencerId) {
+        skipped++;
+        continue;
+      }
+
+      const originalUrl = post.url || "";
+      if (!originalUrl) {
+        skipped++;
+        continue;
+      }
+
+      // Check for duplicate
+      const { data: existing } = await supabase
+        .from("content")
+        .select("id")
+        .eq("original_url", originalUrl)
+        .maybeSingle();
+
+      if (existing) {
+        skipped++;
+        continue;
+      }
+
+      // Get media URL - video or first image
+      const sourceMediaUrl =
+        post.videoUrl || post.displayUrl || post.images?.[0] || "";
+      if (!sourceMediaUrl) {
+        skipped++;
+        continue;
+      }
+
+      const storedUrl = await downloadAndUpload(supabase, sourceMediaUrl, handle);
+      if (!storedUrl) {
+        errors.push(`Failed to download media for ${handle}: ${originalUrl}`);
+        continue;
+      }
+
+      // Upload thumbnail for videos
+      let thumbnailUrl: string | null = null;
+      if (post.videoUrl && post.displayUrl) {
+        thumbnailUrl = await downloadAndUpload(supabase, post.displayUrl, handle);
+      }
+
+      const contentType = getContentType(post);
+      const postedAt = post.timestamp
+        ? new Date(post.timestamp).toISOString()
+        : null;
+
+      // Try to find active campaign for this influencer
+      let campaignId: string | null = null;
+      const { data: activeCampaign } = await supabase
+        .from("campaign_influencers")
+        .select("campaign_id")
+        .eq("influencer_id", influencerId)
+        .limit(1)
+        .maybeSingle();
+
+      if (activeCampaign) {
+        campaignId = activeCampaign.campaign_id;
+      }
+
+      const { error: insertError } = await supabase.from("content").insert({
+        influencer_id: influencerId,
+        type: contentType,
+        media_url: storedUrl,
+        original_url: originalUrl,
+        thumbnail_url: thumbnailUrl,
+        caption: post.caption || null,
+        posted_at: postedAt,
+        campaign_id: campaignId,
+        metadata: {
+          mentions: post.mentions || [],
+          taggedUsers: post.taggedUsers || [],
+          likesCount: post.likesCount,
+          commentsCount: post.commentsCount,
+          ownerFullName: post.ownerFullName,
+        },
+      });
+
+      if (insertError) {
+        if (insertError.code === "23505") {
+          skipped++;
+        } else {
+          errors.push(`Insert error for ${handle}: ${insertError.message}`);
+        }
+        continue;
+      }
+
+      processed++;
+    } catch (err: any) {
+      errors.push(`Error processing post: ${err.message}`);
     }
   }
 
-  const totalProcessed = allResults.reduce((s, r) => s + r.processed, 0);
-  const totalSkipped = allResults.reduce((s, r) => s + r.skipped, 0);
-  const totalErrors = allResults.flatMap((r) => r.errors);
-
   return NextResponse.json({
-    message: `Scrape complete: ${totalProcessed} new items, ${totalSkipped} skipped`,
-    totalProcessed,
-    totalSkipped,
-    totalErrors: totalErrors.length,
-    results: allResults,
+    message: `Scrape complete: ${processed} new items, ${skipped} skipped`,
+    totalProcessed: processed,
+    totalSkipped: skipped,
+    totalErrors: errors.length,
+    totalScraped: items.length,
+    errors: errors.length > 0 ? errors : undefined,
   });
 }
