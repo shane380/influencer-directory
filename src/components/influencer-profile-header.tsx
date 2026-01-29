@@ -18,6 +18,7 @@ interface InfluencerProfileHeaderProps {
   lookingUp?: boolean;
   searchHandle?: string;
   onSearchHandleChange?: (value: string) => void;
+  contentCount?: number;
 }
 
 const statusColors: Record<RelationshipStatus, string> = {
@@ -83,6 +84,7 @@ export function InfluencerProfileHeader({
   lookingUp,
   searchHandle,
   onSearchHandleChange,
+  contentCount,
 }: InfluencerProfileHeaderProps) {
   // For new influencers, show a more compact input form
   if (!influencer) {
@@ -248,6 +250,14 @@ export function InfluencerProfileHeader({
           <span className="text-sm text-gray-600">
             {formatFollowerCount(formData.follower_count)} followers
           </span>
+          {contentCount !== undefined && contentCount > 0 && (
+            <>
+              <span className="text-gray-300">·</span>
+              <span className="text-sm text-gray-600">
+                {contentCount} content
+              </span>
+            </>
+          )}
           <span className="text-gray-300">·</span>
           <Badge className={statusColors[formData.relationship_status as RelationshipStatus]}>
             {statusLabels[formData.relationship_status as RelationshipStatus]}

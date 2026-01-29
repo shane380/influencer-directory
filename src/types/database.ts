@@ -281,6 +281,38 @@ export interface InfluencerWithRates extends Influencer {
   media_kits?: InfluencerMediaKit[];
 }
 
+// Content Monitoring Types
+
+export type ContentType = 'story' | 'post' | 'reel';
+
+export interface InfluencerContent {
+  id: string;
+  influencer_id: string;
+  type: ContentType;
+  media_url: string;
+  original_url: string;
+  thumbnail_url: string | null;
+  caption: string | null;
+  posted_at: string | null;
+  scraped_at: string;
+  platform: string;
+  campaign_id: string | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface InfluencerContentInsert {
+  influencer_id: string;
+  type?: ContentType;
+  media_url: string;
+  original_url: string;
+  thumbnail_url?: string | null;
+  caption?: string | null;
+  posted_at?: string | null;
+  platform?: string;
+  campaign_id?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
 // Shopify Order History Types
 
 export interface OrderLineItem {
@@ -364,6 +396,12 @@ export interface Database {
         Row: InfluencerOrder;
         Insert: InfluencerOrderInsert;
         Update: Partial<InfluencerOrderInsert>;
+        Relationships: [];
+      };
+      content: {
+        Row: InfluencerContent;
+        Insert: InfluencerContentInsert;
+        Update: Partial<InfluencerContentInsert>;
         Relationships: [];
       };
     };

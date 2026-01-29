@@ -126,6 +126,9 @@ export function InfluencerDialog({
   const [dealDialogOpen, setDealDialogOpen] = useState(false);
   const [selectedDeal, setSelectedDeal] = useState<(CampaignDeal & { campaign: Campaign }) | null>(null);
 
+  // Content count
+  const [contentCount, setContentCount] = useState(0);
+
   const supabase = createClient();
 
   // Fetch profiles and current user
@@ -343,6 +346,31 @@ export function InfluencerDialog({
 
     fetchShopifyData();
   }, [influencer, open]);
+
+  // Fetch content count
+  useEffect(() => {
+    async function fetchContentCount() {
+      if (!influencer || !open) {
+        setContentCount(0);
+        return;
+      }
+
+      try {
+        const { count, error } = await supabase
+          .from("content")
+          .select("*", { count: "exact", head: true })
+          .eq("influencer_id", influencer.id);
+
+        if (!error && count !== null) {
+          setContentCount(count);
+        }
+      } catch (err) {
+        console.error("Failed to fetch content count:", err);
+      }
+    }
+
+    fetchContentCount();
+  }, [influencer, open, supabase]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -705,6 +733,7 @@ export function InfluencerDialog({
             lookingUp={lookingUp}
             searchHandle={searchHandle}
             onSearchHandleChange={setSearchHandle}
+            contentCount={contentCount}
           />
 
           {/* Tabs - Only show for existing influencers */}
@@ -753,7 +782,7 @@ export function InfluencerDialog({
                 </TabsContent>
 
                 <TabsContent value="content" className="mt-0 h-full w-full">
-                  <InfluencerContentTab />
+                  <InfluencerContentTab influencerId={influencer.id} />
                 </TabsContent>
 
                 <TabsContent value="deal" className="mt-0 h-full w-full">
