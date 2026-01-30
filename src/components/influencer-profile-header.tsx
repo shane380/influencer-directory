@@ -1,6 +1,6 @@
 "use client";
 
-import { Influencer, InfluencerInsert, Profile, PartnershipType, RelationshipStatus } from "@/types/database";
+import { Influencer, InfluencerInsert, Profile, PartnershipType } from "@/types/database";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -18,34 +18,7 @@ interface InfluencerProfileHeaderProps {
   lookingUp?: boolean;
   searchHandle?: string;
   onSearchHandleChange?: (value: string) => void;
-  contentCount?: number;
 }
-
-const statusColors: Record<RelationshipStatus, string> = {
-  prospect: "bg-gray-100 text-gray-800",
-  contacted: "bg-blue-100 text-blue-800",
-  followed_up: "bg-yellow-100 text-yellow-800",
-  lead_dead: "bg-red-100 text-red-800",
-  creator_wants_paid: "bg-pink-100 text-pink-800",
-  order_placed: "bg-orange-100 text-orange-800",
-  order_delivered: "bg-teal-100 text-teal-800",
-  order_follow_up_sent: "bg-indigo-100 text-indigo-800",
-  order_follow_up_two_sent: "bg-purple-100 text-purple-800",
-  posted: "bg-green-100 text-green-800",
-};
-
-const statusLabels: Record<RelationshipStatus, string> = {
-  prospect: "Prospect",
-  contacted: "Contacted",
-  followed_up: "Followed Up",
-  lead_dead: "Lead Dead",
-  creator_wants_paid: "Creator Wants Paid",
-  order_placed: "Order Placed",
-  order_delivered: "Order Delivered",
-  order_follow_up_sent: "Order Follow Up Sent",
-  order_follow_up_two_sent: "Order Follow Up Two Sent",
-  posted: "Posted",
-};
 
 const partnershipTypeLabels: Record<PartnershipType, string> = {
   unassigned: "Unassigned",
@@ -84,7 +57,6 @@ export function InfluencerProfileHeader({
   lookingUp,
   searchHandle,
   onSearchHandleChange,
-  contentCount,
 }: InfluencerProfileHeaderProps) {
   // For new influencers, show a more compact input form
   if (!influencer) {
@@ -245,27 +217,12 @@ export function InfluencerProfileHeader({
           </a>
         )}
 
-        {/* Stats Row - followers and status */}
-        <div className="flex items-center gap-2 pt-1">
+        {/* Stats Row - followers, partnership & assignment */}
+        <div className="flex items-center gap-2 pt-2">
           <span className="text-sm text-gray-600">
             {formatFollowerCount(formData.follower_count)} followers
           </span>
-          {contentCount !== undefined && contentCount > 0 && (
-            <>
-              <span className="text-gray-300">·</span>
-              <span className="text-sm text-gray-600">
-                {contentCount} content
-              </span>
-            </>
-          )}
           <span className="text-gray-300">·</span>
-          <Badge className={statusColors[formData.relationship_status as RelationshipStatus]}>
-            {statusLabels[formData.relationship_status as RelationshipStatus]}
-          </Badge>
-        </div>
-
-        {/* Partnership & Assignment - with more spacing */}
-        <div className="flex items-center gap-2 pt-2">
           <Badge className={partnershipTypeColors[formData.partnership_type as PartnershipType]}>
             {partnershipTypeLabels[formData.partnership_type as PartnershipType]}
           </Badge>

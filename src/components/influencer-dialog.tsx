@@ -733,7 +733,6 @@ export function InfluencerDialog({
             lookingUp={lookingUp}
             searchHandle={searchHandle}
             onSearchHandleChange={setSearchHandle}
-            contentCount={contentCount}
           />
 
           {/* Tabs - Only show for existing influencers */}
