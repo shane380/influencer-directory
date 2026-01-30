@@ -85,20 +85,21 @@ export function InfluencerOrdersTab({
   const [searchError, setSearchError] = useState<string | null>(null);
   const hasAutoSearched = useRef(false);
 
-  // Auto-search when no customer linked
+  // Auto-search when no customer linked - prefer email over name for reliability
   useEffect(() => {
     if (
       influencer &&
       !influencer.shopify_customer_id &&
       !shopifyCustomer &&
-      influencer.name &&
+      (influencer.email || influencer.name) &&
       !hasAutoSearched.current
     ) {
       hasAutoSearched.current = true;
-      setSearchQuery(influencer.name);
+      const query = influencer.email || influencer.name;
+      setSearchQuery(query);
       // Auto-search after a brief delay
       const timer = setTimeout(() => {
-        searchCustomers(influencer.name);
+        searchCustomers(query);
       }, 100);
       return () => clearTimeout(timer);
     }
@@ -116,8 +117,9 @@ export function InfluencerOrdersTab({
     setSearchError(null);
 
     try {
+      const param = query.includes("@") ? "email" : "name";
       const response = await fetch(
-        `/api/shopify/customers?name=${encodeURIComponent(query)}`
+        `/api/shopify/customers?${param}=${encodeURIComponent(query)}`
       );
 
       if (!response.ok) {
