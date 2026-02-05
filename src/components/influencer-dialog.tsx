@@ -18,6 +18,7 @@ import { InfluencerOverviewTab } from "@/components/influencer-overview-tab";
 import { InfluencerOrdersTab } from "@/components/influencer-orders-tab";
 import { InfluencerCampaignsTab } from "@/components/influencer-campaigns-tab";
 import { InfluencerContentTab } from "@/components/influencer-content-tab";
+import { InfluencerContractsTab } from "@/components/influencer-contracts-tab";
 import { DealDialog } from "@/components/deal-dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -756,6 +757,9 @@ export function InfluencerDialog({
                 <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
                 <TabsTrigger value="content">Content</TabsTrigger>
                 <TabsTrigger value="deal">Deal</TabsTrigger>
+                {(influencer.partnership_type === "paid" || influencer.whitelisting_enabled) && (
+                  <TabsTrigger value="contracts">Contracts</TabsTrigger>
+                )}
               </TabsList>
 
               {/* Fixed size container for tab content to prevent modal resizing */}
@@ -996,6 +1000,12 @@ export function InfluencerDialog({
                     )}
                   </div>
                 </TabsContent>
+
+                {(influencer.partnership_type === "paid" || influencer.whitelisting_enabled) && (
+                  <TabsContent value="contracts" className="mt-0 h-full w-full">
+                    <InfluencerContractsTab influencer={influencer} />
+                  </TabsContent>
+                )}
               </div>
             </Tabs>
           ) : (

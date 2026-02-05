@@ -11,6 +11,8 @@ export type ApprovalStatus = 'pending' | 'approved' | 'declined';
 export type ContentStatus = 'not_started' | 'content_approved' | 'content_live';
 export type WhitelistingStatus = 'not_applicable' | 'pending' | 'live' | 'ended';
 export type DealStatus = 'negotiating' | 'confirmed' | 'cancelled';
+export type ContractType = 'paid_collab' | 'whitelisting';
+export type ContractStatus = 'draft' | 'sent' | 'signed';
 
 export interface Profile {
   id: string;
@@ -352,6 +354,56 @@ export interface InfluencerOrderInsert {
   line_items?: OrderLineItem[];
 }
 
+// Contract Types
+
+export interface PaidCollabContractVariables {
+  effective_date: string;
+  talent_name: string;
+  talent_representative?: string;
+  deliverables: string;
+  total_fee: string;
+  fee_additions?: string;
+  total_amount_due: string;
+  payment_1_percent: string;
+  payment_1_amount: string;
+  payment_1_condition: string;
+  payment_2_percent: string;
+  payment_2_amount: string;
+  payment_2_condition: string;
+  usage_rights_duration: string;
+  talent_signatory_name: string;
+}
+
+export interface WhitelistingContractVariables {
+  effective_date: string;
+  talent_name: string;
+  talent_email: string;
+  compensation: string;
+}
+
+export interface InfluencerContract {
+  id: string;
+  influencer_id: string;
+  contract_type: ContractType;
+  variables: PaidCollabContractVariables | WhitelistingContractVariables;
+  generated_pdf_url: string | null;
+  signed_pdf_url: string | null;
+  status: ContractStatus;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InfluencerContractInsert {
+  influencer_id: string;
+  contract_type: ContractType;
+  variables: PaidCollabContractVariables | WhitelistingContractVariables;
+  generated_pdf_url?: string | null;
+  signed_pdf_url?: string | null;
+  status?: ContractStatus;
+  created_by?: string | null;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -407,6 +459,12 @@ export interface Database {
         Row: InfluencerContent;
         Insert: InfluencerContentInsert;
         Update: Partial<InfluencerContentInsert>;
+        Relationships: [];
+      };
+      influencer_contracts: {
+        Row: InfluencerContract;
+        Insert: InfluencerContractInsert;
+        Update: Partial<InfluencerContractInsert>;
         Relationships: [];
       };
     };
