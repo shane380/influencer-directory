@@ -679,6 +679,43 @@ export function OrderDialog({
     }
   };
 
+  const handleCompleteAndClear = async () => {
+    setSavingSelects(true);
+    setError(null);
+
+    try {
+      if (isWhitelistingContext) {
+        // Clear order fields on influencers table for whitelisting
+        const { error: updateError } = await (supabase.from("influencers") as any)
+          .update({
+            product_selections: null,
+            shopify_order_id: null,
+            shopify_order_status: null,
+          })
+          .eq("id", influencer.id);
+        if (updateError) throw updateError;
+      } else {
+        // Clear order fields on campaign_influencers table
+        const { error: updateError } = await (supabase.from("campaign_influencers") as any)
+          .update({
+            product_selections: null,
+            shopify_order_id: null,
+            shopify_order_status: null,
+          })
+          .eq("id", campaignInfluencer.id);
+        if (updateError) throw updateError;
+      }
+
+      setCart([]);
+      onSave();
+      onClose();
+    } catch (err: any) {
+      setError(err.message || "Failed to clear order");
+    } finally {
+      setSavingSelects(false);
+    }
+  };
+
   const handleSaveSelects = async () => {
     // Only block if cart is empty AND there were no existing selects to clear
     if (cart.length === 0 && !hasExistingSelects) {
@@ -777,41 +814,51 @@ export function OrderDialog({
                     <Badge
                       className={
                         orderStatusColors[
-                          campaignInfluencer.shopify_order_status || "draft"
+                          (isWhitelistingContext
+                            ? (influencer as any).shopify_order_status
+                            : campaignInfluencer.shopify_order_status) || "draft"
                         ]
                       }
                     >
-                      {orderStatusLabels[campaignInfluencer.shopify_order_status || "draft"]}
+                      {orderStatusLabels[
+                        (isWhitelistingContext
+                          ? (influencer as any).shopify_order_status
+                          : campaignInfluencer.shopify_order_status) || "draft"
+                      ]}
                     </Badge>
                     <span className="text-sm text-gray-600">
-                      Order #{campaignInfluencer.shopify_order_id}
+                      Order #{isWhitelistingContext
+                        ? (influencer as any).shopify_order_id
+                        : campaignInfluencer.shopify_order_id}
                     </span>
                   </div>
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    window.open(
-                      `https://${process.env.NEXT_PUBLIC_SHOPIFY_STORE_URL || "your-store.myshopify.com"}/admin/draft_orders/${campaignInfluencer.shopify_order_id}`,
-                      "_blank"
-                    )
-                  }
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  View in Shopify
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      window.open(
+                        `https://${process.env.NEXT_PUBLIC_SHOPIFY_STORE_URL || "your-store.myshopify.com"}/admin/draft_orders/${isWhitelistingContext ? (influencer as any).shopify_order_id : campaignInfluencer.shopify_order_id}`,
+                        "_blank"
+                      )
+                    }
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    View in Shopify
+                  </Button>
+                </div>
               </div>
             </div>
 
             {/* Order Items */}
-            {campaignInfluencer.product_selections && (
+            {(isWhitelistingContext ? (influencer as any).product_selections : campaignInfluencer.product_selections) && (
               <div>
                 <h3 className="font-medium mb-3 flex items-center gap-2">
                   <Package className="h-4 w-4" />
                   Order Items
                 </h3>
                 <div className="space-y-2">
-                  {(campaignInfluencer.product_selections as CartItem[]).map(
+                  {((isWhitelistingContext ? (influencer as any).product_selections : campaignInfluencer.product_selections) as CartItem[]).map(
                     (item, index) => (
                       <div
                         key={index}
@@ -828,6 +875,32 @@ export function OrderDialog({
                     )
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Complete & Clear Button - for placing new orders */}
+            {isWhitelistingContext && (
+              <div className="pt-4 border-t">
+                <p className="text-sm text-gray-500 mb-3">
+                  Clear this order to place a new one. Order history is available in the Orders tab.
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={handleCompleteAndClear}
+                  disabled={savingSelects}
+                >
+                  {savingSelects ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Clearing...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4 mr-2" />
+                      Complete & Clear for New Order
+                    </>
+                  )}
+                </Button>
               </div>
             )}
           </div>

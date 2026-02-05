@@ -355,7 +355,39 @@ function HomePageContent() {
     if (error) {
       console.error("Error fetching whitelisting influencers:", error);
     } else {
-      setWhitelistingInfluencers(data || []);
+      // Auto-clear fulfilled orders to allow new orders
+      const fulfilledInfluencers = (data || []).filter(
+        (inf: Influencer) => inf.shopify_order_status === "fulfilled"
+      );
+
+      if (fulfilledInfluencers.length > 0) {
+        // Clear order fields for fulfilled orders
+        const fulfilledIds = fulfilledInfluencers.map((inf: Influencer) => inf.id);
+        await supabase
+          .from("influencers")
+          .update({
+            product_selections: null,
+            shopify_order_id: null,
+            shopify_order_status: null,
+          })
+          .in("id", fulfilledIds);
+
+        // Update local state with cleared order fields
+        const updatedData = (data || []).map((inf: Influencer) => {
+          if (fulfilledIds.includes(inf.id)) {
+            return {
+              ...inf,
+              product_selections: null,
+              shopify_order_id: null,
+              shopify_order_status: null,
+            };
+          }
+          return inf;
+        });
+        setWhitelistingInfluencers(updatedData);
+      } else {
+        setWhitelistingInfluencers(data || []);
+      }
       setWhitelistingLoaded(true);
     }
     setLoadingWhitelisting(false);
