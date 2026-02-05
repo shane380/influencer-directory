@@ -790,7 +790,7 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
 
       {/* Preview Dialog */}
       <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh]">
+        <DialogContent className="max-w-3xl max-h-[90vh]" style={{ width: "700px" }}>
           <DialogHeader>
             <DialogTitle>Contract Preview</DialogTitle>
           </DialogHeader>
