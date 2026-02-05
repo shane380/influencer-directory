@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { Mail, Phone, MapPin, User, Share2 } from "lucide-react";
+import { Mail, Phone, MapPin, User, Share2, Ruler } from "lucide-react";
 
 interface InfluencerOverviewTabProps {
   influencer: Influencer | null;
@@ -57,8 +57,48 @@ export function InfluencerOverviewTab({
         </div>
       </div>
 
+      {/* Partnership & Status */}
+      <div className="grid grid-cols-2 gap-4 pb-4 border-b">
+        <div>
+          <Label htmlFor="partnership_type" className="text-xs font-medium">Partnership Type</Label>
+          <Select
+            id="partnership_type"
+            name="partnership_type"
+            value={formData.partnership_type}
+            onChange={onChange}
+          >
+            <option value="unassigned">Unassigned</option>
+            <option value="gifted_no_ask">Gifted No Ask</option>
+            <option value="gifted_soft_ask">Gifted Soft Ask</option>
+            <option value="gifted_deliverable_ask">Gifted Deliverable Ask</option>
+            <option value="gifted_recurring">Gifted Recurring</option>
+            <option value="paid">Paid</option>
+          </Select>
+        </div>
+        <div>
+          <Label htmlFor="relationship_status" className="text-xs font-medium">Status</Label>
+          <Select
+            id="relationship_status"
+            name="relationship_status"
+            value={formData.relationship_status}
+            onChange={onChange}
+          >
+            <option value="prospect">Prospect</option>
+            <option value="contacted">Contacted</option>
+            <option value="followed_up">Followed Up</option>
+            <option value="lead_dead">Lead Dead</option>
+            <option value="creator_wants_paid">Creator Wants Paid</option>
+            <option value="order_placed">Order Placed</option>
+            <option value="order_delivered">Order Delivered</option>
+            <option value="order_follow_up_sent">Order Follow Up Sent</option>
+            <option value="order_follow_up_two_sent">Order Follow Up Two Sent</option>
+            <option value="posted">Posted</option>
+          </Select>
+        </div>
+      </div>
+
       {/* Contact Section */}
-      <Collapsible defaultOpen={true}>
+      <Collapsible defaultOpen={false}>
         <CollapsibleTrigger className="py-2">
           <Mail className="h-4 w-4 text-gray-400" />
           Contact Information
@@ -102,43 +142,49 @@ export function InfluencerOverviewTab({
         </CollapsibleContent>
       </Collapsible>
 
-      {/* Sizes */}
-      <div className="pt-4 border-t">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="top_size" className="text-xs font-medium">Top Size</Label>
-            <Select
-              id="top_size"
-              name="top_size"
-              value={formData.top_size || ""}
-              onChange={onChange}
-            >
-              <option value="">Select size...</option>
-              <option value="XS">XS</option>
-              <option value="S">S</option>
-              <option value="M">M</option>
-              <option value="L">L</option>
-              <option value="XL">XL</option>
-            </Select>
+      {/* Sizing */}
+      <Collapsible defaultOpen={false} className="border-t pt-4">
+        <CollapsibleTrigger className="py-2">
+          <Ruler className="h-4 w-4 text-gray-400" />
+          Sizing
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-3 pb-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="top_size" className="text-xs font-medium">Top Size</Label>
+              <Select
+                id="top_size"
+                name="top_size"
+                value={formData.top_size || ""}
+                onChange={onChange}
+              >
+                <option value="">Select size...</option>
+                <option value="XS">XS</option>
+                <option value="S">S</option>
+                <option value="M">M</option>
+                <option value="L">L</option>
+                <option value="XL">XL</option>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="bottoms_size" className="text-xs font-medium">Bottoms Size</Label>
+              <Select
+                id="bottoms_size"
+                name="bottoms_size"
+                value={formData.bottoms_size || ""}
+                onChange={onChange}
+              >
+                <option value="">Select size...</option>
+                <option value="XS">XS</option>
+                <option value="S">S</option>
+                <option value="M">M</option>
+                <option value="L">L</option>
+                <option value="XL">XL</option>
+              </Select>
+            </div>
           </div>
-          <div>
-            <Label htmlFor="bottoms_size" className="text-xs font-medium">Bottoms Size</Label>
-            <Select
-              id="bottoms_size"
-              name="bottoms_size"
-              value={formData.bottoms_size || ""}
-              onChange={onChange}
-            >
-              <option value="">Select size...</option>
-              <option value="XS">XS</option>
-              <option value="S">S</option>
-              <option value="M">M</option>
-              <option value="L">L</option>
-              <option value="XL">XL</option>
-            </Select>
-          </div>
-        </div>
-      </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       {/* Agent Section */}
       <Collapsible defaultOpen={false} className="border-t pt-4">
@@ -183,48 +229,6 @@ export function InfluencerOverviewTab({
           </div>
         </CollapsibleContent>
       </Collapsible>
-
-      {/* Partnership & Status */}
-      <div className="pt-4 border-t">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="partnership_type" className="text-xs font-medium">Partnership Type</Label>
-            <Select
-              id="partnership_type"
-              name="partnership_type"
-              value={formData.partnership_type}
-              onChange={onChange}
-            >
-              <option value="unassigned">Unassigned</option>
-              <option value="gifted_no_ask">Gifted No Ask</option>
-              <option value="gifted_soft_ask">Gifted Soft Ask</option>
-              <option value="gifted_deliverable_ask">Gifted Deliverable Ask</option>
-              <option value="gifted_recurring">Gifted Recurring</option>
-              <option value="paid">Paid</option>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="relationship_status" className="text-xs font-medium">Status</Label>
-            <Select
-              id="relationship_status"
-              name="relationship_status"
-              value={formData.relationship_status}
-              onChange={onChange}
-            >
-              <option value="prospect">Prospect</option>
-              <option value="contacted">Contacted</option>
-              <option value="followed_up">Followed Up</option>
-              <option value="lead_dead">Lead Dead</option>
-              <option value="creator_wants_paid">Creator Wants Paid</option>
-              <option value="order_placed">Order Placed</option>
-              <option value="order_delivered">Order Delivered</option>
-              <option value="order_follow_up_sent">Order Follow Up Sent</option>
-              <option value="order_follow_up_two_sent">Order Follow Up Two Sent</option>
-              <option value="posted">Posted</option>
-            </Select>
-          </div>
-        </div>
-      </div>
 
       {/* Whitelisting */}
       <div className="pt-4 border-t">
