@@ -1,6 +1,6 @@
 "use client";
 
-import { Influencer, WhitelistingType, InfluencerOrder, CampaignInfluencer, ShopifyOrderStatus } from "@/types/database";
+import { Influencer, WhitelistingType, CampaignInfluencer, ShopifyOrderStatus } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -15,8 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Search, RefreshCw, Plus, ShoppingCart } from "lucide-react";
 import Image from "next/image";
-import { useState, useMemo, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useMemo } from "react";
 import { OrderDialog } from "@/components/order-dialog";
 
 interface WhitelistingTabProps {
@@ -70,34 +69,6 @@ export function WhitelistingTab({
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   const [selectedInfluencerForOrder, setSelectedInfluencerForOrder] = useState<Influencer | null>(null);
-  const [recentOrders, setRecentOrders] = useState<Map<string, InfluencerOrder>>(new Map());
-  const supabase = createClient();
-
-  // Fetch most recent order for each influencer
-  useEffect(() => {
-    async function fetchRecentOrders() {
-      if (influencers.length === 0) return;
-
-      const influencerIds = influencers.map(i => i.id);
-      const { data: orders } = await (supabase
-        .from("influencer_orders") as any)
-        .select("*")
-        .in("influencer_id", influencerIds)
-        .order("order_date", { ascending: false });
-
-      if (orders) {
-        // Keep only the most recent order per influencer
-        const orderMap = new Map<string, InfluencerOrder>();
-        for (const order of orders as InfluencerOrder[]) {
-          if (!orderMap.has(order.influencer_id)) {
-            orderMap.set(order.influencer_id, order);
-          }
-        }
-        setRecentOrders(orderMap);
-      }
-    }
-    fetchRecentOrders();
-  }, [influencers, supabase]);
 
   const handleOpenOrderDialog = (influencer: Influencer, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -259,13 +230,21 @@ export function WhitelistingTab({
                     {partnershipTypeLabels[influencer.partnership_type] || influencer.partnership_type}
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    {recentOrders.has(influencer.id) ? (
+                    {influencer.shopify_order_id ? (
                       <button
                         className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900"
                         onClick={(e) => handleOpenOrderDialog(influencer, e)}
                       >
-                        <span className="w-2 h-2 rounded-full flex-shrink-0 bg-green-500"></span>
-                        #{recentOrders.get(influencer.id)?.order_number}
+                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${orderDots[influencer.shopify_order_status || "draft"]}`}></span>
+                        {orderStatusLabels[influencer.shopify_order_status || "draft"]}
+                      </button>
+                    ) : influencer.product_selections && (influencer.product_selections as any[]).length > 0 ? (
+                      <button
+                        className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900"
+                        onClick={(e) => handleOpenOrderDialog(influencer, e)}
+                      >
+                        <span className="w-2 h-2 rounded-full flex-shrink-0 bg-purple-400"></span>
+                        {(influencer.product_selections as any[]).length} items
                       </button>
                     ) : (
                       <button

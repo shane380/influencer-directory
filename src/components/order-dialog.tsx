@@ -147,10 +147,18 @@ export function OrderDialog({
 
   const supabase = createClient();
 
+  // Check if this is a whitelisting context (no real campaign)
+  const isWhitelistingContext = !campaignInfluencer.campaign_id || campaignInfluencer.id.startsWith("virtual-");
+
   // Initialize cart from existing product selections
   useEffect(() => {
-    if (open && campaignInfluencer.product_selections) {
-      setCart(campaignInfluencer.product_selections as CartItem[]);
+    // For whitelisting, check influencer's product_selections first
+    const selections = isWhitelistingContext
+      ? (influencer as any).product_selections || campaignInfluencer.product_selections
+      : campaignInfluencer.product_selections;
+
+    if (open && selections) {
+      setCart(selections as CartItem[]);
     } else {
       setCart([]);
     }
@@ -379,13 +387,23 @@ export function OrderDialog({
     setError(null);
 
     try {
-      const { error: updateError } = await (supabase.from("campaign_influencers") as any)
-        .update({
-          product_selections: null,
-        })
-        .eq("id", campaignInfluencer.id);
-
-      if (updateError) throw updateError;
+      if (isWhitelistingContext) {
+        // Save to influencers table for whitelisting
+        const { error: updateError } = await (supabase.from("influencers") as any)
+          .update({
+            product_selections: null,
+          })
+          .eq("id", influencer.id);
+        if (updateError) throw updateError;
+      } else {
+        // Save to campaign_influencers table
+        const { error: updateError } = await (supabase.from("campaign_influencers") as any)
+          .update({
+            product_selections: null,
+          })
+          .eq("id", campaignInfluencer.id);
+        if (updateError) throw updateError;
+      }
 
       setCart([]);
       setSelectsSaved(true);
@@ -622,7 +640,7 @@ export function OrderDialog({
 
       const data = await response.json();
 
-      // Save order info to campaign_influencers
+      // Save order info
       const productSelectionsForDB = cart.map((item) => ({
         sku: item.sku,
         variant_id: item.variant_id,
@@ -631,13 +649,25 @@ export function OrderDialog({
         price: item.price,
       }));
 
-      await (supabase.from("campaign_influencers") as any)
-        .update({
-          shopify_order_id: String(data.order.id),
-          shopify_order_status: "draft" as ShopifyOrderStatus,
-          product_selections: productSelectionsForDB,
-        })
-        .eq("id", campaignInfluencer.id);
+      if (isWhitelistingContext) {
+        // Save to influencers table for whitelisting
+        await (supabase.from("influencers") as any)
+          .update({
+            shopify_order_id: String(data.order.id),
+            shopify_order_status: "draft" as ShopifyOrderStatus,
+            product_selections: productSelectionsForDB,
+          })
+          .eq("id", influencer.id);
+      } else {
+        // Save to campaign_influencers table
+        await (supabase.from("campaign_influencers") as any)
+          .update({
+            shopify_order_id: String(data.order.id),
+            shopify_order_status: "draft" as ShopifyOrderStatus,
+            product_selections: productSelectionsForDB,
+          })
+          .eq("id", campaignInfluencer.id);
+      }
 
       setOrderCreated(true);
       setOrderAdminUrl(data.order.admin_url);
@@ -672,13 +702,23 @@ export function OrderDialog({
           }))
         : null; // Clear selects if cart is empty
 
-      const { error: updateError } = await (supabase.from("campaign_influencers") as any)
-        .update({
-          product_selections: productSelectionsForDB,
-        })
-        .eq("id", campaignInfluencer.id);
-
-      if (updateError) throw updateError;
+      if (isWhitelistingContext) {
+        // Save to influencers table for whitelisting
+        const { error: updateError } = await (supabase.from("influencers") as any)
+          .update({
+            product_selections: productSelectionsForDB,
+          })
+          .eq("id", influencer.id);
+        if (updateError) throw updateError;
+      } else {
+        // Save to campaign_influencers table
+        const { error: updateError } = await (supabase.from("campaign_influencers") as any)
+          .update({
+            product_selections: productSelectionsForDB,
+          })
+          .eq("id", campaignInfluencer.id);
+        if (updateError) throw updateError;
+      }
 
       setSelectsSaved(true);
       onSave();
@@ -690,8 +730,12 @@ export function OrderDialog({
     }
   };
 
-  const hasExistingOrder = Boolean(campaignInfluencer.shopify_order_id);
-  const hasExistingSelects = Boolean(campaignInfluencer.product_selections && (campaignInfluencer.product_selections as CartItem[]).length > 0);
+  const hasExistingOrder = isWhitelistingContext
+    ? Boolean((influencer as any).shopify_order_id)
+    : Boolean(campaignInfluencer.shopify_order_id);
+  const hasExistingSelects = isWhitelistingContext
+    ? Boolean((influencer as any).product_selections && ((influencer as any).product_selections as CartItem[]).length > 0)
+    : Boolean(campaignInfluencer.product_selections && (campaignInfluencer.product_selections as CartItem[]).length > 0);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>

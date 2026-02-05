@@ -13,6 +13,15 @@ export type WhitelistingStatus = 'not_applicable' | 'pending' | 'live' | 'ended'
 export type DealStatus = 'negotiating' | 'confirmed' | 'cancelled';
 export type ContractType = 'paid_collab' | 'whitelisting';
 export type ContractStatus = 'draft' | 'sent' | 'signed';
+export type ShopifyOrderStatus = 'draft' | 'placed' | 'fulfilled';
+
+export interface ProductSelection {
+  sku: string;
+  variant_id: string;
+  quantity: number;
+  title?: string;
+  price?: string;
+}
 
 export interface Profile {
   id: string;
@@ -49,6 +58,9 @@ export interface Influencer {
   shopify_customer_id: string | null;
   whitelisting_enabled: boolean;
   whitelisting_type: WhitelistingType | null;
+  product_selections: ProductSelection[] | null;
+  shopify_order_id: string | null;
+  shopify_order_status: ShopifyOrderStatus | null;
 }
 
 export interface InfluencerInsert {
@@ -74,6 +86,9 @@ export interface InfluencerInsert {
   shopify_customer_id?: string | null;
   whitelisting_enabled?: boolean;
   whitelisting_type?: WhitelistingType | null;
+  product_selections?: ProductSelection[] | null;
+  shopify_order_id?: string | null;
+  shopify_order_status?: ShopifyOrderStatus | null;
 }
 
 export interface InfluencerUpdate extends Partial<InfluencerInsert> {
@@ -99,16 +114,6 @@ export interface CampaignInsert {
   end_date?: string | null;
   status?: CampaignStatus;
   collection_deck_url?: string | null;
-}
-
-export type ShopifyOrderStatus = 'draft' | 'placed' | 'fulfilled';
-
-export interface ProductSelection {
-  sku: string;
-  variant_id: string;
-  quantity: number;
-  title?: string;
-  price?: string;
 }
 
 export interface CampaignInfluencer {
