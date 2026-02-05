@@ -365,6 +365,8 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
   };
 
   const handleDownloadExistingContract = async (contract: InfluencerContract) => {
+    console.log("Download contract:", contract.id, "signed_pdf_url:", contract.signed_pdf_url, "variables:", contract.variables);
+
     // If there's an uploaded signed PDF, download that directly
     if (contract.signed_pdf_url && contract.signed_pdf_url.trim() !== "") {
       // Check if it's a storage path (starts with contracts/) or a full URL
@@ -381,14 +383,33 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
         }
         window.open(data.signedUrl, "_blank");
       } else {
-        // It's already a full URL (legacy or public bucket)
-        window.open(contract.signed_pdf_url, "_blank");
+        // It's already a full URL (legacy or public bucket) - try to extract path
+        // Legacy URLs look like: https://xxx.supabase.co/storage/v1/object/public/contracts/path/to/file.pdf
+        const match = contract.signed_pdf_url.match(/\/contracts\/(.+)$/);
+        if (match) {
+          const path = "contracts/" + match[1];
+          console.log("Extracted path from legacy URL:", path);
+          const { data, error } = await supabase.storage
+            .from("contracts")
+            .createSignedUrl(path, 60);
+
+          if (error || !data?.signedUrl) {
+            console.error("Failed to create signed URL from legacy path:", error);
+            alert("Failed to access the contract file. The file may need to be re-uploaded.");
+            return;
+          }
+          window.open(data.signedUrl, "_blank");
+        } else {
+          // Can't parse, try opening directly (probably won't work for private bucket)
+          window.open(contract.signed_pdf_url, "_blank");
+        }
       }
       return;
     }
 
     // Check if we have valid variables to generate a PDF
     const vars = contract.variables;
+    console.log("No signed PDF, checking variables:", vars);
     const hasValidVariables = contract.contract_type === "paid_collab"
       ? (vars as PaidCollabContractVariables).talent_name && (vars as PaidCollabContractVariables).effective_date
       : (vars as WhitelistingContractVariables).talent_name && (vars as WhitelistingContractVariables).effective_date;
