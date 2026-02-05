@@ -892,7 +892,7 @@ export default function MonthCampaignViewPage() {
                         <Select
                           value={ci.campaign_id}
                           onChange={(e) => handleCollectionChange(ci, e.target.value)}
-                          className="text-xs h-7 w-[100px] bg-transparent border-0 text-gray-600 px-0 focus:ring-0"
+                          className="text-xs h-8 w-[110px] bg-transparent border-0 text-gray-600 px-0 focus:ring-0"
                         >
                           {campaigns.map((campaign) => (
                             <option key={campaign.id} value={campaign.id}>
@@ -907,7 +907,7 @@ export default function MonthCampaignViewPage() {
                       <Select
                         value={ci.partnership_type}
                         onChange={(e) => handlePartnershipTypeChange(ci.id, ci.influencer_id, e.target.value as PartnershipType)}
-                        className="text-xs h-7 w-[95px] bg-transparent border-0 text-gray-600 px-0 focus:ring-0"
+                        className="text-xs h-8 w-[100px] bg-transparent border-0 text-gray-600 px-0 focus:ring-0"
                       >
                         <option value="unassigned">Unassigned</option>
                         <option value="gifted_no_ask">Gifted</option>
@@ -923,7 +923,7 @@ export default function MonthCampaignViewPage() {
                         <Select
                           value={ci.status}
                           onChange={(e) => handleStatusChange(ci.id, e.target.value as RelationshipStatus)}
-                          className="text-xs h-7 w-[105px] bg-transparent border-0 text-gray-700 px-0 focus:ring-0"
+                          className="text-xs h-8 w-[110px] bg-transparent border-0 text-gray-700 px-0 focus:ring-0"
                         >
                           <option value="prospect">Prospect</option>
                           <option value="contacted">Contacted</option>
@@ -942,7 +942,7 @@ export default function MonthCampaignViewPage() {
                       <Select
                         value={ci.influencer.assigned_to || ""}
                         onChange={(e) => handleOwnerChange(ci.influencer.id, e.target.value || null)}
-                        className="text-xs h-7 w-[90px] bg-transparent border-0 text-gray-600 px-0 focus:ring-0"
+                        className="text-xs h-8 w-[90px] bg-transparent border-0 text-gray-600 px-0 focus:ring-0"
                       >
                         <option value="">—</option>
                         {profiles.map((profile) => (
@@ -985,7 +985,7 @@ export default function MonthCampaignViewPage() {
                           <Select
                             value={ci.content_posted}
                             onChange={(e) => handleContentPostedChange(ci.id, e.target.value as ContentPostedType)}
-                            className="text-xs h-7 w-[75px] bg-transparent border-0 text-gray-700 px-0 focus:ring-0"
+                            className="text-xs h-8 w-[75px] bg-transparent border-0 text-gray-700 px-0 focus:ring-0"
                           >
                             <option value="none">—</option>
                             <option value="stories">Stories</option>
@@ -998,7 +998,7 @@ export default function MonthCampaignViewPage() {
                         <Select
                           value="none"
                           onChange={(e) => handleContentPostedChange(ci.id, e.target.value as ContentPostedType)}
-                          className="text-xs h-7 w-[60px] bg-transparent border-0 text-gray-300 px-0 focus:ring-0"
+                          className="text-xs h-8 w-[60px] bg-transparent border-0 text-gray-300 px-0 focus:ring-0"
                         >
                           <option value="none">—</option>
                           <option value="stories">Stories</option>
