@@ -168,20 +168,28 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
           ? `${influencer.name.replace(/\s+/g, "_")}_Paid_Collab_Contract.pdf`
           : `${influencer.name.replace(/\s+/g, "_")}_Whitelisting_Agreement.pdf`;
 
-      // Create a wrapper div - must be visible for html2canvas to render
-      const wrapper = document.createElement("div");
-      wrapper.innerHTML = html;
-      wrapper.style.position = "fixed";
-      wrapper.style.left = "0";
-      wrapper.style.top = "0";
-      wrapper.style.width = "8.5in";
-      wrapper.style.background = "white";
-      wrapper.style.zIndex = "-1";
-      wrapper.style.opacity = "0";
-      document.body.appendChild(wrapper);
+      // Create an iframe to render the HTML (avoids visibility issues with html2canvas)
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.left = "0";
+      iframe.style.top = "0";
+      iframe.style.width = "8.5in";
+      iframe.style.height = "11in";
+      iframe.style.border = "none";
+      iframe.style.zIndex = "9999";
+      iframe.style.background = "white";
+      document.body.appendChild(iframe);
 
-      // Small delay to ensure DOM is rendered
-      await new Promise(resolve => setTimeout(resolve, 100));
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!iframeDoc) {
+        throw new Error("Could not access iframe document");
+      }
+      iframeDoc.open();
+      iframeDoc.write(html);
+      iframeDoc.close();
+
+      // Wait for iframe content to render
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       await html2pdf()
         .set({
@@ -191,10 +199,10 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
           html2canvas: { scale: 2, useCORS: true, logging: false },
           jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
         })
-        .from(wrapper)
+        .from(iframeDoc.body)
         .save();
 
-      document.body.removeChild(wrapper);
+      document.body.removeChild(iframe);
     } catch (err) {
       console.error("Failed to generate PDF:", err);
     } finally {
@@ -443,20 +451,28 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
           ? `${influencer.name.replace(/\s+/g, "_")}_Paid_Collab_Contract.pdf`
           : `${influencer.name.replace(/\s+/g, "_")}_Whitelisting_Agreement.pdf`;
 
-      // Create a wrapper div - must be visible for html2canvas to render
-      const wrapper = document.createElement("div");
-      wrapper.innerHTML = html;
-      wrapper.style.position = "fixed";
-      wrapper.style.left = "0";
-      wrapper.style.top = "0";
-      wrapper.style.width = "8.5in";
-      wrapper.style.background = "white";
-      wrapper.style.zIndex = "-1";
-      wrapper.style.opacity = "0";
-      document.body.appendChild(wrapper);
+      // Create an iframe to render the HTML (avoids visibility issues with html2canvas)
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.left = "0";
+      iframe.style.top = "0";
+      iframe.style.width = "8.5in";
+      iframe.style.height = "11in";
+      iframe.style.border = "none";
+      iframe.style.zIndex = "9999";
+      iframe.style.background = "white";
+      document.body.appendChild(iframe);
 
-      // Small delay to ensure DOM is rendered
-      await new Promise(resolve => setTimeout(resolve, 100));
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!iframeDoc) {
+        throw new Error("Could not access iframe document");
+      }
+      iframeDoc.open();
+      iframeDoc.write(html);
+      iframeDoc.close();
+
+      // Wait for iframe content to render
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       await html2pdf()
         .set({
@@ -466,10 +482,10 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
           html2canvas: { scale: 2, useCORS: true, logging: false },
           jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
         })
-        .from(wrapper)
+        .from(iframeDoc.body)
         .save();
 
-      document.body.removeChild(wrapper);
+      document.body.removeChild(iframe);
     } catch (err) {
       console.error("Failed to generate PDF:", err);
       alert("Failed to generate PDF. Please try again.");
