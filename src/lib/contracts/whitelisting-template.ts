@@ -65,7 +65,7 @@ export function renderWhitelistingContract(vars: WhitelistingContractVariables):
       <p><strong>For Nama:</strong></p>
       <p>Name: Shane Petersen<br>
       Title: Founder</p>
-      <p>Signature: <img src="/signature-shane.png" alt="Shane Petersen Signature" style="height: 100px; margin: 0.1in 0;" /></p>
+      <p>Signature: <img src="/signature-shane.png" alt="Shane Petersen Signature" style="height: 400px; margin: 0.1in 0;" /></p>
       <p>Date: ${vars.effective_date}</p>
     </div>
 
