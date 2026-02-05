@@ -62,12 +62,16 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showUploadExistingDialog, setShowUploadExistingDialog] = useState(false);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [previewHtml, setPreviewHtml] = useState("");
   const [contractType, setContractType] = useState<ContractType>("paid_collab");
+  const [uploadExistingType, setUploadExistingType] = useState<ContractType>("paid_collab");
+  const [uploadingExisting, setUploadingExisting] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [uploadingFile, setUploadingFile] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const existingFileInputRef = useRef<HTMLInputElement>(null);
 
   // Paid collab form state
   const [paidCollabForm, setPaidCollabForm] = useState<PaidCollabContractVariables>({
@@ -297,6 +301,63 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
     }
   };
 
+  const handleUploadExistingContract = async (file: File) => {
+    setUploadingExisting(true);
+    try {
+      // First create the contract record
+      const response = await fetch("/api/contracts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          influencer_id: influencer.id,
+          contract_type: uploadExistingType,
+          variables: uploadExistingType === "paid_collab"
+            ? { talent_name: influencer.name, effective_date: "", deliverables: "", total_fee: "", total_amount_due: "", payment_1_percent: "", payment_1_amount: "", payment_1_condition: "", payment_2_percent: "", payment_2_amount: "", payment_2_condition: "", usage_rights_duration: "", talent_signatory_name: influencer.name }
+            : { talent_name: influencer.name, talent_email: influencer.email || "", effective_date: "", compensation: "" },
+          status: "signed",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create contract record");
+      }
+
+      const { contract } = await response.json();
+
+      // Upload the PDF
+      const fileName = `contracts/${influencer.id}/${contract.id}_signed_${Date.now()}.pdf`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("contracts")
+        .upload(fileName, file, { contentType: "application/pdf" });
+
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        alert("Failed to upload PDF. Make sure the 'contracts' storage bucket exists in Supabase.");
+        return;
+      }
+
+      const { data: urlData } = supabase.storage.from("contracts").getPublicUrl(fileName);
+
+      // Update contract with PDF URL
+      await fetch("/api/contracts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: contract.id,
+          signed_pdf_url: urlData.publicUrl,
+        }),
+      });
+
+      await fetchContracts();
+      setShowUploadExistingDialog(false);
+    } catch (err) {
+      console.error("Failed to upload existing contract:", err);
+    } finally {
+      setUploadingExisting(false);
+    }
+  };
+
   const handleViewContract = (contract: InfluencerContract) => {
     const html =
       contract.contract_type === "paid_collab"
@@ -356,10 +417,16 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="font-medium text-gray-900">Contracts</h3>
-        <Button type="button" size="sm" onClick={() => setShowCreateDialog(true)}>
-          <Plus className="h-4 w-4 mr-1" />
-          New Contract
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => setShowUploadExistingDialog(true)}>
+            <Upload className="h-4 w-4 mr-1" />
+            Upload Existing
+          </Button>
+          <Button type="button" size="sm" onClick={() => setShowCreateDialog(true)}>
+            <Plus className="h-4 w-4 mr-1" />
+            New Contract
+          </Button>
+        </div>
       </div>
 
       {/* Contracts List */}
@@ -804,6 +871,67 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setShowPreviewDialog(false)}>
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Upload Existing Contract Dialog */}
+      <Dialog open={showUploadExistingDialog} onOpenChange={setShowUploadExistingDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Upload Existing Contract</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-sm font-medium">Contract Type</Label>
+              <Select
+                value={uploadExistingType}
+                onChange={(e) => setUploadExistingType(e.target.value as ContractType)}
+              >
+                <option value="paid_collab">Paid Collaboration</option>
+                <option value="whitelisting">Whitelisting Agreement</option>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-sm font-medium">Signed Contract PDF</Label>
+              <div className="mt-2">
+                <input
+                  ref={existingFileInputRef}
+                  type="file"
+                  accept=".pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleUploadExistingContract(file);
+                    e.target.value = "";
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => existingFileInputRef.current?.click()}
+                  disabled={uploadingExisting}
+                >
+                  {uploadingExisting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Choose PDF file
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setShowUploadExistingDialog(false)}>
+              Cancel
             </Button>
           </DialogFooter>
         </DialogContent>
