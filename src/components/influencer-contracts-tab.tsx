@@ -356,7 +356,7 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="font-medium text-gray-900">Contracts</h3>
-        <Button size="sm" onClick={() => setShowCreateDialog(true)}>
+        <Button type="button" size="sm" onClick={() => setShowCreateDialog(true)}>
           <Plus className="h-4 w-4 mr-1" />
           New Contract
         </Button>
@@ -406,6 +406,7 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
                 </div>
                 <div className="flex items-center gap-1">
                   <Button
+                    type="button"
                     variant="ghost"
                     size="sm"
                     onClick={() => handleViewContract(contract)}
@@ -414,6 +415,7 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
                     <Eye className="h-4 w-4" />
                   </Button>
                   <Button
+                    type="button"
                     variant="ghost"
                     size="sm"
                     onClick={() => handleDownloadExistingContract(contract)}
@@ -444,6 +446,7 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
                     </>
                   )}
                   <Button
+                    type="button"
                     variant="ghost"
                     size="sm"
                     onClick={() => handleDeleteContract(contract.id)}
@@ -761,11 +764,12 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
           </div>
 
           <DialogFooter className="gap-2 mt-4">
-            <Button variant="outline" onClick={handlePreview}>
+            <Button type="button" variant="outline" onClick={handlePreview}>
               <Eye className="h-4 w-4 mr-1" />
               Preview
             </Button>
             <Button
+              type="button"
               variant="outline"
               onClick={handleDownloadPdf}
               disabled={generatingPdf}
@@ -777,7 +781,7 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
               )}
               Download PDF
             </Button>
-            <Button onClick={handleSaveContract} disabled={creating}>
+            <Button type="button" onClick={handleSaveContract} disabled={creating}>
               {creating ? "Saving..." : "Save Contract"}
             </Button>
           </DialogFooter>
@@ -798,7 +802,7 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPreviewDialog(false)}>
+            <Button type="button" variant="outline" onClick={() => setShowPreviewDialog(false)}>
               Close
             </Button>
           </DialogFooter>
