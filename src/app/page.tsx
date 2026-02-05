@@ -363,8 +363,7 @@ function HomePageContent() {
       if (fulfilledInfluencers.length > 0) {
         // Clear order fields for fulfilled orders
         const fulfilledIds = fulfilledInfluencers.map((inf: Influencer) => inf.id);
-        await supabase
-          .from("influencers")
+        await (supabase.from("influencers") as any)
           .update({
             product_selections: null,
             shopify_order_id: null,

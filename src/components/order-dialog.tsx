@@ -814,16 +814,16 @@ export function OrderDialog({
                     <Badge
                       className={
                         orderStatusColors[
-                          (isWhitelistingContext
+                          ((isWhitelistingContext
                             ? (influencer as any).shopify_order_status
-                            : campaignInfluencer.shopify_order_status) || "draft"
+                            : campaignInfluencer.shopify_order_status) || "draft") as ShopifyOrderStatus
                         ]
                       }
                     >
                       {orderStatusLabels[
-                        (isWhitelistingContext
+                        ((isWhitelistingContext
                           ? (influencer as any).shopify_order_status
-                          : campaignInfluencer.shopify_order_status) || "draft"
+                          : campaignInfluencer.shopify_order_status) || "draft") as ShopifyOrderStatus
                       ]}
                     </Badge>
                     <span className="text-sm text-gray-600">
