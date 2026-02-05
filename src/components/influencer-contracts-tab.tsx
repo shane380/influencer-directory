@@ -158,7 +158,7 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
     fetchContracts();
   }, [influencer.id]);
 
-  // Update form when influencer changes
+  // Update form when influencer changes or dialog opens
   useEffect(() => {
     setPaidCollabForm((prev) => ({
       ...prev,
@@ -171,6 +171,43 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
       talent_email: influencer.email || "",
     }));
   }, [influencer]);
+
+  // Reset form with fresh data when create dialog opens
+  useEffect(() => {
+    if (showCreateDialog) {
+      setPaidCollabForm({
+        effective_date: new Date().toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        }),
+        talent_name: influencer.name,
+        talent_representative: "",
+        deliverables: "One (1) Collaborative Instagram carousel post featuring Nama products",
+        total_fee: "",
+        fee_additions: "+ 15% ASF + GST",
+        total_amount_due: "",
+        payment_1_percent: "50%",
+        payment_1_amount: "",
+        payment_1_condition: "due upon execution",
+        payment_2_percent: "50%",
+        payment_2_amount: "",
+        payment_2_condition: "due once content is live",
+        usage_rights_duration: "3 months from publication date",
+        talent_signatory_name: influencer.name,
+      });
+      setWhitelistingForm({
+        effective_date: new Date().toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        }),
+        talent_name: influencer.name,
+        talent_email: influencer.email || "",
+        compensation: "$150 USD Nama gift card, delivered via email upon signing this Agreement.",
+      });
+    }
+  }, [showCreateDialog, influencer]);
 
   const fetchContracts = async () => {
     setLoading(true);
