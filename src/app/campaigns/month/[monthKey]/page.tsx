@@ -893,6 +893,8 @@ export default function MonthCampaignViewPage() {
                           value={ci.campaign_id}
                           onChange={(e) => handleCollectionChange(ci, e.target.value)}
                           className="text-xs h-8 w-[110px] bg-transparent border-0 text-gray-600 px-0 focus:ring-0"
+                          truncate
+                          title={ci.collection || extractCollection(campaigns.find(c => c.id === ci.campaign_id)?.name || "")}
                         >
                           {campaigns.map((campaign) => (
                             <option key={campaign.id} value={campaign.id}>
