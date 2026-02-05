@@ -62,7 +62,7 @@ export function renderPaidCollabContract(vars: PaidCollabContractVariables): str
       margin: 0.3in 0 0.05in 0;
     }
     .signature-image {
-      height: 60px;
+      height: 100px;
       margin: 0.1in 0;
     }
     .signature-name {
