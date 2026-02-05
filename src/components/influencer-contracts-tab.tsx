@@ -479,7 +479,7 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
 
       {/* Create Contract Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" style={{ width: "700px" }}>
           <DialogHeader>
             <DialogTitle>Create Contract</DialogTitle>
           </DialogHeader>
