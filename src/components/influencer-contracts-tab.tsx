@@ -168,20 +168,27 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
           ? `${influencer.name.replace(/\s+/g, "_")}_Paid_Collab_Contract.pdf`
           : `${influencer.name.replace(/\s+/g, "_")}_Whitelisting_Agreement.pdf`;
 
-      // Create a wrapper div and use that as the source
+      // Create a wrapper div - must be visible for html2canvas to render
       const wrapper = document.createElement("div");
       wrapper.innerHTML = html;
-      wrapper.style.position = "absolute";
-      wrapper.style.left = "-9999px";
+      wrapper.style.position = "fixed";
+      wrapper.style.left = "0";
       wrapper.style.top = "0";
+      wrapper.style.width = "8.5in";
+      wrapper.style.background = "white";
+      wrapper.style.zIndex = "-1";
+      wrapper.style.opacity = "0";
       document.body.appendChild(wrapper);
+
+      // Small delay to ensure DOM is rendered
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       await html2pdf()
         .set({
           margin: 0,
           filename,
           image: { type: "jpeg", quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true },
+          html2canvas: { scale: 2, useCORS: true, logging: false },
           jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
         })
         .from(wrapper)
@@ -436,20 +443,27 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
           ? `${influencer.name.replace(/\s+/g, "_")}_Paid_Collab_Contract.pdf`
           : `${influencer.name.replace(/\s+/g, "_")}_Whitelisting_Agreement.pdf`;
 
-      // Create a wrapper div and use that as the source
+      // Create a wrapper div - must be visible for html2canvas to render
       const wrapper = document.createElement("div");
       wrapper.innerHTML = html;
-      wrapper.style.position = "absolute";
-      wrapper.style.left = "-9999px";
+      wrapper.style.position = "fixed";
+      wrapper.style.left = "0";
       wrapper.style.top = "0";
+      wrapper.style.width = "8.5in";
+      wrapper.style.background = "white";
+      wrapper.style.zIndex = "-1";
+      wrapper.style.opacity = "0";
       document.body.appendChild(wrapper);
+
+      // Small delay to ensure DOM is rendered
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       await html2pdf()
         .set({
           margin: 0,
           filename,
           image: { type: "jpeg", quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true },
+          html2canvas: { scale: 2, useCORS: true, logging: false },
           jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
         })
         .from(wrapper)
