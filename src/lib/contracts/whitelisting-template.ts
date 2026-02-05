@@ -69,6 +69,10 @@ export function renderWhitelistingContract(vars: WhitelistingContractVariables):
       width: 2.5in;
       margin: 0.2in 0 0.05in 0;
     }
+    .signature-image {
+      height: 50px;
+      margin: 0.1in 0;
+    }
   </style>
 </head>
 <body>
@@ -129,8 +133,8 @@ export function renderWhitelistingContract(vars: WhitelistingContractVariables):
       <p><strong>For Nama:</strong></p>
       <p>Name: Shane Petersen<br>
       Title: Founder</p>
-      <p>Signature: <span class="signature-line" style="display: inline-block;"></span></p>
-      <p>Date: ___________________________</p>
+      <p>Signature: <img src="/signature-shane.png" alt="Shane Petersen Signature" class="signature-image" /></p>
+      <p>Date: ${vars.effective_date}</p>
     </div>
 
     <div class="signature-block">
