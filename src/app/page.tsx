@@ -22,6 +22,7 @@ import { PaidCollabsBudgetBar } from "@/components/paid-collabs-budget-bar";
 import { OrderDialog } from "@/components/order-dialog";
 import { Sidebar } from "@/components/sidebar";
 import { WhitelistingTab } from "@/components/whitelisting-tab";
+import { WhitelistingDialog } from "@/components/whitelisting-dialog";
 import { Plus, Search, ArrowUpDown, ChevronDown, ChevronRight, Loader2, Users, ShoppingCart, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -146,6 +147,7 @@ function HomePageContent() {
   const [influencerDialogOpen, setInfluencerDialogOpen] = useState(false);
   const [campaignDialogOpen, setCampaignDialogOpen] = useState(false);
   const [paidCollabDialogOpen, setPaidCollabDialogOpen] = useState(false);
+  const [whitelistingDialogOpen, setWhitelistingDialogOpen] = useState(false);
   const [selectedInfluencer, setSelectedInfluencer] = useState<Influencer | null>(null);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
@@ -497,6 +499,11 @@ function HomePageContent() {
   const handlePaidCollabSave = () => {
     setPaidCollabDialogOpen(false);
     fetchPaidCollabs(true); // Force refresh after save
+  };
+
+  const handleWhitelistingSave = () => {
+    setWhitelistingDialogOpen(false);
+    fetchWhitelisting(true); // Force refresh after save
   };
 
   const handleOpenOrderDialog = (collab: PaidCollabWithDetails) => {
@@ -1145,6 +1152,7 @@ function HomePageContent() {
                 setInfluencerDialogInitialTab("overview");
                 setInfluencerDialogOpen(true);
               }}
+              onAddNew={() => setWhitelistingDialogOpen(true)}
             />
           )}
         </div>
@@ -1169,6 +1177,12 @@ function HomePageContent() {
         open={paidCollabDialogOpen}
         onClose={() => setPaidCollabDialogOpen(false)}
         onSave={handlePaidCollabSave}
+      />
+
+      <WhitelistingDialog
+        open={whitelistingDialogOpen}
+        onClose={() => setWhitelistingDialogOpen(false)}
+        onSave={handleWhitelistingSave}
       />
 
       {selectedOrderCollab && selectedOrderCollab.campaign_influencer && (

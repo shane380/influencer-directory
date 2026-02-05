@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, RefreshCw } from "lucide-react";
+import { Search, RefreshCw, Plus } from "lucide-react";
 import Image from "next/image";
 import { useState, useMemo } from "react";
 
@@ -22,6 +22,7 @@ interface WhitelistingTabProps {
   loading: boolean;
   onRefresh: () => void;
   onInfluencerClick: (influencer: Influencer) => void;
+  onAddNew: () => void;
 }
 
 const whitelistingTypeColors: Record<WhitelistingType, string> = {
@@ -48,6 +49,7 @@ export function WhitelistingTab({
   loading,
   onRefresh,
   onInfluencerClick,
+  onAddNew,
 }: WhitelistingTabProps) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -104,6 +106,10 @@ export function WhitelistingTab({
         <Button variant="outline" onClick={onRefresh} disabled={loading}>
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
           Refresh
+        </Button>
+        <Button onClick={onAddNew}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add New
         </Button>
       </div>
 
