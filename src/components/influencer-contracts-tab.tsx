@@ -110,6 +110,56 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
 
   const supabase = createClient();
 
+  // Helper function to generate PDF from HTML with proper styling
+  const generatePdfFromHtml = async (html: string, filename: string) => {
+    const html2pdf = (await import("html2pdf.js")).default;
+
+    // Create a temporary container to render the HTML with styles
+    const container = document.createElement("div");
+    container.style.position = "fixed";
+    container.style.left = "0";
+    container.style.top = "0";
+    container.style.width = "8.5in";
+    container.style.background = "white";
+    container.style.zIndex = "9999";
+
+    // Parse the HTML and extract body content and styles
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+
+    // Get the style element content
+    const styleElement = doc.querySelector("style");
+    const bodyContent = doc.body.innerHTML;
+
+    // Create a style element in the main document
+    const style = document.createElement("style");
+    if (styleElement) {
+      style.textContent = styleElement.textContent;
+    }
+    document.head.appendChild(style);
+
+    // Set the body content
+    container.innerHTML = bodyContent;
+    document.body.appendChild(container);
+
+    // Wait for content and images to render
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    await html2pdf()
+      .set({
+        margin: 0,
+        filename,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+      })
+      .from(container)
+      .save();
+
+    document.body.removeChild(container);
+    document.head.removeChild(style);
+  };
+
   useEffect(() => {
     fetchContracts();
   }, [influencer.id]);
@@ -155,9 +205,6 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
   const handleDownloadPdf = async () => {
     setGeneratingPdf(true);
     try {
-      // Dynamic import of html2pdf to avoid SSR issues
-      const html2pdf = (await import("html2pdf.js")).default;
-
       const html =
         contractType === "paid_collab"
           ? renderPaidCollabContract(paidCollabForm)
@@ -168,41 +215,7 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
           ? `${influencer.name.replace(/\s+/g, "_")}_Paid_Collab_Contract.pdf`
           : `${influencer.name.replace(/\s+/g, "_")}_Whitelisting_Agreement.pdf`;
 
-      // Create an iframe to render the HTML (avoids visibility issues with html2canvas)
-      const iframe = document.createElement("iframe");
-      iframe.style.position = "fixed";
-      iframe.style.left = "0";
-      iframe.style.top = "0";
-      iframe.style.width = "8.5in";
-      iframe.style.height = "11in";
-      iframe.style.border = "none";
-      iframe.style.zIndex = "9999";
-      iframe.style.background = "white";
-      document.body.appendChild(iframe);
-
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (!iframeDoc) {
-        throw new Error("Could not access iframe document");
-      }
-      iframeDoc.open();
-      iframeDoc.write(html);
-      iframeDoc.close();
-
-      // Wait for iframe content to render
-      await new Promise(resolve => setTimeout(resolve, 200));
-
-      await html2pdf()
-        .set({
-          margin: 0,
-          filename,
-          image: { type: "jpeg", quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, logging: false },
-          jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
-        })
-        .from(iframeDoc.body)
-        .save();
-
-      document.body.removeChild(iframe);
+      await generatePdfFromHtml(html, filename);
     } catch (err) {
       console.error("Failed to generate PDF:", err);
     } finally {
@@ -437,55 +450,17 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
     // Generate PDF from template
     setGeneratingPdf(true);
     try {
-      const html2pdf = (await import("html2pdf.js")).default;
-
       const html =
         contract.contract_type === "paid_collab"
           ? renderPaidCollabContract(contract.variables as PaidCollabContractVariables)
           : renderWhitelistingContract(contract.variables as WhitelistingContractVariables);
-
-      console.log("Generated HTML length:", html?.length);
 
       const filename =
         contract.contract_type === "paid_collab"
           ? `${influencer.name.replace(/\s+/g, "_")}_Paid_Collab_Contract.pdf`
           : `${influencer.name.replace(/\s+/g, "_")}_Whitelisting_Agreement.pdf`;
 
-      // Create an iframe to render the HTML (avoids visibility issues with html2canvas)
-      const iframe = document.createElement("iframe");
-      iframe.style.position = "fixed";
-      iframe.style.left = "0";
-      iframe.style.top = "0";
-      iframe.style.width = "8.5in";
-      iframe.style.height = "11in";
-      iframe.style.border = "none";
-      iframe.style.zIndex = "9999";
-      iframe.style.background = "white";
-      document.body.appendChild(iframe);
-
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (!iframeDoc) {
-        throw new Error("Could not access iframe document");
-      }
-      iframeDoc.open();
-      iframeDoc.write(html);
-      iframeDoc.close();
-
-      // Wait for iframe content to render
-      await new Promise(resolve => setTimeout(resolve, 200));
-
-      await html2pdf()
-        .set({
-          margin: 0,
-          filename,
-          image: { type: "jpeg", quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, logging: false },
-          jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
-        })
-        .from(iframeDoc.body)
-        .save();
-
-      document.body.removeChild(iframe);
+      await generatePdfFromHtml(html, filename);
     } catch (err) {
       console.error("Failed to generate PDF:", err);
       alert("Failed to generate PDF. Please try again.");
