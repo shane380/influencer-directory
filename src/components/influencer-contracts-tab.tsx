@@ -282,7 +282,7 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
   const handleUploadSignedPdf = async (contractId: string, file: File) => {
     setUploadingFile(contractId);
     try {
-      const fileName = `contracts/${influencer.id}/${contractId}_signed_${Date.now()}.pdf`;
+      const fileName = `${influencer.id}/${contractId}_signed_${Date.now()}.pdf`;
 
       const { error: uploadError } = await supabase.storage
         .from("contracts")
@@ -346,7 +346,7 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
       const { contract } = await response.json();
 
       // Upload the PDF
-      const fileName = `contracts/${influencer.id}/${contract.id}_signed_${Date.now()}.pdf`;
+      const fileName = `${influencer.id}/${contract.id}_signed_${Date.now()}.pdf`;
 
       const { error: uploadError } = await supabase.storage
         .from("contracts")
@@ -391,15 +391,21 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
 
     // If there's an uploaded signed PDF, download that directly
     if (contract.signed_pdf_url && contract.signed_pdf_url.trim() !== "") {
-      // Check if it's a storage path (starts with contracts/) or a full URL
-      if (contract.signed_pdf_url.startsWith("contracts/")) {
+      // Determine the storage path - strip "contracts/" prefix if present (legacy paths)
+      let storagePath = contract.signed_pdf_url;
+      if (storagePath.startsWith("contracts/")) {
+        storagePath = storagePath.substring("contracts/".length);
+      }
+
+      // Check if it's a storage path or a full URL
+      if (!storagePath.startsWith("http")) {
         // Generate a signed URL for private bucket access
         const { data, error } = await supabase.storage
           .from("contracts")
-          .createSignedUrl(contract.signed_pdf_url, 60); // 60 seconds expiry
+          .createSignedUrl(storagePath, 60); // 60 seconds expiry
 
         if (error || !data?.signedUrl) {
-          console.error("Failed to create signed URL:", error);
+          console.error("Failed to create signed URL:", error, "path:", storagePath);
           alert("Failed to access the contract file. Please try again.");
           return;
         }
