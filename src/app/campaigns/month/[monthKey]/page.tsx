@@ -910,6 +910,8 @@ export default function MonthCampaignViewPage() {
                         value={ci.partnership_type}
                         onChange={(e) => handlePartnershipTypeChange(ci.id, ci.influencer_id, e.target.value as PartnershipType)}
                         className="text-xs h-8 w-[100px] bg-transparent border-0 text-gray-600 px-0 focus:ring-0"
+                        truncate
+                        title={partnershipTypeLabels[ci.partnership_type]}
                       >
                         <option value="unassigned">Unassigned</option>
                         <option value="gifted_no_ask">Gifted</option>
@@ -926,6 +928,8 @@ export default function MonthCampaignViewPage() {
                           value={ci.status}
                           onChange={(e) => handleStatusChange(ci.id, e.target.value as RelationshipStatus)}
                           className="text-xs h-8 w-[110px] bg-transparent border-0 text-gray-700 px-0 focus:ring-0"
+                          truncate
+                          title={statusLabels[ci.status]}
                         >
                           <option value="prospect">Prospect</option>
                           <option value="contacted">Contacted</option>
@@ -945,6 +949,8 @@ export default function MonthCampaignViewPage() {
                         value={ci.influencer.assigned_to || ""}
                         onChange={(e) => handleOwnerChange(ci.influencer.id, e.target.value || null)}
                         className="text-xs h-8 w-[90px] bg-transparent border-0 text-gray-600 px-0 focus:ring-0"
+                        truncate
+                        title={profiles.find(p => p.id === ci.influencer.assigned_to)?.display_name || "—"}
                       >
                         <option value="">—</option>
                         {profiles.map((profile) => (
@@ -988,6 +994,8 @@ export default function MonthCampaignViewPage() {
                             value={ci.content_posted}
                             onChange={(e) => handleContentPostedChange(ci.id, e.target.value as ContentPostedType)}
                             className="text-xs h-8 w-[75px] bg-transparent border-0 text-gray-700 px-0 focus:ring-0"
+                            truncate
+                            title={contentPostedLabels[ci.content_posted]}
                           >
                             <option value="none">—</option>
                             <option value="stories">Stories</option>
@@ -1001,6 +1009,8 @@ export default function MonthCampaignViewPage() {
                           value="none"
                           onChange={(e) => handleContentPostedChange(ci.id, e.target.value as ContentPostedType)}
                           className="text-xs h-8 w-[60px] bg-transparent border-0 text-gray-300 px-0 focus:ring-0"
+                          truncate
+                          title="—"
                         >
                           <option value="none">—</option>
                           <option value="stories">Stories</option>
