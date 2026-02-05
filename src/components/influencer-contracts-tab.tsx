@@ -273,14 +273,13 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
         return;
       }
 
-      const { data: urlData } = supabase.storage.from("contracts").getPublicUrl(fileName);
-
+      // Store the file path (not public URL) for private bucket access
       const response = await fetch("/api/contracts", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: contractId,
-          signed_pdf_url: urlData.publicUrl,
+          signed_pdf_url: fileName,
           status: "signed",
         }),
       });
@@ -289,7 +288,7 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
         setContracts((prev) =>
           prev.map((c) =>
             c.id === contractId
-              ? { ...c, signed_pdf_url: urlData.publicUrl, status: "signed" }
+              ? { ...c, signed_pdf_url: fileName, status: "signed" }
               : c
           )
         );
@@ -337,15 +336,13 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
         return;
       }
 
-      const { data: urlData } = supabase.storage.from("contracts").getPublicUrl(fileName);
-
-      // Update contract with PDF URL
+      // Store the file path (not public URL) for private bucket access
       await fetch("/api/contracts", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: contract.id,
-          signed_pdf_url: urlData.publicUrl,
+          signed_pdf_url: fileName,
         }),
       });
 
@@ -369,12 +366,39 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
 
   const handleDownloadExistingContract = async (contract: InfluencerContract) => {
     // If there's an uploaded signed PDF, download that directly
-    if (contract.signed_pdf_url) {
-      window.open(contract.signed_pdf_url, "_blank");
+    if (contract.signed_pdf_url && contract.signed_pdf_url.trim() !== "") {
+      // Check if it's a storage path (starts with contracts/) or a full URL
+      if (contract.signed_pdf_url.startsWith("contracts/")) {
+        // Generate a signed URL for private bucket access
+        const { data, error } = await supabase.storage
+          .from("contracts")
+          .createSignedUrl(contract.signed_pdf_url, 60); // 60 seconds expiry
+
+        if (error || !data?.signedUrl) {
+          console.error("Failed to create signed URL:", error);
+          alert("Failed to access the contract file. Please try again.");
+          return;
+        }
+        window.open(data.signedUrl, "_blank");
+      } else {
+        // It's already a full URL (legacy or public bucket)
+        window.open(contract.signed_pdf_url, "_blank");
+      }
       return;
     }
 
-    // Otherwise generate PDF from template
+    // Check if we have valid variables to generate a PDF
+    const vars = contract.variables;
+    const hasValidVariables = contract.contract_type === "paid_collab"
+      ? (vars as PaidCollabContractVariables).talent_name && (vars as PaidCollabContractVariables).effective_date
+      : (vars as WhitelistingContractVariables).talent_name && (vars as WhitelistingContractVariables).effective_date;
+
+    if (!hasValidVariables) {
+      alert("This contract doesn't have a downloadable PDF. Please upload a signed PDF or create a new contract with complete details.");
+      return;
+    }
+
+    // Generate PDF from template
     setGeneratingPdf(true);
     try {
       const html2pdf = (await import("html2pdf.js")).default;
@@ -410,6 +434,7 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
       document.body.removeChild(container);
     } catch (err) {
       console.error("Failed to generate PDF:", err);
+      alert("Failed to generate PDF. Please try again.");
     } finally {
       setGeneratingPdf(false);
     }
@@ -468,14 +493,24 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
                     Created {formatDate(contract.created_at)}
                   </p>
                   {contract.signed_pdf_url && (
-                    <a
-                      href={contract.signed_pdf_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (contract.signed_pdf_url!.startsWith("contracts/")) {
+                          const { data, error } = await supabase.storage
+                            .from("contracts")
+                            .createSignedUrl(contract.signed_pdf_url!, 60);
+                          if (data?.signedUrl) {
+                            window.open(data.signedUrl, "_blank");
+                          }
+                        } else {
+                          window.open(contract.signed_pdf_url!, "_blank");
+                        }
+                      }}
                       className="text-sm text-purple-600 hover:underline mt-1 inline-block"
                     >
                       View signed contract
-                    </a>
+                    </button>
                   )}
                 </div>
                 <div className="flex items-center gap-1">
