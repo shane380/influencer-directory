@@ -163,31 +163,31 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
           ? renderPaidCollabContract(paidCollabForm)
           : renderWhitelistingContract(whitelistingForm);
 
-      // Create a container element
-      const container = document.createElement("div");
-      container.innerHTML = html;
-      document.body.appendChild(container);
-
       const filename =
         contractType === "paid_collab"
           ? `${influencer.name.replace(/\s+/g, "_")}_Paid_Collab_Contract.pdf`
           : `${influencer.name.replace(/\s+/g, "_")}_Whitelisting_Agreement.pdf`;
 
-      const element = container.firstChild as HTMLElement;
-      if (element) {
-        await html2pdf()
-          .set({
-            margin: 0,
-            filename,
-            image: { type: "jpeg", quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
-          })
-          .from(element)
-          .save();
-      }
+      // Create a wrapper div and use that as the source
+      const wrapper = document.createElement("div");
+      wrapper.innerHTML = html;
+      wrapper.style.position = "absolute";
+      wrapper.style.left = "-9999px";
+      wrapper.style.top = "0";
+      document.body.appendChild(wrapper);
 
-      document.body.removeChild(container);
+      await html2pdf()
+        .set({
+          margin: 0,
+          filename,
+          image: { type: "jpeg", quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true },
+          jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+        })
+        .from(wrapper)
+        .save();
+
+      document.body.removeChild(wrapper);
     } catch (err) {
       console.error("Failed to generate PDF:", err);
     } finally {
