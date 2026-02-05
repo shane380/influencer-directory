@@ -90,6 +90,8 @@ const initialFormData: InfluencerInsert = {
   notes: null,
   last_contacted_at: null,
   assigned_to: null,
+  whitelisting_enabled: false,
+  whitelisting_type: null,
 };
 
 export function InfluencerDialog({
@@ -176,6 +178,8 @@ export function InfluencerDialog({
         notes: influencer.notes,
         last_contacted_at: influencer.last_contacted_at?.split("T")[0] || null,
         assigned_to: influencer.assigned_to,
+        whitelisting_enabled: influencer.whitelisting_enabled,
+        whitelisting_type: influencer.whitelisting_type,
       });
       setSearchHandle("");
     } else {
@@ -376,15 +380,23 @@ export function InfluencerDialog({
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value, type } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]:
-        type === "number"
-          ? value === ""
-            ? 0
-            : parseFloat(value)
-          : value || null,
-    }));
+    const newValue =
+      type === "checkbox"
+        ? (e.target as HTMLInputElement).checked
+        : type === "number"
+        ? value === ""
+          ? 0
+          : parseFloat(value)
+        : value || null;
+
+    setFormData((prev) => {
+      const updated = { ...prev, [name]: newValue };
+      // Clear whitelisting_type when whitelisting_enabled is turned off
+      if (name === "whitelisting_enabled" && !newValue) {
+        updated.whitelisting_type = null;
+      }
+      return updated;
+    });
   };
 
   const handleRatesChange = (updatedRates: Partial<InfluencerRates>) => {

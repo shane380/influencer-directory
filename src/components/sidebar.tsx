@@ -8,6 +8,7 @@ import {
   Users,
   Megaphone,
   DollarSign,
+  Share2,
   ChevronDown,
   ChevronRight,
   User,
@@ -129,6 +130,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
     { id: "influencers", label: "Influencers", icon: Users },
     { id: "campaigns", label: "Campaigns", icon: Megaphone, expandable: true },
     { id: "paid_collabs", label: "Paid Collabs", icon: DollarSign },
+    { id: "whitelisting", label: "Whitelisting", icon: Share2 },
   ];
 
   const handleNavClick = (id: string) => {

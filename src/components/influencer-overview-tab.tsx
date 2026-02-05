@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { Mail, Phone, MapPin, User } from "lucide-react";
+import { Mail, Phone, MapPin, User, Share2 } from "lucide-react";
 
 interface InfluencerOverviewTabProps {
   influencer: Influencer | null;
@@ -223,6 +223,41 @@ export function InfluencerOverviewTab({
               <option value="posted">Posted</option>
             </Select>
           </div>
+        </div>
+      </div>
+
+      {/* Whitelisting */}
+      <div className="pt-4 border-t">
+        <div className="flex items-center gap-2 mb-3">
+          <Share2 className="h-4 w-4 text-gray-400" />
+          <span className="text-sm font-medium text-gray-700">Whitelisting</span>
+        </div>
+        <div className="space-y-3">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              name="whitelisting_enabled"
+              checked={formData.whitelisting_enabled || false}
+              onChange={onChange}
+              className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+            />
+            <span className="text-sm text-gray-700">Available for Meta ad whitelisting</span>
+          </label>
+          {formData.whitelisting_enabled && (
+            <div className="ml-6">
+              <Label htmlFor="whitelisting_type" className="text-xs font-medium">Whitelisting Type</Label>
+              <Select
+                id="whitelisting_type"
+                name="whitelisting_type"
+                value={formData.whitelisting_type || ""}
+                onChange={onChange}
+              >
+                <option value="">Select type...</option>
+                <option value="paid">Paid</option>
+                <option value="gifted">Gifted</option>
+              </Select>
+            </div>
+          )}
         </div>
       </div>
 

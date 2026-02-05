@@ -21,6 +21,7 @@ import { PaidCollabDialog } from "@/components/paid-collab-dialog";
 import { PaidCollabsBudgetBar } from "@/components/paid-collabs-budget-bar";
 import { OrderDialog } from "@/components/order-dialog";
 import { Sidebar } from "@/components/sidebar";
+import { WhitelistingTab } from "@/components/whitelisting-tab";
 import { Plus, Search, ArrowUpDown, ChevronDown, ChevronRight, Loader2, Users, ShoppingCart, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -29,7 +30,7 @@ const PAGE_SIZE = 50;
 
 type SortField = "name" | "follower_count" | "last_contacted_at";
 type SortDirection = "asc" | "desc";
-type Tab = "influencers" | "campaigns" | "paid_collabs";
+type Tab = "influencers" | "campaigns" | "paid_collabs" | "whitelisting";
 
 const partnershipTypeLabels: Record<PartnershipType, string> = {
   unassigned: "Unassigned",
@@ -128,9 +129,12 @@ function HomePageContent() {
   const [loadingInfluencers, setLoadingInfluencers] = useState(true);
   const [loadingCampaigns, setLoadingCampaigns] = useState(false);
   const [loadingPaidCollabs, setLoadingPaidCollabs] = useState(false);
+  const [whitelistingInfluencers, setWhitelistingInfluencers] = useState<Influencer[]>([]);
+  const [loadingWhitelisting, setLoadingWhitelisting] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [campaignsLoaded, setCampaignsLoaded] = useState(false);
   const [paidCollabsLoaded, setPaidCollabsLoaded] = useState(false);
+  const [whitelistingLoaded, setWhitelistingLoaded] = useState(false);
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>("all");
   const [dealStatusFilter, setDealStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -332,6 +336,29 @@ function HomePageContent() {
     setLoadingPaidCollabs(false);
   }, [supabase, paymentStatusFilter, dealStatusFilter]);
 
+  const fetchWhitelisting = useCallback(async (forceRefresh = false) => {
+    // Skip if already loaded and not forcing refresh
+    if (whitelistingLoaded && !forceRefresh) {
+      return;
+    }
+
+    setLoadingWhitelisting(true);
+
+    const { data, error } = await supabase
+      .from("influencers")
+      .select("*")
+      .eq("whitelisting_enabled", true)
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching whitelisting influencers:", error);
+    } else {
+      setWhitelistingInfluencers(data || []);
+      setWhitelistingLoaded(true);
+    }
+    setLoadingWhitelisting(false);
+  }, [supabase, whitelistingLoaded]);
+
   // Fetch profiles and current user on mount
   useEffect(() => {
     fetchProfiles();
@@ -402,6 +429,13 @@ function HomePageContent() {
     }
   }, [paymentStatusFilter, dealStatusFilter]);
 
+  // Fetch whitelisting influencers on first visit
+  useEffect(() => {
+    if (activeTab === "whitelisting" && whitelistingInfluencers.length === 0 && !whitelistingLoaded) {
+      fetchWhitelisting();
+    }
+  }, [activeTab]);
+
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -431,6 +465,10 @@ function HomePageContent() {
   const handleInfluencerSave = () => {
     handleCloseInfluencerDialog();
     fetchInfluencers(); // Refresh list after save
+    // Also refresh whitelisting list if it was loaded (in case whitelisting status changed)
+    if (whitelistingLoaded) {
+      fetchWhitelisting(true);
+    }
   };
 
   const loadMoreInfluencers = () => {
@@ -1091,6 +1129,20 @@ function HomePageContent() {
             Showing {filteredPaidCollabs.length} of {paidCollabs.length} paid collaborations
           </div>
           </div>}
+
+          {/* Whitelisting Tab */}
+          {activeTab === "whitelisting" && (
+            <WhitelistingTab
+              influencers={whitelistingInfluencers}
+              loading={loadingWhitelisting}
+              onRefresh={() => fetchWhitelisting(true)}
+              onInfluencerClick={(influencer) => {
+                setSelectedInfluencer(influencer);
+                setInfluencerDialogInitialTab("overview");
+                setInfluencerDialogOpen(true);
+              }}
+            />
+          )}
         </div>
       </main>
 
