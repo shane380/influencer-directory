@@ -55,6 +55,7 @@ export function renderPaidCollabContract(vars: PaidCollabContractVariables): str
     }
     .signature-block {
       margin-top: 0.3in;
+      page-break-inside: avoid;
     }
     .signature-line {
       border-bottom: 1px solid #000;
@@ -168,8 +169,9 @@ export function renderPaidCollabContract(vars: PaidCollabContractVariables): str
 
     <div class="signature-block">
       <p>For NAMA:</p>
-      <p>Signature: <img src="/signature-shane.png" alt="Shane Petersen Signature" class="signature-image" /></p>
-      <p class="signature-name">Shane Petersen<br>Date: ${vars.effective_date}</p>
+      <p style="margin-bottom: 0.05in;">Signature:</p>
+      <img src="/signature-shane.png" alt="Shane Petersen Signature" style="height: 40px; display: block; margin-bottom: 0.05in;" />
+      <p class="signature-name" style="margin-top: 0;">Shane Petersen<br>Date: ${vars.effective_date}</p>
     </div>
 
     <div class="signature-block">

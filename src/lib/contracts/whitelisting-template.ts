@@ -58,18 +58,19 @@ export function renderWhitelistingContract(vars: WhitelistingContractVariables):
   <h2 style="font-size: 14pt; font-weight: normal; margin-top: 0.4in; margin-bottom: 0.15in; padding-top: 0.15in; border-top: 1px solid #ccc;">6. Termination</h2>
   <p>Either party may terminate this Agreement with 30 days written notice via email. Upon termination, all whitelisting rights end and Nama will deactivate any running ads featuring Talent's content.</p>
 
-  <div style="margin-top: 0.5in; padding-top: 0.2in; border-top: 1px solid #ccc;">
+  <div style="margin-top: 0.5in; padding-top: 0.2in; border-top: 1px solid #ccc; page-break-inside: avoid;">
     <p><strong>IN WITNESS WHEREOF</strong>, the Parties have executed this Agreement as of the date written below.</p>
 
-    <div style="margin-top: 0.3in;">
+    <div style="margin-top: 0.3in; page-break-inside: avoid;">
       <p><strong>For Nama:</strong></p>
       <p>Name: Shane Petersen<br>
       Title: Founder</p>
-      <p>Signature: <img src="/signature-shane.png" alt="Shane Petersen Signature" style="height: 60px; vertical-align: middle;" /></p>
-      <p>Date: ${vars.effective_date}</p>
+      <p style="margin-bottom: 0.05in;">Signature:</p>
+      <img src="/signature-shane.png" alt="Shane Petersen Signature" style="height: 40px; display: block; margin-bottom: 0.05in;" />
+      <p style="margin-top: 0;">Date: ${vars.effective_date}</p>
     </div>
 
-    <div style="margin-top: 0.3in;">
+    <div style="margin-top: 0.3in; page-break-inside: avoid;">
       <p><strong>For Talent: ${vars.talent_name}</strong></p>
       <p>Name: ${vars.talent_name}</p>
       <p>Signature: ___________________________</p>
