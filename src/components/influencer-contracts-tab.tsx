@@ -368,6 +368,13 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
   };
 
   const handleDownloadExistingContract = async (contract: InfluencerContract) => {
+    // If there's an uploaded signed PDF, download that directly
+    if (contract.signed_pdf_url) {
+      window.open(contract.signed_pdf_url, "_blank");
+      return;
+    }
+
+    // Otherwise generate PDF from template
     setGeneratingPdf(true);
     try {
       const html2pdf = (await import("html2pdf.js")).default;
