@@ -469,6 +469,10 @@ function HomePageContent() {
     if (whitelistingLoaded) {
       fetchWhitelisting(true);
     }
+    // Also refresh paid collabs list if it was loaded (influencer data may have changed)
+    if (paidCollabsLoaded) {
+      fetchPaidCollabs(true);
+    }
   };
 
   const loadMoreInfluencers = () => {
