@@ -160,7 +160,6 @@ export function InfluencerDialog({
   // Reset form when dialog opens/closes or influencer changes
   useEffect(() => {
     if (influencer) {
-      console.log("Loading influencer - top_size:", influencer.top_size, "bottoms_size:", influencer.bottoms_size);
       setFormData({
         name: influencer.name,
         instagram_handle: influencer.instagram_handle,
@@ -650,17 +649,12 @@ export function InfluencerDialog({
 
       let savedInfluencerId = influencer?.id;
 
-      // Debug: log what we're sending
-      console.log("Saving data - top_size:", dataToSave.top_size, "bottoms_size:", dataToSave.bottoms_size);
-
       if (influencer) {
         const updateResult = await (supabase
           .from("influencers") as any)
           .update(dataToSave)
           .eq("id", influencer.id)
           .select();
-
-        console.log("Update result:", updateResult);
 
         if (updateResult.error) throw updateResult.error;
       } else {
