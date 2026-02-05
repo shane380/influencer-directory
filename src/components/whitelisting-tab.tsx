@@ -1,6 +1,6 @@
 "use client";
 
-import { Influencer, WhitelistingType, CampaignInfluencer, ShopifyOrderStatus } from "@/types/database";
+import { Influencer, WhitelistingType, CampaignInfluencer, ShopifyOrderStatus, RelationshipStatus } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -36,13 +36,30 @@ const whitelistingTypeLabels: Record<WhitelistingType, string> = {
   gifted: "Gifted",
 };
 
-const partnershipTypeLabels: Record<string, string> = {
-  unassigned: "Unassigned",
-  gifted_no_ask: "Gifted No Ask",
-  gifted_soft_ask: "Gifted Soft Ask",
-  gifted_deliverable_ask: "Gifted Deliverable Ask",
-  gifted_recurring: "Gifted Recurring",
-  paid: "Paid",
+const statusColors: Record<RelationshipStatus, string> = {
+  prospect: "bg-gray-100 text-gray-800",
+  contacted: "bg-blue-100 text-blue-800",
+  followed_up: "bg-yellow-100 text-yellow-800",
+  lead_dead: "bg-red-100 text-red-800",
+  creator_wants_paid: "bg-pink-100 text-pink-800",
+  order_placed: "bg-orange-100 text-orange-800",
+  order_delivered: "bg-teal-100 text-teal-800",
+  order_follow_up_sent: "bg-indigo-100 text-indigo-800",
+  order_follow_up_two_sent: "bg-purple-100 text-purple-800",
+  posted: "bg-green-100 text-green-800",
+};
+
+const statusLabels: Record<RelationshipStatus, string> = {
+  prospect: "Prospect",
+  contacted: "Contacted",
+  followed_up: "Followed Up",
+  lead_dead: "Lead Dead",
+  creator_wants_paid: "Creator Wants Paid",
+  order_placed: "Order Placed",
+  order_delivered: "Order Delivered",
+  order_follow_up_sent: "Follow Up Sent",
+  order_follow_up_two_sent: "Follow Up 2 Sent",
+  posted: "Posted",
 };
 
 // Order status colors and labels
@@ -67,6 +84,7 @@ export function WhitelistingTab({
 }: WhitelistingTabProps) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   const [selectedInfluencerForOrder, setSelectedInfluencerForOrder] = useState<Influencer | null>(null);
 
@@ -128,9 +146,14 @@ export function WhitelistingTab({
         return false;
       }
 
+      // Status filter
+      if (statusFilter !== "all" && influencer.relationship_status !== statusFilter) {
+        return false;
+      }
+
       return true;
     });
-  }, [influencers, search, typeFilter]);
+  }, [influencers, search, typeFilter, statusFilter]);
 
   return (
     <div>
@@ -154,6 +177,23 @@ export function WhitelistingTab({
           <option value="paid">Paid</option>
           <option value="gifted">Gifted</option>
         </Select>
+        <Select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="w-auto sm:w-[180px] flex-shrink-0"
+        >
+          <option value="all">All Statuses</option>
+          <option value="prospect">Prospect</option>
+          <option value="contacted">Contacted</option>
+          <option value="followed_up">Followed Up</option>
+          <option value="order_placed">Order Placed</option>
+          <option value="order_delivered">Order Delivered</option>
+          <option value="order_follow_up_sent">Follow Up Sent</option>
+          <option value="order_follow_up_two_sent">Follow Up 2 Sent</option>
+          <option value="posted">Posted</option>
+          <option value="lead_dead">Lead Dead</option>
+          <option value="creator_wants_paid">Creator Wants Paid</option>
+        </Select>
         <Button variant="outline" onClick={onRefresh} disabled={loading}>
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
           Refresh
@@ -170,7 +210,7 @@ export function WhitelistingTab({
           <div className="p-8 text-center text-gray-500">Loading...</div>
         ) : !loading && filteredInfluencers.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
-            {search || typeFilter !== "all"
+            {search || typeFilter !== "all" || statusFilter !== "all"
               ? "No influencers match your filters."
               : "No influencers available for whitelisting yet."}
           </div>
@@ -183,7 +223,7 @@ export function WhitelistingTab({
                 <TableHead>Handle</TableHead>
                 <TableHead>Followers</TableHead>
                 <TableHead>Whitelisting Type</TableHead>
-                <TableHead>Partnership Type</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Order</TableHead>
               </TableRow>
             </TableHeader>
@@ -226,8 +266,10 @@ export function WhitelistingTab({
                       <span className="text-gray-400">-</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-gray-600 text-sm">
-                    {partnershipTypeLabels[influencer.partnership_type] || influencer.partnership_type}
+                  <TableCell>
+                    <Badge className={statusColors[influencer.relationship_status]}>
+                      {statusLabels[influencer.relationship_status]}
+                    </Badge>
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     {influencer.shopify_order_id ? (
