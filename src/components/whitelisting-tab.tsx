@@ -1,6 +1,6 @@
 "use client";
 
-import { Influencer, WhitelistingType } from "@/types/database";
+import { Influencer, WhitelistingType, InfluencerOrder, CampaignInfluencer, ShopifyOrderStatus } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -13,9 +13,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, RefreshCw, Plus } from "lucide-react";
+import { Search, RefreshCw, Plus, ShoppingCart } from "lucide-react";
 import Image from "next/image";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { OrderDialog } from "@/components/order-dialog";
 
 interface WhitelistingTabProps {
   influencers: Influencer[];
@@ -44,6 +46,19 @@ const partnershipTypeLabels: Record<string, string> = {
   paid: "Paid",
 };
 
+// Order status colors and labels
+const orderDots: Record<ShopifyOrderStatus, string> = {
+  draft: "bg-amber-400",
+  placed: "bg-blue-400",
+  fulfilled: "bg-green-500",
+};
+
+const orderStatusLabels: Record<ShopifyOrderStatus, string> = {
+  draft: "Draft",
+  placed: "Placed",
+  fulfilled: "Fulfilled",
+};
+
 export function WhitelistingTab({
   influencers,
   loading,
@@ -53,6 +68,71 @@ export function WhitelistingTab({
 }: WhitelistingTabProps) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [orderDialogOpen, setOrderDialogOpen] = useState(false);
+  const [selectedInfluencerForOrder, setSelectedInfluencerForOrder] = useState<Influencer | null>(null);
+  const [recentOrders, setRecentOrders] = useState<Map<string, InfluencerOrder>>(new Map());
+  const supabase = createClient();
+
+  // Fetch most recent order for each influencer
+  useEffect(() => {
+    async function fetchRecentOrders() {
+      if (influencers.length === 0) return;
+
+      const influencerIds = influencers.map(i => i.id);
+      const { data: orders } = await (supabase
+        .from("influencer_orders") as any)
+        .select("*")
+        .in("influencer_id", influencerIds)
+        .order("order_date", { ascending: false });
+
+      if (orders) {
+        // Keep only the most recent order per influencer
+        const orderMap = new Map<string, InfluencerOrder>();
+        for (const order of orders as InfluencerOrder[]) {
+          if (!orderMap.has(order.influencer_id)) {
+            orderMap.set(order.influencer_id, order);
+          }
+        }
+        setRecentOrders(orderMap);
+      }
+    }
+    fetchRecentOrders();
+  }, [influencers, supabase]);
+
+  const handleOpenOrderDialog = (influencer: Influencer, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedInfluencerForOrder(influencer);
+    setOrderDialogOpen(true);
+  };
+
+  const handleCloseOrderDialog = () => {
+    setOrderDialogOpen(false);
+    setSelectedInfluencerForOrder(null);
+  };
+
+  const handleOrderSave = () => {
+    onRefresh();
+  };
+
+  // Create a virtual campaign influencer for the order dialog
+  const createVirtualCampaignInfluencer = (influencer: Influencer): CampaignInfluencer => ({
+    id: `virtual-${influencer.id}`,
+    campaign_id: "",
+    influencer_id: influencer.id,
+    compensation: null,
+    notes: null,
+    added_at: new Date().toISOString(),
+    status: influencer.relationship_status,
+    partnership_type: influencer.partnership_type,
+    shopify_order_id: null,
+    shopify_order_status: null,
+    product_selections: null,
+    content_posted: "none",
+    approval_status: null,
+    approval_note: null,
+    approved_at: null,
+    approved_by: null,
+  });
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -133,6 +213,7 @@ export function WhitelistingTab({
                 <TableHead>Followers</TableHead>
                 <TableHead>Whitelisting Type</TableHead>
                 <TableHead>Partnership Type</TableHead>
+                <TableHead>Order</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -177,6 +258,24 @@ export function WhitelistingTab({
                   <TableCell className="text-gray-600 text-sm">
                     {partnershipTypeLabels[influencer.partnership_type] || influencer.partnership_type}
                   </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    {recentOrders.has(influencer.id) ? (
+                      <button
+                        className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900"
+                        onClick={(e) => handleOpenOrderDialog(influencer, e)}
+                      >
+                        <span className="w-2 h-2 rounded-full flex-shrink-0 bg-green-500"></span>
+                        #{recentOrders.get(influencer.id)?.order_number}
+                      </button>
+                    ) : (
+                      <button
+                        className="text-xs text-gray-400 hover:text-gray-600"
+                        onClick={(e) => handleOpenOrderDialog(influencer, e)}
+                      >
+                        <ShoppingCart className="h-4 w-4" />
+                      </button>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -187,6 +286,17 @@ export function WhitelistingTab({
       <div className="mt-4 text-sm text-gray-500">
         Showing {filteredInfluencers.length} of {influencers.length} whitelisting influencers
       </div>
+
+      {/* Order Dialog */}
+      {selectedInfluencerForOrder && (
+        <OrderDialog
+          open={orderDialogOpen}
+          onClose={handleCloseOrderDialog}
+          onSave={handleOrderSave}
+          influencer={selectedInfluencerForOrder}
+          campaignInfluencer={createVirtualCampaignInfluencer(selectedInfluencerForOrder)}
+        />
+      )}
     </div>
   );
 }
