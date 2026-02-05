@@ -114,7 +114,12 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
   const generatePdfFromHtml = async (html: string, filename: string) => {
     const html2pdf = (await import("html2pdf.js")).default;
 
-    // Create a temporary container to render the HTML with styles
+    // Parse the HTML and extract body with inline styles
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+    const bodyElement = doc.body;
+
+    // Copy all inline styles from the parsed body to a container
     const container = document.createElement("div");
     container.style.position = "fixed";
     container.style.left = "0";
@@ -122,24 +127,14 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
     container.style.width = "8.5in";
     container.style.background = "white";
     container.style.zIndex = "9999";
+    container.style.overflow = "visible";
 
-    // Parse the HTML and extract body content and styles
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, "text/html");
+    // Create inner wrapper with body styles
+    const wrapper = document.createElement("div");
+    wrapper.style.cssText = bodyElement.getAttribute("style") || "";
+    wrapper.innerHTML = bodyElement.innerHTML;
+    container.appendChild(wrapper);
 
-    // Get the style element content
-    const styleElement = doc.querySelector("style");
-    const bodyContent = doc.body.innerHTML;
-
-    // Create a style element in the main document
-    const style = document.createElement("style");
-    if (styleElement) {
-      style.textContent = styleElement.textContent;
-    }
-    document.head.appendChild(style);
-
-    // Set the body content
-    container.innerHTML = bodyContent;
     document.body.appendChild(container);
 
     // Wait for content and images to render
@@ -153,11 +148,10 @@ export function InfluencerContractsTab({ influencer }: InfluencerContractsTabPro
         html2canvas: { scale: 2, useCORS: true, logging: false },
         jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
       })
-      .from(container)
+      .from(wrapper)
       .save();
 
     document.body.removeChild(container);
-    document.head.removeChild(style);
   };
 
   useEffect(() => {
