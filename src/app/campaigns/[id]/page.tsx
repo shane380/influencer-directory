@@ -553,7 +553,7 @@ export default function CampaignDetailPage() {
         currentUser={currentUser}
         onLogout={handleLogout}
       />
-      <main className="flex-1 ml-48 px-8 pt-12 pb-8">
+      <main className="flex-1 ml-48 px-8 pt-12 pb-8 min-w-0">
         {/* Campaign Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3">
