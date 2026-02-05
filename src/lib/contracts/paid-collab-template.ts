@@ -62,9 +62,8 @@ export function renderPaidCollabContract(vars: PaidCollabContractVariables): str
       margin: 0.3in 0 0.05in 0;
     }
     .signature-image {
-      height: 500px;
-      display: block;
-      margin: -50px 0 -150px -20px;
+      height: 60px;
+      vertical-align: middle;
     }
     .signature-name {
       margin-top: 0.1in;
@@ -169,14 +168,14 @@ export function renderPaidCollabContract(vars: PaidCollabContractVariables): str
 
     <div class="signature-block">
       <p>For NAMA:</p>
-      <img src="/signature-shane.png" alt="Shane Petersen Signature" class="signature-image" />
+      <p>Signature: <img src="/signature-shane.png" alt="Shane Petersen Signature" class="signature-image" /></p>
       <p class="signature-name">Shane Petersen<br>Date: ${vars.effective_date}</p>
     </div>
 
     <div class="signature-block">
       <p>For ${vars.talent_name}:</p>
-      <div class="signature-line"></div>
-      <p class="signature-name">${vars.talent_signatory_name}<br>Date: ___________________</p>
+      <p>Signature: ___________________________</p>
+      <p class="signature-name">${vars.talent_signatory_name}<br>Date: ___________________________</p>
     </div>
   </div>
 </body>
