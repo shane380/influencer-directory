@@ -61,6 +61,7 @@ export interface Influencer {
   product_selections: ProductSelection[] | null;
   shopify_order_id: string | null;
   shopify_order_status: ShopifyOrderStatus | null;
+  google_drive_folder_id: string | null;
 }
 
 export interface InfluencerInsert {
@@ -89,6 +90,7 @@ export interface InfluencerInsert {
   product_selections?: ProductSelection[] | null;
   shopify_order_id?: string | null;
   shopify_order_status?: ShopifyOrderStatus | null;
+  google_drive_folder_id?: string | null;
 }
 
 export interface InfluencerUpdate extends Partial<InfluencerInsert> {
@@ -304,7 +306,7 @@ export interface InfluencerContent {
   influencer_id: string;
   type: ContentType;
   media_url: string;
-  original_url: string;
+  original_url: string | null;
   thumbnail_url: string | null;
   caption: string | null;
   posted_at: string | null;
@@ -312,19 +314,28 @@ export interface InfluencerContent {
   platform: string;
   campaign_id: string | null;
   metadata: Record<string, unknown>;
+  deal_id: string | null;
+  google_drive_file_id: string | null;
+  file_name: string | null;
+  file_size: number | null;
+  uploaded_at: string;
 }
 
 export interface InfluencerContentInsert {
   influencer_id: string;
   type?: ContentType;
   media_url: string;
-  original_url: string;
+  original_url?: string | null;
   thumbnail_url?: string | null;
   caption?: string | null;
   posted_at?: string | null;
   platform?: string;
   campaign_id?: string | null;
   metadata?: Record<string, unknown>;
+  deal_id?: string | null;
+  google_drive_file_id?: string | null;
+  file_name?: string | null;
+  file_size?: number | null;
 }
 
 // Shopify Order History Types

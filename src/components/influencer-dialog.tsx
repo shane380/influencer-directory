@@ -798,7 +798,11 @@ export function InfluencerDialog({
                 </TabsContent>
 
                 <TabsContent value="content" className="mt-0 h-full w-full">
-                  <InfluencerContentTab influencerId={influencer.id} />
+                  <InfluencerContentTab
+                    influencerId={influencer.id}
+                    influencerName={influencer.name}
+                    instagramHandle={influencer.instagram_handle}
+                  />
                 </TabsContent>
 
                 <TabsContent value="deal" className="mt-0 h-full w-full">

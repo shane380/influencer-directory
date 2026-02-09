@@ -20,6 +20,14 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'instagram.*.fbcdn.net',
       },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'drive.google.com',
+      },
     ],
   },
 };

@@ -20,9 +20,11 @@ const contentTypeBadge: Record<string, string> = {
 export function WhitelistingContentTimeline({ content, deals }: WhitelistingContentTimelineProps) {
   if (content.length === 0) return null;
 
-  // Build campaign_id → deal lookup
+  // Build deal lookups: by id and by campaign_id
+  const dealById = new Map<string, CampaignDeal>();
   const dealByCampaign = new Map<string, CampaignDeal>();
   deals.forEach((d) => {
+    dealById.set(d.id, d);
     dealByCampaign.set(d.campaign_id, d);
   });
 
@@ -41,7 +43,8 @@ export function WhitelistingContentTimeline({ content, deals }: WhitelistingCont
       <CollapsibleContent className="px-5 pb-3">
         <div className="space-y-3">
           {sorted.map((item) => {
-            const deal = item.campaign_id ? dealByCampaign.get(item.campaign_id) : undefined;
+            const deal = (item.deal_id ? dealById.get(item.deal_id) : undefined)
+              || (item.campaign_id ? dealByCampaign.get(item.campaign_id) : undefined);
             const usageBar = deal ? getUsageInfo(deal) : null;
 
             return (
