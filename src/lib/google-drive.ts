@@ -1,23 +1,25 @@
 import { google } from "googleapis";
 
-function getAuth() {
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || "";
-
-  if (!email || !raw) {
-    throw new Error("Missing Google service account credentials");
+function getCredentials(): { email: string; key: string } {
+  // Preferred: base64-encoded JSON key file (avoids Vercel newline issues)
+  const b64 = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+  if (b64) {
+    const json = JSON.parse(Buffer.from(b64, "base64").toString("utf-8"));
+    return { email: json.client_email, key: json.private_key };
   }
 
-  // Normalize the key: handle literal \n, strip quotes, ensure proper PEM format
-  let key = raw.replace(/\\n/g, "\n").replace(/^["']|["']$/g, "").trim();
+  // Fallback: separate env vars
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || "";
+  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || "";
+  const key = raw.replace(/\\n/g, "\n").replace(/^["']|["']$/g, "").trim();
+  return { email, key };
+}
 
-  // If key lost its newlines (all on one line), reconstruct PEM format
-  if (!key.includes("\n")) {
-    const body = key
-      .replace("-----BEGIN PRIVATE KEY-----", "")
-      .replace("-----END PRIVATE KEY-----", "")
-      .trim();
-    key = `-----BEGIN PRIVATE KEY-----\n${body.match(/.{1,64}/g)?.join("\n")}\n-----END PRIVATE KEY-----\n`;
+function getAuth() {
+  const { email, key } = getCredentials();
+
+  if (!email || !key) {
+    throw new Error("Missing Google service account credentials");
   }
 
   return new google.auth.JWT({
