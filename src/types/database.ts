@@ -299,7 +299,7 @@ export interface InfluencerWithRates extends Influencer {
 
 // Content Monitoring Types
 
-export type ContentType = 'story' | 'post' | 'reel';
+export type ContentType = 'story' | 'post' | 'reel' | 'content';
 
 export interface InfluencerContent {
   id: string;

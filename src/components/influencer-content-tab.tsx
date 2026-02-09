@@ -56,6 +56,7 @@ const typeColors: Record<string, string> = {
   story: "bg-purple-100 text-purple-800",
   post: "bg-blue-100 text-blue-800",
   reel: "bg-pink-100 text-pink-800",
+  content: "bg-gray-100 text-gray-800",
 };
 
 function groupByMonth(items: InfluencerContent[]): GroupedContent[] {
@@ -374,6 +375,7 @@ export function InfluencerContentTab({
           <option value="story">Story</option>
           <option value="post">Post</option>
           <option value="reel">Reel</option>
+          <option value="content">Content</option>
         </Select>
 
         <Select

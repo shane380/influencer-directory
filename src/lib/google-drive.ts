@@ -2,7 +2,10 @@ import { google } from "googleapis";
 
 function getAuth() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const key = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  // Replace literal \n with real newlines (handles both .env.local and Vercel)
+  const key = (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || "")
+    .replace(/\\n/g, "\n")
+    .replace(/^["']|["']$/g, "");
 
   if (!email || !key) {
     throw new Error("Missing Google service account credentials");
