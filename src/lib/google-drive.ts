@@ -2,8 +2,20 @@ import { google } from "googleapis";
 
 function getAuth() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  // Replace literal \n with real newlines (handles both .env.local and Vercel)
-  const key = (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || "")
+  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || "";
+
+  // Debug: log key shape (safe — only logs structure, not the actual key)
+  console.log("GDRIVE_KEY_DEBUG:", {
+    length: raw.length,
+    first30: raw.substring(0, 30),
+    last30: raw.substring(raw.length - 30),
+    hasLiteralBackslashN: raw.includes("\\n"),
+    hasRealNewline: raw.includes("\n"),
+    newlineCount: (raw.match(/\n/g) || []).length,
+  });
+
+  // Replace literal \n with real newlines, strip wrapping quotes
+  const key = raw
     .replace(/\\n/g, "\n")
     .replace(/^["']|["']$/g, "");
 
