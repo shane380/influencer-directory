@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Influencer, PartnershipType, Campaign, CampaignStatus, Profile, CampaignDeal, PaymentStatus, DealStatus, ContentStatus, ShopifyOrderStatus, CampaignInfluencer } from "@/types/database";
+import { Influencer, PartnershipType, Campaign, CampaignStatus, Profile, CampaignDeal, PaymentStatus, DealStatus, ContentStatus, ShopifyOrderStatus, CampaignInfluencer, InfluencerOrder, InfluencerContent } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -132,6 +132,9 @@ function HomePageContent() {
   const [loadingPaidCollabs, setLoadingPaidCollabs] = useState(false);
   const [whitelistingInfluencers, setWhitelistingInfluencers] = useState<Influencer[]>([]);
   const [loadingWhitelisting, setLoadingWhitelisting] = useState(false);
+  const [whitelistingOrders, setWhitelistingOrders] = useState<InfluencerOrder[]>([]);
+  const [whitelistingContent, setWhitelistingContent] = useState<InfluencerContent[]>([]);
+  const [whitelistingDeals, setWhitelistingDeals] = useState<CampaignDeal[]>([]);
   const [loadingMore, setLoadingMore] = useState(false);
   const [campaignsLoaded, setCampaignsLoaded] = useState(false);
   const [paidCollabsLoaded, setPaidCollabsLoaded] = useState(false);
@@ -388,6 +391,44 @@ function HomePageContent() {
         setWhitelistingInfluencers(data || []);
       }
       setWhitelistingLoaded(true);
+
+      // Fetch related data for card view
+      const finalData = fulfilledInfluencers.length > 0
+        ? (data || []).map((inf: Influencer) => {
+            if (fulfilledInfluencers.some((f: Influencer) => f.id === inf.id)) {
+              return { ...inf, product_selections: null, shopify_order_id: null, shopify_order_status: null };
+            }
+            return inf;
+          })
+        : (data || []);
+      const ids = finalData.map((inf: Influencer) => inf.id);
+
+      if (ids.length > 0) {
+        const [ordersResult, contentResult, dealsResult] = await Promise.all([
+          supabase
+            .from("influencer_orders")
+            .select("*")
+            .in("influencer_id", ids)
+            .eq("is_gift", true),
+          supabase
+            .from("content")
+            .select("*")
+            .in("influencer_id", ids),
+          supabase
+            .from("campaign_deals")
+            .select("*")
+            .in("influencer_id", ids)
+            .neq("whitelisting_status", "not_applicable"),
+        ]);
+
+        setWhitelistingOrders(ordersResult.data || []);
+        setWhitelistingContent(contentResult.data || []);
+        setWhitelistingDeals(dealsResult.data || []);
+      } else {
+        setWhitelistingOrders([]);
+        setWhitelistingContent([]);
+        setWhitelistingDeals([]);
+      }
     }
     setLoadingWhitelisting(false);
   }, [supabase, whitelistingLoaded]);
@@ -1184,6 +1225,9 @@ function HomePageContent() {
                 setInfluencerDialogOpen(true);
               }}
               onAddNew={() => setWhitelistingDialogOpen(true)}
+              orders={whitelistingOrders}
+              content={whitelistingContent}
+              deals={whitelistingDeals}
             />
           )}
         </div>

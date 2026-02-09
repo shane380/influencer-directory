@@ -63,6 +63,8 @@ export function DealDialog({
   const [contentLiveDate, setContentLiveDate] = useState<string | null>(null);
   const [whitelistingStatus, setWhitelistingStatus] = useState<WhitelistingStatus>("not_applicable");
   const [whitelistingLiveDate, setWhitelistingLiveDate] = useState<string | null>(null);
+  const [whitelistingExpiryDate, setWhitelistingExpiryDate] = useState<string | null>(null);
+  const [whitelistingDuration, setWhitelistingDuration] = useState<string>("90");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Autocomplete state
@@ -166,6 +168,20 @@ export function DealDialog({
       setContentLiveDate(deal.content_live_date || null);
       setWhitelistingStatus(deal.whitelisting_status || "not_applicable");
       setWhitelistingLiveDate(deal.whitelisting_live_date || null);
+      setWhitelistingExpiryDate(deal.whitelisting_expiry_date || null);
+      // Detect duration from existing dates
+      if (deal.whitelisting_live_date && deal.whitelisting_expiry_date) {
+        const live = new Date(deal.whitelisting_live_date);
+        const expiry = new Date(deal.whitelisting_expiry_date);
+        const diffDays = Math.round((expiry.getTime() - live.getTime()) / (1000 * 60 * 60 * 24));
+        if ([30, 60, 90, 120].includes(diffDays)) {
+          setWhitelistingDuration(String(diffDays));
+        } else {
+          setWhitelistingDuration("custom");
+        }
+      } else {
+        setWhitelistingDuration("90");
+      }
     } else {
       setDeliverables([]);
       setPaymentTermsType("50_50");
@@ -176,6 +192,8 @@ export function DealDialog({
       setContentLiveDate(null);
       setWhitelistingStatus("not_applicable");
       setWhitelistingLiveDate(null);
+      setWhitelistingExpiryDate(null);
+      setWhitelistingDuration("90");
     }
     setError(null);
   }, [deal, open]);
@@ -342,6 +360,7 @@ export function DealDialog({
         content_status_updated_at: deal?.content_status !== contentStatus ? now : deal?.content_status_updated_at,
         whitelisting_status: hasWhitelisting ? whitelistingStatus : "not_applicable",
         whitelisting_live_date: whitelistingLiveDate,
+        whitelisting_expiry_date: whitelistingExpiryDate,
         whitelisting_status_updated_by: deal?.whitelisting_status !== whitelistingStatus ? currentUserId : deal?.whitelisting_status_updated_by,
         whitelisting_status_updated_at: deal?.whitelisting_status !== whitelistingStatus ? now : deal?.whitelisting_status_updated_at,
         updated_by: currentUserId,
@@ -368,7 +387,7 @@ export function DealDialog({
       onClose();
     } catch (err: any) {
       console.error("Error saving deal:", err);
-      setError(err.message || "Failed to save deal");
+      setError(err.message || err.details || err.hint || JSON.stringify(err) || "Failed to save deal");
     } finally {
       setLoading(false);
     }
@@ -739,7 +758,7 @@ export function DealDialog({
               </div>
 
               {/* Whitelisting Status - only show if deliverables contain "whitelist" */}
-              {hasWhitelisting && (
+              {hasWhitelisting && (<>
                 <div className="flex items-center gap-4">
                   <div className="flex-1">
                     <Label className="text-xs text-gray-500 mb-1 block">Whitelisting Status</Label>
@@ -748,9 +767,15 @@ export function DealDialog({
                       onChange={(e) => {
                         const newStatus = e.target.value as WhitelistingStatus;
                         setWhitelistingStatus(newStatus);
-                        // Auto-fill date when status changes to live
+                        // Auto-fill dates when status changes to live
                         if (newStatus === "live" && !whitelistingLiveDate) {
-                          setWhitelistingLiveDate(new Date().toISOString().split("T")[0]);
+                          const today = new Date().toISOString().split("T")[0];
+                          setWhitelistingLiveDate(today);
+                          // Auto-calculate expiry from duration
+                          const days = whitelistingDuration !== "custom" ? parseInt(whitelistingDuration) : 90;
+                          const expiry = new Date();
+                          expiry.setDate(expiry.getDate() + days);
+                          setWhitelistingExpiryDate(expiry.toISOString().split("T")[0]);
                         }
                       }}
                       className="w-full h-9 px-3 border rounded-md text-sm bg-white"
@@ -766,14 +791,73 @@ export function DealDialog({
                       <Label className="text-xs text-gray-500 mb-1 block">Live Date</Label>
                       <Input
                         type="date"
-                        value={whitelistingLiveDate || ""}
-                        onChange={(e) => setWhitelistingLiveDate(e.target.value || null)}
+                        value={whitelistingLiveDate ? whitelistingLiveDate.split("T")[0] : ""}
+                        onChange={(e) => {
+                          const newDate = e.target.value || null;
+                          setWhitelistingLiveDate(newDate);
+                          // Recalculate expiry if a duration preset is selected
+                          if (newDate && whitelistingDuration !== "custom") {
+                            const days = parseInt(whitelistingDuration);
+                            const [y, m, d] = newDate.split("-").map(Number);
+                            const live = new Date(y, m - 1, d);
+                            live.setDate(live.getDate() + days);
+                            const yyyy = live.getFullYear();
+                            const mm = String(live.getMonth() + 1).padStart(2, "0");
+                            const dd = String(live.getDate()).padStart(2, "0");
+                            setWhitelistingExpiryDate(`${yyyy}-${mm}-${dd}`);
+                          }
+                        }}
                         className="h-9"
                       />
                     </div>
                   )}
                 </div>
-              )}
+                {(whitelistingStatus === "live" || whitelistingStatus === "ended") && (
+                  <div className="flex items-center gap-4 mt-2">
+                    <div className="flex-1">
+                      <Label className="text-xs text-gray-500 mb-1 block">Usage Duration</Label>
+                      <select
+                        value={whitelistingDuration}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setWhitelistingDuration(val);
+                          if (val !== "custom" && whitelistingLiveDate) {
+                            const days = parseInt(val);
+                            const datePart = whitelistingLiveDate.split("T")[0];
+                            const [y, m, d] = datePart.split("-").map(Number);
+                            const live = new Date(y, m - 1, d);
+                            live.setDate(live.getDate() + days);
+                            const yyyy = live.getFullYear();
+                            const mm = String(live.getMonth() + 1).padStart(2, "0");
+                            const dd = String(live.getDate()).padStart(2, "0");
+                            setWhitelistingExpiryDate(`${yyyy}-${mm}-${dd}`);
+                          }
+                        }}
+                        className="w-full h-9 px-3 border rounded-md text-sm bg-white"
+                      >
+                        <option value="30">30 days</option>
+                        <option value="60">60 days</option>
+                        <option value="90">90 days</option>
+                        <option value="120">120 days</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </div>
+                    <div className="w-40">
+                      <Label className="text-xs text-gray-500 mb-1 block">Expiry Date</Label>
+                      <Input
+                        type="date"
+                        value={whitelistingExpiryDate ? whitelistingExpiryDate.split("T")[0] : ""}
+                        onChange={(e) => {
+                          setWhitelistingExpiryDate(e.target.value || null);
+                          setWhitelistingDuration("custom");
+                        }}
+                        className="h-9"
+                        disabled={whitelistingDuration !== "custom" && !!whitelistingLiveDate}
+                      />
+                    </div>
+                  </div>
+                )}
+              </>)}
             </div>
           </div>
 

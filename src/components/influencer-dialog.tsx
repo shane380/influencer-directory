@@ -835,6 +835,7 @@ export function InfluencerDialog({
                             whitelisting_live_date: null,
                             whitelisting_status_updated_by: null,
                             whitelisting_status_updated_at: null,
+                            whitelisting_expiry_date: null,
                             created_by: null,
                             updated_by: null,
                             created_at: "",

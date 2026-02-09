@@ -249,6 +249,7 @@ export interface CampaignDeal {
   whitelisting_live_date: string | null;
   whitelisting_status_updated_by: string | null;
   whitelisting_status_updated_at: string | null;
+  whitelisting_expiry_date: string | null;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
@@ -275,6 +276,7 @@ export interface CampaignDealInsert {
   whitelisting_live_date?: string | null;
   whitelisting_status_updated_by?: string | null;
   whitelisting_status_updated_at?: string | null;
+  whitelisting_expiry_date?: string | null;
   created_by?: string | null;
   updated_by?: string | null;
 }

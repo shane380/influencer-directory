@@ -1,6 +1,6 @@
 "use client";
 
-import { Influencer, WhitelistingType, CampaignInfluencer, ShopifyOrderStatus, RelationshipStatus } from "@/types/database";
+import { Influencer, WhitelistingType, CampaignInfluencer, ShopifyOrderStatus, RelationshipStatus, InfluencerOrder, InfluencerContent, CampaignDeal } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -13,10 +13,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, RefreshCw, Plus, ShoppingCart } from "lucide-react";
+import { Search, Plus, ShoppingCart, LayoutGrid, List } from "lucide-react";
 import Image from "next/image";
 import { useState, useMemo } from "react";
 import { OrderDialog } from "@/components/order-dialog";
+import { WhitelistingCardView } from "@/components/whitelisting-card-view";
 
 interface WhitelistingTabProps {
   influencers: Influencer[];
@@ -24,6 +25,9 @@ interface WhitelistingTabProps {
   onRefresh: () => void;
   onInfluencerClick: (influencer: Influencer) => void;
   onAddNew: () => void;
+  orders: InfluencerOrder[];
+  content: InfluencerContent[];
+  deals: CampaignDeal[];
 }
 
 const whitelistingTypeColors: Record<WhitelistingType, string> = {
@@ -75,18 +79,33 @@ const orderStatusLabels: Record<ShopifyOrderStatus, string> = {
   fulfilled: "Fulfilled",
 };
 
+type ViewMode = "cards" | "table";
+
 export function WhitelistingTab({
   influencers,
   loading,
   onRefresh,
   onInfluencerClick,
   onAddNew,
+  orders,
+  content,
+  deals,
 }: WhitelistingTabProps) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [dealStatusFilter, setDealStatusFilter] = useState<string>("all");
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   const [selectedInfluencerForOrder, setSelectedInfluencerForOrder] = useState<Influencer | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("table");
+
+  // Persist view mode
+  const handleSetViewMode = (mode: ViewMode) => {
+    setViewMode(mode);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("whitelisting-view-mode", mode);
+    }
+  };
 
   const handleOpenOrderDialog = (influencer: Influencer, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -129,6 +148,17 @@ export function WhitelistingTab({
     return num.toString();
   };
 
+  // Build influencer → deals lookup for deal status filtering
+  const dealsByInfluencer = useMemo(() => {
+    const map = new Map<string, CampaignDeal[]>();
+    deals.forEach((d) => {
+      const existing = map.get(d.influencer_id) || [];
+      existing.push(d);
+      map.set(d.influencer_id, existing);
+    });
+    return map;
+  }, [deals]);
+
   const filteredInfluencers = useMemo(() => {
     return influencers.filter((influencer) => {
       // Search filter
@@ -151,9 +181,19 @@ export function WhitelistingTab({
         return false;
       }
 
+      // Deal status filter
+      if (dealStatusFilter !== "all") {
+        const infDeals = dealsByInfluencer.get(influencer.id) || [];
+        if (dealStatusFilter === "no_deal") {
+          if (infDeals.some((d) => d.whitelisting_status !== "not_applicable")) return false;
+        } else {
+          if (!infDeals.some((d) => d.whitelisting_status === dealStatusFilter)) return false;
+        }
+      }
+
       return true;
     });
-  }, [influencers, search, typeFilter, statusFilter]);
+  }, [influencers, search, typeFilter, statusFilter, dealStatusFilter, dealsByInfluencer]);
 
   return (
     <div>
@@ -194,119 +234,169 @@ export function WhitelistingTab({
           <option value="lead_dead">Lead Dead</option>
           <option value="creator_wants_paid">Creator Wants Paid</option>
         </Select>
-        <Button variant="outline" onClick={onRefresh} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
+        <Select
+          value={dealStatusFilter}
+          onChange={(e) => setDealStatusFilter(e.target.value)}
+          className="w-auto sm:w-[180px] flex-shrink-0"
+        >
+          <option value="all">All Deal Statuses</option>
+          <option value="live">Live</option>
+          <option value="ended">Ended</option>
+          <option value="pending">Pending</option>
+          <option value="no_deal">No Deal</option>
+        </Select>
         <Button onClick={onAddNew}>
           <Plus className="h-4 w-4 mr-2" />
           Add New
         </Button>
+
+        {/* View toggle */}
+        <div className="flex items-center border rounded-md overflow-hidden flex-shrink-0">
+          <button
+            className={`p-2 transition-colors ${
+              viewMode === "cards"
+                ? "bg-gray-900 text-white"
+                : "bg-white text-gray-500 hover:text-gray-900"
+            }`}
+            onClick={() => handleSetViewMode("cards")}
+            title="Card view"
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </button>
+          <button
+            className={`p-2 transition-colors ${
+              viewMode === "table"
+                ? "bg-gray-900 text-white"
+                : "bg-white text-gray-500 hover:text-gray-900"
+            }`}
+            onClick={() => handleSetViewMode("table")}
+            title="Table view"
+          >
+            <List className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-lg border shadow-sm min-h-[200px]">
-        {loading && influencers.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">Loading...</div>
-        ) : !loading && filteredInfluencers.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            {search || typeFilter !== "all" || statusFilter !== "all"
-              ? "No influencers match your filters."
-              : "No influencers available for whitelisting yet."}
-          </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12"></TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Handle</TableHead>
-                <TableHead>Followers</TableHead>
-                <TableHead>Whitelisting Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Order</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredInfluencers.map((influencer) => (
-                <TableRow
-                  key={influencer.id}
-                  className="cursor-pointer hover:bg-gray-50 transition-colors"
-                  onClick={() => onInfluencerClick(influencer)}
-                >
-                  <TableCell>
-                    <div className="w-14 h-14 flex-shrink-0">
-                      {influencer.profile_photo_url ? (
-                        <Image
-                          src={influencer.profile_photo_url}
-                          alt={influencer.name}
-                          width={56}
-                          height={56}
-                          className="rounded-full object-cover w-full h-full"
-                          unoptimized
-                        />
-                      ) : (
-                        <div className="w-full h-full rounded-full bg-gray-200 flex items-center justify-center">
-                          <span className="text-gray-500 text-lg font-medium">
-                            {influencer.name.charAt(0).toUpperCase()}
-                          </span>
+      {viewMode === "table" ? (
+        <>
+          {/* Table */}
+          <div className="bg-white rounded-lg border shadow-sm min-h-[200px]">
+            {loading && influencers.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">Loading...</div>
+            ) : !loading && filteredInfluencers.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                {search || typeFilter !== "all" || statusFilter !== "all" || dealStatusFilter !== "all"
+                  ? "No influencers match your filters."
+                  : "No influencers available for whitelisting yet."}
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12"></TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Handle</TableHead>
+                    <TableHead>Followers</TableHead>
+                    <TableHead>Whitelisting Type</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Order</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredInfluencers.map((influencer) => (
+                    <TableRow
+                      key={influencer.id}
+                      className="cursor-pointer hover:bg-gray-50 transition-colors"
+                      onClick={() => onInfluencerClick(influencer)}
+                    >
+                      <TableCell>
+                        <div className="w-14 h-14 flex-shrink-0">
+                          {influencer.profile_photo_url ? (
+                            <Image
+                              src={influencer.profile_photo_url}
+                              alt={influencer.name}
+                              width={56}
+                              height={56}
+                              className="rounded-full object-cover w-full h-full"
+                              unoptimized
+                            />
+                          ) : (
+                            <div className="w-full h-full rounded-full bg-gray-200 flex items-center justify-center">
+                              <span className="text-gray-500 text-lg font-medium">
+                                {influencer.name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-medium">{influencer.name}</TableCell>
-                  <TableCell className="text-gray-600">@{influencer.instagram_handle}</TableCell>
-                  <TableCell>{formatNumber(influencer.follower_count)}</TableCell>
-                  <TableCell>
-                    {influencer.whitelisting_type ? (
-                      <Badge className={whitelistingTypeColors[influencer.whitelisting_type]}>
-                        {whitelistingTypeLabels[influencer.whitelisting_type]}
-                      </Badge>
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={statusColors[influencer.relationship_status]}>
-                      {statusLabels[influencer.relationship_status]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    {influencer.shopify_order_id ? (
-                      <button
-                        className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900"
-                        onClick={(e) => handleOpenOrderDialog(influencer, e)}
-                      >
-                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${orderDots[influencer.shopify_order_status || "draft"]}`}></span>
-                        {orderStatusLabels[influencer.shopify_order_status || "draft"]}
-                      </button>
-                    ) : influencer.product_selections && (influencer.product_selections as any[]).length > 0 ? (
-                      <button
-                        className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900"
-                        onClick={(e) => handleOpenOrderDialog(influencer, e)}
-                      >
-                        <span className="w-2 h-2 rounded-full flex-shrink-0 bg-purple-400"></span>
-                        {(influencer.product_selections as any[]).length} items
-                      </button>
-                    ) : (
-                      <button
-                        className="text-xs text-gray-400 hover:text-gray-600"
-                        onClick={(e) => handleOpenOrderDialog(influencer, e)}
-                      >
-                        <ShoppingCart className="h-4 w-4" />
-                      </button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </div>
+                      </TableCell>
+                      <TableCell className="font-medium">{influencer.name}</TableCell>
+                      <TableCell className="text-gray-600">@{influencer.instagram_handle}</TableCell>
+                      <TableCell>{formatNumber(influencer.follower_count)}</TableCell>
+                      <TableCell>
+                        {influencer.whitelisting_type ? (
+                          <Badge className={whitelistingTypeColors[influencer.whitelisting_type]}>
+                            {whitelistingTypeLabels[influencer.whitelisting_type]}
+                          </Badge>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={statusColors[influencer.relationship_status]}>
+                          {statusLabels[influencer.relationship_status]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        {influencer.shopify_order_id ? (
+                          <button
+                            className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900"
+                            onClick={(e) => handleOpenOrderDialog(influencer, e)}
+                          >
+                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${orderDots[influencer.shopify_order_status || "draft"]}`}></span>
+                            {orderStatusLabels[influencer.shopify_order_status || "draft"]}
+                          </button>
+                        ) : influencer.product_selections && (influencer.product_selections as any[]).length > 0 ? (
+                          <button
+                            className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900"
+                            onClick={(e) => handleOpenOrderDialog(influencer, e)}
+                          >
+                            <span className="w-2 h-2 rounded-full flex-shrink-0 bg-purple-400"></span>
+                            {(influencer.product_selections as any[]).length} items
+                          </button>
+                        ) : (
+                          <button
+                            className="text-xs text-gray-400 hover:text-gray-600"
+                            onClick={(e) => handleOpenOrderDialog(influencer, e)}
+                          >
+                            <ShoppingCart className="h-4 w-4" />
+                          </button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
 
-      <div className="mt-4 text-sm text-gray-500">
-        Showing {filteredInfluencers.length} of {influencers.length} whitelisting influencers
-      </div>
+          <div className="mt-4 text-sm text-gray-500">
+            Showing {filteredInfluencers.length} of {influencers.length} whitelisting influencers
+          </div>
+        </>
+      ) : (
+        <WhitelistingCardView
+          influencers={filteredInfluencers}
+          allInfluencers={influencers}
+          orders={orders}
+          content={content}
+          deals={deals}
+          loading={loading}
+          onInfluencerClick={onInfluencerClick}
+          onAddNew={onAddNew}
+          onRefresh={onRefresh}
+          onSendProduct={handleOpenOrderDialog}
+        />
+      )}
 
       {/* Order Dialog */}
       {selectedInfluencerForOrder && (
