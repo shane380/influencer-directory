@@ -214,8 +214,19 @@ export function InfluencerContentTab({
     return { campaign_id: null, deal_id: null };
   }
 
+  // Max total upload size (Vercel serverless limit ~4.5MB)
+  const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+
   // Upload a batch of files as ONE content entry
   async function uploadBatch(fileArray: File[]) {
+    const totalSize = fileArray.reduce((sum, f) => sum + f.size, 0);
+    if (totalSize > MAX_UPLOAD_BYTES) {
+      const sizeMB = (totalSize / (1024 * 1024)).toFixed(1);
+      throw new Error(
+        `Files too large (${sizeMB}MB). Max ~4MB per upload. Try uploading fewer files or compress videos first.`
+      );
+    }
+
     const { campaign_id, deal_id } = getAssociationIds();
 
     const formData = new FormData();
@@ -233,8 +244,15 @@ export function InfluencerContentTab({
     });
 
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || "Upload failed");
+      let message = "Upload failed";
+      try {
+        const err = await res.json();
+        message = err.error || message;
+      } catch {
+        if (res.status === 413) message = "File too large. Max ~4MB per upload.";
+        else message = `Upload failed (${res.status})`;
+      }
+      throw new Error(message);
     }
 
     const data = await res.json();
