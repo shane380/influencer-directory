@@ -4,23 +4,20 @@ function getAuth() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || "";
 
-  // Debug: log key shape (safe — only logs structure, not the actual key)
-  console.log("GDRIVE_KEY_DEBUG:", {
-    length: raw.length,
-    first30: raw.substring(0, 30),
-    last30: raw.substring(raw.length - 30),
-    hasLiteralBackslashN: raw.includes("\\n"),
-    hasRealNewline: raw.includes("\n"),
-    newlineCount: (raw.match(/\n/g) || []).length,
-  });
-
-  // Replace literal \n with real newlines, strip wrapping quotes
-  const key = raw
-    .replace(/\\n/g, "\n")
-    .replace(/^["']|["']$/g, "");
-
-  if (!email || !key) {
+  if (!email || !raw) {
     throw new Error("Missing Google service account credentials");
+  }
+
+  // Normalize the key: handle literal \n, strip quotes, ensure proper PEM format
+  let key = raw.replace(/\\n/g, "\n").replace(/^["']|["']$/g, "").trim();
+
+  // If key lost its newlines (all on one line), reconstruct PEM format
+  if (!key.includes("\n")) {
+    const body = key
+      .replace("-----BEGIN PRIVATE KEY-----", "")
+      .replace("-----END PRIVATE KEY-----", "")
+      .trim();
+    key = `-----BEGIN PRIVATE KEY-----\n${body.match(/.{1,64}/g)?.join("\n")}\n-----END PRIVATE KEY-----\n`;
   }
 
   return new google.auth.JWT({
