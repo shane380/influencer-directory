@@ -25,7 +25,7 @@ function getAuth() {
   return new google.auth.JWT({
     email,
     key,
-    scopes: ["https://www.googleapis.com/auth/drive.file"],
+    scopes: ["https://www.googleapis.com/auth/drive"],
   });
 }
 
@@ -49,6 +49,7 @@ export async function createInfluencerFolder(
       mimeType: "application/vnd.google-apps.folder",
       parents: [parentId],
     },
+    supportsAllDrives: true,
     fields: "id",
   });
 
@@ -73,12 +74,14 @@ export async function uploadFileToDrive(
       mimeType,
       body: Readable.from(buffer),
     },
+    supportsAllDrives: true,
     fields: "id,webViewLink,thumbnailLink",
   });
 
   // Make file viewable by anyone with the link
   await drive.permissions.create({
     fileId: res.data.id!,
+    supportsAllDrives: true,
     requestBody: {
       role: "reader",
       type: "anyone",
@@ -94,7 +97,7 @@ export async function uploadFileToDrive(
 
 export async function deleteFileFromDrive(fileId: string): Promise<void> {
   const drive = getDrive();
-  await drive.files.delete({ fileId });
+  await drive.files.delete({ fileId, supportsAllDrives: true });
 }
 
 export function getFolderUrl(folderId: string): string {
