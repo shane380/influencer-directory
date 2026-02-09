@@ -11,16 +11,22 @@ export async function POST(request: NextRequest) {
   const supabase = await createClient();
 
   const formData = await request.formData();
-  const files = formData.getAll("file") as File[];
+  const file = formData.get("file") as File | null;
   const influencerId = formData.get("influencer_id") as string | null;
   const type = (formData.get("type") as string) || "post";
   const campaignId = formData.get("campaign_id") as string | null;
   const dealId = formData.get("deal_id") as string | null;
   const caption = formData.get("caption") as string | null;
+  // "true" = upload file to Drive + create content row
+  // "false" = upload file to Drive only (for additional carousel files)
+  const createContent = formData.get("create_content") !== "false";
+  // For carousel: total file count and extra file IDs from previous uploads
+  const totalFiles = parseInt(formData.get("total_files") as string) || 1;
+  const additionalFileIds = formData.get("additional_file_ids") as string | null;
 
-  if (files.length === 0 || !influencerId) {
+  if (!file || !influencerId) {
     return NextResponse.json(
-      { error: "file(s) and influencer_id required" },
+      { error: "file and influencer_id required" },
       { status: 400 }
     );
   }
@@ -56,37 +62,46 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Upload all files to Drive
-    const uploadResults: { fileId: string; webViewLink: string; thumbnailLink: string | null; fileName: string; fileSize: number }[] = [];
-    for (const file of files) {
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const result = await uploadFileToDrive(folderId, file.name, file.type, buffer);
-      uploadResults.push({ ...result, fileName: file.name, fileSize: file.size });
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const { fileId, webViewLink, thumbnailLink } = await uploadFileToDrive(
+      folderId,
+      file.name,
+      file.type,
+      buffer
+    );
+
+    // If not creating a content row, just return the Drive file info
+    if (!createContent) {
+      return NextResponse.json({
+        fileId,
+        webViewLink,
+        folder_url: getFolderUrl(folderId),
+      });
     }
 
-    // Use the first file as the primary media for the content row
-    const primary = uploadResults[0];
-    const additionalFileIds = uploadResults.slice(1).map((r) => r.fileId);
+    // Build metadata with additional file IDs if this is a carousel
+    const extraIds = additionalFileIds ? JSON.parse(additionalFileIds) as string[] : [];
+    const metadata = extraIds.length > 0
+      ? { additional_file_ids: extraIds, total_files: totalFiles }
+      : {};
 
     const { data: content, error: insertErr } = await (supabase
       .from("content") as any)
       .insert({
         influencer_id: influencerId,
         type,
-        media_url: primary.webViewLink,
-        thumbnail_url: primary.thumbnailLink,
+        media_url: webViewLink,
+        thumbnail_url: thumbnailLink,
         caption,
         campaign_id: campaignId || null,
         deal_id: dealId || null,
-        google_drive_file_id: primary.fileId,
-        file_name: files.length > 1
-          ? `${primary.fileName} (+${files.length - 1} more)`
-          : primary.fileName,
-        file_size: files.reduce((sum, f) => sum + f.size, 0),
+        google_drive_file_id: fileId,
+        file_name: totalFiles > 1
+          ? `${file.name} (+${totalFiles - 1} more)`
+          : file.name,
+        file_size: file.size,
         platform: "google_drive",
-        metadata: additionalFileIds.length > 0
-          ? { additional_file_ids: additionalFileIds, total_files: files.length }
-          : {},
+        metadata,
       })
       .select()
       .single();

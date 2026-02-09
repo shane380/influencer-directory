@@ -214,29 +214,28 @@ export function InfluencerContentTab({
     return { campaign_id: null, deal_id: null };
   }
 
-  // Max total upload size (Vercel serverless limit ~4.5MB)
-  const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
-
-  // Upload a batch of files as ONE content entry
-  async function uploadBatch(fileArray: File[]) {
-    const totalSize = fileArray.reduce((sum, f) => sum + f.size, 0);
-    if (totalSize > MAX_UPLOAD_BYTES) {
-      const sizeMB = (totalSize / (1024 * 1024)).toFixed(1);
-      throw new Error(
-        `Files too large (${sizeMB}MB). Max ~4MB per upload. Try uploading fewer files or compress videos first.`
-      );
+  // Upload a single file to Drive, optionally creating a content row
+  async function uploadSingleFile(
+    file: File,
+    opts: {
+      createContent: boolean;
+      totalFiles?: number;
+      additionalFileIds?: string[];
     }
-
+  ): Promise<{ fileId: string; folderUrl?: string }> {
     const { campaign_id, deal_id } = getAssociationIds();
 
     const formData = new FormData();
-    for (const file of fileArray) {
-      formData.append("file", file);
-    }
+    formData.append("file", file);
     formData.append("influencer_id", influencerId);
     formData.append("type", contentType);
+    formData.append("create_content", opts.createContent ? "true" : "false");
     if (campaign_id) formData.append("campaign_id", campaign_id);
     if (deal_id) formData.append("deal_id", deal_id);
+    if (opts.totalFiles) formData.append("total_files", String(opts.totalFiles));
+    if (opts.additionalFileIds?.length) {
+      formData.append("additional_file_ids", JSON.stringify(opts.additionalFileIds));
+    }
 
     const res = await fetch("/api/drive/upload", {
       method: "POST",
@@ -249,7 +248,7 @@ export function InfluencerContentTab({
         const err = await res.json();
         message = err.error || message;
       } catch {
-        if (res.status === 413) message = "File too large. Max ~4MB per upload.";
+        if (res.status === 413) message = "File too large for upload. Try compressing first.";
         else message = `Upload failed (${res.status})`;
       }
       throw new Error(message);
@@ -259,9 +258,10 @@ export function InfluencerContentTab({
     if (data.folder_url && !folderUrl) {
       setFolderUrl(data.folder_url);
     }
+    return { fileId: data.fileId || data.content?.google_drive_file_id, folderUrl: data.folder_url };
   }
 
-  // Upload files — respects uploadMode
+  // Upload files — uploads one at a time, respects uploadMode
   async function handleUpload(files: FileList | File[]) {
     const fileArray = Array.from(files);
     const newUploading: UploadingFile[] = fileArray.map((f) => ({
@@ -271,13 +271,44 @@ export function InfluencerContentTab({
     }));
     setUploadingFiles((prev) => [...prev, ...newUploading]);
 
-    if (uploadMode === "single" || fileArray.length === 1) {
-      // All files → one content entry
+    if (uploadMode === "single" && fileArray.length > 1) {
+      // Carousel: upload extra files first (no content row), then primary with all IDs
+      const extraFileIds: string[] = [];
+      let failed = false;
+
+      for (let i = 1; i < fileArray.length; i++) {
+        try {
+          const result = await uploadSingleFile(fileArray[i], { createContent: false });
+          extraFileIds.push(result.fileId);
+          setUploadingFiles((prev) =>
+            prev.map((u) =>
+              u.file === fileArray[i]
+                ? { ...u, status: "done" as const, progress: 100 }
+                : u
+            )
+          );
+        } catch (err: any) {
+          failed = true;
+          setUploadingFiles((prev) =>
+            prev.map((u) =>
+              u.file === fileArray[i]
+                ? { ...u, status: "error" as const, error: err.message }
+                : u
+            )
+          );
+        }
+      }
+
+      // Upload primary file (first) with content row
       try {
-        await uploadBatch(fileArray);
+        await uploadSingleFile(fileArray[0], {
+          createContent: true,
+          totalFiles: fileArray.length,
+          additionalFileIds: extraFileIds,
+        });
         setUploadingFiles((prev) =>
           prev.map((u) =>
-            fileArray.includes(u.file)
+            u.file === fileArray[0]
               ? { ...u, status: "done" as const, progress: 100 }
               : u
           )
@@ -285,17 +316,17 @@ export function InfluencerContentTab({
       } catch (err: any) {
         setUploadingFiles((prev) =>
           prev.map((u) =>
-            fileArray.includes(u.file)
+            u.file === fileArray[0]
               ? { ...u, status: "error" as const, error: err.message }
               : u
           )
         );
       }
     } else {
-      // Each file → separate content entry
+      // Single file or separate posts: each file → its own content entry
       for (const file of fileArray) {
         try {
-          await uploadBatch([file]);
+          await uploadSingleFile(file, { createContent: true });
           setUploadingFiles((prev) =>
             prev.map((u) =>
               u.file === file
