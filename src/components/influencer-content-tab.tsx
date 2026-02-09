@@ -118,6 +118,7 @@ export function InfluencerContentTab({
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const [dragging, setDragging] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [uploadMode, setUploadMode] = useState<"single" | "separate">("single");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const supabase = createClient();
@@ -213,16 +214,8 @@ export function InfluencerContentTab({
     return { campaign_id: null, deal_id: null };
   }
 
-  // Upload files — all files in one request = one content entry
-  async function handleUpload(files: FileList | File[]) {
-    const fileArray = Array.from(files);
-    const newUploading: UploadingFile[] = fileArray.map((f) => ({
-      file: f,
-      progress: 0,
-      status: "uploading" as const,
-    }));
-    setUploadingFiles((prev) => [...prev, ...newUploading]);
-
+  // Upload a batch of files as ONE content entry
+  async function uploadBatch(fileArray: File[]) {
     const { campaign_id, deal_id } = getAssociationIds();
 
     const formData = new FormData();
@@ -234,37 +227,74 @@ export function InfluencerContentTab({
     if (campaign_id) formData.append("campaign_id", campaign_id);
     if (deal_id) formData.append("deal_id", deal_id);
 
-    try {
-      const res = await fetch("/api/drive/upload", {
-        method: "POST",
-        body: formData,
-      });
+    const res = await fetch("/api/drive/upload", {
+      method: "POST",
+      body: formData,
+    });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Upload failed");
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Upload failed");
+    }
+
+    const data = await res.json();
+    if (data.folder_url && !folderUrl) {
+      setFolderUrl(data.folder_url);
+    }
+  }
+
+  // Upload files — respects uploadMode
+  async function handleUpload(files: FileList | File[]) {
+    const fileArray = Array.from(files);
+    const newUploading: UploadingFile[] = fileArray.map((f) => ({
+      file: f,
+      progress: 0,
+      status: "uploading" as const,
+    }));
+    setUploadingFiles((prev) => [...prev, ...newUploading]);
+
+    if (uploadMode === "single" || fileArray.length === 1) {
+      // All files → one content entry
+      try {
+        await uploadBatch(fileArray);
+        setUploadingFiles((prev) =>
+          prev.map((u) =>
+            fileArray.includes(u.file)
+              ? { ...u, status: "done" as const, progress: 100 }
+              : u
+          )
+        );
+      } catch (err: any) {
+        setUploadingFiles((prev) =>
+          prev.map((u) =>
+            fileArray.includes(u.file)
+              ? { ...u, status: "error" as const, error: err.message }
+              : u
+          )
+        );
       }
-
-      const data = await res.json();
-      if (data.folder_url && !folderUrl) {
-        setFolderUrl(data.folder_url);
+    } else {
+      // Each file → separate content entry
+      for (const file of fileArray) {
+        try {
+          await uploadBatch([file]);
+          setUploadingFiles((prev) =>
+            prev.map((u) =>
+              u.file === file
+                ? { ...u, status: "done" as const, progress: 100 }
+                : u
+            )
+          );
+        } catch (err: any) {
+          setUploadingFiles((prev) =>
+            prev.map((u) =>
+              u.file === file
+                ? { ...u, status: "error" as const, error: err.message }
+                : u
+            )
+          );
+        }
       }
-
-      setUploadingFiles((prev) =>
-        prev.map((u) =>
-          fileArray.includes(u.file)
-            ? { ...u, status: "done" as const, progress: 100 }
-            : u
-        )
-      );
-    } catch (err: any) {
-      setUploadingFiles((prev) =>
-        prev.map((u) =>
-          fileArray.includes(u.file)
-            ? { ...u, status: "error" as const, error: err.message }
-            : u
-        )
-      );
     }
 
     // Refresh content and clear completed uploads
@@ -405,6 +435,15 @@ export function InfluencerContentTab({
               ))}
             </optgroup>
           )}
+        </Select>
+
+        <Select
+          value={uploadMode}
+          onChange={(e) => setUploadMode(e.target.value as "single" | "separate")}
+          className="h-8 text-xs w-36"
+        >
+          <option value="single">Single post</option>
+          <option value="separate">Separate posts</option>
         </Select>
 
         <Button
