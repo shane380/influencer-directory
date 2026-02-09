@@ -838,7 +838,7 @@ export function OrderDialog({
                     variant="outline"
                     onClick={() =>
                       window.open(
-                        `https://${process.env.NEXT_PUBLIC_SHOPIFY_STORE_URL || "your-store.myshopify.com"}/admin/draft_orders/${isWhitelistingContext ? (influencer as any).shopify_order_id : campaignInfluencer.shopify_order_id}`,
+                        `https://admin.shopify.com/store/namasletica/draft_orders/${isWhitelistingContext ? (influencer as any).shopify_order_id : campaignInfluencer.shopify_order_id}`,
                         "_blank"
                       )
                     }
@@ -1347,7 +1347,7 @@ export function OrderDialog({
                                   })}
                                 </span>
                                 <a
-                                  href={`https://${process.env.NEXT_PUBLIC_SHOPIFY_STORE_URL || "your-store.myshopify.com"}/admin/orders/${order.shopify_order_id}`}
+                                  href={`https://admin.shopify.com/store/namasletica/orders/${order.shopify_order_id}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
