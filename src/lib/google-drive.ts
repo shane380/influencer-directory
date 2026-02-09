@@ -95,6 +95,71 @@ export async function uploadFileToDrive(
   };
 }
 
+export async function createResumableUpload(
+  folderId: string,
+  fileName: string,
+  mimeType: string,
+  origin: string
+): Promise<string> {
+  const auth = getAuth();
+  const token = await auth.getAccessToken();
+
+  // Initiate resumable upload session
+  const res = await fetch(
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token.token}`,
+        "Content-Type": "application/json",
+        "X-Upload-Content-Type": mimeType,
+        Origin: origin,
+      },
+      body: JSON.stringify({
+        name: fileName,
+        parents: [folderId],
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Failed to create resumable upload: ${text}`);
+  }
+
+  const uploadUrl = res.headers.get("Location");
+  if (!uploadUrl) throw new Error("No upload URL returned");
+  return uploadUrl;
+}
+
+export async function finalizeUpload(
+  fileId: string
+): Promise<{ webViewLink: string; thumbnailLink: string | null }> {
+  const drive = getDrive();
+
+  // Set permissions
+  await drive.permissions.create({
+    fileId,
+    supportsAllDrives: true,
+    requestBody: {
+      role: "reader",
+      type: "anyone",
+    },
+  });
+
+  // Get file details
+  const file = await drive.files.get({
+    fileId,
+    supportsAllDrives: true,
+    fields: "webViewLink,thumbnailLink",
+  });
+
+  return {
+    webViewLink: file.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view`,
+    thumbnailLink: file.data.thumbnailLink || null,
+  };
+}
+
 export async function deleteFileFromDrive(fileId: string): Promise<void> {
   const drive = getDrive();
   await drive.files.delete({ fileId, supportsAllDrives: true });

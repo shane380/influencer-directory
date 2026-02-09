@@ -214,54 +214,83 @@ export function InfluencerContentTab({
     return { campaign_id: null, deal_id: null };
   }
 
-  // Upload a single file to Drive, optionally creating a content row
-  async function uploadSingleFile(
-    file: File,
-    opts: {
-      createContent: boolean;
-      totalFiles?: number;
-      additionalFileIds?: string[];
+  // Upload a single file directly to Google Drive via resumable upload
+  async function uploadFileDirect(
+    file: File
+  ): Promise<{ fileId: string; folderUrl: string }> {
+    // Step 1: Get resumable upload URL from our server (small JSON request)
+    const initRes = await fetch("/api/drive/init-upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        influencer_id: influencerId,
+        file_name: file.name,
+        mime_type: file.type,
+      }),
+    });
+
+    if (!initRes.ok) {
+      const err = await initRes.json();
+      throw new Error(err.error || "Failed to initialize upload");
     }
-  ): Promise<{ fileId: string; folderUrl?: string }> {
+
+    const { upload_url, folder_url } = await initRes.json();
+
+    // Step 2: Upload file directly to Google Drive (bypasses Vercel size limit)
+    const uploadRes = await fetch(upload_url, {
+      method: "PUT",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
+
+    if (!uploadRes.ok) {
+      throw new Error(`Upload failed (${uploadRes.status})`);
+    }
+
+    const driveFile = await uploadRes.json();
+
+    if (folder_url && !folderUrl) {
+      setFolderUrl(folder_url);
+    }
+
+    return { fileId: driveFile.id, folderUrl: folder_url };
+  }
+
+  // Create a content row after files are uploaded
+  async function createContentRow(opts: {
+    fileId: string;
+    fileName: string;
+    fileSize: number;
+    totalFiles: number;
+    additionalFileIds: string[];
+    folderId?: string;
+  }) {
     const { campaign_id, deal_id } = getAssociationIds();
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("influencer_id", influencerId);
-    formData.append("type", contentType);
-    formData.append("create_content", opts.createContent ? "true" : "false");
-    if (campaign_id) formData.append("campaign_id", campaign_id);
-    if (deal_id) formData.append("deal_id", deal_id);
-    if (opts.totalFiles) formData.append("total_files", String(opts.totalFiles));
-    if (opts.additionalFileIds?.length) {
-      formData.append("additional_file_ids", JSON.stringify(opts.additionalFileIds));
-    }
-
-    const res = await fetch("/api/drive/upload", {
+    const res = await fetch("/api/drive/finalize", {
       method: "POST",
-      body: formData,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        influencer_id: influencerId,
+        file_id: opts.fileId,
+        file_name: opts.fileName,
+        file_size: opts.fileSize,
+        type: contentType,
+        campaign_id,
+        deal_id,
+        total_files: opts.totalFiles,
+        additional_file_ids: opts.additionalFileIds,
+        folder_id: opts.folderId,
+      }),
     });
 
     if (!res.ok) {
-      let message = "Upload failed";
-      try {
-        const err = await res.json();
-        message = err.error || message;
-      } catch {
-        if (res.status === 413) message = "File too large for upload. Try compressing first.";
-        else message = `Upload failed (${res.status})`;
-      }
-      throw new Error(message);
+      const err = await res.json();
+      throw new Error(err.error || "Failed to save content");
     }
-
-    const data = await res.json();
-    if (data.folder_url && !folderUrl) {
-      setFolderUrl(data.folder_url);
-    }
-    return { fileId: data.fileId || data.content?.google_drive_file_id, folderUrl: data.folder_url };
   }
 
-  // Upload files — uploads one at a time, respects uploadMode
+  // Upload files — uploads directly to Drive, respects uploadMode
   async function handleUpload(files: FileList | File[]) {
     const fileArray = Array.from(files);
     const newUploading: UploadingFile[] = fileArray.map((f) => ({
@@ -272,14 +301,15 @@ export function InfluencerContentTab({
     setUploadingFiles((prev) => [...prev, ...newUploading]);
 
     if (uploadMode === "single" && fileArray.length > 1) {
-      // Carousel: upload extra files first (no content row), then primary with all IDs
-      const extraFileIds: string[] = [];
-      let failed = false;
+      // Carousel: upload all files, create one content row
+      const allFileIds: string[] = [];
+      let primaryResult: { fileId: string; folderUrl: string } | null = null;
 
-      for (let i = 1; i < fileArray.length; i++) {
+      for (let i = 0; i < fileArray.length; i++) {
         try {
-          const result = await uploadSingleFile(fileArray[i], { createContent: false });
-          extraFileIds.push(result.fileId);
+          const result = await uploadFileDirect(fileArray[i]);
+          allFileIds.push(result.fileId);
+          if (i === 0) primaryResult = result;
           setUploadingFiles((prev) =>
             prev.map((u) =>
               u.file === fileArray[i]
@@ -288,7 +318,6 @@ export function InfluencerContentTab({
             )
           );
         } catch (err: any) {
-          failed = true;
           setUploadingFiles((prev) =>
             prev.map((u) =>
               u.file === fileArray[i]
@@ -299,34 +328,33 @@ export function InfluencerContentTab({
         }
       }
 
-      // Upload primary file (first) with content row
-      try {
-        await uploadSingleFile(fileArray[0], {
-          createContent: true,
-          totalFiles: fileArray.length,
-          additionalFileIds: extraFileIds,
-        });
-        setUploadingFiles((prev) =>
-          prev.map((u) =>
-            u.file === fileArray[0]
-              ? { ...u, status: "done" as const, progress: 100 }
-              : u
-          )
-        );
-      } catch (err: any) {
-        setUploadingFiles((prev) =>
-          prev.map((u) =>
-            u.file === fileArray[0]
-              ? { ...u, status: "error" as const, error: err.message }
-              : u
-          )
-        );
+      // Create one content row for the carousel
+      if (primaryResult) {
+        try {
+          await createContentRow({
+            fileId: primaryResult.fileId,
+            fileName: fileArray[0].name,
+            fileSize: fileArray.reduce((sum, f) => sum + f.size, 0),
+            totalFiles: fileArray.length,
+            additionalFileIds: allFileIds.slice(1),
+            folderId: primaryResult.folderUrl?.split("/").pop(),
+          });
+        } catch (err: any) {
+          console.error("Failed to create content row:", err);
+        }
       }
     } else {
       // Single file or separate posts: each file → its own content entry
       for (const file of fileArray) {
         try {
-          await uploadSingleFile(file, { createContent: true });
+          const result = await uploadFileDirect(file);
+          await createContentRow({
+            fileId: result.fileId,
+            fileName: file.name,
+            fileSize: file.size,
+            totalFiles: 1,
+            additionalFileIds: [],
+          });
           setUploadingFiles((prev) =>
             prev.map((u) =>
               u.file === file
