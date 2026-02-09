@@ -213,7 +213,7 @@ export function InfluencerContentTab({
     return { campaign_id: null, deal_id: null };
   }
 
-  // Upload files
+  // Upload files — all files in one request = one content entry
   async function handleUpload(files: FileList | File[]) {
     const fileArray = Array.from(files);
     const newUploading: UploadingFile[] = fileArray.map((f) => ({
@@ -225,45 +225,46 @@ export function InfluencerContentTab({
 
     const { campaign_id, deal_id } = getAssociationIds();
 
-    for (let i = 0; i < fileArray.length; i++) {
-      const file = fileArray[i];
-      const formData = new FormData();
+    const formData = new FormData();
+    for (const file of fileArray) {
       formData.append("file", file);
-      formData.append("influencer_id", influencerId);
-      formData.append("type", contentType);
-      if (campaign_id) formData.append("campaign_id", campaign_id);
-      if (deal_id) formData.append("deal_id", deal_id);
+    }
+    formData.append("influencer_id", influencerId);
+    formData.append("type", contentType);
+    if (campaign_id) formData.append("campaign_id", campaign_id);
+    if (deal_id) formData.append("deal_id", deal_id);
 
-      try {
-        const res = await fetch("/api/drive/upload", {
-          method: "POST",
-          body: formData,
-        });
+    try {
+      const res = await fetch("/api/drive/upload", {
+        method: "POST",
+        body: formData,
+      });
 
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || "Upload failed");
-        }
-
-        const data = await res.json();
-        if (data.folder_url && !folderUrl) {
-          setFolderUrl(data.folder_url);
-        }
-
-        setUploadingFiles((prev) =>
-          prev.map((u) =>
-            u.file === file ? { ...u, status: "done" as const, progress: 100 } : u
-          )
-        );
-      } catch (err: any) {
-        setUploadingFiles((prev) =>
-          prev.map((u) =>
-            u.file === file
-              ? { ...u, status: "error" as const, error: err.message }
-              : u
-          )
-        );
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Upload failed");
       }
+
+      const data = await res.json();
+      if (data.folder_url && !folderUrl) {
+        setFolderUrl(data.folder_url);
+      }
+
+      setUploadingFiles((prev) =>
+        prev.map((u) =>
+          fileArray.includes(u.file)
+            ? { ...u, status: "done" as const, progress: 100 }
+            : u
+        )
+      );
+    } catch (err: any) {
+      setUploadingFiles((prev) =>
+        prev.map((u) =>
+          fileArray.includes(u.file)
+            ? { ...u, status: "error" as const, error: err.message }
+            : u
+        )
+      );
     }
 
     // Refresh content and clear completed uploads
