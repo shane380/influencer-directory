@@ -128,6 +128,7 @@ export function InfluencerDialog({
   const [loadingDeals, setLoadingDeals] = useState(false);
   const [dealDialogOpen, setDealDialogOpen] = useState(false);
   const [selectedDeal, setSelectedDeal] = useState<(CampaignDeal & { campaign: Campaign }) | null>(null);
+  const [isNewDeal, setIsNewDeal] = useState(false);
 
   // Content count
   const [contentCount, setContentCount] = useState(0);
@@ -565,14 +566,16 @@ export function InfluencerDialog({
     }
   };
 
-  const handleOpenDealDialog = (deal: CampaignDeal & { campaign: Campaign }) => {
+  const handleOpenDealDialog = (deal: CampaignDeal & { campaign: Campaign }, isNew = false) => {
     setSelectedDeal(deal);
+    setIsNewDeal(isNew);
     setDealDialogOpen(true);
   };
 
   const handleCloseDealDialog = () => {
     setDealDialogOpen(false);
     setSelectedDeal(null);
+    setIsNewDeal(false);
   };
 
   const handleDealSave = async () => {
@@ -845,7 +848,7 @@ export function InfluencerDialog({
                             created_at: "",
                             updated_at: "",
                             campaign: {} as Campaign,
-                          })}
+                          }, true)}
                         >
                           <Plus className="h-4 w-4 mr-1" />
                           Add Deal
@@ -1098,7 +1101,8 @@ export function InfluencerDialog({
         onSave={handleDealSave}
         influencer={influencer}
         campaign={selectedDeal.campaign}
-        deal={selectedDeal}
+        deal={isNewDeal ? null : selectedDeal}
+        isNew={isNewDeal}
       />
     )}
     </>

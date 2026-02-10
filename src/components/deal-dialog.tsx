@@ -35,6 +35,7 @@ interface DealDialogProps {
   influencer: Influencer;
   campaign: Campaign;
   deal: CampaignDeal | null;
+  isNew?: boolean;
 }
 
 interface DeliverableRow extends Deliverable {
@@ -48,6 +49,7 @@ export function DealDialog({
   influencer,
   campaign,
   deal,
+  isNew,
 }: DealDialogProps) {
   const [deliverables, setDeliverables] = useState<DeliverableRow[]>([]);
   const [paymentTermsType, setPaymentTermsType] = useState<string>("50_50");
@@ -67,6 +69,10 @@ export function DealDialog({
   const [whitelistingDuration, setWhitelistingDuration] = useState<string>("90");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
+  // Campaign selector state (for new deals)
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string>("");
+
   // Autocomplete state
   const [previousDeliverables, setPreviousDeliverables] = useState<string[]>([]);
   const [activeAutocompleteId, setActiveAutocompleteId] = useState<string | null>(null);
@@ -85,6 +91,19 @@ export function DealDialog({
       fetchCurrentUser();
     }
   }, [open, supabase]);
+
+  // Fetch campaigns for selector (new deals only)
+  useEffect(() => {
+    async function fetchCampaigns() {
+      if (!open || !isNew) return;
+      const { data } = await supabase
+        .from("campaigns")
+        .select("*")
+        .order("start_date", { ascending: false });
+      if (data) setCampaigns(data as Campaign[]);
+    }
+    fetchCampaigns();
+  }, [open, isNew, supabase]);
 
   // Fetch influencer rates and previous deliverables when dialog opens
   useEffect(() => {
@@ -194,6 +213,7 @@ export function DealDialog({
       setWhitelistingLiveDate(null);
       setWhitelistingExpiryDate(null);
       setWhitelistingDuration("90");
+      setSelectedCampaignId("");
     }
     setError(null);
   }, [deal, open]);
@@ -243,11 +263,6 @@ export function DealDialog({
   const totalDealValue = deliverables.reduce(
     (sum, d) => sum + (d.rate || 0) * (d.quantity || 1),
     0
-  );
-
-  // Check if whitelisting is part of deliverables
-  const hasWhitelisting = deliverables.some(
-    (d) => d.description?.toLowerCase().includes("whitelist")
   );
 
   // Generate payment milestones based on preset
@@ -336,13 +351,19 @@ export function DealDialog({
   };
 
   const handleSave = async () => {
+    const campaignId = isNew ? selectedCampaignId : campaign.id;
+    if (!campaignId) {
+      setError("Please select a campaign");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
       const now = new Date().toISOString();
       const dealData = {
-        campaign_id: campaign.id,
+        campaign_id: campaignId,
         influencer_id: influencer.id,
         deliverables: deliverables.map(({ description, rate, quantity }) => ({
           description,
@@ -358,7 +379,7 @@ export function DealDialog({
         content_live_date: contentLiveDate,
         content_status_updated_by: deal?.content_status !== contentStatus ? currentUserId : deal?.content_status_updated_by,
         content_status_updated_at: deal?.content_status !== contentStatus ? now : deal?.content_status_updated_at,
-        whitelisting_status: hasWhitelisting ? whitelistingStatus : "not_applicable",
+        whitelisting_status: whitelistingStatus,
         whitelisting_live_date: whitelistingLiveDate,
         whitelisting_expiry_date: whitelistingExpiryDate,
         whitelisting_status_updated_by: deal?.whitelisting_status !== whitelistingStatus ? currentUserId : deal?.whitelisting_status_updated_by,
@@ -428,6 +449,25 @@ export function DealDialog({
         </DialogHeader>
 
         <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
+          {/* Campaign Selector (new deals only) */}
+          {isNew && (
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Campaign</Label>
+              <select
+                value={selectedCampaignId}
+                onChange={(e) => setSelectedCampaignId(e.target.value)}
+                className="w-full h-9 px-3 border rounded-md text-sm bg-white"
+              >
+                <option value="">Select a campaign...</option>
+                {campaigns.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Deliverables Section */}
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -757,11 +797,10 @@ export function DealDialog({
                 )}
               </div>
 
-              {/* Whitelisting Status - only show if deliverables contain "whitelist" */}
-              {hasWhitelisting && (<>
-                <div className="flex items-center gap-4">
-                  <div className="flex-1">
-                    <Label className="text-xs text-gray-500 mb-1 block">Whitelisting Status</Label>
+              {/* Whitelisting Status */}
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <Label className="text-xs text-gray-500 mb-1 block">Whitelisting Status</Label>
                     <select
                       value={whitelistingStatus}
                       onChange={(e) => {
@@ -857,7 +896,6 @@ export function DealDialog({
                     </div>
                   </div>
                 )}
-              </>)}
             </div>
           </div>
 
