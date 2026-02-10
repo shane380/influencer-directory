@@ -825,7 +825,7 @@ export function DealDialog({
                       <option value="ended">Ended</option>
                     </select>
                   </div>
-                  {(whitelistingStatus === "live" || whitelistingStatus === "ended") && (
+                  {(whitelistingStatus === "pending" || whitelistingStatus === "live" || whitelistingStatus === "ended") && (
                     <div className="w-40">
                       <Label className="text-xs text-gray-500 mb-1 block">Live Date</Label>
                       <Input
@@ -851,7 +851,7 @@ export function DealDialog({
                     </div>
                   )}
                 </div>
-                {(whitelistingStatus === "live" || whitelistingStatus === "ended") && (
+                {(whitelistingStatus === "pending" || whitelistingStatus === "live" || whitelistingStatus === "ended") && (
                   <div className="flex items-center gap-4 mt-2">
                     <div className="flex-1">
                       <Label className="text-xs text-gray-500 mb-1 block">Usage Duration</Label>
