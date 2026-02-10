@@ -1,7 +1,8 @@
 "use client";
 
 import { Influencer, InfluencerOrder, InfluencerContent, CampaignDeal, WhitelistingType, RelationshipStatus } from "@/types/database";
-import { Badge } from "@/components/ui/badge";
+
+import { StatusBadgeDropdown } from "@/components/status-badge-dropdown";
 import { WhitelistingContentTimeline } from "@/components/whitelisting-content-timeline";
 import { WhitelistingDealsSection } from "@/components/whitelisting-deals-section";
 import { WhitelistingSendHistory } from "@/components/whitelisting-send-history";
@@ -16,38 +17,13 @@ interface WhitelistingCreatorCardProps {
   deals: CampaignDeal[];
   onSendProduct: (influencer: Influencer, e: React.MouseEvent) => void;
   onProfileClick: (influencer: Influencer) => void;
+  onStatusChange: (influencerId: string, newStatus: RelationshipStatus) => void;
   animationDelay: number;
 }
 
 const whitelistingTypeColors: Record<WhitelistingType, string> = {
   paid: "bg-green-100 text-green-800",
   gifted: "bg-purple-100 text-purple-800",
-};
-
-const statusColors: Record<RelationshipStatus, string> = {
-  prospect: "bg-gray-100 text-gray-800",
-  contacted: "bg-blue-100 text-blue-800",
-  followed_up: "bg-yellow-100 text-yellow-800",
-  lead_dead: "bg-red-100 text-red-800",
-  creator_wants_paid: "bg-pink-100 text-pink-800",
-  order_placed: "bg-orange-100 text-orange-800",
-  order_delivered: "bg-teal-100 text-teal-800",
-  order_follow_up_sent: "bg-indigo-100 text-indigo-800",
-  order_follow_up_two_sent: "bg-purple-100 text-purple-800",
-  posted: "bg-green-100 text-green-800",
-};
-
-const statusLabels: Record<RelationshipStatus, string> = {
-  prospect: "Prospect",
-  contacted: "Contacted",
-  followed_up: "Followed Up",
-  lead_dead: "Lead Dead",
-  creator_wants_paid: "Creator Wants Paid",
-  order_placed: "Order Placed",
-  order_delivered: "Order Delivered",
-  order_follow_up_sent: "Follow Up Sent",
-  order_follow_up_two_sent: "Follow Up 2 Sent",
-  posted: "Posted",
 };
 
 const formatNumber = (num: number) => {
@@ -86,6 +62,7 @@ export function WhitelistingCreatorCard({
   deals,
   onSendProduct,
   onProfileClick,
+  onStatusChange,
   animationDelay,
 }: WhitelistingCreatorCardProps) {
   const now = new Date();
@@ -151,9 +128,11 @@ export function WhitelistingCreatorCard({
               <span className="text-xs text-gray-400 flex-shrink-0">
                 {formatNumber(influencer.follower_count)} followers
               </span>
-              <Badge className={`${statusColors[influencer.relationship_status]} text-[10px] px-1.5 py-0 ml-auto flex-shrink-0`}>
-                {statusLabels[influencer.relationship_status]}
-              </Badge>
+              <StatusBadgeDropdown
+                status={influencer.relationship_status}
+                onStatusChange={(newStatus) => onStatusChange(influencer.id, newStatus)}
+                className="ml-auto flex-shrink-0"
+              />
             </div>
           </div>
         </div>

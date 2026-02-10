@@ -1,6 +1,7 @@
 "use client";
 
 import { Influencer, WhitelistingType, CampaignInfluencer, ShopifyOrderStatus, RelationshipStatus, InfluencerOrder, InfluencerContent, CampaignDeal } from "@/types/database";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -15,9 +16,10 @@ import {
 } from "@/components/ui/table";
 import { Search, Plus, ShoppingCart, LayoutGrid, List } from "lucide-react";
 import Image from "next/image";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { OrderDialog } from "@/components/order-dialog";
 import { WhitelistingCardView } from "@/components/whitelisting-card-view";
+import { StatusBadgeDropdown } from "@/components/status-badge-dropdown";
 
 interface WhitelistingTabProps {
   influencers: Influencer[];
@@ -121,6 +123,14 @@ export function WhitelistingTab({
   const handleOrderSave = () => {
     onRefresh();
   };
+
+  const handleStatusChange = useCallback(async (influencerId: string, newStatus: RelationshipStatus) => {
+    const supabase = createClient();
+    await (supabase.from("influencers") as any)
+      .update({ relationship_status: newStatus })
+      .eq("id", influencerId);
+    onRefresh();
+  }, [onRefresh]);
 
   // Create a virtual campaign influencer for the order dialog
   const createVirtualCampaignInfluencer = (influencer: Influencer): CampaignInfluencer => ({
@@ -341,10 +351,11 @@ export function WhitelistingTab({
                           <span className="text-gray-400">-</span>
                         )}
                       </TableCell>
-                      <TableCell>
-                        <Badge className={statusColors[influencer.relationship_status]}>
-                          {statusLabels[influencer.relationship_status]}
-                        </Badge>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <StatusBadgeDropdown
+                          status={influencer.relationship_status}
+                          onStatusChange={(newStatus) => handleStatusChange(influencer.id, newStatus)}
+                        />
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         {influencer.shopify_order_id ? (
@@ -395,6 +406,7 @@ export function WhitelistingTab({
           onAddNew={onAddNew}
           onRefresh={onRefresh}
           onSendProduct={handleOpenOrderDialog}
+          onStatusChange={handleStatusChange}
         />
       )}
 

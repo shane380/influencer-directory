@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Influencer, InfluencerOrder, InfluencerContent, CampaignDeal } from "@/types/database";
+import { Influencer, InfluencerOrder, InfluencerContent, CampaignDeal, RelationshipStatus } from "@/types/database";
 import { Select } from "@/components/ui/select";
 import { WhitelistingCreatorCard, hasExpiringUsage, hasExpiredUsage } from "@/components/whitelisting-creator-card";
 import { AlertTriangle } from "lucide-react";
@@ -18,6 +18,7 @@ interface WhitelistingCardViewProps {
   onAddNew: () => void;
   onRefresh: () => void;
   onSendProduct: (influencer: Influencer, e: React.MouseEvent) => void;
+  onStatusChange: (influencerId: string, newStatus: RelationshipStatus) => void;
 }
 
 type SortOption = "followers" | "sends" | "content" | "expiring" | "recent";
@@ -31,6 +32,7 @@ export function WhitelistingCardView({
   loading,
   onInfluencerClick,
   onSendProduct,
+  onStatusChange,
 }: WhitelistingCardViewProps) {
   const [sortBy, setSortBy] = useState<SortOption>("followers");
   const [showExpiringOnly, setShowExpiringOnly] = useState(false);
@@ -214,6 +216,7 @@ export function WhitelistingCardView({
                 deals={data.deals}
                 onSendProduct={onSendProduct}
                 onProfileClick={onInfluencerClick}
+                onStatusChange={onStatusChange}
                 animationDelay={i * 50}
               />
             );
