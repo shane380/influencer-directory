@@ -748,6 +748,19 @@ export default function MonthCampaignViewPage() {
             options={collections.map((col) => ({ value: col, label: col }))}
           />
           <FilterChip
+            label="Partnership"
+            value={partnershipTypeFilter === "all" ? null : partnershipTypeFilter}
+            onChange={(v) => setPartnershipTypeFilter(v ?? "all")}
+            options={[
+              { value: "unassigned", label: "Unassigned" },
+              { value: "gifted_no_ask", label: "Gifted No Ask" },
+              { value: "gifted_soft_ask", label: "Gifted Soft Ask" },
+              { value: "gifted_deliverable_ask", label: "Gifted Deliverable Ask" },
+              { value: "gifted_recurring", label: "Gifted Recurring" },
+              { value: "paid", label: "Paid" },
+            ]}
+          />
+          <FilterChip
             label="Comm. Status"
             value={statusFilter === "all" ? null : statusFilter}
             onChange={(v) => setStatusFilter(v ?? "all")}
@@ -774,19 +787,6 @@ export default function MonthCampaignViewPage() {
               { value: "in_feed_post", label: "In Feed Post" },
               { value: "reel", label: "Reel" },
               { value: "tiktok", label: "TikTok" },
-            ]}
-          />
-          <FilterChip
-            label="Partnership"
-            value={partnershipTypeFilter === "all" ? null : partnershipTypeFilter}
-            onChange={(v) => setPartnershipTypeFilter(v ?? "all")}
-            options={[
-              { value: "unassigned", label: "Unassigned" },
-              { value: "gifted_no_ask", label: "Gifted No Ask" },
-              { value: "gifted_soft_ask", label: "Gifted Soft Ask" },
-              { value: "gifted_deliverable_ask", label: "Gifted Deliverable Ask" },
-              { value: "gifted_recurring", label: "Gifted Recurring" },
-              { value: "paid", label: "Paid" },
             ]}
           />
           <div className="flex-1" />
