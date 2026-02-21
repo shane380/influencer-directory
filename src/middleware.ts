@@ -31,6 +31,15 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Allow webhook, cron, and Shopify auth routes through without authentication
+  if (
+    request.nextUrl.pathname.startsWith('/api/shopify/webhooks') ||
+    request.nextUrl.pathname.startsWith('/api/cron') ||
+    request.nextUrl.pathname.startsWith('/api/shopify/auth')
+  ) {
+    return supabaseResponse;
+  }
+
   // If user is not logged in and trying to access protected routes
   if (!user && !request.nextUrl.pathname.startsWith('/login')) {
     const url = request.nextUrl.clone();
