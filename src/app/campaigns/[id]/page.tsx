@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip } from "@/components/ui/tooltip";
+import { FilterChip } from "@/components/ui/filter-chip";
 import {
   Table,
   TableBody,
@@ -679,68 +680,80 @@ export default function CampaignDetailPage() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="relative flex-1 min-w-[200px]">
+        <div className="flex flex-wrap items-center gap-2 mb-6">
+          <div className="relative w-[200px]">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
             <Input
-              placeholder="Search by name, handle, or email..."
+              placeholder="Search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 w-full"
+              className="pl-10 w-full h-8 text-xs"
             />
           </div>
-          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-auto sm:w-[180px] flex-shrink-0">
-            <option value="all">Comm. Status</option>
-            <option value="prospect">Prospect</option>
-            <option value="contacted">Contacted</option>
-            <option value="followed_up">Followed Up</option>
-            <option value="lead_dead">Lead Dead</option>
-            <option value="creator_wants_paid">Creator Wants Paid</option>
-            <option value="order_placed">Order Placed</option>
-            <option value="order_delivered">Order Delivered</option>
-            <option value="order_follow_up_sent">Order Follow Up Sent</option>
-            <option value="order_follow_up_two_sent">Order Follow Up Two Sent</option>
-            <option value="posted">Posted</option>
-          </Select>
-          <Select value={contentFilter} onChange={(e) => setContentFilter(e.target.value)} className="w-auto sm:w-[180px] flex-shrink-0">
-            <option value="all">Content Status</option>
-            <option value="none">No Content</option>
-            <option value="stories">Stories</option>
-            <option value="in_feed_post">In Feed Post</option>
-            <option value="reel">Reel</option>
-            <option value="tiktok">TikTok</option>
-          </Select>
-          <Select value={partnershipTypeFilter} onChange={(e) => setPartnershipTypeFilter(e.target.value)} className="w-auto sm:w-[180px] flex-shrink-0">
-            <option value="all">All Partnership Types</option>
-            <option value="unassigned">Unassigned</option>
-            <option value="gifted_no_ask">Gifted No Ask</option>
-            <option value="gifted_soft_ask">Gifted Soft Ask</option>
-            <option value="gifted_deliverable_ask">Gifted Deliverable Ask</option>
-            <option value="gifted_recurring">Gifted Recurring</option>
-            <option value="paid">Paid</option>
-          </Select>
+          <FilterChip
+            label="Comm. Status"
+            value={statusFilter === "all" ? null : statusFilter}
+            onChange={(v) => setStatusFilter(v ?? "all")}
+            options={[
+              { value: "prospect", label: "Prospect" },
+              { value: "contacted", label: "Contacted" },
+              { value: "followed_up", label: "Followed Up" },
+              { value: "lead_dead", label: "Lead Dead" },
+              { value: "creator_wants_paid", label: "Creator Wants Paid" },
+              { value: "order_placed", label: "Order Placed" },
+              { value: "order_delivered", label: "Order Delivered" },
+              { value: "order_follow_up_sent", label: "Follow Up Sent" },
+              { value: "order_follow_up_two_sent", label: "Follow Up 2 Sent" },
+              { value: "posted", label: "Posted" },
+            ]}
+          />
+          <FilterChip
+            label="Content"
+            value={contentFilter === "all" ? null : contentFilter}
+            onChange={(v) => setContentFilter(v ?? "all")}
+            options={[
+              { value: "none", label: "No Content" },
+              { value: "stories", label: "Stories" },
+              { value: "in_feed_post", label: "In Feed Post" },
+              { value: "reel", label: "Reel" },
+              { value: "tiktok", label: "TikTok" },
+            ]}
+          />
+          <FilterChip
+            label="Partnership"
+            value={partnershipTypeFilter === "all" ? null : partnershipTypeFilter}
+            onChange={(v) => setPartnershipTypeFilter(v ?? "all")}
+            options={[
+              { value: "unassigned", label: "Unassigned" },
+              { value: "gifted_no_ask", label: "Gifted No Ask" },
+              { value: "gifted_soft_ask", label: "Gifted Soft Ask" },
+              { value: "gifted_deliverable_ask", label: "Gifted Deliverable Ask" },
+              { value: "gifted_recurring", label: "Gifted Recurring" },
+              { value: "paid", label: "Paid" },
+            ]}
+          />
           {/* Approval Filter */}
           {(() => {
             const pendingCount = campaignInfluencers.filter(ci => ci.approval_status === "pending").length;
             const hasApprovals = campaignInfluencers.some(ci => ci.approval_status !== null);
             if (!hasApprovals && approvalFilter === "all") return null;
             return (
-              <Select
-                value={approvalFilter}
-                onChange={(e) => setApprovalFilter(e.target.value)}
-                className={`w-auto sm:w-[160px] flex-shrink-0 ${pendingCount > 0 && approvalFilter === "all" ? "border-amber-300 bg-amber-50" : ""}`}
-              >
-                <option value="all">
-                  {pendingCount > 0 ? `Approvals (${pendingCount})` : "All Approvals"}
-                </option>
-                <option value="pending">Pending ({pendingCount})</option>
-                <option value="approved">Approved</option>
-                <option value="declined">Declined</option>
-              </Select>
+              <FilterChip
+                label={pendingCount > 0 ? `Approvals (${pendingCount})` : "Approvals"}
+                value={approvalFilter === "all" ? null : approvalFilter}
+                onChange={(v) => setApprovalFilter(v ?? "all")}
+                highlightInactive={pendingCount > 0 && approvalFilter === "all"}
+                options={[
+                  { value: "pending", label: `Pending (${pendingCount})` },
+                  { value: "approved", label: "Approved" },
+                  { value: "declined", label: "Declined" },
+                ]}
+              />
             );
           })()}
-          <Button onClick={() => setAddInfluencerDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
+          <div className="flex-1" />
+          <Button size="sm" onClick={() => setAddInfluencerDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-1" />
             Add Influencer
           </Button>
         </div>
