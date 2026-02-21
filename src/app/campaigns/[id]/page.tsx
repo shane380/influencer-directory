@@ -224,6 +224,7 @@ export default function CampaignDetailPage() {
   const [deals, setDeals] = useState<Map<string, CampaignDeal>>(new Map());
   const [dealDialogOpen, setDealDialogOpen] = useState(false);
   const [selectedDealInfluencer, setSelectedDealInfluencer] = useState<CampaignInfluencerWithDetails | null>(null);
+  const [contentFilter, setContentFilter] = useState<string>("all");
   const [approvalFilter, setApprovalFilter] = useState<string>("all");
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [selectedApprovalInfluencer, setSelectedApprovalInfluencer] = useState<CampaignInfluencerWithDetails | null>(null);
@@ -323,7 +324,7 @@ export default function CampaignDetailPage() {
   // Clear selection when filters change
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [statusFilter, partnershipTypeFilter, approvalFilter, search]);
+  }, [statusFilter, partnershipTypeFilter, contentFilter, approvalFilter, search]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -504,6 +505,8 @@ export default function CampaignDetailPage() {
       if (approvalFilter === "needs_review" && ci.approval_status !== "pending") return false;
       if (approvalFilter === "approved" && ci.approval_status !== "approved") return false;
       if (approvalFilter === "declined" && ci.approval_status !== "declined") return false;
+      // Content filter
+      if (contentFilter !== "all" && ci.content_posted !== contentFilter) return false;
       if (search) {
         const searchLower = search.toLowerCase();
         return (
@@ -524,7 +527,7 @@ export default function CampaignDetailPage() {
         return multiplier * (new Date(a.added_at).getTime() - new Date(b.added_at).getTime());
       }
       return 0;
-    }), [campaignInfluencers, statusFilter, partnershipTypeFilter, approvalFilter, search, sortField, sortDirection]);
+    }), [campaignInfluencers, statusFilter, partnershipTypeFilter, contentFilter, approvalFilter, search, sortField, sortDirection]);
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -687,7 +690,7 @@ export default function CampaignDetailPage() {
             />
           </div>
           <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-auto sm:w-[180px] flex-shrink-0">
-            <option value="all">All Statuses</option>
+            <option value="all">Comm. Status</option>
             <option value="prospect">Prospect</option>
             <option value="contacted">Contacted</option>
             <option value="followed_up">Followed Up</option>
@@ -698,6 +701,14 @@ export default function CampaignDetailPage() {
             <option value="order_follow_up_sent">Order Follow Up Sent</option>
             <option value="order_follow_up_two_sent">Order Follow Up Two Sent</option>
             <option value="posted">Posted</option>
+          </Select>
+          <Select value={contentFilter} onChange={(e) => setContentFilter(e.target.value)} className="w-auto sm:w-[180px] flex-shrink-0">
+            <option value="all">Content Status</option>
+            <option value="none">No Content</option>
+            <option value="stories">Stories</option>
+            <option value="in_feed_post">In Feed Post</option>
+            <option value="reel">Reel</option>
+            <option value="tiktok">TikTok</option>
           </Select>
           <Select value={partnershipTypeFilter} onChange={(e) => setPartnershipTypeFilter(e.target.value)} className="w-auto sm:w-[180px] flex-shrink-0">
             <option value="all">All Partnership Types</option>
