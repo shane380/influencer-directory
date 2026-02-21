@@ -13,7 +13,7 @@ export type WhitelistingStatus = 'not_applicable' | 'pending' | 'live' | 'ended'
 export type DealStatus = 'negotiating' | 'confirmed' | 'cancelled';
 export type ContractType = 'paid_collab' | 'whitelisting';
 export type ContractStatus = 'draft' | 'sent' | 'signed';
-export type ShopifyOrderStatus = 'draft' | 'placed' | 'fulfilled';
+export type ShopifyOrderStatus = 'draft' | 'fulfilled' | 'shipped' | 'delivered';
 
 export interface ProductSelection {
   sku: string;
@@ -61,6 +61,10 @@ export interface Influencer {
   product_selections: ProductSelection[] | null;
   shopify_order_id: string | null;
   shopify_order_status: ShopifyOrderStatus | null;
+  tracking_number: string | null;
+  tracking_url: string | null;
+  order_status_updated_at: string | null;
+  shopify_real_order_id: string | null;
   google_drive_folder_id: string | null;
 }
 
@@ -90,6 +94,10 @@ export interface InfluencerInsert {
   product_selections?: ProductSelection[] | null;
   shopify_order_id?: string | null;
   shopify_order_status?: ShopifyOrderStatus | null;
+  tracking_number?: string | null;
+  tracking_url?: string | null;
+  order_status_updated_at?: string | null;
+  shopify_real_order_id?: string | null;
   google_drive_folder_id?: string | null;
 }
 
@@ -129,6 +137,10 @@ export interface CampaignInfluencer {
   partnership_type: PartnershipType;
   shopify_order_id: string | null;
   shopify_order_status: ShopifyOrderStatus | null;
+  tracking_number: string | null;
+  tracking_url: string | null;
+  order_status_updated_at: string | null;
+  shopify_real_order_id: string | null;
   product_selections: ProductSelection[] | null;
   content_posted: ContentPostedType;
   approval_status: ApprovalStatus | null;
@@ -146,6 +158,10 @@ export interface CampaignInfluencerInsert {
   partnership_type?: PartnershipType;
   shopify_order_id?: string | null;
   shopify_order_status?: ShopifyOrderStatus | null;
+  tracking_number?: string | null;
+  tracking_url?: string | null;
+  order_status_updated_at?: string | null;
+  shopify_real_order_id?: string | null;
   product_selections?: ProductSelection[] | null;
   content_posted?: ContentPostedType;
   approval_status?: ApprovalStatus | null;

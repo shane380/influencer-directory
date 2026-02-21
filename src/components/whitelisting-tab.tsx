@@ -71,14 +71,16 @@ const statusLabels: Record<RelationshipStatus, string> = {
 // Order status colors and labels
 const orderDots: Record<ShopifyOrderStatus, string> = {
   draft: "bg-amber-400",
-  placed: "bg-blue-400",
-  fulfilled: "bg-green-500",
+  fulfilled: "bg-blue-400",
+  shipped: "bg-purple-400",
+  delivered: "bg-green-500",
 };
 
 const orderStatusLabels: Record<ShopifyOrderStatus, string> = {
   draft: "Draft",
-  placed: "Placed",
   fulfilled: "Fulfilled",
+  shipped: "Shipped",
+  delivered: "Delivered",
 };
 
 type ViewMode = "cards" | "table";
@@ -144,6 +146,10 @@ export function WhitelistingTab({
     partnership_type: influencer.partnership_type,
     shopify_order_id: null,
     shopify_order_status: null,
+    tracking_number: null,
+    tracking_url: null,
+    order_status_updated_at: null,
+    shopify_real_order_id: null,
     product_selections: null,
     content_posted: "none",
     approval_status: null,

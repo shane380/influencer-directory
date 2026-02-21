@@ -92,14 +92,16 @@ interface CartItem extends ProductSelection {
 
 const orderStatusColors: Record<ShopifyOrderStatus, string> = {
   draft: "bg-yellow-100 text-yellow-800",
-  placed: "bg-blue-100 text-blue-800",
-  fulfilled: "bg-green-100 text-green-800",
+  fulfilled: "bg-blue-100 text-blue-800",
+  shipped: "bg-purple-100 text-purple-800",
+  delivered: "bg-green-100 text-green-800",
 };
 
 const orderStatusLabels: Record<ShopifyOrderStatus, string> = {
   draft: "Draft",
-  placed: "Placed",
   fulfilled: "Fulfilled",
+  shipped: "Shipped",
+  delivered: "Delivered",
 };
 
 export function OrderDialog({
@@ -691,6 +693,10 @@ export function OrderDialog({
             product_selections: null,
             shopify_order_id: null,
             shopify_order_status: null,
+            tracking_number: null,
+            tracking_url: null,
+            order_status_updated_at: null,
+            shopify_real_order_id: null,
           })
           .eq("id", influencer.id);
         if (updateError) throw updateError;
@@ -701,6 +707,10 @@ export function OrderDialog({
             product_selections: null,
             shopify_order_id: null,
             shopify_order_status: null,
+            tracking_number: null,
+            tracking_url: null,
+            order_status_updated_at: null,
+            shopify_real_order_id: null,
           })
           .eq("id", campaignInfluencer.id);
         if (updateError) throw updateError;

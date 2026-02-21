@@ -203,10 +203,10 @@ export async function GET(request: NextRequest) {
     const data: ShopifyDraftOrderResponse = await response.json();
     const adminUrl = `https://${SHOPIFY_STORE_URL}/admin/draft_orders/${data.draft_order.id}`;
 
-    // Determine order status
+    // Determine order status — completed draft stays "draft" until webhook/cron picks up fulfillment
     let status = "draft";
     if (data.draft_order.status === "completed") {
-      status = "placed";
+      status = "draft";
     } else if (data.draft_order.status === "invoice_sent") {
       status = "draft";
     }

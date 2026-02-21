@@ -155,21 +155,24 @@ const campaignStatusLabels: Record<CampaignStatus, string> = {
 // Muted order status colors
 const orderStatusColors: Record<ShopifyOrderStatus, string> = {
   draft: "bg-gray-50 text-gray-600",
-  placed: "bg-gray-50 text-gray-600",
   fulfilled: "bg-gray-50 text-gray-600",
+  shipped: "bg-gray-50 text-gray-600",
+  delivered: "bg-gray-50 text-gray-600",
 };
 
 // Colored dots for order status
 const orderDots: Record<ShopifyOrderStatus, string> = {
   draft: "bg-amber-400",
-  placed: "bg-blue-400",
-  fulfilled: "bg-green-500",
+  fulfilled: "bg-blue-400",
+  shipped: "bg-purple-400",
+  delivered: "bg-green-500",
 };
 
 const orderStatusLabels: Record<ShopifyOrderStatus, string> = {
   draft: "Draft",
-  placed: "Placed",
   fulfilled: "Fulfilled",
+  shipped: "Shipped",
+  delivered: "Delivered",
 };
 
 const contentPostedLabels: Record<ContentPostedType, string> = {
@@ -226,6 +229,7 @@ export default function CampaignDetailPage() {
   const [dealDialogOpen, setDealDialogOpen] = useState(false);
   const [selectedDealInfluencer, setSelectedDealInfluencer] = useState<CampaignInfluencerWithDetails | null>(null);
   const [contentFilter, setContentFilter] = useState<string>("all");
+  const [orderStatusFilter, setOrderStatusFilter] = useState<string>("all");
   const [approvalFilter, setApprovalFilter] = useState<string>("all");
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [selectedApprovalInfluencer, setSelectedApprovalInfluencer] = useState<CampaignInfluencerWithDetails | null>(null);
@@ -508,6 +512,11 @@ export default function CampaignDetailPage() {
       if (approvalFilter === "declined" && ci.approval_status !== "declined") return false;
       // Content filter
       if (contentFilter !== "all" && ci.content_posted !== contentFilter) return false;
+      // Order status filter
+      if (orderStatusFilter !== "all") {
+        if (orderStatusFilter === "no_order" && ci.shopify_order_status !== null) return false;
+        if (orderStatusFilter !== "no_order" && ci.shopify_order_status !== orderStatusFilter) return false;
+      }
       if (search) {
         const searchLower = search.toLowerCase();
         return (
@@ -528,7 +537,7 @@ export default function CampaignDetailPage() {
         return multiplier * (new Date(a.added_at).getTime() - new Date(b.added_at).getTime());
       }
       return 0;
-    }), [campaignInfluencers, statusFilter, partnershipTypeFilter, contentFilter, approvalFilter, search, sortField, sortDirection]);
+    }), [campaignInfluencers, statusFilter, partnershipTypeFilter, contentFilter, orderStatusFilter, approvalFilter, search, sortField, sortDirection]);
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -730,6 +739,18 @@ export default function CampaignDetailPage() {
               { value: "in_feed_post", label: "In Feed Post" },
               { value: "reel", label: "Reel" },
               { value: "tiktok", label: "TikTok" },
+            ]}
+          />
+          <FilterChip
+            label="Order Status"
+            value={orderStatusFilter === "all" ? null : orderStatusFilter}
+            onChange={(v) => setOrderStatusFilter(v ?? "all")}
+            options={[
+              { value: "no_order", label: "No Order" },
+              { value: "draft", label: "Draft" },
+              { value: "fulfilled", label: "Fulfilled" },
+              { value: "shipped", label: "Shipped" },
+              { value: "delivered", label: "Delivered" },
             ]}
           />
           {/* Approval Filter */}

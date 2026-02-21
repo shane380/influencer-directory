@@ -135,21 +135,24 @@ const partnershipDots: Record<PartnershipType, string> = {
 // Muted order status colors
 const orderStatusColors: Record<ShopifyOrderStatus, string> = {
   draft: "bg-gray-50 text-gray-600",
-  placed: "bg-gray-50 text-gray-600",
   fulfilled: "bg-gray-50 text-gray-600",
+  shipped: "bg-gray-50 text-gray-600",
+  delivered: "bg-gray-50 text-gray-600",
 };
 
 // Colored dots for order status
 const orderDots: Record<ShopifyOrderStatus, string> = {
   draft: "bg-amber-400",
-  placed: "bg-blue-400",
-  fulfilled: "bg-green-500",
+  fulfilled: "bg-blue-400",
+  shipped: "bg-purple-400",
+  delivered: "bg-green-500",
 };
 
 const orderStatusLabels: Record<ShopifyOrderStatus, string> = {
   draft: "Draft",
-  placed: "Placed",
   fulfilled: "Fulfilled",
+  shipped: "Shipped",
+  delivered: "Delivered",
 };
 
 const contentPostedLabels: Record<ContentPostedType, string> = {
@@ -219,6 +222,7 @@ export default function MonthCampaignViewPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [partnershipTypeFilter, setPartnershipTypeFilter] = useState<string>("all");
   const [contentFilter, setContentFilter] = useState<string>("all");
+  const [orderStatusFilter, setOrderStatusFilter] = useState<string>("all");
   const [collectionFilter, setCollectionFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
@@ -568,6 +572,11 @@ export default function MonthCampaignViewPage() {
       if (partnershipTypeFilter !== "all" && ci.partnership_type !== partnershipTypeFilter) return false;
       if (collectionFilter !== "all" && ci.collection !== collectionFilter) return false;
       if (contentFilter !== "all" && ci.content_posted !== contentFilter) return false;
+      // Order status filter
+      if (orderStatusFilter !== "all") {
+        if (orderStatusFilter === "no_order" && ci.shopify_order_status !== null) return false;
+        if (orderStatusFilter !== "no_order" && ci.shopify_order_status !== orderStatusFilter) return false;
+      }
       if (search) {
         const searchLower = search.toLowerCase();
         return (
@@ -590,7 +599,7 @@ export default function MonthCampaignViewPage() {
         return multiplier * a.collection.localeCompare(b.collection);
       }
       return 0;
-    }), [campaignInfluencers, statusFilter, partnershipTypeFilter, contentFilter, collectionFilter, search, sortField, sortDirection]);
+    }), [campaignInfluencers, statusFilter, partnershipTypeFilter, contentFilter, orderStatusFilter, collectionFilter, search, sortField, sortDirection]);
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -787,6 +796,18 @@ export default function MonthCampaignViewPage() {
               { value: "in_feed_post", label: "In Feed Post" },
               { value: "reel", label: "Reel" },
               { value: "tiktok", label: "TikTok" },
+            ]}
+          />
+          <FilterChip
+            label="Order Status"
+            value={orderStatusFilter === "all" ? null : orderStatusFilter}
+            onChange={(v) => setOrderStatusFilter(v ?? "all")}
+            options={[
+              { value: "no_order", label: "No Order" },
+              { value: "draft", label: "Draft" },
+              { value: "fulfilled", label: "Fulfilled" },
+              { value: "shipped", label: "Shipped" },
+              { value: "delivered", label: "Delivered" },
             ]}
           />
           <div className="flex-1" />

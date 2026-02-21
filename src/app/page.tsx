@@ -97,15 +97,17 @@ const contentStatusLabels: Record<ContentStatus, string> = {
 const orderStatusColors: Record<ShopifyOrderStatus | "none", string> = {
   none: "bg-gray-100 text-gray-600",
   draft: "bg-amber-100 text-amber-800",
-  placed: "bg-blue-100 text-blue-800",
-  fulfilled: "bg-green-100 text-green-800",
+  fulfilled: "bg-blue-100 text-blue-800",
+  shipped: "bg-purple-100 text-purple-800",
+  delivered: "bg-green-100 text-green-800",
 };
 
 const orderStatusLabels: Record<ShopifyOrderStatus | "none", string> = {
   none: "No Order",
   draft: "Draft",
-  placed: "Placed",
   fulfilled: "Fulfilled",
+  shipped: "Shipped",
+  delivered: "Delivered",
 };
 
 interface CampaignWithCount extends Campaign {
@@ -371,6 +373,10 @@ function HomePageContent() {
             product_selections: null,
             shopify_order_id: null,
             shopify_order_status: null,
+            tracking_number: null,
+            tracking_url: null,
+            order_status_updated_at: null,
+            shopify_real_order_id: null,
           })
           .in("id", fulfilledIds);
 
@@ -382,6 +388,10 @@ function HomePageContent() {
               product_selections: null,
               shopify_order_id: null,
               shopify_order_status: null,
+              tracking_number: null,
+              tracking_url: null,
+              order_status_updated_at: null,
+              shopify_real_order_id: null,
             };
           }
           return inf;
@@ -396,7 +406,7 @@ function HomePageContent() {
       const finalData = fulfilledInfluencers.length > 0
         ? (data || []).map((inf: Influencer) => {
             if (fulfilledInfluencers.some((f: Influencer) => f.id === inf.id)) {
-              return { ...inf, product_selections: null, shopify_order_id: null, shopify_order_status: null };
+              return { ...inf, product_selections: null, shopify_order_id: null, shopify_order_status: null, tracking_number: null, tracking_url: null, order_status_updated_at: null, shopify_real_order_id: null };
             }
             return inf;
           })
