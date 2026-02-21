@@ -33,6 +33,15 @@ interface ShopifyDraftOrder {
   order_id: number | null;
 }
 
+interface SyncRow {
+  id: string;
+  shopify_order_id: string | null;
+  shopify_real_order_id: string | null;
+  shopify_order_status: string | null;
+  order_status_updated_at: string | null;
+  _table: "campaign_influencers" | "influencers";
+}
+
 function determineStatusFromOrder(order: ShopifyOrder): {
   status: string | null;
   tracking_number: string | null;
@@ -102,14 +111,19 @@ export async function GET(request: NextRequest) {
     .in("shopify_order_status", ["draft", "fulfilled", "shipped"])
     .or(`order_status_updated_at.is.null,order_status_updated_at.lt.${fourHoursAgo}`);
 
-  const allRows = [...(ciRows || []), ...(infRows || [])];
+  // Tag each row with its source table
+  const allRows: SyncRow[] = [
+    ...(ciRows || []).map((r: any) => ({ ...r, _table: "campaign_influencers" as const })),
+    ...(infRows || []).map((r: any) => ({ ...r, _table: "influencers" as const })),
+  ];
+
   if (allRows.length === 0) {
     return NextResponse.json({ message: "No rows to sync", updated: 0 });
   }
 
   // Separate rows by whether they have a real order ID
-  const rowsWithRealOrder: typeof allRows = [];
-  const rowsWithDraftOnly: typeof allRows = [];
+  const rowsWithRealOrder: SyncRow[] = [];
+  const rowsWithDraftOnly: SyncRow[] = [];
 
   for (const row of allRows) {
     if (row.shopify_real_order_id) {
@@ -125,7 +139,6 @@ export async function GET(request: NextRequest) {
   // 1. Fetch real orders in batch
   const realOrderIds = [...new Set(rowsWithRealOrder.map((r) => r.shopify_real_order_id))];
   if (realOrderIds.length > 0) {
-    // Shopify allows up to 250 IDs per request
     for (let i = 0; i < realOrderIds.length; i += 250) {
       const batch = realOrderIds.slice(i, i + 250);
       try {
@@ -144,14 +157,13 @@ export async function GET(request: NextRequest) {
           const orderMap = new Map(orders.map((o) => [String(o.id), o]));
 
           for (const row of rowsWithRealOrder.filter((r) => batch.includes(r.shopify_real_order_id))) {
-            const order = orderMap.get(row.shopify_real_order_id);
+            const order = orderMap.get(row.shopify_real_order_id!);
             if (!order) continue;
 
             const result = determineStatusFromOrder(order);
-            const table = row.campaign_id !== undefined ? "campaign_influencers" : "influencers";
 
             if (result.cancelled) {
-              await (supabase.from(table) as any)
+              await (supabase.from(row._table) as any)
                 .update({
                   shopify_order_status: null,
                   shopify_order_id: null,
@@ -162,7 +174,7 @@ export async function GET(request: NextRequest) {
                 })
                 .eq("id", row.id);
             } else if (result.status !== row.shopify_order_status) {
-              await (supabase.from(table) as any)
+              await (supabase.from(row._table) as any)
                 .update({
                   shopify_order_status: result.status,
                   tracking_number: result.tracking_number,
@@ -171,8 +183,7 @@ export async function GET(request: NextRequest) {
                 })
                 .eq("id", row.id);
             } else {
-              // No change, just update the sync timestamp
-              await (supabase.from(table) as any)
+              await (supabase.from(row._table) as any)
                 .update({ order_status_updated_at: updateTime })
                 .eq("id", row.id);
             }
@@ -201,7 +212,6 @@ export async function GET(request: NextRequest) {
 
       const data = await res.json();
       const draft: ShopifyDraftOrder = data.draft_order;
-      const table = row.campaign_id !== undefined ? "campaign_influencers" : "influencers";
 
       if (draft.status === "completed" && draft.order_id) {
         // Draft was completed — store real order ID and fetch real order status
@@ -221,7 +231,7 @@ export async function GET(request: NextRequest) {
           const result = determineStatusFromOrder(orderData.order);
 
           if (result.cancelled) {
-            await (supabase.from(table) as any)
+            await (supabase.from(row._table) as any)
               .update({
                 shopify_order_status: null,
                 shopify_order_id: null,
@@ -232,7 +242,7 @@ export async function GET(request: NextRequest) {
               })
               .eq("id", row.id);
           } else {
-            await (supabase.from(table) as any)
+            await (supabase.from(row._table) as any)
               .update({
                 shopify_real_order_id: realOrderId,
                 shopify_order_status: result.status,
@@ -243,8 +253,7 @@ export async function GET(request: NextRequest) {
               .eq("id", row.id);
           }
         } else {
-          // Just store the real order ID for next sync
-          await (supabase.from(table) as any)
+          await (supabase.from(row._table) as any)
             .update({
               shopify_real_order_id: realOrderId,
               order_status_updated_at: updateTime,
@@ -253,7 +262,7 @@ export async function GET(request: NextRequest) {
         }
       } else {
         // Draft still pending — just update sync timestamp
-        await (supabase.from(table) as any)
+        await (supabase.from(row._table) as any)
           .update({ order_status_updated_at: updateTime })
           .eq("id", row.id);
       }
