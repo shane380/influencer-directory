@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -26,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import { InfluencerDialog } from "@/components/influencer-dialog";
 import { AddInfluencerDialog } from "@/components/add-influencer-dialog";
 import { OrderDialog } from "@/components/order-dialog";
@@ -33,6 +34,7 @@ import { DealDialog } from "@/components/deal-dialog";
 import { DealSummaryBadge } from "@/components/deal-summary-badge";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ApprovalDialog } from "@/components/approval-dialog";
+import { BulkActionBar } from "@/components/bulk-action-bar";
 import {
   Plus,
   Search,
@@ -231,6 +233,7 @@ export default function MonthCampaignViewPage() {
   const [addInfluencerDialogOpen, setAddInfluencerDialogOpen] = useState(false);
   const [selectedCampaignIdForAdd, setSelectedCampaignIdForAdd] = useState<string>("");
   const [currentUser, setCurrentUser] = useState<{ displayName: string; email: string; profilePhotoUrl: string | null; isAdmin: boolean } | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const supabase = createClient();
 
@@ -372,6 +375,11 @@ export default function MonthCampaignViewPage() {
     };
     loadData();
   }, [fetchCampaigns, fetchCampaignInfluencers, fetchProfiles, fetchDeals]);
+
+  // Clear selection when filters change
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [statusFilter, partnershipTypeFilter, collectionFilter, search]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -551,7 +559,7 @@ export default function MonthCampaignViewPage() {
   const collections = [...new Set(campaignInfluencers.map(ci => ci.collection))].sort();
 
   // Filter and sort the influencers
-  const filteredInfluencers = campaignInfluencers
+  const filteredInfluencers = useMemo(() => campaignInfluencers
     .filter((ci) => {
       const influencer = ci.influencer;
       if (statusFilter !== "all" && ci.status !== statusFilter) return false;
@@ -579,7 +587,7 @@ export default function MonthCampaignViewPage() {
         return multiplier * a.collection.localeCompare(b.collection);
       }
       return 0;
-    });
+    }), [campaignInfluencers, statusFilter, partnershipTypeFilter, collectionFilter, search, sortField, sortDirection]);
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -778,7 +786,7 @@ export default function MonthCampaignViewPage() {
         </div>
 
         {/* Influencer Table */}
-        <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
+        <div className={`bg-white rounded-lg border shadow-sm overflow-x-auto ${selectedIds.size > 0 ? "pb-20" : ""}`}>
           {filteredInfluencers.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
               {campaignInfluencers.length === 0
@@ -789,6 +797,24 @@ export default function MonthCampaignViewPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    {(() => {
+                      const uniqueIds = new Set(filteredInfluencers.map((ci) => ci.influencer_id));
+                      return (
+                        <Checkbox
+                          checked={selectedIds.size === uniqueIds.size && uniqueIds.size > 0}
+                          indeterminate={selectedIds.size > 0 && selectedIds.size < uniqueIds.size}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedIds(new Set(uniqueIds));
+                            } else {
+                              setSelectedIds(new Set());
+                            }
+                          }}
+                        />
+                      );
+                    })()}
+                  </TableHead>
                   <TableHead className="w-12"></TableHead>
                   <TableHead>
                     <button
@@ -832,8 +858,25 @@ export default function MonthCampaignViewPage() {
                   <TableRow
                     key={ci.id}
                     className="cursor-pointer hover:bg-gray-50 transition-colors"
+                    data-state={selectedIds.has(ci.influencer_id) ? "selected" : undefined}
                     onClick={() => handleOpenInfluencerDialog(ci.influencer)}
                   >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selectedIds.has(ci.influencer_id)}
+                        onChange={() => {
+                          setSelectedIds((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(ci.influencer_id)) {
+                              next.delete(ci.influencer_id);
+                            } else {
+                              next.add(ci.influencer_id);
+                            }
+                            return next;
+                          });
+                        }}
+                      />
+                    </TableCell>
                     <TableCell>
                       <div className="w-14 h-14 flex-shrink-0">
                         {ci.influencer.profile_photo_url ? (
@@ -1050,6 +1093,20 @@ export default function MonthCampaignViewPage() {
         <div className="mt-4 text-sm text-gray-500">
           Showing {filteredInfluencers.length} of {campaignInfluencers.length} influencers across {campaigns.length} campaigns
         </div>
+
+        {selectedIds.size > 0 && (
+          <BulkActionBar
+            selectedCount={selectedIds.size}
+            selectedInfluencerIds={Array.from(selectedIds)}
+            excludeCampaignIds={campaigns.map((c) => c.id)}
+            onAddComplete={async () => {
+              setSelectedIds(new Set());
+              const campaignList = await fetchCampaigns();
+              if (campaignList) await fetchCampaignInfluencers(campaignList);
+            }}
+            onCancel={() => setSelectedIds(new Set())}
+          />
+        )}
       </main>
 
       <InfluencerDialog

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -30,6 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import { InfluencerDialog } from "@/components/influencer-dialog";
 import { CampaignDialog } from "@/components/campaign-dialog";
 import { AddInfluencerDialog } from "@/components/add-influencer-dialog";
@@ -37,6 +38,7 @@ import { OrderDialog } from "@/components/order-dialog";
 import { DealDialog } from "@/components/deal-dialog";
 import { DealSummaryBadge } from "@/components/deal-summary-badge";
 import { ApprovalDialog } from "@/components/approval-dialog";
+import { BulkActionBar } from "@/components/bulk-action-bar";
 import {
   Plus,
   Search,
@@ -226,6 +228,7 @@ export default function CampaignDetailPage() {
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [selectedApprovalInfluencer, setSelectedApprovalInfluencer] = useState<CampaignInfluencerWithDetails | null>(null);
   const [currentUser, setCurrentUser] = useState<{ displayName: string; email: string; profilePhotoUrl: string | null; isAdmin: boolean } | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const supabase = createClient();
 
@@ -316,6 +319,11 @@ export default function CampaignDetailPage() {
     fetchDeals();
     fetchCurrentUser();
   }, [fetchCampaign, fetchCampaignInfluencers, fetchProfiles, fetchDeals, fetchCurrentUser]);
+
+  // Clear selection when filters change
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [statusFilter, partnershipTypeFilter, approvalFilter, search]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -486,7 +494,7 @@ export default function CampaignDetailPage() {
   };
 
   // Filter and sort the influencers
-  const filteredInfluencers = campaignInfluencers
+  const filteredInfluencers = useMemo(() => campaignInfluencers
     .filter((ci) => {
       const influencer = ci.influencer;
       if (statusFilter !== "all" && ci.status !== statusFilter) return false;
@@ -516,7 +524,7 @@ export default function CampaignDetailPage() {
         return multiplier * (new Date(a.added_at).getTime() - new Date(b.added_at).getTime());
       }
       return 0;
-    });
+    }), [campaignInfluencers, statusFilter, partnershipTypeFilter, approvalFilter, search, sortField, sortDirection]);
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -727,7 +735,7 @@ export default function CampaignDetailPage() {
         </div>
 
         {/* Influencer Table */}
-        <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
+        <div className={`bg-white rounded-lg border shadow-sm overflow-x-auto ${selectedIds.size > 0 ? "pb-20" : ""}`}>
           {loading ? (
             <div className="p-8 text-center text-gray-500">Loading...</div>
           ) : filteredInfluencers.length === 0 ? (
@@ -740,6 +748,19 @@ export default function CampaignDetailPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={selectedIds.size === filteredInfluencers.length && filteredInfluencers.length > 0}
+                      indeterminate={selectedIds.size > 0 && selectedIds.size < filteredInfluencers.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedIds(new Set(filteredInfluencers.map((ci) => ci.influencer_id)));
+                        } else {
+                          setSelectedIds(new Set());
+                        }
+                      }}
+                    />
+                  </TableHead>
                   <TableHead className="w-12"></TableHead>
                   <TableHead>
                     <button
@@ -783,8 +804,25 @@ export default function CampaignDetailPage() {
                   <TableRow
                     key={ci.id}
                     className="cursor-pointer hover:bg-gray-50 transition-colors"
+                    data-state={selectedIds.has(ci.influencer_id) ? "selected" : undefined}
                     onClick={() => handleOpenInfluencerDialog(ci.influencer)}
                   >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selectedIds.has(ci.influencer_id)}
+                        onChange={() => {
+                          setSelectedIds((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(ci.influencer_id)) {
+                              next.delete(ci.influencer_id);
+                            } else {
+                              next.add(ci.influencer_id);
+                            }
+                            return next;
+                          });
+                        }}
+                      />
+                    </TableCell>
                     <TableCell>
                       <div className="w-14 h-14 flex-shrink-0">
                         {ci.influencer.profile_photo_url ? (
@@ -984,6 +1022,19 @@ export default function CampaignDetailPage() {
         <div className="mt-4 text-sm text-gray-500">
           Showing {filteredInfluencers.length} of {campaignInfluencers.length} influencers in this campaign
         </div>
+
+        {selectedIds.size > 0 && (
+          <BulkActionBar
+            selectedCount={selectedIds.size}
+            selectedInfluencerIds={Array.from(selectedIds)}
+            excludeCampaignIds={[campaignId]}
+            onAddComplete={() => {
+              setSelectedIds(new Set());
+              fetchCampaignInfluencers();
+            }}
+            onCancel={() => setSelectedIds(new Set())}
+          />
+        )}
       </main>
 
       <InfluencerDialog
