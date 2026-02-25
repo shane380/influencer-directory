@@ -47,6 +47,7 @@ const partnershipTypeLabels: Record<PartnershipType, string> = {
   gifted_deliverable_ask: "Gifted Deliverable Ask",
   gifted_recurring: "Gifted Recurring",
   paid: "Paid",
+  whitelisting: "Whitelisting",
 };
 
 const partnershipTypeColors: Record<PartnershipType, string> = {
@@ -56,6 +57,7 @@ const partnershipTypeColors: Record<PartnershipType, string> = {
   gifted_deliverable_ask: "bg-yellow-100 text-yellow-800",
   gifted_recurring: "bg-green-100 text-green-800",
   paid: "bg-purple-100 text-purple-800",
+  whitelisting: "bg-teal-100 text-teal-800",
 };
 
 function formatCampaignDate(dateString: string | null): string {

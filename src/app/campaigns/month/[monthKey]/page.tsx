@@ -110,6 +110,7 @@ const partnershipTypeLabels: Record<PartnershipType, string> = {
   gifted_deliverable_ask: "Gifted Deliverable Ask",
   gifted_recurring: "Gifted Recurring",
   paid: "Paid",
+  whitelisting: "Whitelisting",
 };
 
 // Muted partnership colors - subtle backgrounds
@@ -120,6 +121,7 @@ const partnershipTypeColors: Record<PartnershipType, string> = {
   gifted_deliverable_ask: "bg-gray-50 text-gray-600",
   gifted_recurring: "bg-gray-50 text-gray-600",
   paid: "bg-gray-50 text-gray-600",
+  whitelisting: "bg-gray-50 text-gray-600",
 };
 
 // Colored dots for partnership indicators
@@ -130,6 +132,7 @@ const partnershipDots: Record<PartnershipType, string> = {
   gifted_deliverable_ask: "bg-amber-400",
   gifted_recurring: "bg-emerald-400",
   paid: "bg-purple-500",
+  whitelisting: "bg-teal-400",
 };
 
 // Muted order status colors
@@ -439,9 +442,11 @@ export default function MonthCampaignViewPage() {
       return;
     }
 
-    const { error: influencerError } = await (supabase.from("influencers") as any).update({
-      partnership_type: newType,
-    }).eq("id", influencerId);
+    const influencerUpdate: Record<string, unknown> = { partnership_type: newType };
+    if (newType === "whitelisting") {
+      influencerUpdate.whitelisting_enabled = true;
+    }
+    const { error: influencerError } = await (supabase.from("influencers") as any).update(influencerUpdate).eq("id", influencerId);
 
     if (influencerError) {
       console.error("Error updating influencer partnership type:", influencerError);
@@ -767,6 +772,7 @@ export default function MonthCampaignViewPage() {
               { value: "gifted_deliverable_ask", label: "Gifted Deliverable Ask" },
               { value: "gifted_recurring", label: "Gifted Recurring" },
               { value: "paid", label: "Paid" },
+              { value: "whitelisting", label: "Whitelisting" },
             ]}
           />
           <FilterChip
@@ -1007,6 +1013,7 @@ export default function MonthCampaignViewPage() {
                         <option value="gifted_deliverable_ask">Deliverable</option>
                         <option value="gifted_recurring">Recurring</option>
                         <option value="paid">Paid</option>
+                        <option value="whitelisting">Whitelisting</option>
                       </Select>
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>

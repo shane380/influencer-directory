@@ -40,6 +40,7 @@ const partnershipTypeLabels: Record<PartnershipType, string> = {
   gifted_deliverable_ask: "Gifted Deliverable Ask",
   gifted_recurring: "Gifted Recurring",
   paid: "Paid",
+  whitelisting: "Whitelisting",
 };
 
 const campaignStatusColors: Record<CampaignStatus, string> = {
@@ -779,6 +780,7 @@ function HomePageContent() {
               <option value="gifted_deliverable_ask">Gifted Deliverable Ask</option>
               <option value="gifted_recurring">Gifted Recurring</option>
               <option value="paid">Paid</option>
+              <option value="whitelisting">Whitelisting</option>
             </Select>
             <Select value={assignedToFilter} onChange={(e) => setAssignedToFilter(e.target.value)} className="w-auto sm:w-[180px] flex-shrink-0">
               <option value="all">All Owners</option>

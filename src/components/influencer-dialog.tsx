@@ -643,12 +643,17 @@ export function InfluencerDialog({
     setError(null);
 
     try {
-      const dataToSave = {
+      const dataToSave: Record<string, unknown> = {
         ...formData,
         last_contacted_at: formData.last_contacted_at
           ? new Date(formData.last_contacted_at).toISOString()
           : null,
       };
+
+      // Auto-enable whitelisting when partnership type is set to whitelisting
+      if (formData.partnership_type === "whitelisting") {
+        dataToSave.whitelisting_enabled = true;
+      }
 
       let savedInfluencerId = influencer?.id;
 

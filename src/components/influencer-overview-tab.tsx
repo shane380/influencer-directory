@@ -73,6 +73,7 @@ export function InfluencerOverviewTab({
             <option value="gifted_deliverable_ask">Gifted Deliverable Ask</option>
             <option value="gifted_recurring">Gifted Recurring</option>
             <option value="paid">Paid</option>
+            <option value="whitelisting">Whitelisting</option>
           </Select>
         </div>
         <div>

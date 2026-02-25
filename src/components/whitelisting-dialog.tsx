@@ -217,7 +217,7 @@ export function WhitelistingDialog({
         profile_photo_url: photoUrl,
         follower_count: instagramPreview.follower_count,
         tier: "C",
-        partnership_type: "unassigned",
+        partnership_type: "whitelisting",
         relationship_status: "prospect",
         whitelisting_enabled: true,
         whitelisting_type: whitelistingType,
@@ -272,6 +272,7 @@ export function WhitelistingDialog({
         .update({
           whitelisting_enabled: true,
           whitelisting_type: whitelistingType,
+          partnership_type: "whitelisting",
         })
         .eq("id", influencer.id);
 

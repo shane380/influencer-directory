@@ -1,4 +1,4 @@
-export type PartnershipType = 'unassigned' | 'gifted_no_ask' | 'gifted_soft_ask' | 'gifted_deliverable_ask' | 'gifted_recurring' | 'paid';
+export type PartnershipType = 'unassigned' | 'gifted_no_ask' | 'gifted_soft_ask' | 'gifted_deliverable_ask' | 'gifted_recurring' | 'paid' | 'whitelisting';
 export type WhitelistingType = 'paid' | 'gifted';
 export type Tier = 'S' | 'A' | 'B' | 'C';
 export type RelationshipStatus = 'prospect' | 'contacted' | 'followed_up' | 'lead_dead' | 'creator_wants_paid' | 'order_placed' | 'order_delivered' | 'order_follow_up_sent' | 'order_follow_up_two_sent' | 'posted';
