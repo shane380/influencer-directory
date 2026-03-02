@@ -889,30 +889,30 @@ export function OrderDialog({
             )}
 
             {/* Complete & Clear Button - for placing new orders */}
-            {isWhitelistingContext && (
-              <div className="pt-4 border-t">
-                <p className="text-sm text-gray-500 mb-3">
-                  Clear this order to place a new one. Order history is available in the Orders tab.
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={handleCompleteAndClear}
-                  disabled={savingSelects}
-                >
-                  {savingSelects ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Clearing...
-                    </>
-                  ) : (
-                    <>
-                      <Check className="h-4 w-4 mr-2" />
-                      Complete & Clear for New Order
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
+            <div className="pt-4 border-t">
+              <p className="text-sm text-gray-500 mb-3">
+                {isWhitelistingContext
+                  ? "Clear this order to place a new one. Order history is available in the Orders tab."
+                  : "Clear this draft to start over with a new order."}
+              </p>
+              <Button
+                variant="outline"
+                onClick={handleCompleteAndClear}
+                disabled={savingSelects}
+              >
+                {savingSelects ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Clearing...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Clear Draft & Start Over
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="space-y-8">
