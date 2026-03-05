@@ -6,16 +6,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-async function insertCreator(data: Record<string, unknown>) {
-  const { error } = await supabase.from('creators').insert(data);
-  if (error?.code === '23503') {
-    console.log('[creators/signup] FK violation, retrying after 2s delay...');
-    await new Promise(r => setTimeout(r, 2000));
-    return await supabase.from('creators').insert(data);
-  }
-  return { error };
-}
-
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const { inviteId, userId, creatorName, email, commissionRate, affiliateCode } = body;
@@ -23,11 +13,10 @@ export async function POST(request: NextRequest) {
   console.log('[creators/signup] Received:', { inviteId, userId, creatorName, email, commissionRate, affiliateCode });
 
   if (!inviteId || !userId || !creatorName || !email) {
-    console.log('[creators/signup] Missing required fields');
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
-  const { error: creatorError } = await insertCreator({
+  const { error: creatorError } = await supabase.from('creators').insert({
     invite_id: inviteId,
     user_id: userId,
     creator_name: creatorName,
