@@ -14,6 +14,7 @@ const S = {
     fontFamily: "'Didact Gothic', sans-serif",
     fontWeight: 400,
     padding: '60px 20px',
+    boxSizing: 'border-box',
   },
   wrapper: {
     maxWidth: 520,
@@ -69,7 +70,7 @@ const S = {
   },
   headline: {
     fontFamily: "'Cormorant Garamond', Georgia, serif",
-    fontSize: 52,
+    fontSize: 'clamp(28px, 8vw, 52px)',
     fontWeight: 300,
     lineHeight: 1.08,
     color: '#0a0a0a',
@@ -185,9 +186,10 @@ const S = {
   checkboxWrap: {
     display: 'flex',
     alignItems: 'flex-start',
-    gap: 10,
+    gap: 12,
     marginBottom: 20,
     cursor: 'pointer',
+    minHeight: 44,
   },
   checkboxLabel: {
     fontSize: 12,
@@ -201,12 +203,14 @@ const S = {
     color: '#ffffff',
     border: 'none',
     padding: '18px 24px',
+    minHeight: 44,
     fontSize: 9.5,
     letterSpacing: '0.4em',
     textTransform: 'uppercase',
     cursor: 'pointer',
     fontFamily: "'Didact Gothic', sans-serif",
     transition: 'background 0.15s',
+    boxSizing: 'border-box',
   },
   btnDisabled: {
     background: '#d8d8d8',
@@ -235,13 +239,16 @@ const S = {
   input: {
     border: '1px solid #d8d8d8',
     padding: '12px 14px',
-    fontSize: 14,
+    minHeight: 44,
+    fontSize: 16,
     fontFamily: "'Didact Gothic', sans-serif",
     color: '#0a0a0a',
     outline: 'none',
     background: 'transparent',
     width: '100%',
     transition: 'border-color 0.15s',
+    boxSizing: 'border-box',
+    borderRadius: 0,
   },
   error: {
     fontSize: 13,
@@ -383,22 +390,24 @@ export default function InvitePage() {
   return (
     <>
       <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Didact+Gothic&display=swap" rel="stylesheet" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
       <style>{`
         @keyframes fadeUp {
           from { opacity: 0; transform: translateY(12px); }
           to { opacity: 1; transform: translateY(0); }
         }
         .nama-checkbox {
-          width: 14px;
-          height: 14px;
-          min-width: 14px;
+          width: 18px;
+          height: 18px;
+          min-width: 18px;
           appearance: none;
           -webkit-appearance: none;
           border: 1px solid #0a0a0a;
           background: transparent;
           cursor: pointer;
           position: relative;
-          margin-top: 3px;
+          margin-top: 2px;
+          padding: 0;
         }
         .nama-checkbox:checked {
           background: #0a0a0a;
@@ -406,17 +415,68 @@ export default function InvitePage() {
         .nama-checkbox:checked::after {
           content: '';
           position: absolute;
-          left: 3.5px;
-          top: 1px;
-          width: 4px;
-          height: 7px;
+          left: 4.5px;
+          top: 1.5px;
+          width: 5px;
+          height: 9px;
           border: solid #ffffff;
           border-width: 0 1.5px 1.5px 0;
           transform: rotate(45deg);
         }
+        .nama-invite-wrapper { max-width: 520px; width: 100%; }
+        .nama-term-row {
+          display: grid;
+          grid-template-columns: 130px 1fr;
+          gap: 12px;
+          align-items: start;
+          border-top: 1px solid #d8d8d8;
+          padding: 18px 0;
+        }
+        .nama-term-row-last { border-bottom: 1px solid #d8d8d8; }
+        .nama-commission-block {
+          background: #0a0a0a;
+          padding: 32px 36px;
+          margin-bottom: 32px;
+          display: flex;
+          align-items: center;
+          gap: 24px;
+          position: relative;
+          overflow: hidden;
+        }
+        .nama-commission-sep {
+          width: 1px;
+          height: 48px;
+          background: rgba(255,255,255,0.12);
+          flex-shrink: 0;
+        }
+        .nama-commission-number {
+          font-family: 'Cormorant Garamond', Georgia, serif;
+          font-size: 72px;
+          font-weight: 300;
+          color: #ffffff;
+          line-height: 1;
+          flex-shrink: 0;
+        }
+        @media (max-width: 480px) {
+          .nama-invite-root { padding: 32px 16px !important; }
+          .nama-invite-wrapper { max-width: 100%; }
+          .nama-term-row {
+            grid-template-columns: 1fr;
+            gap: 4px;
+          }
+          .nama-commission-block {
+            flex-direction: column;
+            align-items: flex-start;
+            padding: 24px 20px;
+            gap: 16px;
+          }
+          .nama-commission-sep { display: none; }
+          .nama-commission-number { font-size: 52px; }
+          .nama-signup-headline { font-size: clamp(24px, 7vw, 32px) !important; }
+        }
       `}</style>
-      <div style={S.root}>
-        <div style={S.wrapper}>
+      <div style={S.root} className="nama-invite-root">
+        <div className="nama-invite-wrapper">
 
           {step === 'done' && (
             <>
@@ -464,28 +524,28 @@ export default function InvitePage() {
                   <div style={S.sectionRule} />
                 </div>
                 <div style={S.termsGrid}>
-                  <div style={S.termRow}>
+                  <div className="nama-term-row">
                     <span style={S.termLabel}>Content</span>
                     <div>
                       <div style={S.termValue}>{invite.videos_per_month} videos / month</div>
                       <div style={S.termNote}>{invite.content_type}</div>
                     </div>
                   </div>
-                  <div style={S.termRow}>
+                  <div className="nama-term-row">
                     <span style={S.termLabel}>Posting</span>
                     <div>
                       <div style={S.termValue}>No posting required</div>
                       <div style={S.termNote}>Content is used for paid ads only.</div>
                     </div>
                   </div>
-                  <div style={S.termRow}>
+                  <div className="nama-term-row">
                     <span style={S.termLabel}>Outfits</span>
                     <div>
                       <div style={S.termValue}>Fully provided</div>
                       <div style={S.termNote}>New & upcoming drops included — always filming in the latest.</div>
                     </div>
                   </div>
-                  <div style={{ ...S.termRow, ...S.termRowLast }}>
+                  <div className="nama-term-row nama-term-row-last">
                     <span style={S.termLabel}>Usage Rights</span>
                     <div>
                       <div style={S.termValue}>{invite.usage_rights}</div>
@@ -495,11 +555,11 @@ export default function InvitePage() {
               </div>
 
               <div style={fadeStyle(320)}>
-                <div style={S.commissionBlock}>
-                  <div style={S.commissionNumber}>
+                <div className="nama-commission-block">
+                  <div className="nama-commission-number">
                     {invite.commission_rate}<span style={S.commissionPercent}>%</span>
                   </div>
-                  <div style={S.commissionSep} />
+                  <div className="nama-commission-sep" />
                   <div style={S.commissionDesc}>
                     Affiliate commission on every sale through your link. No cap — tracked automatically, paid monthly.
                   </div>
@@ -549,7 +609,7 @@ export default function InvitePage() {
 
               <div style={fadeStyle(160)}>
                 <p style={S.eyebrow}>Create your account</p>
-                <h2 style={{ ...S.headline, fontSize: 32, marginBottom: 24 }}>
+                <h2 className="nama-signup-headline" style={{ ...S.headline, fontSize: 32, marginBottom: 24 }}>
                   Almost there, <span style={S.headlineEm}>{invite.creator_name.split(' ')[0]}.</span>
                 </h2>
 
