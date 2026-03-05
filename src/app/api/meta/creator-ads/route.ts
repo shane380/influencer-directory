@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
       let previewHtml = null;
       try {
         const previewRes = await fetch(
-          `https://graph.facebook.com/v19.0/${ad.id}/previews?ad_format=MOBILE_FEED_STANDARD&access_token=${accessToken}`
+          `https://graph.facebook.com/v19.0/${ad.id}/previews?ad_format=INSTAGRAM_REELS&access_token=${accessToken}`
         );
         const previewData = await previewRes.json();
         previewHtml = previewData.data?.[0]?.body || null;
