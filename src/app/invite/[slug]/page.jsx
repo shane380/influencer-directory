@@ -361,6 +361,12 @@ export default function InvitePage() {
             <div style={S.success}>
               <h2 style={S.successTitle}>You're in.</h2>
               <p style={S.successText}>Welcome to the Nama creator family. We'll be in touch with next steps - outfits incoming.</p>
+              <button
+                style={{ ...S.btn, marginTop: 20 }}
+                onClick={() => router.push('/creator/dashboard')}
+              >
+                Go to your dashboard →
+              </button>
             </div>
           )}
 

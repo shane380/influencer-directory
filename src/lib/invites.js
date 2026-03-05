@@ -10,6 +10,7 @@ export async function createInvite({
   usageRights = '90 days per campaign, renewable',
   notes = null,
   expiryDays = null,
+  influencerId = null,
 }) {
   const supabase = createClient()
 
@@ -19,20 +20,23 @@ export async function createInvite({
     ? new Date(Date.now() + expiryDays * 86400000).toISOString()
     : null
 
+  const insertData = {
+    slug: resolvedSlug,
+    creator_name: creatorName,
+    creator_email: creatorEmail,
+    commission_rate: commissionRate,
+    videos_per_month: videosPerMonth,
+    content_type: contentType,
+    usage_rights: usageRights,
+    notes,
+    expires_at: expiresAt,
+    status: 'pending',
+  }
+  if (influencerId) insertData.influencer_id = influencerId
+
   const { data, error } = await supabase
     .from('creator_invites')
-    .insert({
-      slug: resolvedSlug,
-      creator_name: creatorName,
-      creator_email: creatorEmail,
-      commission_rate: commissionRate,
-      videos_per_month: videosPerMonth,
-      content_type: contentType,
-      usage_rights: usageRights,
-      notes,
-      expires_at: expiresAt,
-      status: 'pending',
-    })
+    .insert(insertData)
     .select()
     .single()
 
