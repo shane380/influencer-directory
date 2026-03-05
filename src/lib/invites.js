@@ -53,7 +53,7 @@ export async function createInvite({
 
   if (error) throw new Error(`Failed to create invite: ${error.message}`)
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nama-inventory.vercel.app'
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://creators.namaclo.com').trim()
   const url = `${baseUrl}/invite/${resolvedSlug}`
 
   return { url, invite: data }
