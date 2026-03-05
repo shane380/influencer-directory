@@ -285,8 +285,8 @@ export default function InvitePage() {
       <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&display=swap" rel="stylesheet" />
       <div style={S.root}>
         <div style={S.card}>
-          <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <img src="/nama-logo.svg" alt="Nama" style={{ width: 80, display: 'inline-block' }} />
+          <div style={{ marginBottom: 32 }}>
+            <img src="/nama-logo.svg" alt="Nama" style={{ width: 80, display: 'block' }} />
           </div>
 
           {step === 'done' && (
