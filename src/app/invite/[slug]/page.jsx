@@ -420,9 +420,26 @@ export default function InvitePage() {
                 </div>
               </div>
 
-              <p style={{ fontSize: 11, color: '#888888', fontStyle: 'italic', lineHeight: 1.6, marginBottom: 28 }}>
+              <p style={{ fontSize: 11, color: '#888888', fontStyle: 'italic', lineHeight: 1.6, marginBottom: 32 }}>
                 Content created as part of this partnership is licensed to Nama for use across paid media for the duration of our partnership.
               </p>
+
+              <div style={{ fontSize: 8.5, letterSpacing: '0.4em', textTransform: 'uppercase', color: '#888888', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span>Partnership Perks</span>
+                <div style={{ flex: 1, height: 1, background: '#e8e8e8' }} />
+              </div>
+              <div style={{ marginBottom: 32 }}>
+                {[
+                  'A monthly wardrobe allowance, yours to keep',
+                  'First access to new collections before they drop',
+                  'Invitations to exclusive Nama partner events',
+                  'A dedicated point of contact for anything you need',
+                ].map((perk, i) => (
+                  <div key={i} style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 17, color: '#111111', lineHeight: 2 }}>
+                    — {perk}
+                  </div>
+                ))}
+              </div>
 
               {(() => {
                 const ds = invite.deal_structure
