@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     { field: 'name', operator: 'CONTAIN', value: handle },
   ]);
 
-  const fields = 'name,status,creative{thumbnail_url,image_url,video_id},insights.date_preset(maximum){spend,impressions}';
+  const fields = 'name,status,insights.date_preset(maximum){spend,impressions}';
 
   const url = `https://graph.facebook.com/v19.0/${actId}/ads?` +
     `fields=${fields}` +
@@ -42,24 +42,15 @@ export async function GET(request: NextRequest) {
         .replace(new RegExp(`@?${handle}\\s*\\/\\/\\s*`, 'i'), '')
         .trim();
 
-      // Resolve thumbnail
-      let thumbnail = null;
-      const creative = ad.creative;
-      if (creative?.video_id && accessToken) {
-        try {
-          const thumbRes = await fetch(
-            `https://graph.facebook.com/v19.0/${creative.video_id}/thumbnails?access_token=${accessToken}`
-          );
-          const thumbData = await thumbRes.json();
-          thumbnail = thumbData.data?.[0]?.uri || null;
-        } catch {}
-      }
-      if (!thumbnail && creative?.image_url) {
-        thumbnail = creative.image_url;
-      }
-      if (!thumbnail && creative?.thumbnail_url) {
-        thumbnail = creative.thumbnail_url;
-      }
+      // Fetch ad preview iframe
+      let previewHtml = null;
+      try {
+        const previewRes = await fetch(
+          `https://graph.facebook.com/v19.0/${ad.id}/previews?ad_format=MOBILE_FEED_STANDARD&access_token=${accessToken}`
+        );
+        const previewData = await previewRes.json();
+        previewHtml = previewData.data?.[0]?.body || null;
+      } catch {}
 
       const insights = ad.insights?.data?.[0];
 
@@ -68,7 +59,7 @@ export async function GET(request: NextRequest) {
         status: ad.status,
         spend: insights?.spend || '0.00',
         impressions: insights?.impressions || '0',
-        thumbnail,
+        previewHtml,
       };
     }));
 

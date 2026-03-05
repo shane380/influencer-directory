@@ -188,16 +188,18 @@ const S = {
   },
   adCard: {
     border: '1px solid #e8e8e8',
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: 'hidden',
+    maxWidth: 320,
   },
-  adThumb: {
+  adPreview: {
     width: '100%',
-    height: 200,
-    objectFit: 'cover',
+    aspectRatio: '9/16',
+    border: 'none',
     display: 'block',
+    borderRadius: '12px 12px 0 0',
+    overflow: 'hidden',
     background: '#f5f5f5',
-    borderRadius: '8px 8px 0 0',
   },
   adInfo: {
     padding: '14px 16px',
@@ -649,10 +651,21 @@ export default function CreatorDashboard() {
             ) : ads.length === 0 ? (
               <p style={S.empty}>No ads running with your content yet.</p>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 320px))', gap: 16 }}>
                 {ads.map((ad, i) => (
                   <div key={i} style={S.adCard}>
-                    {ad.thumbnail && <img src={ad.thumbnail} alt="" style={S.adThumb} />}
+                    {ad.previewHtml ? (
+                      <iframe
+                        srcDoc={ad.previewHtml}
+                        style={S.adPreview}
+                        sandbox="allow-scripts allow-same-origin"
+                        scrolling="no"
+                      />
+                    ) : (
+                      <div style={{ ...S.adPreview, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888888', fontSize: 13 }}>
+                        Preview unavailable
+                      </div>
+                    )}
                     <div style={S.adInfo}>
                       <div style={{ fontSize: 14, color: '#111111', marginBottom: 8, lineHeight: 1.4 }}>{ad.name}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
