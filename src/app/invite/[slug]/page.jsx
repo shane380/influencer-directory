@@ -222,52 +222,26 @@ export default function InvitePage() {
     setError(null)
     setSubmitting(true)
 
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
-      options: { data: { full_name: form.name, role: 'creator' } },
-    })
-
-    if (authError) {
-      setError(authError.message)
-      setSubmitting(false)
-      return
-    }
-
-    console.log('signUp authData:', JSON.stringify(authData, null, 2))
-
-    // If email confirmation is required, user will be null
-    if (!authData.user) {
-      setStep('confirm-email')
-      setSubmitting(false)
-      return
-    }
-
-    // Wait for auth.users row to be fully committed (deferred FK)
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    const affiliateCode = form.name.toUpperCase().replace(/\s+/g, '') + invite.commission_rate
     try {
       const res = await fetch('/api/creators/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           inviteId: invite.id,
-          userId: authData.user.id,
           creatorName: form.name,
           email: form.email,
+          password: form.password,
           commissionRate: invite.commission_rate,
-          affiliateCode,
         }),
       })
       const result = await res.json()
       if (!res.ok) {
-        setError(result.error || 'Something went wrong creating your profile.')
+        setError(result.error || 'Something went wrong creating your account.')
         setSubmitting(false)
         return
       }
     } catch (err) {
-      setError('Something went wrong creating your profile. Please try again.')
+      setError('Something went wrong. Please try again.')
       setSubmitting(false)
       return
     }
@@ -389,9 +363,8 @@ export default function InvitePage() {
 
           {step === 'done' && (
             <div style={S.success}>
-              <div style={S.successIcon}>✦</div>
-              <h2 style={S.successTitle}>You're in, {invite.creator_name.split(' ')[0]}.</h2>
-              <p style={S.successText}>Welcome to the Nama creator family. We'll be in touch with next steps - outfits incoming. 🌿</p>
+              <h2 style={S.successTitle}>You're in.</h2>
+              <p style={S.successText}>Welcome to the Nama creator family. We'll be in touch with next steps - outfits incoming.</p>
             </div>
           )}
 
@@ -481,7 +454,7 @@ export default function InvitePage() {
             <>
               <p style={S.eyebrow}>Create your account</p>
               <h2 className="nama-signup-headline" style={{ ...S.headline, fontSize: 28, marginBottom: 24 }}>
-                Almost there, <span style={S.headlineEm}>{invite.creator_name.split(' ')[0]}.</span>
+                Almost there.
               </h2>
 
               <div style={S.form}>
