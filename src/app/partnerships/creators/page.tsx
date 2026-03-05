@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { createInvite } from "@/lib/invites";
 import { Sidebar } from "@/components/sidebar";
-import { X, Search, Copy, Check } from "lucide-react";
+import { X, Search, Copy, Check, Settings } from "lucide-react";
+import { EditTermsModal } from "@/components/edit-terms-modal";
 
 interface Creator {
   id: string;
@@ -56,6 +57,10 @@ export default function CreatorsListPage() {
   const [submittingInvite, setSubmittingInvite] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Edit Terms modal state
+  const [editTermsInvite, setEditTermsInvite] = useState<any>(null);
+  const [editTermsLoading, setEditTermsLoading] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -194,6 +199,17 @@ export default function CreatorsListPage() {
     setSubmittingInvite(false);
   }
 
+  async function openEditTerms(creatorId: string, inviteId: string) {
+    setEditTermsLoading(creatorId);
+    const { data } = await supabase
+      .from("creator_invites" as any)
+      .select("*")
+      .eq("id", inviteId)
+      .single() as any;
+    if (data) setEditTermsInvite(data);
+    setEditTermsLoading(null);
+  }
+
   function copyUrl() {
     if (generatedUrl) {
       navigator.clipboard.writeText(generatedUrl);
@@ -239,6 +255,7 @@ export default function CreatorsListPage() {
                     <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Affiliate Code</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Pending Requests</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Last Submission</th>
+                    <th className="px-4 py-3 w-10"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -295,6 +312,24 @@ export default function CreatorsListPage() {
                             })
                           : "—"}
                       </td>
+                      <td className="px-4 py-3">
+                        {creator.invite_id && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditTerms(creator.id, creator.invite_id);
+                            }}
+                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                            title="Edit Terms"
+                          >
+                            {editTermsLoading === creator.id ? (
+                              <span className="text-xs">...</span>
+                            ) : (
+                              <Settings className="h-4 w-4" />
+                            )}
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -303,6 +338,26 @@ export default function CreatorsListPage() {
           )}
         </div>
       </main>
+
+      {/* Edit Terms Modal */}
+      {editTermsInvite && (
+        <EditTermsModal
+          inviteId={editTermsInvite.id}
+          initialValues={{
+            videos_per_month: editTermsInvite.videos_per_month || "",
+            content_type: editTermsInvite.content_type || "",
+            usage_rights: editTermsInvite.usage_rights || "",
+            notes: editTermsInvite.notes || "",
+            deal_structure: editTermsInvite.deal_structure || null,
+            commission_rate: editTermsInvite.commission_rate || 10,
+            status: editTermsInvite.status || "",
+          }}
+          onClose={() => setEditTermsInvite(null)}
+          onSaved={() => {
+            setEditTermsInvite(null);
+          }}
+        />
+      )}
 
       {/* Generate Invite Modal */}
       {showInviteModal && (

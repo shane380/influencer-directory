@@ -426,12 +426,52 @@ export default function InvitePage() {
                 </div>
               </div>
 
-              <div className="nama-commission-block">
-                <div className="nama-commission-rate">{invite.commission_rate}%</div>
-                <div style={S.commissionDesc}>
-                  Affiliate commission on every sale through your link. No cap — tracked automatically, paid monthly.
-                </div>
-              </div>
+              {(() => {
+                const ds = invite.deal_structure
+                if (ds?.type === 'ad_spend') {
+                  return (
+                    <div className="nama-commission-block">
+                      <div className="nama-commission-rate">{ds.percentage}%</div>
+                      <div style={S.commissionDesc}>
+                        Of monthly ad spend{ds.minimum_spend > 0 ? ` (minimum $${ds.minimum_spend.toLocaleString()} spend)` : ''}. Tracked and paid monthly.
+                      </div>
+                    </div>
+                  )
+                }
+                if (ds?.type === 'retainer') {
+                  return (
+                    <div className="nama-commission-block">
+                      <div className="nama-commission-rate">${ds.monthly_rate}</div>
+                      <div style={S.commissionDesc}>
+                        Monthly retainer. Paid consistently, every month.
+                      </div>
+                    </div>
+                  )
+                }
+                if (ds?.type === 'hybrid') {
+                  return (
+                    <div className="nama-commission-block">
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
+                        <div className="nama-commission-rate" style={{ fontSize: 36 }}>{ds.commission_rate}%</div>
+                        <div style={{ fontSize: 14, color: '#ffffff', opacity: 0.5, textAlign: 'center' }}>+ ${ds.retainer}/mo</div>
+                      </div>
+                      <div style={S.commissionDesc}>
+                        Affiliate commission on every sale through your link, plus a ${ds.retainer}/month retainer. Tracked automatically, paid monthly.
+                      </div>
+                    </div>
+                  )
+                }
+                // Default: affiliate (or no deal_structure — backwards compat)
+                const rate = ds?.commission_rate ?? invite.commission_rate
+                return (
+                  <div className="nama-commission-block">
+                    <div className="nama-commission-rate">{rate}%</div>
+                    <div style={S.commissionDesc}>
+                      Affiliate commission on every sale through your link. No cap — tracked automatically, paid monthly.
+                    </div>
+                  </div>
+                )
+              })()}
 
               <label style={S.checkboxWrap}>
                 <input
@@ -441,7 +481,21 @@ export default function InvitePage() {
                   onChange={e => setAgreed(e.target.checked)}
                 />
                 <span style={S.checkboxLabel}>
-                  {`I agree to the partnership terms above, including providing ${invite.videos_per_month} UGC videos per month, ${invite.usage_rights}, and ${invite.commission_rate}% affiliate commission on sales.`}
+                  {(() => {
+                    const ds = invite.deal_structure
+                    const base = `I agree to the partnership terms above, including providing ${invite.videos_per_month} UGC videos per month, ${invite.usage_rights}`
+                    if (ds?.type === 'ad_spend') {
+                      return `${base}, and ${ds.percentage}% of monthly ad spend.`
+                    }
+                    if (ds?.type === 'retainer') {
+                      return `${base}, and a $${ds.monthly_rate}/month retainer.`
+                    }
+                    if (ds?.type === 'hybrid') {
+                      return `${base}, and ${ds.commission_rate}% commission plus a $${ds.retainer}/month retainer.`
+                    }
+                    const rate = ds?.commission_rate ?? invite.commission_rate
+                    return `${base}, and ${rate}% affiliate commission on sales.`
+                  })()}
                 </span>
               </label>
 

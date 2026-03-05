@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Sidebar } from '@/components/sidebar'
 
+import { EditTermsModal } from '@/components/edit-terms-modal'
+
 export default function AdminCreatorProfile() {
   const { id } = useParams()
   const router = useRouter()
@@ -14,6 +16,7 @@ export default function AdminCreatorProfile() {
   const [currentUser, setCurrentUser] = useState(null)
   const [creator, setCreator] = useState(null)
   const [invite, setInvite] = useState(null)
+  const [showEditTerms, setShowEditTerms] = useState(false)
   const [influencer, setInfluencer] = useState(null)
   const [orders, setOrders] = useState([])
   const [sampleRequests, setSampleRequests] = useState([])
@@ -221,9 +224,19 @@ export default function AdminCreatorProfile() {
                   <p className="text-gray-500 text-sm">@{influencer.instagram_handle}</p>
                 )}
               </div>
-              <span className="ml-auto inline-flex items-center px-3 py-1 rounded text-xs font-medium bg-green-100 text-green-800 uppercase tracking-wider">
-                Active
-              </span>
+              <div className="ml-auto flex items-center gap-2">
+                {invite && (
+                  <button
+                    onClick={() => setShowEditTerms(true)}
+                    className="px-3 py-1.5 border rounded text-xs text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Edit Terms
+                  </button>
+                )}
+                <span className="inline-flex items-center px-3 py-1 rounded text-xs font-medium bg-green-100 text-green-800 uppercase tracking-wider">
+                  Active
+                </span>
+              </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
@@ -395,6 +408,26 @@ export default function AdminCreatorProfile() {
             )}
           </div>
         </div>
+
+        {showEditTerms && invite && (
+          <EditTermsModal
+            inviteId={invite.id}
+            initialValues={{
+              videos_per_month: invite.videos_per_month || '',
+              content_type: invite.content_type || '',
+              usage_rights: invite.usage_rights || '',
+              notes: invite.notes || '',
+              deal_structure: invite.deal_structure || null,
+              commission_rate: invite.commission_rate || 10,
+              status: invite.status || '',
+            }}
+            onClose={() => setShowEditTerms(false)}
+            onSaved={(updated) => {
+              setInvite(prev => ({ ...prev, ...updated }))
+              setShowEditTerms(false)
+            }}
+          />
+        )}
       </main>
     </div>
   )
