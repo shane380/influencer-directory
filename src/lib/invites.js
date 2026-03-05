@@ -15,7 +15,16 @@ export async function createInvite({
 }) {
   const supabase = createClient()
 
-  const resolvedSlug = slug || creatorName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+  let resolvedSlug = slug || creatorName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+
+  // Check for duplicate slug and append number if needed
+  const { count } = await supabase
+    .from('creator_invites')
+    .select('id', { count: 'exact', head: true })
+    .eq('slug', resolvedSlug)
+  if (count > 0) {
+    resolvedSlug = `${resolvedSlug}-${count + 1}`
+  }
 
   const expiresAt = expiryDays
     ? new Date(Date.now() + expiryDays * 86400000).toISOString()
