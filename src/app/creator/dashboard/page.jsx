@@ -188,19 +188,19 @@ const S = {
   },
   adCard: {
     border: '1px solid #e8e8e8',
-    borderRadius: 4,
+    borderRadius: 8,
     overflow: 'hidden',
-    marginBottom: 12,
   },
   adThumb: {
     width: '100%',
-    height: 160,
+    height: 200,
     objectFit: 'cover',
     display: 'block',
     background: '#f5f5f5',
+    borderRadius: '8px 8px 0 0',
   },
   adInfo: {
-    padding: '12px 16px',
+    padding: '14px 16px',
   },
   searchResult: {
     border: '1px solid #e8e8e8',
@@ -649,15 +649,28 @@ export default function CreatorDashboard() {
             ) : ads.length === 0 ? (
               <p style={S.empty}>No ads running with your content yet.</p>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
                 {ads.map((ad, i) => (
                   <div key={i} style={S.adCard}>
                     {ad.thumbnail && <img src={ad.thumbnail} alt="" style={S.adThumb} />}
                     <div style={S.adInfo}>
-                      <div style={{ fontSize: 13, color: '#111111', marginBottom: 4 }}>{ad.name}</div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={statusBadge(ad.status)}>{ad.status}</span>
-                        <span style={{ fontSize: 12, color: '#888888' }}>${ad.spend}</span>
+                      <div style={{ fontSize: 14, color: '#111111', marginBottom: 8, lineHeight: 1.4 }}>{ad.name}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                        <span style={{
+                          fontSize: 10,
+                          letterSpacing: '0.05em',
+                          textTransform: 'uppercase',
+                          padding: '3px 8px',
+                          borderRadius: 3,
+                          fontWeight: 500,
+                          ...(ad.status === 'ACTIVE'
+                            ? { background: '#ecfdf5', color: '#059669' }
+                            : { background: '#f3f4f6', color: '#6b7280' }),
+                        }}>{ad.status}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#888888' }}>
+                        <span>${parseFloat(ad.spend).toLocaleString('en-US', { minimumFractionDigits: 2 })} spent</span>
+                        <span>{parseInt(ad.impressions).toLocaleString()} impressions</span>
                       </div>
                     </div>
                   </div>

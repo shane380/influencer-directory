@@ -13,12 +13,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ads: [], error: 'Meta API not configured' });
   }
 
+  const actId = adAccountId.startsWith('act_') ? adAccountId : `act_${adAccountId}`;
+
   const filtering = JSON.stringify([
-    { field: 'name', operator: 'STARTS_WITH', value: `${handle}//` },
+    { field: 'name', operator: 'CONTAIN', value: handle },
   ]);
 
-  const url = `https://graph.facebook.com/v19.0/${adAccountId}/ads?` +
-    `fields=name,status,insights.date_preset(lifetime){spend},creative{thumbnail_url}` +
+  const fields = 'name,status,creative{thumbnail_url,image_url,video_id},insights.date_preset(maximum){spend,impressions}';
+
+  const url = `https://graph.facebook.com/v19.0/${actId}/ads?` +
+    `fields=${fields}` +
     `&filtering=${encodeURIComponent(filtering)}` +
     `&limit=50` +
     `&access_token=${accessToken}`;
@@ -28,20 +32,48 @@ export async function GET(request: NextRequest) {
     const data = await res.json();
 
     if (data.error) {
-      console.log('[meta/creator-ads] API error:', data.error.message);
       return NextResponse.json({ ads: [], error: data.error.message });
     }
 
-    const ads = (data.data || []).map((ad: any) => ({
-      name: ad.name?.replace(`${handle}//`, '') || ad.name,
-      status: ad.status,
-      spend: ad.insights?.data?.[0]?.spend || '0.00',
-      thumbnail: ad.creative?.thumbnail_url || null,
+    const ads = await Promise.all((data.data || []).map(async (ad: any) => {
+      // Strip handle prefix patterns: "@handle // " or "handle // " or "handle//"
+      let displayName = ad.name || '';
+      displayName = displayName
+        .replace(new RegExp(`@?${handle}\\s*\\/\\/\\s*`, 'i'), '')
+        .trim();
+
+      // Resolve thumbnail
+      let thumbnail = null;
+      const creative = ad.creative;
+      if (creative?.video_id && accessToken) {
+        try {
+          const thumbRes = await fetch(
+            `https://graph.facebook.com/v19.0/${creative.video_id}/thumbnails?access_token=${accessToken}`
+          );
+          const thumbData = await thumbRes.json();
+          thumbnail = thumbData.data?.[0]?.uri || null;
+        } catch {}
+      }
+      if (!thumbnail && creative?.image_url) {
+        thumbnail = creative.image_url;
+      }
+      if (!thumbnail && creative?.thumbnail_url) {
+        thumbnail = creative.thumbnail_url;
+      }
+
+      const insights = ad.insights?.data?.[0];
+
+      return {
+        name: displayName,
+        status: ad.status,
+        spend: insights?.spend || '0.00',
+        impressions: insights?.impressions || '0',
+        thumbnail,
+      };
     }));
 
     return NextResponse.json({ ads });
   } catch (err: any) {
-    console.log('[meta/creator-ads] Fetch error:', err.message);
     return NextResponse.json({ ads: [], error: err.message });
   }
 }

@@ -393,13 +393,16 @@ export default function AdminCreatorProfile() {
                 {ads.map((ad, i) => (
                   <div key={i} className="border rounded-lg overflow-hidden">
                     {ad.thumbnail && (
-                      <img src={ad.thumbnail} alt="" className="w-full h-40 object-cover bg-gray-100" />
+                      <img src={ad.thumbnail} alt="" className="w-full h-[200px] object-cover bg-gray-100" />
                     )}
                     <div className="p-3">
-                      <div className="text-sm text-gray-900 mb-2">{ad.name}</div>
-                      <div className="flex justify-between items-center">
+                      <div className="text-sm text-gray-900 mb-2 leading-snug">{ad.name}</div>
+                      <div className="mb-2">
                         <span className={statusBadge(ad.status)}>{ad.status}</span>
-                        <span className="text-xs text-gray-500">${ad.spend}</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>${parseFloat(ad.spend).toLocaleString('en-US', { minimumFractionDigits: 2 })} spent</span>
+                        <span>{parseInt(ad.impressions || '0').toLocaleString()} impressions</span>
                       </div>
                     </div>
                   </div>
