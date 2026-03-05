@@ -7,35 +7,27 @@ import { createClient } from '@/lib/supabase/client'
 const S = {
   root: {
     minHeight: '100vh',
-    background: '#faf8f4',
+    background: '#ffffff',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontFamily: "'Jost', 'Inter', sans-serif",
+    fontFamily: "'Helvetica Neue', Helvetica, sans-serif",
     fontWeight: 300,
     padding: '40px 20px',
   },
   card: {
-    background: '#fff',
-    border: '1px solid #d6cfc4',
+    background: '#ffffff',
+    border: '1px solid #e8e8e8',
     borderRadius: 4,
     maxWidth: 560,
     width: '100%',
     padding: '56px 48px',
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  cardAccent: {
-    position: 'absolute',
-    left: 0, top: 0, bottom: 0,
-    width: 3,
-    background: '#c9a87c',
   },
   eyebrow: {
     fontSize: 11,
-    letterSpacing: '0.25em',
+    letterSpacing: '0.15em',
     textTransform: 'uppercase',
-    color: '#b5a99a',
+    color: '#888888',
     marginBottom: 12,
   },
   headline: {
@@ -43,19 +35,19 @@ const S = {
     fontSize: 38,
     fontWeight: 300,
     lineHeight: 1.15,
-    color: '#1a1512',
+    color: '#111111',
     marginBottom: 8,
   },
   headlineEm: {
     fontStyle: 'italic',
-    color: '#7a6a5a',
+    color: '#111111',
   },
   intro: {
     fontSize: 14,
-    color: '#7a6a5a',
+    color: '#888888',
     lineHeight: 1.75,
     marginBottom: 36,
-    borderBottom: '1px solid #e8e2db',
+    borderBottom: '1px solid #e8e8e8',
     paddingBottom: 28,
   },
   termsGrid: {
@@ -71,25 +63,25 @@ const S = {
   },
   termLabel: {
     fontSize: 10,
-    letterSpacing: '0.2em',
+    letterSpacing: '0.15em',
     textTransform: 'uppercase',
-    color: '#b5a99a',
+    color: '#888888',
     paddingTop: 3,
   },
   termValue: {
     fontFamily: "'Cormorant Garamond', Georgia, serif",
     fontSize: 18,
-    color: '#2c2620',
+    color: '#111111',
     lineHeight: 1.4,
   },
   termNote: {
     fontSize: 12,
-    color: '#b5a99a',
+    color: '#888888',
     marginTop: 2,
     fontFamily: 'inherit',
   },
   commissionBlock: {
-    background: '#1a1512',
+    background: '#111111',
     borderRadius: 2,
     padding: '24px 28px',
     marginBottom: 32,
@@ -101,20 +93,21 @@ const S = {
     fontFamily: "'Cormorant Garamond', Georgia, serif",
     fontSize: 48,
     fontWeight: 300,
-    color: '#c9a87c',
+    color: '#ffffff',
     lineHeight: 1,
     flexShrink: 0,
   },
   commissionDesc: {
     fontSize: 13,
-    color: '#b5a99a',
+    color: '#ffffff',
     lineHeight: 1.6,
+    opacity: 0.7,
   },
   sectionLabel: {
     fontSize: 10,
-    letterSpacing: '0.25em',
+    letterSpacing: '0.15em',
     textTransform: 'uppercase',
-    color: '#b5a99a',
+    color: '#888888',
     marginBottom: 20,
     display: 'flex',
     alignItems: 'center',
@@ -123,43 +116,43 @@ const S = {
   rule: {
     flex: 1,
     height: 1,
-    background: '#e8e2db',
+    background: '#e8e8e8',
   },
   form: { display: 'grid', gap: 14 },
   inputWrap: { display: 'grid', gap: 6 },
   inputLabel: {
     fontSize: 10,
-    letterSpacing: '0.2em',
+    letterSpacing: '0.15em',
     textTransform: 'uppercase',
-    color: '#b5a99a',
+    color: '#888888',
   },
   input: {
-    border: '1px solid #d6cfc4',
+    border: '1px solid #e8e8e8',
     borderRadius: 2,
     padding: '12px 14px',
     fontSize: 14,
     fontFamily: 'inherit',
-    color: '#1a1512',
+    color: '#111111',
     outline: 'none',
-    background: '#faf8f4',
+    background: '#ffffff',
     width: '100%',
     transition: 'border-color 0.15s',
   },
   btn: {
-    background: '#1a1512',
-    color: '#faf8f4',
+    background: '#111111',
+    color: '#ffffff',
     border: 'none',
     borderRadius: 2,
     padding: '14px 24px',
     fontSize: 12,
-    letterSpacing: '0.2em',
+    letterSpacing: '0.15em',
     textTransform: 'uppercase',
     cursor: 'pointer',
     marginTop: 4,
     transition: 'background 0.15s',
   },
   btnDisabled: {
-    background: '#b5a99a',
+    background: '#cccccc',
     cursor: 'not-allowed',
   },
   error: {
@@ -182,17 +175,17 @@ const S = {
     fontFamily: "'Cormorant Garamond', Georgia, serif",
     fontSize: 28,
     fontWeight: 300,
-    color: '#1a1512',
+    color: '#111111',
     marginBottom: 8,
   },
   successText: {
     fontSize: 14,
-    color: '#7a6a5a',
+    color: '#888888',
     lineHeight: 1.7,
   },
   notFound: {
     textAlign: 'center',
-    color: '#b5a99a',
+    color: '#888888',
     fontSize: 14,
   },
 }
@@ -271,7 +264,7 @@ export default function InvitePage() {
   if (loading) {
     return (
       <div style={S.root}>
-        <div style={{ color: '#b5a99a', fontSize: 13, letterSpacing: '0.1em' }}>Loading…</div>
+        <div style={{ color: '#888888', fontSize: 13, letterSpacing: '0.1em' }}>Loading…</div>
       </div>
     )
   }
@@ -289,11 +282,9 @@ export default function InvitePage() {
 
   return (
     <>
-      <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Jost:wght@300;400&display=swap" rel="stylesheet" />
+      <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&display=swap" rel="stylesheet" />
       <div style={S.root}>
         <div style={S.card}>
-          <div style={S.cardAccent} />
-
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
             <img src="/nama-logo.svg" alt="Nama" style={{ width: 80, display: 'inline-block' }} />
           </div>
@@ -395,7 +386,7 @@ export default function InvitePage() {
                   {submitting ? 'Creating account…' : 'Create Account →'}
                 </button>
 
-                <button style={{ ...S.btn, background: 'transparent', color: '#b5a99a', fontSize: 11 }} onClick={() => setStep('view')}>
+                <button style={{ ...S.btn, background: 'transparent', color: '#888888', fontSize: 11 }} onClick={() => setStep('view')}>
                   ← Back
                 </button>
               </div>
