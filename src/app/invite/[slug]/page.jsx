@@ -234,18 +234,36 @@ export default function InvitePage() {
       return
     }
 
-    const affiliateCode = form.name.toUpperCase().replace(/\s+/g, '') + invite.commission_rate
-    const { error: creatorError } = await supabase.from('creators').insert({
-      invite_id: invite.id,
-      user_id: authData.user.id,
-      creator_name: form.name,
-      email: form.email,
-      commission_rate: invite.commission_rate,
-      affiliate_code: affiliateCode,
-    })
+    // If email confirmation is required, user will be null — show confirmation message
+    if (!authData.user) {
+      await supabase
+        .from('creator_invites')
+        .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+        .eq('id', invite.id)
 
-    if (creatorError) {
-      setError(creatorError.message)
+      setStep('confirm-email')
+      setSubmitting(false)
+      return
+    }
+
+    const affiliateCode = form.name.toUpperCase().replace(/\s+/g, '') + invite.commission_rate
+    try {
+      const { error: creatorError } = await supabase.from('creators').insert({
+        invite_id: invite.id,
+        user_id: authData.user.id,
+        creator_name: form.name,
+        email: form.email,
+        commission_rate: invite.commission_rate,
+        affiliate_code: affiliateCode,
+      })
+
+      if (creatorError) {
+        setError(creatorError.message)
+        setSubmitting(false)
+        return
+      }
+    } catch (err) {
+      setError('Something went wrong creating your profile. Please try again.')
       setSubmitting(false)
       return
     }
@@ -375,6 +393,14 @@ export default function InvitePage() {
               <div style={S.successIcon}>✦</div>
               <h2 style={S.successTitle}>You're in, {invite.creator_name.split(' ')[0]}.</h2>
               <p style={S.successText}>Welcome to the Nama creator family. We'll be in touch with next steps — outfits incoming. 🌿</p>
+            </div>
+          )}
+
+          {step === 'confirm-email' && (
+            <div style={S.success}>
+              <div style={S.successIcon}>✉</div>
+              <h2 style={S.successTitle}>Check your email</h2>
+              <p style={S.successText}>We've sent a confirmation link to <strong>{form.email}</strong>. Click the link to confirm your account and complete signup.</p>
             </div>
           )}
 
