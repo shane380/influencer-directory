@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 const S = {
   root: {
     minHeight: '100vh',
-    background: '#F0F0F0',
+    background: '#FFFFFF',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
