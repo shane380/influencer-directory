@@ -192,14 +192,18 @@ const S = {
     overflow: 'hidden',
     maxWidth: 320,
   },
+  adPreviewWrap: {
+    width: 320,
+    height: 570,
+    overflow: 'hidden',
+    borderRadius: '12px 12px 0 0',
+    background: '#f5f5f5',
+  },
   adPreview: {
-    width: '100%',
-    aspectRatio: '9/16',
+    width: 320,
+    height: 570,
     border: 'none',
     display: 'block',
-    borderRadius: '12px 12px 0 0',
-    overflow: 'hidden',
-    background: '#f5f5f5',
   },
   adInfo: {
     padding: '14px 16px',
@@ -655,14 +659,18 @@ export default function CreatorDashboard() {
                 {ads.map((ad, i) => (
                   <div key={i} style={S.adCard}>
                     {ad.previewHtml ? (
-                      <iframe
-                        srcDoc={ad.previewHtml}
-                        style={S.adPreview}
-                        sandbox="allow-scripts allow-same-origin"
-                        scrolling="no"
-                      />
+                      <div style={S.adPreviewWrap}>
+                        <iframe
+                          srcDoc={ad.previewHtml}
+                          width="320"
+                          height="570"
+                          style={S.adPreview}
+                          sandbox="allow-scripts allow-same-origin"
+                          scrolling="no"
+                        />
+                      </div>
                     ) : (
-                      <div style={{ ...S.adPreview, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888888', fontSize: 13 }}>
+                      <div style={{ ...S.adPreviewWrap, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888888', fontSize: 13 }}>
                         Preview unavailable
                       </div>
                     )}
