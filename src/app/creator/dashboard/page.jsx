@@ -655,7 +655,7 @@ export default function CreatorDashboard() {
             ) : ads.length === 0 ? (
               <p style={S.empty}>No ads running with your content yet.</p>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 320px))', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 320px))', gap: 16, justifyContent: 'center' }}>
                 {ads.map((ad, i) => (
                   <div key={i} style={S.adCard}>
                     {ad.previewHtml ? (
