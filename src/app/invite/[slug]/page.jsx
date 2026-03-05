@@ -418,13 +418,11 @@ export default function InvitePage() {
                     <div style={S.termNote}>New & upcoming drops included — always filming in the latest.</div>
                   </div>
                 </div>
-                <div className="nama-term-row">
-                  <span style={S.termLabel}>Usage Rights</span>
-                  <div>
-                    <div style={S.termValue}>{invite.usage_rights}</div>
-                  </div>
-                </div>
               </div>
+
+              <p style={{ fontSize: 11, color: '#888888', fontStyle: 'italic', lineHeight: 1.6, marginBottom: 28 }}>
+                Content created as part of this partnership is licensed to Nama for use across paid media for the duration of our partnership.
+              </p>
 
               {(() => {
                 const ds = invite.deal_structure
@@ -483,18 +481,18 @@ export default function InvitePage() {
                 <span style={S.checkboxLabel}>
                   {(() => {
                     const ds = invite.deal_structure
-                    const base = `I agree to the partnership terms above, including providing ${invite.videos_per_month} UGC videos per month, ${invite.usage_rights}`
+                    const base = `I agree to the partnership terms above, including providing ${invite.videos_per_month} UGC videos per month`
                     if (ds?.type === 'ad_spend') {
-                      return `${base}, and ${ds.percentage}% of monthly ad spend.`
+                      return `${base} and ${ds.percentage}% of monthly ad spend.`
                     }
                     if (ds?.type === 'retainer') {
-                      return `${base}, and a $${ds.monthly_rate}/month retainer.`
+                      return `${base} and a $${ds.monthly_rate}/month retainer.`
                     }
                     if (ds?.type === 'hybrid') {
-                      return `${base}, and ${ds.commission_rate}% commission plus a $${ds.retainer}/month retainer.`
+                      return `${base} and ${ds.commission_rate}% commission plus a $${ds.retainer}/month retainer.`
                     }
                     const rate = ds?.commission_rate ?? invite.commission_rate
-                    return `${base}, and ${rate}% affiliate commission on sales.`
+                    return `${base} and ${rate}% affiliate commission on sales.`
                   })()}
                 </span>
               </label>

@@ -527,16 +527,6 @@ export default function CreatorsListPage() {
                       className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Usage Rights</label>
-                    <input
-                      type="text"
-                      value={inviteForm.usageRights}
-                      onChange={(e) => setInviteForm((f) => ({ ...f, usageRights: e.target.value }))}
-                      className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
-                    />
-                  </div>
-
                   {/* Deal Structure */}
                   <div className="border-t pt-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Deal Structure</label>

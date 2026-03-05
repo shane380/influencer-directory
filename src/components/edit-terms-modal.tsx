@@ -41,7 +41,6 @@ export function EditTermsModal({ inviteId, initialValues, onClose, onSaved }: Ed
 
   const [videosPerMonth, setVideosPerMonth] = useState(initialValues.videos_per_month || "");
   const [contentType, setContentType] = useState(initialValues.content_type || "");
-  const [usageRights, setUsageRights] = useState(initialValues.usage_rights || "");
   const [notes, setNotes] = useState(initialValues.notes || "");
 
   // Deal structure
@@ -84,7 +83,6 @@ export function EditTermsModal({ inviteId, initialValues, onClose, onSaved }: Ed
       .update({
         videos_per_month: videosPerMonth,
         content_type: contentType,
-        usage_rights: usageRights,
         notes,
         deal_structure: dealStructure,
         commission_rate: resolvedCommission,
@@ -100,7 +98,6 @@ export function EditTermsModal({ inviteId, initialValues, onClose, onSaved }: Ed
     onSaved({
       videos_per_month: videosPerMonth,
       content_type: contentType,
-      usage_rights: usageRights,
       notes,
       deal_structure: dealStructure,
       commission_rate: resolvedCommission,
@@ -136,11 +133,6 @@ export function EditTermsModal({ inviteId, initialValues, onClose, onSaved }: Ed
           <div>
             <label className={labelClass}>Content Type</label>
             <input type="text" value={contentType} onChange={(e) => setContentType(e.target.value)} className={inputClass} placeholder="Talking-style UGC" />
-          </div>
-
-          <div>
-            <label className={labelClass}>Usage Rights</label>
-            <input type="text" value={usageRights} onChange={(e) => setUsageRights(e.target.value)} className={inputClass} placeholder="90 days per campaign, renewable" />
           </div>
 
           {/* Deal Structure */}
