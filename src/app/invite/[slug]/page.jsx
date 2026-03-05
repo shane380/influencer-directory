@@ -392,7 +392,7 @@ export default function InvitePage() {
             <div style={S.success}>
               <div style={S.successIcon}>✦</div>
               <h2 style={S.successTitle}>You're in, {invite.creator_name.split(' ')[0]}.</h2>
-              <p style={S.successText}>Welcome to the Nama creator family. We'll be in touch with next steps — outfits incoming. 🌿</p>
+              <p style={S.successText}>Welcome to the Nama creator family. We'll be in touch with next steps - outfits incoming. 🌿</p>
             </div>
           )}
 
