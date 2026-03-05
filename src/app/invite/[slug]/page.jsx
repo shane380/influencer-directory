@@ -294,6 +294,10 @@ export default function InvitePage() {
         <div style={S.card}>
           <div style={S.cardAccent} />
 
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            <img src="/nama-logo.svg" alt="Nama" style={{ width: 80, display: 'inline-block' }} />
+          </div>
+
           {step === 'done' && (
             <div style={S.success}>
               <div style={S.successIcon}>✦</div>
