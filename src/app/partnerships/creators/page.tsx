@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { createInvite } from "@/lib/invites";
 import { Sidebar } from "@/components/sidebar";
+import { X, Search, Copy, Check } from "lucide-react";
 
 interface Creator {
   id: string;
@@ -23,12 +25,37 @@ interface Creator {
   last_submission: string | null;
 }
 
+interface InfluencerResult {
+  id: string;
+  name: string;
+  instagram_handle: string;
+  email: string | null;
+  profile_photo_url: string | null;
+}
+
 export default function CreatorsListPage() {
   const router = useRouter();
   const supabase = createClient();
   const [creators, setCreators] = useState<Creator[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
+
+  // Invite modal state
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<InfluencerResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedInfluencer, setSelectedInfluencer] = useState<InfluencerResult | null>(null);
+  const [inviteForm, setInviteForm] = useState({
+    creatorName: "",
+    email: "",
+    commissionRate: 10,
+    videosPerMonth: "3-5",
+    usageRights: "90 days per campaign, renewable",
+  });
+  const [submittingInvite, setSubmittingInvite] = useState(false);
+  const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -42,7 +69,6 @@ export default function CreatorsListPage() {
         });
       }
 
-      // Fetch creators with linked invite → influencer
       const { data: creatorsData } = await supabase
         .from("creators" as any)
         .select("*")
@@ -53,12 +79,10 @@ export default function CreatorsListPage() {
         return;
       }
 
-      // For each creator, fetch linked influencer, pending requests count, last submission
       const enriched = await Promise.all(
         creatorsData.map(async (c: any) => {
           let influencer = null;
 
-          // Get invite to find influencer_id
           if (c.invite_id) {
             const { data: invite } = await supabase
               .from("creator_invites" as any)
@@ -76,14 +100,12 @@ export default function CreatorsListPage() {
             }
           }
 
-          // Pending sample requests count
           const { count } = await supabase
             .from("creator_sample_requests" as any)
             .select("id", { count: "exact", head: true })
             .eq("creator_id", c.id)
             .eq("status", "pending") as any;
 
-          // Last content submission
           const { data: lastSub } = await supabase
             .from("creator_content_submissions" as any)
             .select("created_at")
@@ -106,6 +128,80 @@ export default function CreatorsListPage() {
     load();
   }, []);
 
+  // Search influencers
+  const searchInfluencers = useCallback(async (query: string) => {
+    if (query.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    setSearching(true);
+    const { data } = await supabase
+      .from("influencers")
+      .select("id, name, instagram_handle, email, profile_photo_url")
+      .or(`name.ilike.%${query}%,instagram_handle.ilike.%${query}%`)
+      .limit(8);
+    setSearchResults((data as InfluencerResult[]) || []);
+    setSearching(false);
+  }, [supabase]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => searchInfluencers(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, searchInfluencers]);
+
+  function selectInfluencer(inf: InfluencerResult) {
+    setSelectedInfluencer(inf);
+    setInviteForm((f) => ({
+      ...f,
+      creatorName: inf.name,
+      email: inf.email || "",
+    }));
+    setSearchQuery("");
+    setSearchResults([]);
+  }
+
+  function resetModal() {
+    setShowInviteModal(false);
+    setSearchQuery("");
+    setSearchResults([]);
+    setSelectedInfluencer(null);
+    setInviteForm({
+      creatorName: "",
+      email: "",
+      commissionRate: 10,
+      videosPerMonth: "3-5",
+      usageRights: "90 days per campaign, renewable",
+    });
+    setGeneratedUrl(null);
+    setCopied(false);
+  }
+
+  async function handleGenerateInvite() {
+    setSubmittingInvite(true);
+    try {
+      const { url } = await (createInvite as any)({
+        creatorName: inviteForm.creatorName,
+        creatorEmail: inviteForm.email || null,
+        commissionRate: inviteForm.commissionRate,
+        videosPerMonth: inviteForm.videosPerMonth,
+        usageRights: inviteForm.usageRights,
+        influencerId: selectedInfluencer?.id || null,
+      });
+      setGeneratedUrl(url);
+    } catch (err: any) {
+      alert(err.message || "Failed to create invite");
+    }
+    setSubmittingInvite(false);
+  }
+
+  function copyUrl() {
+    if (generatedUrl) {
+      navigator.clipboard.writeText(generatedUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
       <Sidebar
@@ -119,7 +215,15 @@ export default function CreatorsListPage() {
       />
       <main className="flex-1 ml-48 px-8 pt-12 pb-8">
         <div className="max-w-5xl">
-          <h1 className="text-2xl font-semibold text-gray-900 mb-6">Creators</h1>
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-semibold text-gray-900">Creators</h1>
+            <button
+              onClick={() => setShowInviteModal(true)}
+              className="px-4 py-2 bg-gray-900 text-white text-sm rounded-md hover:bg-gray-800 transition-colors"
+            >
+              Generate Invite
+            </button>
+          </div>
 
           {loading ? (
             <p className="text-gray-500 text-sm">Loading...</p>
@@ -199,6 +303,181 @@ export default function CreatorsListPage() {
           )}
         </div>
       </main>
+
+      {/* Generate Invite Modal */}
+      {showInviteModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {generatedUrl ? "Invite Created" : "Generate Creator Invite"}
+              </h2>
+              <button onClick={resetModal} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="px-6 py-5">
+              {generatedUrl ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-600">
+                    Invite for <strong>{inviteForm.creatorName}</strong> has been created.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={generatedUrl}
+                      className="flex-1 text-sm border rounded-md px-3 py-2 bg-gray-50 text-gray-700"
+                    />
+                    <button
+                      onClick={copyUrl}
+                      className="flex items-center gap-1 px-3 py-2 bg-gray-900 text-white text-sm rounded-md hover:bg-gray-800 transition-colors"
+                    >
+                      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      {copied ? "Copied" : "Copy"}
+                    </button>
+                  </div>
+                  <button
+                    onClick={resetModal}
+                    className="w-full mt-2 px-4 py-2 border rounded-md text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  {/* Search influencer */}
+                  {!selectedInfluencer ? (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Search Influencer
+                      </label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <input
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          placeholder="Search by name or handle..."
+                          className="w-full pl-9 pr-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
+                        />
+                      </div>
+                      {searching && (
+                        <p className="text-xs text-gray-400 mt-2">Searching...</p>
+                      )}
+                      {searchResults.length > 0 && (
+                        <div className="mt-2 border rounded-md divide-y max-h-48 overflow-y-auto">
+                          {searchResults.map((inf) => (
+                            <button
+                              key={inf.id}
+                              onClick={() => selectInfluencer(inf)}
+                              className="w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-50 transition-colors text-left"
+                            >
+                              {inf.profile_photo_url ? (
+                                <img
+                                  src={inf.profile_photo_url}
+                                  alt=""
+                                  className="w-8 h-8 rounded-full object-cover bg-gray-200"
+                                />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-gray-200" />
+                              )}
+                              <div>
+                                <div className="text-sm font-medium text-gray-900">{inf.name}</div>
+                                <div className="text-xs text-gray-500">@{inf.instagram_handle}</div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 bg-gray-50 rounded-md px-3 py-2">
+                      {selectedInfluencer.profile_photo_url ? (
+                        <img
+                          src={selectedInfluencer.profile_photo_url}
+                          alt=""
+                          className="w-8 h-8 rounded-full object-cover bg-gray-200"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-gray-200" />
+                      )}
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-gray-900">{selectedInfluencer.name}</div>
+                        <div className="text-xs text-gray-500">@{selectedInfluencer.instagram_handle}</div>
+                      </div>
+                      <button
+                        onClick={() => setSelectedInfluencer(null)}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Form fields */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Creator Name</label>
+                    <input
+                      type="text"
+                      value={inviteForm.creatorName}
+                      onChange={(e) => setInviteForm((f) => ({ ...f, creatorName: e.target.value }))}
+                      className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={inviteForm.email}
+                      onChange={(e) => setInviteForm((f) => ({ ...f, email: e.target.value }))}
+                      className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Commission Rate (%)</label>
+                      <input
+                        type="number"
+                        value={inviteForm.commissionRate}
+                        onChange={(e) => setInviteForm((f) => ({ ...f, commissionRate: Number(e.target.value) }))}
+                        className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Videos / Month</label>
+                      <input
+                        type="text"
+                        value={inviteForm.videosPerMonth}
+                        onChange={(e) => setInviteForm((f) => ({ ...f, videosPerMonth: e.target.value }))}
+                        className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Usage Rights</label>
+                    <input
+                      type="text"
+                      value={inviteForm.usageRights}
+                      onChange={(e) => setInviteForm((f) => ({ ...f, usageRights: e.target.value }))}
+                      className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleGenerateInvite}
+                    disabled={submittingInvite || !inviteForm.creatorName}
+                    className="w-full px-4 py-2 bg-gray-900 text-white text-sm rounded-md hover:bg-gray-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  >
+                    {submittingInvite ? "Generating..." : "Generate Invite Link"}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
