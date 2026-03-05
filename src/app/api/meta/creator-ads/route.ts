@@ -42,11 +42,11 @@ export async function GET(request: NextRequest) {
         .replace(new RegExp(`@?${handle}\\s*\\/\\/\\s*`, 'i'), '')
         .trim();
 
-      // Fetch ad preview iframe
+      // Fetch ad preview iframe (INSTAGRAM_STORY gives best 9:16 portrait at 320x567)
       let previewHtml = null;
       try {
         const previewRes = await fetch(
-          `https://graph.facebook.com/v19.0/${ad.id}/previews?ad_format=INSTAGRAM_REELS&access_token=${accessToken}`
+          `https://graph.facebook.com/v19.0/${ad.id}/previews?ad_format=INSTAGRAM_STORY&access_token=${accessToken}`
         );
         const previewData = await previewRes.json();
         previewHtml = previewData.data?.[0]?.body || null;

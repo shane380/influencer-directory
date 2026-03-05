@@ -194,14 +194,14 @@ const S = {
   },
   adPreviewWrap: {
     width: 320,
-    height: 570,
+    height: 567,
     overflow: 'hidden',
     borderRadius: '12px 12px 0 0',
     background: '#f5f5f5',
   },
   adPreview: {
     width: 320,
-    height: 570,
+    height: 567,
     border: 'none',
     display: 'block',
   },
@@ -663,7 +663,7 @@ export default function CreatorDashboard() {
                         <iframe
                           srcDoc={ad.previewHtml}
                           width="320"
-                          height="570"
+                          height="567"
                           style={S.adPreview}
                           sandbox="allow-scripts allow-same-origin"
                           scrolling="no"
