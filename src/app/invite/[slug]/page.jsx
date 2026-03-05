@@ -248,17 +248,21 @@ export default function InvitePage() {
 
     const affiliateCode = form.name.toUpperCase().replace(/\s+/g, '') + invite.commission_rate
     try {
-      const { error: creatorError } = await supabase.from('creators').insert({
-        invite_id: invite.id,
-        user_id: authData.user.id,
-        creator_name: form.name,
-        email: form.email,
-        commission_rate: invite.commission_rate,
-        affiliate_code: affiliateCode,
+      const res = await fetch('/api/creators/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inviteId: invite.id,
+          userId: authData.user.id,
+          creatorName: form.name,
+          email: form.email,
+          commissionRate: invite.commission_rate,
+          affiliateCode,
+        }),
       })
-
-      if (creatorError) {
-        setError(creatorError.message)
+      const result = await res.json()
+      if (!res.ok) {
+        setError(result.error || 'Something went wrong creating your profile.')
         setSubmitting(false)
         return
       }
@@ -267,11 +271,6 @@ export default function InvitePage() {
       setSubmitting(false)
       return
     }
-
-    await supabase
-      .from('creator_invites')
-      .update({ status: 'accepted', accepted_at: new Date().toISOString() })
-      .eq('id', invite.id)
 
     setStep('done')
     setSubmitting(false)
