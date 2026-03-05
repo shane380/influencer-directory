@@ -9,6 +9,7 @@ import {
   Megaphone,
   DollarSign,
   Share2,
+  Heart,
   ChevronDown,
   ChevronRight,
   User,
@@ -131,11 +132,14 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
     { id: "campaigns", label: "Campaigns", icon: Megaphone, expandable: true },
     { id: "paid_collabs", label: "Paid Collabs", icon: DollarSign },
     { id: "whitelisting", label: "Whitelisting", icon: Share2 },
+    { id: "creators", label: "Creators", icon: Heart },
   ];
 
   const handleNavClick = (id: string) => {
     if (id === "campaigns") {
       setCampaignsExpanded(!campaignsExpanded);
+    } else if (id === "creators") {
+      router.push("/partnerships/creators");
     } else {
       router.push(`/?tab=${id}`);
     }
@@ -159,7 +163,8 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id ||
-              (item.id === "campaigns" && pathname?.startsWith("/campaigns"));
+              (item.id === "campaigns" && pathname?.startsWith("/campaigns")) ||
+              (item.id === "creators" && pathname?.startsWith("/partnerships/creators"));
 
             return (
               <li key={item.id}>
