@@ -6,6 +6,16 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+async function insertCreator(data: Record<string, unknown>) {
+  const { error } = await supabase.from('creators').insert(data);
+  if (error?.code === '23503') {
+    console.log('[creators/signup] FK violation, retrying after 2s delay...');
+    await new Promise(r => setTimeout(r, 2000));
+    return await supabase.from('creators').insert(data);
+  }
+  return { error };
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const { inviteId, userId, creatorName, email, commissionRate, affiliateCode } = body;
@@ -17,16 +27,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
-  // Verify user exists in auth.users before inserting
-  const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(userId);
-  console.log('[creators/signup] Auth user lookup:', { found: !!authUser?.user, authError: authError?.message });
-
-  if (!authUser?.user) {
-    console.log('[creators/signup] User not found in auth.users, userId:', userId);
-    return NextResponse.json({ error: 'User not found in auth. Email confirmation may be required.' }, { status: 400 });
-  }
-
-  const { error: creatorError } = await supabase.from('creators').insert({
+  const { error: creatorError } = await insertCreator({
     invite_id: inviteId,
     user_id: userId,
     creator_name: creatorName,
