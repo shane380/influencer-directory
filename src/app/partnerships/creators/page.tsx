@@ -66,6 +66,9 @@ export default function CreatorsListPage() {
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Pending invites
+  const [pendingInvites, setPendingInvites] = useState<any[]>([]);
+
   // Edit Terms modal state
   const [editTermsInvite, setEditTermsInvite] = useState<any>(null);
   const [editTermsLoading, setEditTermsLoading] = useState<string | null>(null);
@@ -136,6 +139,15 @@ export default function CreatorsListPage() {
       );
 
       setCreators(enriched);
+
+      // Fetch pending invites
+      const { data: invitesData } = await supabase
+        .from("creator_invites" as any)
+        .select("*")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false }) as any;
+      setPendingInvites(invitesData || []);
+
       setLoading(false);
     }
     load();
@@ -231,6 +243,19 @@ export default function CreatorsListPage() {
     setSubmittingInvite(false);
   }
 
+  async function revokeInvite(inviteId: string) {
+    await (supabase as any)
+      .from("creator_invites")
+      .update({ status: "expired", expires_at: new Date().toISOString() })
+      .eq("id", inviteId);
+    setPendingInvites((prev) => prev.filter((i) => i.id !== inviteId));
+  }
+
+  function copyInviteLink(slug: string) {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://creators.namaclo.com";
+    navigator.clipboard.writeText(`${baseUrl}/invite/${slug}`);
+  }
+
   async function openEditTerms(creatorId: string, inviteId: string) {
     setEditTermsLoading(creatorId);
     const { data } = await supabase
@@ -273,9 +298,50 @@ export default function CreatorsListPage() {
             </button>
           </div>
 
+          {/* Pending Invites */}
+          {!loading && pendingInvites.length > 0 && (
+            <div className="mb-6">
+              <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">Pending Invites</h2>
+              <div className="space-y-2">
+                {pendingInvites.map((inv) => (
+                  <div key={inv.id} className="bg-white border rounded-lg px-4 py-3 flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">{inv.creator_name}</div>
+                      <div className="text-xs text-gray-500">
+                        {inv.creator_email || "No email"} · Created {new Date(inv.created_at).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => copyInviteLink(inv.slug)}
+                        className="px-3 py-1.5 text-xs border rounded-md text-gray-600 hover:bg-gray-50 transition-colors"
+                      >
+                        Copy Link
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditTermsInvite(inv);
+                        }}
+                        className="px-3 py-1.5 text-xs border rounded-md text-gray-600 hover:bg-gray-50 transition-colors"
+                      >
+                        Edit Terms
+                      </button>
+                      <button
+                        onClick={() => revokeInvite(inv.id)}
+                        className="px-3 py-1.5 text-xs border border-red-200 rounded-md text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        Revoke
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {loading ? (
             <p className="text-gray-500 text-sm">Loading...</p>
-          ) : creators.length === 0 ? (
+          ) : creators.length === 0 && pendingInvites.length === 0 ? (
             <p className="text-gray-500 text-sm">No creators yet.</p>
           ) : (
             <div className="bg-white border rounded-lg overflow-hidden">
