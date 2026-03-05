@@ -8,38 +8,51 @@ const supabase = createClient(
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { inviteId, userId, creatorName, email, commissionRate, affiliateCode } = body;
+  const { inviteId, creatorName, email, password, commissionRate } = body;
 
-  console.log('[creators/signup] Received:', { inviteId, userId, creatorName, email, commissionRate, affiliateCode });
-
-  if (!inviteId || !userId || !creatorName || !email) {
+  if (!inviteId || !creatorName || !email || !password) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
+
+  // Create auth user
+  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: creatorName, role: 'creator' },
+  });
+
+  if (authError) {
+    return NextResponse.json({ error: authError.message }, { status: 400 });
+  }
+
+  const userId = authData.user.id;
+
+  // Generate affiliate code
+  const affiliateCode = creatorName
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[^a-z0-9]/g, '')
+    .slice(0, 12);
 
   const { error: creatorError } = await supabase.from('creators').insert({
     invite_id: inviteId,
     user_id: userId,
     creator_name: creatorName,
     email,
-    commission_rate: commissionRate,
+    commission_rate: commissionRate || 10,
     affiliate_code: affiliateCode,
   });
 
   if (creatorError) {
-    console.log('[creators/signup] Insert error:', creatorError.message, creatorError.details, creatorError.code);
     return NextResponse.json({ error: creatorError.message }, { status: 500 });
   }
 
-  const { error: updateError } = await supabase
+  // Mark invite as accepted
+  await supabase
     .from('creator_invites')
     .update({ status: 'accepted', accepted_at: new Date().toISOString() })
     .eq('id', inviteId);
 
-  if (updateError) {
-    console.log('[creators/signup] Invite update error:', updateError.message);
-    return NextResponse.json({ error: updateError.message }, { status: 500 });
-  }
-
-  console.log('[creators/signup] Success for user:', userId);
   return NextResponse.json({ success: true });
 }
