@@ -234,17 +234,17 @@ export default function InvitePage() {
       return
     }
 
-    // If email confirmation is required, user will be null — show confirmation message
-    if (!authData.user) {
-      await supabase
-        .from('creator_invites')
-        .update({ status: 'accepted', accepted_at: new Date().toISOString() })
-        .eq('id', invite.id)
+    console.log('signUp authData:', JSON.stringify(authData, null, 2))
 
+    // If email confirmation is required, user will be null
+    if (!authData.user) {
       setStep('confirm-email')
       setSubmitting(false)
       return
     }
+
+    // Wait for auth.users row to be fully committed (deferred FK)
+    await new Promise(resolve => setTimeout(resolve, 1000))
 
     const affiliateCode = form.name.toUpperCase().replace(/\s+/g, '') + invite.commission_rate
     try {
