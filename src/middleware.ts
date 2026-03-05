@@ -31,27 +31,40 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Allow webhook, cron, and Shopify auth routes through without authentication
+  const pathname = request.nextUrl.pathname;
+
+  // Public routes — no auth required
   if (
-    request.nextUrl.pathname.startsWith('/api/shopify/webhooks') ||
-    request.nextUrl.pathname.startsWith('/api/cron') ||
-    request.nextUrl.pathname.startsWith('/api/shopify/auth') ||
-    request.nextUrl.pathname.startsWith('/invite') ||
-    request.nextUrl.pathname.startsWith('/api/creators/signup') ||
-    request.nextUrl.pathname.startsWith('/api/meta/creator-ads')
+    pathname.startsWith('/api/shopify/webhooks') ||
+    pathname.startsWith('/api/cron') ||
+    pathname.startsWith('/api/shopify/auth') ||
+    pathname.startsWith('/invite') ||
+    pathname.startsWith('/api/creators/signup') ||
+    pathname.startsWith('/api/meta/creator-ads') ||
+    pathname.startsWith('/creator/login')
   ) {
     return supabaseResponse;
   }
 
-  // If user is not logged in and trying to access protected routes
-  if (!user && !request.nextUrl.pathname.startsWith('/login')) {
+  // Creator routes — redirect to /creator/login if no session
+  if (pathname.startsWith('/creator')) {
+    if (!user) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/creator/login';
+      return NextResponse.redirect(url);
+    }
+    return supabaseResponse;
+  }
+
+  // All other protected routes — redirect to /login if no session
+  if (!user && !pathname.startsWith('/login')) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
   }
 
   // If user is logged in and trying to access login page
-  if (user && request.nextUrl.pathname.startsWith('/login')) {
+  if (user && pathname.startsWith('/login')) {
     const url = request.nextUrl.clone();
     url.pathname = '/';
     return NextResponse.redirect(url);
