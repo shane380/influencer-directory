@@ -404,20 +404,6 @@ export default function InvitePage() {
                     <div style={S.termNote}>{invite.content_type}</div>
                   </div>
                 </div>
-                <div className="nama-term-row">
-                  <span style={S.termLabel}>Posting</span>
-                  <div>
-                    <div style={S.termValue}>No posting required</div>
-                    <div style={S.termNote}>Content is used for paid ads only.</div>
-                  </div>
-                </div>
-                <div className="nama-term-row">
-                  <span style={S.termLabel}>Outfits</span>
-                  <div>
-                    <div style={S.termValue}>Fully provided</div>
-                    <div style={S.termNote}>New & upcoming drops included — always filming in the latest.</div>
-                  </div>
-                </div>
               </div>
 
               <p style={{ fontSize: 11, color: '#888888', fontStyle: 'italic', lineHeight: 1.6, marginBottom: 32 }}>
@@ -435,8 +421,9 @@ export default function InvitePage() {
                   'Invitations to exclusive Nama partner events',
                   'A dedicated point of contact for anything you need',
                 ].map((perk, i) => (
-                  <div key={i} style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 17, color: '#111111', lineHeight: 2 }}>
-                    — {perk}
+                  <div key={i} style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 17, color: '#111111', lineHeight: 2, display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                    <span style={{ fontSize: 13, color: '#888888', flexShrink: 0 }}>✓</span>
+                    {perk}
                   </div>
                 ))}
               </div>
