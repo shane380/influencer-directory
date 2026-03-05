@@ -50,10 +50,16 @@ export default function CreatorsListPage() {
   const [inviteForm, setInviteForm] = useState({
     creatorName: "",
     email: "",
-    commissionRate: 10,
     videosPerMonth: "3-5",
     usageRights: "90 days per campaign, renewable",
   });
+  const [dealType, setDealType] = useState<"affiliate" | "ad_spend" | "retainer" | "hybrid">("affiliate");
+  const [dealAffiliate, setDealAffiliate] = useState(10);
+  const [dealAdSpendPct, setDealAdSpendPct] = useState(5);
+  const [dealMinSpend, setDealMinSpend] = useState(0);
+  const [dealRetainer, setDealRetainer] = useState(500);
+  const [dealHybridComm, setDealHybridComm] = useState(5);
+  const [dealHybridRetainer, setDealHybridRetainer] = useState(300);
   const [submittingInvite, setSubmittingInvite] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -173,24 +179,46 @@ export default function CreatorsListPage() {
     setInviteForm({
       creatorName: "",
       email: "",
-      commissionRate: 10,
       videosPerMonth: "3-5",
       usageRights: "90 days per campaign, renewable",
     });
+    setDealType("affiliate");
+    setDealAffiliate(10);
+    setDealAdSpendPct(5);
+    setDealMinSpend(0);
+    setDealRetainer(500);
+    setDealHybridComm(5);
+    setDealHybridRetainer(300);
     setGeneratedUrl(null);
     setCopied(false);
   }
 
+  function buildDealStructure() {
+    switch (dealType) {
+      case "affiliate":
+        return { type: "affiliate", commission_rate: dealAffiliate };
+      case "ad_spend":
+        return { type: "ad_spend", percentage: dealAdSpendPct, ...(dealMinSpend > 0 ? { minimum_spend: dealMinSpend } : {}) };
+      case "retainer":
+        return { type: "retainer", monthly_rate: dealRetainer };
+      case "hybrid":
+        return { type: "hybrid", commission_rate: dealHybridComm, retainer: dealHybridRetainer };
+    }
+  }
+
   async function handleGenerateInvite() {
     setSubmittingInvite(true);
+    const ds = buildDealStructure();
+    const commissionRate = dealType === "affiliate" ? dealAffiliate : dealType === "hybrid" ? dealHybridComm : 0;
     try {
       const { url } = await (createInvite as any)({
         creatorName: inviteForm.creatorName,
         creatorEmail: inviteForm.email || null,
-        commissionRate: inviteForm.commissionRate,
+        commissionRate,
         videosPerMonth: inviteForm.videosPerMonth,
         usageRights: inviteForm.usageRights,
         influencerId: selectedInfluencer?.id || null,
+        dealStructure: ds,
       });
       setGeneratedUrl(url);
     } catch (err: any) {
@@ -490,25 +518,14 @@ export default function CreatorsListPage() {
                       className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Commission Rate (%)</label>
-                      <input
-                        type="number"
-                        value={inviteForm.commissionRate}
-                        onChange={(e) => setInviteForm((f) => ({ ...f, commissionRate: Number(e.target.value) }))}
-                        className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Videos / Month</label>
-                      <input
-                        type="text"
-                        value={inviteForm.videosPerMonth}
-                        onChange={(e) => setInviteForm((f) => ({ ...f, videosPerMonth: e.target.value }))}
-                        className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Videos / Month</label>
+                    <input
+                      type="text"
+                      value={inviteForm.videosPerMonth}
+                      onChange={(e) => setInviteForm((f) => ({ ...f, videosPerMonth: e.target.value }))}
+                      className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Usage Rights</label>
@@ -518,6 +535,58 @@ export default function CreatorsListPage() {
                       onChange={(e) => setInviteForm((f) => ({ ...f, usageRights: e.target.value }))}
                       className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
                     />
+                  </div>
+
+                  {/* Deal Structure */}
+                  <div className="border-t pt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Deal Structure</label>
+                    <select
+                      value={dealType}
+                      onChange={(e) => setDealType(e.target.value as typeof dealType)}
+                      className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300 mb-3"
+                    >
+                      <option value="affiliate">Affiliate Commission</option>
+                      <option value="ad_spend">% of Ad Spend</option>
+                      <option value="retainer">Monthly Retainer</option>
+                      <option value="hybrid">Hybrid</option>
+                    </select>
+
+                    {dealType === "affiliate" && (
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Commission Rate (%)</label>
+                        <input type="number" value={dealAffiliate} onChange={(e) => setDealAffiliate(Number(e.target.value))} className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300" />
+                      </div>
+                    )}
+                    {dealType === "ad_spend" && (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Percentage of Ad Spend (%)</label>
+                          <input type="number" value={dealAdSpendPct} onChange={(e) => setDealAdSpendPct(Number(e.target.value))} className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Minimum Spend Threshold (USD, optional)</label>
+                          <input type="number" value={dealMinSpend} onChange={(e) => setDealMinSpend(Number(e.target.value))} className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300" placeholder="0" />
+                        </div>
+                      </div>
+                    )}
+                    {dealType === "retainer" && (
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Monthly Rate (USD)</label>
+                        <input type="number" value={dealRetainer} onChange={(e) => setDealRetainer(Number(e.target.value))} className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300" />
+                      </div>
+                    )}
+                    {dealType === "hybrid" && (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Commission Rate (%)</label>
+                          <input type="number" value={dealHybridComm} onChange={(e) => setDealHybridComm(Number(e.target.value))} className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Retainer Amount (USD/month)</label>
+                          <input type="number" value={dealHybridRetainer} onChange={(e) => setDealHybridRetainer(Number(e.target.value))} className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300" />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <button

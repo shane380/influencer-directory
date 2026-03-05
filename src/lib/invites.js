@@ -11,6 +11,7 @@ export async function createInvite({
   notes = null,
   expiryDays = null,
   influencerId = null,
+  dealStructure = null,
 }) {
   const supabase = createClient()
 
@@ -33,6 +34,7 @@ export async function createInvite({
     status: 'pending',
   }
   if (influencerId) insertData.influencer_id = influencerId
+  if (dealStructure) insertData.deal_structure = dealStructure
 
   const { data, error } = await supabase
     .from('creator_invites')
