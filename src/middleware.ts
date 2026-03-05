@@ -35,7 +35,8 @@ export async function middleware(request: NextRequest) {
   if (
     request.nextUrl.pathname.startsWith('/api/shopify/webhooks') ||
     request.nextUrl.pathname.startsWith('/api/cron') ||
-    request.nextUrl.pathname.startsWith('/api/shopify/auth')
+    request.nextUrl.pathname.startsWith('/api/shopify/auth') ||
+    request.nextUrl.pathname.startsWith('/invite')
   ) {
     return supabaseResponse;
   }
