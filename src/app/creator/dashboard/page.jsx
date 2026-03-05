@@ -190,18 +190,18 @@ const S = {
     border: '1px solid #e8e8e8',
     borderRadius: 12,
     overflow: 'hidden',
-    maxWidth: 320,
+    maxWidth: 335,
   },
   adPreviewWrap: {
-    width: 320,
-    height: 567,
+    width: 335,
+    height: 450,
     overflow: 'hidden',
     borderRadius: '12px 12px 0 0',
     background: '#f5f5f5',
   },
   adPreview: {
-    width: 320,
-    height: 567,
+    width: 335,
+    height: 450,
     border: 'none',
     display: 'block',
   },
@@ -655,15 +655,15 @@ export default function CreatorDashboard() {
             ) : ads.length === 0 ? (
               <p style={S.empty}>No ads running with your content yet.</p>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 320px))', gap: 16, justifyContent: 'center' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 335px))', gap: 16, justifyContent: 'center' }}>
                 {ads.map((ad, i) => (
                   <div key={i} style={S.adCard}>
                     {ad.previewHtml ? (
                       <div style={S.adPreviewWrap}>
                         <iframe
                           srcDoc={ad.previewHtml}
-                          width="320"
-                          height="567"
+                          width="335"
+                          height="450"
                           style={S.adPreview}
                           sandbox="allow-scripts allow-same-origin"
                           scrolling="no"
