@@ -60,6 +60,8 @@ export default function CreatorsListPage() {
   const [dealRetainer, setDealRetainer] = useState(500);
   const [dealHybridComm, setDealHybridComm] = useState(5);
   const [dealHybridRetainer, setDealHybridRetainer] = useState(300);
+  const [dealFirstMonthEnabled, setDealFirstMonthEnabled] = useState(false);
+  const [dealFirstMonthMin, setDealFirstMonthMin] = useState(500);
   const [submittingInvite, setSubmittingInvite] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -189,6 +191,8 @@ export default function CreatorsListPage() {
     setDealRetainer(500);
     setDealHybridComm(5);
     setDealHybridRetainer(300);
+    setDealFirstMonthEnabled(false);
+    setDealFirstMonthMin(500);
     setGeneratedUrl(null);
     setCopied(false);
   }
@@ -198,7 +202,7 @@ export default function CreatorsListPage() {
       case "affiliate":
         return { type: "affiliate", commission_rate: dealAffiliate };
       case "ad_spend":
-        return { type: "ad_spend", percentage: dealAdSpendPct, ...(dealMinSpend > 0 ? { minimum_spend: dealMinSpend } : {}) };
+        return { type: "ad_spend", percentage: dealAdSpendPct, ...(dealMinSpend > 0 ? { minimum_spend: dealMinSpend } : {}), ...(dealFirstMonthEnabled && dealFirstMonthMin > 0 ? { first_month_minimum: dealFirstMonthMin } : {}) };
       case "retainer":
         return { type: "retainer", monthly_rate: dealRetainer };
       case "hybrid":
@@ -557,6 +561,16 @@ export default function CreatorsListPage() {
                           <label className="block text-xs text-gray-500 mb-1">Minimum Spend Threshold (USD, optional)</label>
                           <input type="number" value={dealMinSpend} onChange={(e) => setDealMinSpend(Number(e.target.value))} className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300" placeholder="0" />
                         </div>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={dealFirstMonthEnabled} onChange={(e) => setDealFirstMonthEnabled(e.target.checked)} className="rounded border-gray-300" />
+                          <span className="text-xs text-gray-600">Guarantee a minimum for month 1</span>
+                        </label>
+                        {dealFirstMonthEnabled && (
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">First Month Minimum (USD)</label>
+                            <input type="number" value={dealFirstMonthMin} onChange={(e) => setDealFirstMonthMin(Number(e.target.value))} className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300" placeholder="500" />
+                          </div>
+                        )}
                       </div>
                     )}
                     {dealType === "retainer" && (

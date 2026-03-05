@@ -9,6 +9,7 @@ interface DealStructure {
   commission_rate?: number;
   percentage?: number;
   minimum_spend?: number;
+  first_month_minimum?: number;
   monthly_rate?: number;
   retainer?: number;
 }
@@ -56,13 +57,15 @@ export function EditTermsModal({ inviteId, initialValues, onClose, onSaved }: Ed
   const [monthlyRate, setMonthlyRate] = useState(existing?.monthly_rate ?? 500);
   const [hybridCommission, setHybridCommission] = useState(existing?.commission_rate ?? 5);
   const [hybridRetainer, setHybridRetainer] = useState(existing?.retainer ?? 300);
+  const [firstMonthEnabled, setFirstMonthEnabled] = useState((existing?.first_month_minimum ?? 0) > 0);
+  const [firstMonthMin, setFirstMonthMin] = useState(existing?.first_month_minimum ?? 500);
 
   function buildDealStructure(): DealStructure {
     switch (dealType) {
       case "affiliate":
         return { type: "affiliate", commission_rate: commissionRate };
       case "ad_spend":
-        return { type: "ad_spend", percentage: adSpendPct, ...(minSpend > 0 ? { minimum_spend: minSpend } : {}) };
+        return { type: "ad_spend", percentage: adSpendPct, ...(minSpend > 0 ? { minimum_spend: minSpend } : {}), ...(firstMonthEnabled && firstMonthMin > 0 ? { first_month_minimum: firstMonthMin } : {}) };
       case "retainer":
         return { type: "retainer", monthly_rate: monthlyRate };
       case "hybrid":
@@ -165,6 +168,16 @@ export function EditTermsModal({ inviteId, initialValues, onClose, onSaved }: Ed
                   <label className="block text-xs text-gray-500 mb-1">Minimum Spend Threshold (USD, optional)</label>
                   <input type="number" value={minSpend} onChange={(e) => setMinSpend(Number(e.target.value))} className={inputClass} placeholder="0" />
                 </div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={firstMonthEnabled} onChange={(e) => setFirstMonthEnabled(e.target.checked)} className="rounded border-gray-300" />
+                  <span className="text-xs text-gray-600">Guarantee a minimum for month 1</span>
+                </label>
+                {firstMonthEnabled && (
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">First Month Minimum (USD)</label>
+                    <input type="number" value={firstMonthMin} onChange={(e) => setFirstMonthMin(Number(e.target.value))} className={inputClass} placeholder="500" />
+                  </div>
+                )}
               </div>
             )}
 

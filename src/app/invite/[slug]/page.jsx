@@ -432,12 +432,19 @@ export default function InvitePage() {
                 const ds = invite.deal_structure
                 if (ds?.type === 'ad_spend') {
                   return (
-                    <div className="nama-commission-block">
-                      <div className="nama-commission-rate">{ds.percentage}%</div>
-                      <div style={S.commissionDesc}>
-                        Of monthly ad spend{ds.minimum_spend > 0 ? ` (minimum $${ds.minimum_spend.toLocaleString()} spend)` : ''}. Tracked and paid monthly.
+                    <>
+                      <div className="nama-commission-block">
+                        <div className="nama-commission-rate">{ds.percentage}%</div>
+                        <div style={S.commissionDesc}>
+                          Of monthly ad spend{ds.minimum_spend > 0 ? ` (minimum $${ds.minimum_spend.toLocaleString()} spend)` : ''}. Tracked and paid monthly.
+                        </div>
                       </div>
-                    </div>
+                      {ds.first_month_minimum > 0 && (
+                        <div style={{ background: '#f9f9f6', border: '1px solid #e8e8e8', borderRadius: 2, padding: '16px 20px', marginBottom: 32, fontSize: 13, color: '#555555', lineHeight: 1.7 }}>
+                          To get you started, we're guaranteeing a minimum payment of <strong style={{ color: '#111111' }}>${ds.first_month_minimum.toLocaleString()}</strong> for your first month — regardless of ad spend.
+                        </div>
+                      )}
+                    </>
                   )
                 }
                 if (ds?.type === 'retainer') {
