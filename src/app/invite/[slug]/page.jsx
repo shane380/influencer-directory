@@ -357,10 +357,6 @@ export default function InvitePage() {
       `}</style>
       <div style={S.root}>
         <div className="nama-card">
-          <div style={{ marginBottom: 32 }}>
-            <img src="/nama-logo.svg" alt="Nama" style={{ width: 80, display: 'block' }} />
-          </div>
-
           {step === 'done' && (
             <div style={S.success}>
               <h2 style={S.successTitle}>You're in.</h2>
@@ -378,6 +374,9 @@ export default function InvitePage() {
 
           {step === 'view' && (
             <>
+              <div style={{ marginBottom: 32 }}>
+                <img src="/nama-logo.svg" alt="Nama" style={{ width: 80, display: 'block' }} />
+              </div>
               <p style={S.eyebrow}>You're invited</p>
               <h1 style={S.headline}>
                 Hi {invite.creator_name.split(' ')[0]},<br />
@@ -452,6 +451,9 @@ export default function InvitePage() {
 
           {step === 'signup' && (
             <>
+              <div style={{ marginBottom: 32 }}>
+                <img src="/nama-logo.svg" alt="Nama" style={{ width: 80, display: 'block' }} />
+              </div>
               <p style={S.eyebrow}>Create your account</p>
               <h2 className="nama-signup-headline" style={{ ...S.headline, fontSize: 28, marginBottom: 24 }}>
                 Almost there.
