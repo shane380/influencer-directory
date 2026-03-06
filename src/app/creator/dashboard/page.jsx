@@ -372,26 +372,26 @@ const CSS = `
 /* ===================== */
 .cd-m-wrap { background: #f7f7f7; min-height: 100vh; }
 .cd-m-topbar { padding: 0 20px; height: 52px; background: #fff; border-bottom: 1px solid #e8e8e8; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
-.cd-m-logo-lockup { display: flex; flex-direction: column; align-items: flex-start; }
+.cd-m-logo-lockup { display: flex; flex-direction: column; align-items: center; }
 .cd-m-logo { height: 20px; display: block; width: fit-content; }
-.cd-m-logo-sub { font-size: 7.5px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; padding-left: 2px; margin-top: 2px; }
-.cd-m-avatar { width: 28px; height: 28px; border-radius: 50%; border: 1px solid #e8e8e8; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #555; overflow: hidden; }
+.cd-m-logo-sub { font-size: 7.5px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; margin-top: 2px; }
+.cd-m-avatar { width: 28px; height: 28px; border-radius: 50%; border: 1px solid #e8e8e8; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #555; overflow: hidden; margin-right: 4px; }
 .cd-m-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
-.cd-m-hero { padding: 28px 20px 24px; border-bottom: 1px solid #e8e8e8; background: #fff; }
+.cd-m-hero { padding: 28px 20px 24px; border-bottom: 1px solid #e8e8e8; background: #fff; display: none; }
 .cd-m-eyebrow { font-size: 9px; letter-spacing: 0.38em; text-transform: uppercase; color: #aaa; margin-bottom: 12px; }
 .cd-m-name { font-family: 'Playfair Display', serif; font-size: 34px; font-weight: 400; color: #111; line-height: 1.05; margin-bottom: 4px; }
 .cd-m-handle { font-size: 11px; color: #aaa; margin-bottom: 16px; }
 .cd-m-profile-photo { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; display: block; border: 1px solid #e8e8e8; margin-bottom: 14px; }
 .cd-m-status { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #e8e8e8; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: #555; padding: 4px 12px; border-radius: 100px; }
 
-.cd-m-stats { display: flex; border-bottom: 1px solid #e8e8e8; background: #fff; }
+.cd-m-stats { display: none; border-bottom: 1px solid #e8e8e8; background: #fff; }
 .cd-m-stat { flex: 1; padding: 14px 0; text-align: center; border-right: 1px solid #e8e8e8; }
 .cd-m-stat:last-child { border-right: none; }
 .cd-m-stat-l { font-size: 8px; letter-spacing: 0.2em; text-transform: uppercase; color: #aaa; margin-bottom: 3px; }
 .cd-m-stat-v { font-family: 'Playfair Display', serif; font-size: 20px; color: #111; }
 
-.cd-m-aff-wrap { padding: 20px; border-bottom: 1px solid #e8e8e8; background: #fff; }
+.cd-m-aff-wrap { padding: 20px; border-bottom: 1px solid #e8e8e8; background: #fff; display: none; }
 .cd-m-aff { border: 1px solid #e8e8e8; padding: 14px 16px; }
 .cd-m-aff-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 .cd-m-aff-label { font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase; color: #aaa; }
