@@ -361,6 +361,7 @@ export interface OrderLineItem {
   variant_title: string | null;
   sku: string;
   quantity: number;
+  image_url?: string | null;
 }
 
 export interface InfluencerOrder {

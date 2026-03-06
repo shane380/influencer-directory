@@ -23,6 +23,8 @@ interface ShopifyOrder {
     variant_title: string | null;
     sku: string;
     quantity: number;
+    image?: { src: string } | null;
+    product_id?: number;
   }[];
 }
 
@@ -244,14 +246,47 @@ export async function POST(request: NextRequest) {
       console.log("  3. API permissions issue");
     }
 
+    // Fetch product images for line items that don't have them
+    const productIds = new Set<number>();
+    for (const order of allOrders) {
+      for (const li of order.line_items) {
+        if (!li.image?.src && li.product_id) {
+          productIds.add(li.product_id);
+        }
+      }
+    }
+
+    const productImageMap: Record<number, string> = {};
+    if (productIds.size > 0) {
+      console.log("Fetching images for", productIds.size, "products...");
+      const ids = Array.from(productIds).join(",");
+      try {
+        const imgRes = await fetch(
+          `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/products.json?ids=${ids}&fields=id,image`,
+          { headers: { "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN, "Content-Type": "application/json" } }
+        );
+        if (imgRes.ok) {
+          const imgData = await imgRes.json();
+          for (const p of imgData.products || []) {
+            if (p.image?.src) {
+              productImageMap[p.id] = p.image.src;
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch product images:", err);
+      }
+    }
+
     // Transform orders for database
     const ordersToUpsert = allOrders.map((order) => {
       const totalAmount = parseFloat(order.total_price);
-      const lineItems: OrderLineItem[] = order.line_items.map((li) => ({
+      const lineItems = order.line_items.map((li) => ({
         product_name: li.title,
         variant_title: li.variant_title,
         sku: li.sku || "",
         quantity: li.quantity,
+        image_url: li.image?.src || (li.product_id ? productImageMap[li.product_id] : null) || null,
       }));
 
       const fulfillment = order.fulfillments?.[0];
