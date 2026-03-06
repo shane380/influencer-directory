@@ -2222,7 +2222,12 @@ export default function CreatorDashboard() {
                   <div className="cd-orders-eyebrow">Shipment History</div>
                   <div className="cd-orders-title">Orders</div>
                 </div>
-                <a href="https://namaclo.returnlogic.com/" target="_blank" rel="noopener noreferrer" className="cd-exchange-btn">Start an Exchange →</a>
+                <div style={{ textAlign: 'right' }}>
+                  <a href="https://namaclo.returnlogic.com/" target="_blank" rel="noopener noreferrer" className="cd-exchange-btn">Start an Exchange →</a>
+                  {influencer?.email && (
+                    <div style={{ fontSize: '11px', color: '#aaa', marginTop: '6px' }}>Use the email your order was placed with: {influencer.email}</div>
+                  )}
+                </div>
               </div>
               {renderOrderHistory(false)}
             </div>
