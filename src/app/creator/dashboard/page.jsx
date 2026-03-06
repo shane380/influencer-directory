@@ -112,14 +112,19 @@ const CSS = `
 .cd-product-variant { font-size: 10.5px; color: #aaa; font-weight: 300; }
 .cd-product-cta { font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: #999; margin-top: 8px; cursor: pointer; }
 .cd-product-cta.added { color: #ccc; }
+.cd-size-row { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
+.cd-size-pill { padding: 3px 10px; border: 1px solid #e8e8e8; background: #fff; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #555; cursor: pointer; border-radius: 100px; transition: all 0.15s; letter-spacing: 0.04em; }
+.cd-size-pill:hover { border-color: #aaa; }
+.cd-size-pill.selected { background: #111; color: white; border-color: #111; }
+.cd-size-prompt { font-size: 10px; color: #c0392b; margin-top: 4px; }
 
 /* CART */
-.cd-cart { border: 1px solid #e8e8e8; padding: 18px 22px; margin-bottom: 20px; }
-.cd-cart-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin-bottom: 12px; }
-.cd-cart-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f2f2f2; font-size: 12px; color: #111; }
-.cd-cart-item:last-child { border-bottom: none; }
-.cd-cart-remove { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: #c0392b; cursor: pointer; background: none; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-.cd-cart-submit { width: 100%; padding: 14px; background: #111; color: white; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 9.5px; font-weight: 500; letter-spacing: 0.22em; text-transform: uppercase; cursor: pointer; margin-top: 12px; }
+.cd-cart { border: 1px solid #e8e8e8; padding: 18px 22px; margin-bottom: 20px; display: flex; align-items: flex-start; gap: 20px; }
+.cd-cart-left { flex: 1; min-width: 0; }
+.cd-cart-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin-bottom: 8px; }
+.cd-cart-item { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; font-size: 12px; color: #111; }
+.cd-cart-remove { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: #c0392b; cursor: pointer; background: none; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin-left: 12px; }
+.cd-cart-submit { padding: 14px 28px; background: #111; color: white; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 9.5px; font-weight: 500; letter-spacing: 0.22em; text-transform: uppercase; cursor: pointer; flex-shrink: 0; align-self: center; white-space: nowrap; }
 .cd-cart-submit:disabled { background: #ccc; cursor: not-allowed; }
 
 /* EARNINGS CARD */
@@ -599,15 +604,55 @@ export default function CreatorDashboard() {
     setSearching(false)
   }, [searchQuery])
 
-  function addToCart(product) {
-    if (cart.find(c => c.shopify_variant_id === product.variant_id)) return
+  const [selectedSizes, setSelectedSizes] = useState({})
+  const [sizePrompts, setSizePrompts] = useState({})
+
+  function groupProducts(results) {
+    const map = {}
+    for (const p of results) {
+      if (!map[p.product_id]) {
+        map[p.product_id] = { product_id: p.product_id, title: p.title, image: p.image, variants: [] }
+      }
+      map[p.product_id].variants.push({ variant_id: p.variant_id, variant_title: p.variant_title, sku: p.sku, price: p.price })
+    }
+    return Object.values(map)
+  }
+
+  function getDefaultSize(product) {
+    const sizes = product.variants.map(v => v.variant_title).filter(Boolean)
+    if (!sizes.length) return null
+    const name = product.title.toLowerCase()
+    const isBottoms = /pant|short|skirt|legging|bottom|jogger|trouser/i.test(name)
+    const preferred = isBottoms ? influencer?.bottoms_size : influencer?.top_size
+    if (preferred && sizes.includes(preferred)) return preferred
+    return null
+  }
+
+  function addToCart(product, variant) {
+    if (cart.find(c => c.shopify_variant_id === variant.variant_id)) return
     setCart(prev => [...prev, {
-      shopify_variant_id: product.variant_id,
+      shopify_variant_id: variant.variant_id,
       product_title: product.title,
-      variant_title: product.variant_title,
+      variant_title: variant.variant_title,
       image_url: product.image,
       quantity: 1,
     }])
+  }
+
+  function handleAddToCart(product) {
+    const variants = product.variants
+    if (variants.length === 1 && !variants[0].variant_title) {
+      addToCart(product, variants[0])
+      return
+    }
+    const size = selectedSizes[product.product_id] || getDefaultSize(product)
+    if (!size) {
+      setSizePrompts(prev => ({ ...prev, [product.product_id]: true }))
+      setTimeout(() => setSizePrompts(prev => ({ ...prev, [product.product_id]: false })), 2000)
+      return
+    }
+    const variant = variants.find(v => v.variant_title === size)
+    if (variant) addToCart(product, variant)
   }
 
   function removeFromCart(variantId) {
@@ -908,6 +953,8 @@ export default function CreatorDashboard() {
     }
 
     const prefix = mobile ? 'cd-m-' : 'cd-'
+    const grouped = groupProducts(searchResults)
+
     return (
       <>
         <div className={`${prefix}search`}>
@@ -923,40 +970,62 @@ export default function CreatorDashboard() {
           </button>
         </div>
 
-        {searchResults.length > 0 && (
+        {cart.length > 0 && (
+          <div className="cd-cart">
+            <div className="cd-cart-left">
+              <div className="cd-cart-label">Your Request — {cart.length} {cart.length === 1 ? 'item' : 'items'}</div>
+              {cart.map(item => (
+                <div key={item.shopify_variant_id} className="cd-cart-item">
+                  <span>{item.product_title}{item.variant_title && ` — ${item.variant_title}`}</span>
+                  <button className="cd-cart-remove" onClick={() => removeFromCart(item.shopify_variant_id)}>Remove</button>
+                </div>
+              ))}
+            </div>
+            <button className="cd-cart-submit" onClick={submitRequest} disabled={requestSubmitting}>
+              {requestSubmitting ? 'Submitting…' : 'Submit Request →'}
+            </button>
+          </div>
+        )}
+
+        {grouped.length > 0 && (
           <div className={mobile ? 'cd-m-products' : 'cd-products'}>
-            {searchResults.slice(0, mobile ? 6 : 9).map(product => {
-              const inCart = cart.find(c => c.shopify_variant_id === product.variant_id)
+            {grouped.slice(0, mobile ? 6 : 9).map(product => {
+              const sizes = product.variants.filter(v => v.variant_title).map(v => v.variant_title)
+              const hasSizes = sizes.length > 0
+              const currentSize = selectedSizes[product.product_id] || getDefaultSize(product)
+              const selectedVariant = currentSize ? product.variants.find(v => v.variant_title === currentSize) : (product.variants.length === 1 ? product.variants[0] : null)
+              const inCart = selectedVariant ? cart.find(c => c.shopify_variant_id === selectedVariant.variant_id) : false
+              const anyInCart = product.variants.some(v => cart.find(c => c.shopify_variant_id === v.variant_id))
+
               return (
-                <div key={product.variant_id} className={mobile ? 'cd-m-product' : 'cd-product'} onClick={() => !inCart && addToCart(product)}>
+                <div key={product.product_id} className={mobile ? 'cd-m-product' : 'cd-product'}>
                   <div className={mobile ? 'cd-m-product-img' : 'cd-product-img'}>
                     {product.image ? <img src={product.image} alt="" /> : <span style={{ fontSize: 9, color: '#ccc', letterSpacing: '0.1em', textTransform: 'uppercase' }}>No image</span>}
                   </div>
                   <div className={mobile ? 'cd-m-product-info' : 'cd-product-info'}>
                     <div className={mobile ? 'cd-m-product-name' : 'cd-product-name'}>{product.title}</div>
-                    {product.variant_title && <div className={mobile ? 'cd-m-product-variant' : 'cd-product-variant'}>{product.variant_title}</div>}
-                    <div className={`${mobile ? 'cd-m-product-cta' : 'cd-product-cta'}${inCart ? ' added' : ''}`}>
-                      {inCart ? '✓ Added' : '+ Request this style'}
+                    {hasSizes && (
+                      <div className="cd-size-row">
+                        {sizes.map(size => (
+                          <button
+                            key={size}
+                            className={`cd-size-pill${currentSize === size ? ' selected' : ''}`}
+                            onClick={e => { e.stopPropagation(); setSelectedSizes(prev => ({ ...prev, [product.product_id]: size })); setSizePrompts(prev => ({ ...prev, [product.product_id]: false })) }}
+                          >{size}</button>
+                        ))}
+                      </div>
+                    )}
+                    {sizePrompts[product.product_id] && <div className="cd-size-prompt">Select a size</div>}
+                    <div
+                      className={`${mobile ? 'cd-m-product-cta' : 'cd-product-cta'}${inCart || anyInCart ? ' added' : ''}`}
+                      onClick={() => !inCart && !anyInCart && handleAddToCart(product)}
+                    >
+                      {inCart || anyInCart ? '✓ Added' : '+ Request this style'}
                     </div>
                   </div>
                 </div>
               )
             })}
-          </div>
-        )}
-
-        {cart.length > 0 && (
-          <div className="cd-cart" style={{ marginTop: 16 }}>
-            <div className="cd-cart-label">Your Request ({cart.length} {cart.length === 1 ? 'item' : 'items'})</div>
-            {cart.map(item => (
-              <div key={item.shopify_variant_id} className="cd-cart-item">
-                <span>{item.product_title}{item.variant_title && ` — ${item.variant_title}`}</span>
-                <button className="cd-cart-remove" onClick={() => removeFromCart(item.shopify_variant_id)}>Remove</button>
-              </div>
-            ))}
-            <button className="cd-cart-submit" onClick={submitRequest} disabled={requestSubmitting}>
-              {requestSubmitting ? 'Submitting…' : 'Submit Request →'}
-            </button>
           </div>
         )}
 
