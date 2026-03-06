@@ -259,7 +259,7 @@ const CSS = `
 .cd-momentum-stat-sub { font-size: 11px; color: #999; }
 .cd-momentum-delta { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: #2e7d32; margin-top: 4px; }
 .cd-momentum-delta-neg { color: #c0392b; }
-.cd-percentile { margin: 0 36px 28px; border: 1px solid #e8e8e8; padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.cd-percentile { margin: 0 36px 28px; padding: 20px 0; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .cd-percentile-eyebrow { font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase; color: #aaa; margin-bottom: 6px; }
 .cd-percentile-headline { font-family: 'Playfair Display', serif; font-size: 22px; color: #111; font-weight: 400; line-height: 1.2; }
 .cd-percentile-sub { font-size: 12px; color: #999; margin-top: 4px; font-weight: 300; }
@@ -460,7 +460,7 @@ const CSS = `
 .cd-m-momentum-stat-val { font-family: 'Playfair Display', serif; font-size: 24px; color: #111; font-weight: 300; line-height: 1; }
 .cd-m-momentum-delta { font-size: 9px; color: #2e7d32; margin-top: 4px; }
 .cd-m-momentum-delta-neg { color: #c0392b; }
-.cd-m-percentile { margin: 16px 20px; border: 1px solid #e8e8e8; padding: 16px; display: flex; align-items: center; justify-content: space-between; }
+.cd-m-percentile { margin: 16px 20px; padding: 16px 0; display: flex; align-items: center; justify-content: space-between; }
 .cd-m-percentile-headline { font-family: 'Playfair Display', serif; font-size: 17px; color: #111; font-weight: 400; line-height: 1.2; }
 .cd-m-percentile-sub { font-size: 11px; color: #999; margin-top: 3px; font-weight: 300; }
 .cd-m-percentile-number { font-family: 'Playfair Display', serif; font-size: 40px; font-weight: 300; color: #111; line-height: 1; }
