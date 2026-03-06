@@ -66,6 +66,23 @@ const CSS = `
 .cd-aff-link-row { display: flex; align-items: flex-start; justify-content: space-between; }
 .cd-aff-link-label { font-size: 9px; letter-spacing: 0.32em; text-transform: uppercase; color: #aaa; margin-bottom: 5px; }
 .cd-aff-link-url { font-size: 11px; color: #999; font-weight: 300; }
+.cd-code-change-link { font-size: 11px; color: #aaa; cursor: pointer; background: none; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 0; margin-top: 14px; display: block; }
+.cd-code-change-link:hover { text-decoration: underline; }
+.cd-code-change-form { margin-top: 14px; padding-top: 14px; border-top: 1px solid #e8e8e8; }
+.cd-code-change-label { font-size: 9px; letter-spacing: 0.32em; text-transform: uppercase; color: #aaa; margin-bottom: 6px; }
+.cd-code-change-input { width: 100%; padding: 10px 12px; border: 1px solid #e8e8e8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #111; letter-spacing: 0.06em; text-transform: uppercase; outline: none; background: #fafafa; }
+.cd-code-change-input:focus { border-color: #aaa; }
+.cd-code-change-note { font-size: 10px; color: #aaa; margin-top: 6px; line-height: 1.5; }
+.cd-code-change-actions { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.cd-code-change-submit { padding: 8px 18px; background: #111; color: white; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; cursor: pointer; }
+.cd-code-change-submit:disabled { background: #ccc; cursor: not-allowed; }
+.cd-code-change-cancel { font-size: 10px; color: #aaa; cursor: pointer; background: none; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+.cd-code-change-cancel:hover { color: #555; }
+.cd-code-change-pending { font-size: 11px; color: #555; margin-top: 12px; line-height: 1.6; }
+.cd-code-change-pending-code { font-family: 'Playfair Display', serif; font-weight: 400; }
+.cd-code-change-pending-cancel { font-size: 10px; color: #c0392b; cursor: pointer; background: none; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin-top: 4px; display: block; padding: 0; }
+.cd-code-change-pending-cancel:hover { text-decoration: underline; }
+.cd-code-change-rejected { font-size: 10px; color: #c0392b; margin-top: 6px; font-style: italic; }
 
 /* SIDENAV */
 .cd-sidenav { flex: 1; }
@@ -639,6 +656,13 @@ export default function CreatorDashboard() {
   const [affiliateHistory, setAffiliateHistory] = useState([]) // [{ month, orders, summary }]
   const [affiliateLoading, setAffiliateLoading] = useState(false)
 
+  // Code change request
+  const [codeChangeOpen, setCodeChangeOpen] = useState(false)
+  const [codeChangeInput, setCodeChangeInput] = useState('')
+  const [codeChangeSubmitting, setCodeChangeSubmitting] = useState(false)
+  const [codeChangeRequests, setCodeChangeRequests] = useState([])
+  const [codeChangeCancelling, setCodeChangeCancelling] = useState(false)
+
   // Feedback state: keyed by "orderId-itemIndex"
   const [feedbackOpen, setFeedbackOpen] = useState({})
   const [feedbackData, setFeedbackData] = useState({})
@@ -730,6 +754,15 @@ export default function CreatorDashboard() {
           } catch {}
           setAdsLoading(false)
         }
+      }
+
+      // Fetch code change requests
+      if (inviteData?.has_affiliate) {
+        try {
+          const ccRes = await fetch('/api/creator/code-change-request')
+          const ccData = await ccRes.json()
+          setCodeChangeRequests(ccData.requests || [])
+        } catch {}
       }
 
       // Fetch affiliate sales data if has_affiliate
@@ -1000,6 +1033,42 @@ export default function CreatorDashboard() {
     navigator.clipboard.writeText(`namaclo.com/discount/${code}`)
     setCopiedLink(true)
     setTimeout(() => setCopiedLink(false), 1500)
+  }
+
+  async function submitCodeChange() {
+    if (!codeChangeInput || codeChangeInput.length < 4) return
+    setCodeChangeSubmitting(true)
+    try {
+      const res = await fetch('/api/creator/code-change-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requested_code: codeChangeInput }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setCodeChangeOpen(false)
+        setCodeChangeInput('')
+        const ccRes = await fetch('/api/creator/code-change-request')
+        const ccData = await ccRes.json()
+        setCodeChangeRequests(ccData.requests || [])
+      } else {
+        alert(data.error || 'Failed to submit request')
+      }
+    } catch (err) {
+      console.error('Code change request error:', err)
+    }
+    setCodeChangeSubmitting(false)
+  }
+
+  async function cancelCodeChange(requestId) {
+    setCodeChangeCancelling(true)
+    try {
+      await fetch(`/api/creator/code-change-request?id=${requestId}`, { method: 'DELETE' })
+      const ccRes = await fetch('/api/creator/code-change-request')
+      const ccData = await ccRes.json()
+      setCodeChangeRequests(ccData.requests || [])
+    } catch {}
+    setCodeChangeCancelling(false)
   }
 
   function formatSpend(val) {
@@ -1528,6 +1597,61 @@ export default function CreatorDashboard() {
           <div className="cd-payment-amount">~${projection.toLocaleString()}</div>
         </div>
       </div>
+    )
+  }
+
+  function renderCodeChangeSection() {
+    const pendingReq = codeChangeRequests.find(r => r.status === 'pending')
+    const lastRejected = codeChangeRequests.find(r => r.status === 'rejected')
+    const isLive = invite?.shopify_code_status === 'active'
+
+    if (pendingReq) {
+      return (
+        <div className="cd-code-change-pending">
+          You have a pending request for <span className="cd-code-change-pending-code">{pendingReq.requested_code}</span> — we&apos;ll review within 24 hours.
+          <button className="cd-code-change-pending-cancel" onClick={() => cancelCodeChange(pendingReq.id)} disabled={codeChangeCancelling}>
+            {codeChangeCancelling ? 'Cancelling…' : 'Cancel Request'}
+          </button>
+        </div>
+      )
+    }
+
+    return (
+      <>
+        {lastRejected && !pendingReq && (
+          <div className="cd-code-change-rejected">
+            Your request for &quot;{lastRejected.requested_code}&quot; was declined{lastRejected.admin_notes ? `: ${lastRejected.admin_notes}` : '.'}
+          </div>
+        )}
+        {isLive && !codeChangeOpen && (
+          <button className="cd-code-change-link" onClick={() => setCodeChangeOpen(true)}>
+            Request a different code →
+          </button>
+        )}
+        {codeChangeOpen && (
+          <div className="cd-code-change-form">
+            <div className="cd-code-change-label">Your Preferred Code</div>
+            <input
+              className="cd-code-change-input"
+              placeholder="e.g. CHARLENE15"
+              maxLength={20}
+              value={codeChangeInput}
+              onChange={e => setCodeChangeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+            />
+            <div className="cd-code-change-note">Subject to approval. Your current code stays active until we make the switch.</div>
+            <div className="cd-code-change-actions">
+              <button
+                className="cd-code-change-submit"
+                onClick={submitCodeChange}
+                disabled={codeChangeSubmitting || codeChangeInput.length < 4}
+              >
+                {codeChangeSubmitting ? 'Submitting…' : 'Submit Request'}
+              </button>
+              <button className="cd-code-change-cancel" onClick={() => { setCodeChangeOpen(false); setCodeChangeInput('') }}>Cancel</button>
+            </div>
+          </div>
+        )}
+      </>
     )
   }
 
@@ -2568,6 +2692,7 @@ export default function CreatorDashboard() {
                       <button className="cd-aff-copy" onClick={copyLink}>{copiedLink ? 'Copied' : 'Copy'}</button>
                     </div>
                   </div>
+                  {renderCodeChangeSection()}
                 </div>
               )}
             </div>
@@ -2655,6 +2780,7 @@ export default function CreatorDashboard() {
                   <button className="cd-m-aff-copy" onClick={copyLink}>{copiedLink ? 'Copied' : 'Copy'}</button>
                 </div>
               </div>
+              {renderCodeChangeSection()}
             </div>
           )}
 

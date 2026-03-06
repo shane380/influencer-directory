@@ -42,6 +42,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
   const [groupedCampaigns, setGroupedCampaigns] = useState<GroupedCampaigns[]>([]);
   const [loadingCampaigns, setLoadingCampaigns] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [pendingCodeRequests, setPendingCodeRequests] = useState(0);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const pathname = usePathname();
@@ -103,6 +104,18 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
 
     fetchCampaigns();
   }, [supabase]);
+
+  // Fetch pending code change request count
+  useEffect(() => {
+    async function fetchPendingRequests() {
+      try {
+        const res = await fetch("/api/admin/code-change-requests?count_only=true");
+        const data = await res.json();
+        setPendingCodeRequests(data.count || 0);
+      } catch {}
+    }
+    fetchPendingRequests();
+  }, []);
 
   // Close user menu when clicking outside
   useEffect(() => {
@@ -184,6 +197,11 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                   <span className="flex items-center gap-2">
                     <Icon className="h-4 w-4 flex-shrink-0" />
                     <span className="truncate">{item.label}</span>
+                    {item.id === "influencers" && pendingCodeRequests > 0 && (
+                      <span className="ml-auto flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-medium flex items-center justify-center px-1">
+                        {pendingCodeRequests}
+                      </span>
+                    )}
                   </span>
                   {item.expandable && (
                     campaignsExpanded ? (
