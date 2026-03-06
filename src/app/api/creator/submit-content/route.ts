@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const month = formData.get("month") as string;
   const notes = formData.get("notes") as string | null;
+  const campaignAssignmentId = formData.get("campaign_assignment_id") as string | null;
   const files = formData.getAll("files") as File[];
 
   if (!month || files.length === 0) {
@@ -130,24 +131,47 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    const insertData: Record<string, unknown> = {
+      creator_id: creator.id,
+      influencer_id: influencer?.id || null,
+      month,
+      drive_folder_id: folderId,
+      drive_folder_url: folderUrl,
+      files: uploadedFiles,
+      notes: notes || null,
+      status: "pending",
+    };
+    if (campaignAssignmentId) {
+      insertData.campaign_assignment_id = campaignAssignmentId;
+    }
+
     const { data: submission, error } = await supabase
       .from("creator_content_submissions")
-      .insert({
-        creator_id: creator.id,
-        influencer_id: influencer?.id || null,
-        month,
-        drive_folder_id: folderId,
-        drive_folder_url: folderUrl,
-        files: uploadedFiles,
-        notes: notes || null,
-        status: "pending",
-      })
+      .insert(insertData)
       .select()
       .single();
 
     if (error) {
       console.error("Submission insert failed:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // If linked to a campaign assignment, update its status
+    if (campaignAssignmentId && submission) {
+      const { data: assignment } = await supabase
+        .from("campaign_assignments")
+        .update({
+          status: "content_submitted",
+          content_submission_id: submission.id,
+        })
+        .eq("id", campaignAssignmentId)
+        .select("*, campaign:creator_campaigns(title)")
+        .single();
+
+      if (assignment) {
+        const campaignTitle = (assignment as any).campaign?.title || "Unknown";
+        console.log(`Content submitted for campaign "${campaignTitle}" by ${creator.creator_name}`);
+      }
     }
 
     return NextResponse.json({ submission });

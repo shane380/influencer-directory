@@ -130,6 +130,41 @@ const CSS = `
 .cd-search-input::placeholder { color: #ccc; }
 .cd-search-btn { padding: 12px 24px; background: #111; color: white; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 9.5px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; }
 
+/* CAMPAIGNS */
+.cd-campaign-card { background: #fff; border: 1px solid #e8e8e8; margin-bottom: 16px; }
+.cd-campaign-head { padding: 28px 32px 0; }
+.cd-campaign-eyebrow { font-size: 9px; letter-spacing: 0.35em; text-transform: uppercase; color: #aaa; display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.cd-campaign-title { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 300; color: #111; line-height: 1.2; margin-bottom: 4px; }
+.cd-campaign-due { font-size: 11px; color: #888; margin-bottom: 12px; }
+.cd-campaign-desc { font-size: 13px; color: #555; line-height: 1.6; margin-bottom: 0; padding: 0 32px 20px; }
+.cd-campaign-brief { display: flex; gap: 8px; overflow-x: auto; padding: 0 32px 16px; }
+.cd-campaign-brief img { height: 200px; border: 1px solid #eee; object-fit: contain; flex-shrink: 0; }
+.cd-campaign-brief-link { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: #111; text-decoration: none; letter-spacing: 0.06em; padding: 8px 16px; border: 1px solid #e8e8e8; margin: 0 32px 16px; }
+.cd-campaign-brief-link:hover { border-color: #aaa; }
+.cd-campaign-status { display: inline-flex; align-items: center; gap: 6px; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; padding: 5px 14px; border-radius: 100px; border: 1px solid; }
+.cd-campaign-status-sent { color: #1565c0; border-color: #bbdefb; background: #e3f2fd; }
+.cd-campaign-status-confirmed { color: #e65100; border-color: #ffe0b2; background: #fff3e0; }
+.cd-campaign-status-content { color: #6a1b9a; border-color: #e1bee7; background: #f3e5f5; }
+.cd-campaign-status-complete { color: #2e7d32; border-color: #d4edda; background: #f0faf0; }
+.cd-campaign-status-declined { color: #888; border-color: #e8e8e8; background: #f5f5f5; }
+.cd-campaign-body { padding: 0 32px 28px; }
+.cd-campaign-products { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 12px; }
+.cd-campaign-product { border: 1px solid #e8e8e8; cursor: pointer; transition: border-color 0.2s; position: relative; }
+.cd-campaign-product.selected { border-color: #111; }
+.cd-campaign-product-check { position: absolute; top: 8px; right: 8px; width: 20px; height: 20px; border-radius: 50%; background: #111; color: #fff; font-size: 10px; display: flex; align-items: center; justify-content: center; z-index: 1; }
+.cd-campaign-product-img { aspect-ratio: 4/5; background: #f5f5f5; overflow: hidden; }
+.cd-campaign-product-img img { width: 100%; height: 100%; object-fit: cover; }
+.cd-campaign-product-info { padding: 8px 10px; }
+.cd-campaign-product-name { font-size: 11px; color: #111; line-height: 1.3; margin-bottom: 4px; }
+.cd-campaign-max { font-size: 10px; color: #aaa; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
+.cd-campaign-confirm-msg { font-size: 13px; color: #555; line-height: 1.6; padding: 20px 0; }
+.cd-campaign-content-link { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: #111; text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; padding: 8px 0; margin-top: 8px; }
+.cd-campaign-content-link:hover { text-decoration: underline; }
+.cd-campaign-section-label { font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; color: #aaa; margin-bottom: 10px; margin-top: 16px; cursor: pointer; }
+.cd-campaign-submitted-thumbs { display: flex; gap: 6px; flex-wrap: wrap; }
+.cd-campaign-submitted-thumb { width: 48px; height: 48px; background: #f5f5f5; border: 1px solid #eee; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.cd-campaign-submitted-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
 /* PRODUCTS */
 .cd-products { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
 .cd-product { border: 1px solid #e8e8e8; cursor: pointer; transition: border-color 0.2s; }
@@ -487,9 +522,9 @@ const CSS = `
 .cd-loading { display: flex; align-items: center; justify-content: center; min-height: 100vh; font-size: 12px; color: #aaa; letter-spacing: 0.15em; text-transform: uppercase; }
 `
 
-const TABS = ['ads', 'wardrobe', 'request', 'submit', 'settings']
-const TAB_LABELS = { wardrobe: 'Wardrobe & Orders', request: 'Request New Styles', ads: 'Ads', submit: 'Submit Content', settings: 'Payment Info' }
-const TAB_LABELS_SHORT = { wardrobe: 'Wardrobe', request: 'Request', ads: 'Ads', submit: 'Submit Content', settings: 'Payment' }
+const TABS = ['ads', 'campaigns', 'wardrobe', 'request', 'submit', 'settings']
+const TAB_LABELS = { wardrobe: 'Wardrobe & Orders', request: 'Request New Styles', ads: 'Ads', campaigns: 'Campaigns', submit: 'Submit Content', settings: 'Payment Info' }
+const TAB_LABELS_SHORT = { wardrobe: 'Wardrobe', request: 'Request', ads: 'Ads', campaigns: 'Campaigns', submit: 'Submit Content', settings: 'Payment' }
 
 export default function CreatorDashboard() {
   const router = useRouter()
@@ -538,6 +573,15 @@ export default function CreatorDashboard() {
   const [feedbackOpen, setFeedbackOpen] = useState({})
   const [feedbackData, setFeedbackData] = useState({})
   const [feedbackDone, setFeedbackDone] = useState({})
+
+  // Campaigns
+  const [campaignAssignments, setCampaignAssignments] = useState([])
+  const [campaignsLoading, setCampaignsLoading] = useState(false)
+  const [campaignSelects, setCampaignSelects] = useState({}) // { [assignmentId]: { sizes: {}, products: [] } }
+  const [campaignNotes, setCampaignNotes] = useState({})
+  const [campaignConfirming, setCampaignConfirming] = useState(null)
+  const [showPastCampaigns, setShowPastCampaigns] = useState(false)
+  const [campaignContentTarget, setCampaignContentTarget] = useState(null) // assignment ID to tag content with
 
   // Payment settings
   const [paymentEditing, setPaymentEditing] = useState(false)
@@ -623,6 +667,13 @@ export default function CreatorDashboard() {
       const { data: subData } = await supabase.from('creator_content_submissions').select('*').eq('creator_id', creatorData.id).order('created_at', { ascending: false })
       setSubmissions(subData || [])
 
+      // Fetch campaign assignments
+      try {
+        const campRes = await fetch(`/api/creator/campaigns?creator_id=${creatorData.id}`)
+        const campData = await campRes.json()
+        setCampaignAssignments(campData.assignments || [])
+      } catch {}
+
       setLoading(false)
     }
     load()
@@ -697,19 +748,73 @@ export default function CreatorDashboard() {
   async function submitRequest() {
     if (!cart.length || !creator) return
     setRequestSubmitting(true)
-    const { error } = await supabase.from('creator_sample_requests').insert({
-      creator_id: creator.id,
-      influencer_id: influencer?.id || null,
-      selections: cart,
-      status: 'pending',
-    })
-    if (!error) {
-      setRequestSuccess(true)
-      setCart([])
-      setSearchResults([])
-      setSearchQuery('')
-      const { data } = await supabase.from('creator_sample_requests').select('*').eq('creator_id', creator.id).order('created_at', { ascending: false })
-      setPastRequests(data || [])
+
+    // Create individual campaign + assignment for this allowance request
+    const now = new Date()
+    const monthLabel = now.toLocaleString('en', { month: 'long', year: 'numeric' })
+    const creatorName = creator.creator_name || 'Creator'
+
+    try {
+      const campRes = await fetch('/api/creator/campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `${creatorName} — ${monthLabel} Allowance`,
+          campaign_type: 'individual',
+          status: 'active',
+          available_products: cart.map(c => ({
+            variant_id: c.shopify_variant_id,
+            product_title: c.product_title,
+            variant_title: c.variant_title,
+            image_url: c.image_url,
+          })),
+          assignments: [{
+            influencer_id: influencer?.id || null,
+            creator_id: creator.id,
+          }],
+        }),
+      })
+      const campData = await campRes.json()
+
+      // Get the assignment ID
+      let assignmentId = null
+      if (campData.campaign?.id) {
+        const assignRes = await fetch(`/api/creator/campaigns/assignments?campaign_id=${campData.campaign.id}`)
+        const assignData = await assignRes.json()
+        if (assignData.assignments?.[0]) {
+          assignmentId = assignData.assignments[0].id
+          // Mark as confirmed since they already picked products
+          await fetch('/api/creator/campaigns/assignments', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: assignmentId,
+              status: 'confirmed',
+              selected_products: cart,
+            }),
+          })
+        }
+      }
+
+      const insertData = {
+        creator_id: creator.id,
+        influencer_id: influencer?.id || null,
+        selections: cart,
+        status: 'pending',
+      }
+      if (assignmentId) insertData.campaign_assignment_id = assignmentId
+
+      const { error } = await supabase.from('creator_sample_requests').insert(insertData)
+      if (!error) {
+        setRequestSuccess(true)
+        setCart([])
+        setSearchResults([])
+        setSearchQuery('')
+        const { data } = await supabase.from('creator_sample_requests').select('*').eq('creator_id', creator.id).order('created_at', { ascending: false })
+        setPastRequests(data || [])
+      }
+    } catch (err) {
+      console.error('Submit request error:', err)
     }
     setRequestSubmitting(false)
   }
@@ -722,6 +827,7 @@ export default function CreatorDashboard() {
       const formData = new FormData()
       formData.append('month', contentMonth)
       if (contentNotes.trim()) formData.append('notes', contentNotes)
+      if (campaignContentTarget) formData.append('campaign_assignment_id', campaignContentTarget)
       contentFiles.forEach(f => formData.append('files', f))
 
       const xhr = new XMLHttpRequest()
@@ -744,8 +850,15 @@ export default function CreatorDashboard() {
       setContentSuccess({ folderUrl: result.submission?.drive_folder_url })
       setContentFiles([])
       setContentNotes('')
+      setCampaignContentTarget(null)
       const { data } = await supabase.from('creator_content_submissions').select('*').eq('creator_id', creator.id).order('created_at', { ascending: false })
       setSubmissions(data || [])
+      // Refresh campaign assignments in case status changed
+      try {
+        const campRes = await fetch(`/api/creator/campaigns?creator_id=${creator.id}`)
+        const campData = await campRes.json()
+        setCampaignAssignments(campData.assignments || [])
+      } catch {}
     } catch (err) {
       console.error('Submit content error:', err)
     }
@@ -1498,6 +1611,208 @@ export default function CreatorDashboard() {
     )
   }
 
+  function getCampaignStatusInfo(status) {
+    const map = {
+      sent: { label: 'Awaiting your confirmation', cls: 'cd-campaign-status-sent' },
+      confirmed: { label: 'Confirmed — order coming', cls: 'cd-campaign-status-confirmed' },
+      content_submitted: { label: 'Content submitted', cls: 'cd-campaign-status-content' },
+      complete: { label: 'Complete', cls: 'cd-campaign-status-complete' },
+      declined: { label: 'Declined', cls: 'cd-campaign-status-declined' },
+    }
+    return map[status] || map.sent
+  }
+
+  function toggleCampaignProduct(assignmentId, product, maxSelects) {
+    setCampaignSelects(prev => {
+      const current = prev[assignmentId]?.products || []
+      const exists = current.find(p => p.variant_id === product.variant_id)
+      let updated
+      if (exists) {
+        updated = current.filter(p => p.variant_id !== product.variant_id)
+      } else {
+        if (current.length >= maxSelects) return prev
+        updated = [...current, product]
+      }
+      return { ...prev, [assignmentId]: { ...prev[assignmentId], products: updated } }
+    })
+  }
+
+  async function confirmCampaignSelects(assignment) {
+    const selects = campaignSelects[assignment.id]?.products || []
+    if (!selects.length) return
+    setCampaignConfirming(assignment.id)
+    try {
+      await fetch('/api/creator/campaigns/assignments', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: assignment.id,
+          status: 'confirmed',
+          selected_products: selects,
+          creator_notes: campaignNotes[assignment.id] || null,
+        }),
+      })
+      // Refresh assignments
+      const campRes = await fetch(`/api/creator/campaigns?creator_id=${creator.id}`)
+      const campData = await campRes.json()
+      setCampaignAssignments(campData.assignments || [])
+    } catch (err) {
+      console.error('Confirm error:', err)
+    }
+    setCampaignConfirming(null)
+  }
+
+  function renderCampaignCard(assignment, mobile) {
+    const campaign = assignment.campaign
+    if (!campaign) return null
+    const statusInfo = getCampaignStatusInfo(assignment.status)
+    const products = campaign.available_products || []
+    const maxSelects = campaign.max_selects || 2
+    const briefImages = campaign.brief_images || []
+    const dueDate = campaign.due_date ? new Date(campaign.due_date + 'T00:00:00').toLocaleDateString('en', { month: 'long', day: 'numeric' }) : null
+
+    return (
+      <div key={assignment.id} className="cd-campaign-card">
+        <div className="cd-campaign-head">
+          <div className="cd-campaign-eyebrow">Campaign</div>
+          <div className="cd-campaign-title">{campaign.title}</div>
+          {dueDate && <div className="cd-campaign-due">Due {dueDate}</div>}
+          <span className={`cd-campaign-status ${statusInfo.cls}`}>{statusInfo.label}</span>
+        </div>
+
+        {campaign.description && <div className="cd-campaign-desc">{campaign.description}</div>}
+
+        {briefImages.length > 0 && (
+          <div className="cd-campaign-brief">
+            {briefImages.map((img, i) => (
+              <img key={i} src={img.url || img} alt={`Brief ${i + 1}`} />
+            ))}
+          </div>
+        )}
+
+        {campaign.brief_url && (
+          <a href={campaign.brief_url} target="_blank" rel="noopener noreferrer" className="cd-campaign-brief-link">
+            View Brief →
+          </a>
+        )}
+
+        <div className="cd-campaign-body">
+          {/* Status: Sent — show product selection */}
+          {assignment.status === 'sent' && products.length > 0 && (
+            <>
+              <div className="cd-campaign-max">Select up to {maxSelects} item{maxSelects !== 1 ? 's' : ''}</div>
+              <div className="cd-campaign-products">
+                {products.map((p, i) => {
+                  const selects = campaignSelects[assignment.id]?.products || []
+                  const isSelected = selects.find(s => s.variant_id === p.variant_id)
+                  return (
+                    <div
+                      key={i}
+                      className={`cd-campaign-product${isSelected ? ' selected' : ''}`}
+                      onClick={() => toggleCampaignProduct(assignment.id, p, maxSelects)}
+                    >
+                      {isSelected && <div className="cd-campaign-product-check">✓</div>}
+                      <div className="cd-campaign-product-img">
+                        {p.image_url ? <img src={p.image_url} alt={p.product_title} /> : <div style={{ width: '100%', height: '100%', background: '#eee' }} />}
+                      </div>
+                      <div className="cd-campaign-product-info">
+                        <div className="cd-campaign-product-name">{p.product_title}</div>
+                        {p.variant_title && <div style={{ fontSize: 10, color: '#aaa' }}>{p.variant_title}</div>}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              <div style={{ marginTop: 14 }}>
+                <label className="cd-field-label">Notes (optional)</label>
+                <input
+                  className="cd-field-input"
+                  value={campaignNotes[assignment.id] || ''}
+                  onChange={e => setCampaignNotes(prev => ({ ...prev, [assignment.id]: e.target.value }))}
+                  placeholder="Anything to add?"
+                  style={{ marginBottom: 14 }}
+                />
+              </div>
+              <button
+                className="cd-submit"
+                onClick={() => confirmCampaignSelects(assignment)}
+                disabled={!(campaignSelects[assignment.id]?.products?.length) || campaignConfirming === assignment.id}
+              >
+                {campaignConfirming === assignment.id ? 'Confirming…' : 'Confirm Selects →'}
+              </button>
+            </>
+          )}
+
+          {/* Status: Confirmed — show confirmed selects */}
+          {assignment.status === 'confirmed' && (
+            <>
+              <div className="cd-campaign-confirm-msg">Your order is being prepared. We&apos;ll ship your pieces soon.</div>
+              {(assignment.selected_products || []).length > 0 && (
+                <div className="cd-campaign-products">
+                  {assignment.selected_products.map((p, i) => (
+                    <div key={i} className="cd-campaign-product selected" style={{ cursor: 'default' }}>
+                      <div className="cd-campaign-product-img">
+                        {p.image_url ? <img src={p.image_url} alt={p.product_title} /> : <div style={{ width: '100%', height: '100%', background: '#eee' }} />}
+                      </div>
+                      <div className="cd-campaign-product-info">
+                        <div className="cd-campaign-product-name">{p.product_title}</div>
+                        {p.variant_title && <div style={{ fontSize: 10, color: '#aaa' }}>{p.variant_title}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <a className="cd-campaign-content-link" href="#" onClick={e => { e.preventDefault(); setActiveTab('submit'); setCampaignContentTarget(assignment.id) }}>
+                Submit Content →
+              </a>
+            </>
+          )}
+
+          {/* Status: Content Submitted */}
+          {assignment.status === 'content_submitted' && (
+            <div className="cd-campaign-confirm-msg">Content submitted — under review.</div>
+          )}
+
+          {/* Status: Complete */}
+          {assignment.status === 'complete' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 0' }}>
+              <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#2e7d32', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>✓</div>
+              <span style={{ fontSize: 13, color: '#2e7d32' }}>Campaign complete</span>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  function renderCampaigns(mobile) {
+    const active = campaignAssignments.filter(a => ['sent', 'confirmed'].includes(a.status))
+    const past = campaignAssignments.filter(a => ['content_submitted', 'complete', 'declined'].includes(a.status))
+
+    if (campaignAssignments.length === 0) {
+      return (
+        <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 300, fontStyle: 'italic', color: '#111', marginBottom: 8 }}>No campaigns yet.</div>
+          <div style={{ fontSize: 13, color: '#aaa' }}>When we send you a campaign brief, it&apos;ll show up here.</div>
+        </div>
+      )
+    }
+
+    return (
+      <>
+        {active.map(a => renderCampaignCard(a, mobile))}
+        {past.length > 0 && (
+          <div style={{ marginTop: active.length ? 24 : 0 }}>
+            <div className="cd-campaign-section-label" onClick={() => setShowPastCampaigns(!showPastCampaigns)}>
+              Past Campaigns ({past.length}) {showPastCampaigns ? '▼' : '▶'}
+            </div>
+            {showPastCampaigns && past.map(a => renderCampaignCard(a, mobile))}
+          </div>
+        )}
+      </>
+    )
+  }
+
   function getMonthOptions() {
     const options = []
     const now = new Date()
@@ -1549,6 +1864,30 @@ export default function CreatorDashboard() {
     return (
       <>
         <div className="cd-upload-sub">Upload your videos or photos below. We&apos;ll review within 48 hours.</div>
+
+        {(() => {
+          const confirmedAssignments = campaignAssignments.filter(a => a.status === 'confirmed' && a.campaign)
+          if (confirmedAssignments.length > 0 || campaignContentTarget) {
+            return (
+              <>
+                <label className={mobile ? 'cd-m-field-label' : 'cd-field-label'}>Campaign</label>
+                <select
+                  className={mobile ? 'cd-m-field-input' : 'cd-field-input'}
+                  value={campaignContentTarget || ''}
+                  onChange={e => setCampaignContentTarget(e.target.value || null)}
+                  disabled={!!campaignContentTarget && campaignAssignments.find(a => a.id === campaignContentTarget)}
+                  style={{ marginBottom: 16 }}
+                >
+                  <option value="">Not campaign related</option>
+                  {confirmedAssignments.map(a => (
+                    <option key={a.id} value={a.id}>{a.campaign?.title || 'Campaign'}</option>
+                  ))}
+                </select>
+              </>
+            )
+          }
+          return null
+        })()}
 
         <label className={mobile ? 'cd-m-field-label' : 'cd-field-label'}>Month</label>
         <select className={mobile ? 'cd-m-field-input' : 'cd-field-input'} value={contentMonth} onChange={e => setContentMonth(e.target.value)} style={{ marginBottom: 16 }}>
@@ -1802,6 +2141,23 @@ export default function CreatorDashboard() {
       )
     }
 
+    // Campaigns tab
+    if (activeTab === 'campaigns') {
+      return (
+        <div className="cd-card">
+          <div className="cd-card-head">
+            <div>
+              <div className="cd-card-eyebrow">Creator Campaigns</div>
+              <div className="cd-card-title">Campaigns</div>
+            </div>
+          </div>
+          <div className="cd-card-body">
+            {renderCampaigns(false)}
+          </div>
+        </div>
+      )
+    }
+
     // Wardrobe tab renders wardrobe grid + orders card
     if (activeTab === 'wardrobe') {
       const totalItems = orders.reduce((sum, o) => sum + (o.line_items?.length || 0), 0)
@@ -2014,6 +2370,15 @@ export default function CreatorDashboard() {
           )}
 
           <div className="cd-m-sections">
+            {/* Campaigns */}
+            <div className="cd-m-section" style={activeTab !== 'campaigns' ? { display: 'none' } : undefined}>
+              <div className="cd-m-section-head">
+                <div className="cd-m-section-eyebrow">Creator Campaigns</div>
+                <div className="cd-m-section-title">Campaigns</div>
+              </div>
+              <div className="cd-m-section-body">{renderCampaigns(true)}</div>
+            </div>
+
             {/* Wardrobe */}
             <div style={activeTab !== 'wardrobe' ? { display: 'none' } : undefined}>
               <div className="cd-m-section">
