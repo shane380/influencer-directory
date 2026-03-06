@@ -377,8 +377,8 @@ const CSS = `
 .cd-m-wrap { background: #f7f7f7; min-height: 100vh; }
 .cd-m-topbar { padding: 0 20px; height: 64px; background: #fff; border-bottom: 1px solid #e8e8e8; display: flex; align-items: center; justify-content: center; position: sticky; top: 0; z-index: 100; }
 .cd-m-logo-lockup { display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.cd-m-logo { height: 41px; display: block; width: fit-content; }
-.cd-m-logo-sub { font-size: 11px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; margin-top: 2px; }
+.cd-m-logo { height: 29px; display: block; width: fit-content; }
+.cd-m-logo-sub { font-size: 8px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; margin-top: 2px; }
 .cd-m-topbar-account { display: flex; align-items: center; justify-content: center; position: absolute; right: 20px; background: none; border: none; cursor: pointer; padding: 4px; }
 
 .cd-m-hero { padding: 16px 20px; border-bottom: 1px solid #e8e8e8; background: #fff; display: flex; flex-direction: row; align-items: center; gap: 14px; }
