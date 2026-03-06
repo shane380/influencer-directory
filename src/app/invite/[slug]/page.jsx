@@ -56,7 +56,7 @@ const CSS = `
 .ni-term-key { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #666; padding-top: 4px; }
 .ni-term-val { text-align: right; }
 .ni-term-primary { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 400; color: #111; }
-.ni-term-secondary { font-size: 11px; color: #bbb; font-weight: 300; margin-top: 2px; }
+.ni-term-secondary { font-size: 11px; color: #aaa; font-weight: 300; margin-top: 2px; }
 .ni-footnote { font-size: 12px; color: #aaa; font-style: italic; line-height: 1.8; margin: 18px 0 32px; padding-left: 14px; border-left: 1.5px solid #e8e8e8; }
 
 /* PERKS */
@@ -83,13 +83,13 @@ const CSS = `
 .ni-faq-item:first-child { padding-top: 0; }
 .ni-faq-item:last-child { border-bottom: none; }
 .ni-faq-q { font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 400; color: #111; line-height: 1.3; margin-bottom: 8px; }
-.ni-faq-a { font-size: 12.5px; color: #888; font-weight: 300; line-height: 1.8; }
+.ni-faq-a { font-size: 12.5px; color: #aaa; font-weight: 300; line-height: 1.8; }
 .ni-m-faq { margin-bottom: 24px; }
 .ni-m-faq-item { padding: 16px 0; border-bottom: 1px solid #f2f2f2; }
 .ni-m-faq-item:first-child { padding-top: 0; }
 .ni-m-faq-item:last-child { border-bottom: none; }
 .ni-m-faq-q { font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 400; color: #111; line-height: 1.3; margin-bottom: 6px; }
-.ni-m-faq-a { font-size: 12px; color: #888; font-weight: 300; line-height: 1.8; }
+.ni-m-faq-a { font-size: 12px; color: #aaa; font-weight: 300; line-height: 1.8; }
 
 /* AGREE */
 .ni-agree-row { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 24px; }
@@ -165,7 +165,7 @@ const CSS = `
 .ni-m-term-row:last-child { border-bottom: none; }
 .ni-m-term-key { font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; color: #666; padding-top: 4px; }
 .ni-m-term-primary { font-family: 'Playfair Display', serif; font-size: 20px; color: #111; text-align: right; }
-.ni-m-term-secondary { font-size: 11px; color: #bbb; font-weight: 300; margin-top: 2px; text-align: right; }
+.ni-m-term-secondary { font-size: 11px; color: #aaa; font-weight: 300; margin-top: 2px; text-align: right; }
 .ni-m-footnote { font-size: 12px; color: #aaa; font-style: italic; line-height: 1.75; margin: 16px 0 26px; padding-left: 12px; border-left: 1.5px solid #e8e8e8; }
 .ni-m-perk-row { display: flex; align-items: center; gap: 14px; padding: 11px 0; border-bottom: 1px solid #f5f5f5; font-family: 'Playfair Display', serif; font-size: 16px; color: #111; }
 .ni-m-perk-row:last-child { border-bottom: none; }
