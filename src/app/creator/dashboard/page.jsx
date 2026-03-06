@@ -119,7 +119,7 @@ const CSS = `
 .cd-cart-submit:disabled { background: #ccc; cursor: not-allowed; }
 
 /* AD */
-.cd-ad { border: 1px solid #e8e8e8; margin-bottom: 16px; overflow: hidden; }
+.cd-ad { border: 1px solid #e8e8e8; margin-bottom: 16px; overflow: hidden; max-width: 420px; }
 .cd-ad:last-child { margin-bottom: 0; }
 .cd-ad-preview { height: 320px; overflow: hidden; position: relative; }
 .cd-ad-preview iframe { width: 100%; height: 320px; border: none; }
