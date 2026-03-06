@@ -18,6 +18,7 @@ import { InfluencerOverviewTab } from "@/components/influencer-overview-tab";
 import { InfluencerOrdersTab } from "@/components/influencer-orders-tab";
 import { InfluencerCampaignsTab } from "@/components/influencer-campaigns-tab";
 import { InfluencerContentTab } from "@/components/influencer-content-tab";
+import { InfluencerSubmissionsTab } from "@/components/influencer-submissions-tab";
 import { InfluencerContractsTab } from "@/components/influencer-contracts-tab";
 import { DealDialog } from "@/components/deal-dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -765,6 +766,7 @@ export function InfluencerDialog({
                 <TabsTrigger value="orders">Orders</TabsTrigger>
                 <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
                 <TabsTrigger value="content">Content</TabsTrigger>
+                <TabsTrigger value="submissions">Submissions</TabsTrigger>
                 <TabsTrigger value="deal">Deal</TabsTrigger>
                 {(influencer.partnership_type === "paid" || influencer.whitelisting_enabled) && (
                   <TabsTrigger value="contracts">Contracts</TabsTrigger>
@@ -811,6 +813,10 @@ export function InfluencerDialog({
                     influencerName={influencer.name}
                     instagramHandle={influencer.instagram_handle}
                   />
+                </TabsContent>
+
+                <TabsContent value="submissions" className="mt-0 h-full w-full">
+                  <InfluencerSubmissionsTab influencerId={influencer.id} />
                 </TabsContent>
 
                 <TabsContent value="deal" className="mt-0 h-full w-full">

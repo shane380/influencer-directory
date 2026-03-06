@@ -165,6 +165,78 @@ export async function deleteFileFromDrive(fileId: string): Promise<void> {
   await drive.files.delete({ fileId, supportsAllDrives: true });
 }
 
+export async function findOrCreateFolder(
+  parentId: string,
+  folderName: string
+): Promise<string> {
+  const drive = getDrive();
+
+  // Check if folder already exists
+  const existing = await drive.files.list({
+    q: `name='${folderName.replace(/'/g, "\\'")}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+    fields: "files(id)",
+  });
+
+  if (existing.data.files && existing.data.files.length > 0) {
+    return existing.data.files[0].id!;
+  }
+
+  const res = await drive.files.create({
+    requestBody: {
+      name: folderName,
+      mimeType: "application/vnd.google-apps.folder",
+      parents: [parentId],
+    },
+    supportsAllDrives: true,
+    fields: "id",
+  });
+
+  return res.data.id!;
+}
+
+export async function createSubmissionFolder(
+  creatorName: string,
+  handle: string,
+  monthLabel: string
+): Promise<{ folderId: string; folderUrl: string }> {
+  const rootId = process.env.GOOGLE_DRIVE_PARENT_FOLDER_ID;
+  if (!rootId) throw new Error("Missing GOOGLE_DRIVE_PARENT_FOLDER_ID");
+
+  // Find or create creator folder
+  const creatorFolderName = `${creatorName} (@${handle})`;
+  const creatorFolderId = await findOrCreateFolder(rootId, creatorFolderName);
+
+  // Find unique submission folder name
+  const drive = getDrive();
+  const baseName = `${monthLabel} Submission`;
+  const existingFolders = await drive.files.list({
+    q: `name contains '${baseName.replace(/'/g, "\\'")}' and '${creatorFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+    fields: "files(name)",
+  });
+
+  let folderName = baseName;
+  if (existingFolders.data.files && existingFolders.data.files.length > 0) {
+    folderName = `${baseName} #${existingFolders.data.files.length + 1}`;
+  }
+
+  const res = await drive.files.create({
+    requestBody: {
+      name: folderName,
+      mimeType: "application/vnd.google-apps.folder",
+      parents: [creatorFolderId],
+    },
+    supportsAllDrives: true,
+    fields: "id",
+  });
+
+  const folderId = res.data.id!;
+  return { folderId, folderUrl: getFolderUrl(folderId) };
+}
+
 export function getFolderUrl(folderId: string): string {
   return `https://drive.google.com/drive/folders/${folderId}`;
 }

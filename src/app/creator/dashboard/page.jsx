@@ -89,6 +89,35 @@ const CSS = `
 .cd-badge { display: inline-flex; align-items: center; gap: 5px; border: 1px solid #d4edda; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: #2e7d32; padding: 4px 10px; border-radius: 100px; background: #f0faf0; }
 .cd-badge-pending { border-color: #e8e8e8; color: #888; background: #f5f5f5; }
 .cd-badge-yellow { border-color: #ffeeba; color: #a68307; background: #fff8e1; }
+.cd-badge-green { border-color: #d4edda; color: #2e7d32; background: #f0faf0; }
+.cd-badge-red { border-color: #f5c6cb; color: #c62828; background: #fef2f2; }
+
+/* UPLOAD */
+.cd-upload-sub { font-size: 13px; color: #888; margin-bottom: 20px; line-height: 1.5; }
+.cd-dropzone { border: 2px dashed #e0e0e0; padding: 36px 24px; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; margin-bottom: 16px; }
+.cd-dropzone:hover { border-color: #bbb; background: #fafafa; }
+.cd-dropzone-icon { font-size: 24px; color: #ccc; margin-bottom: 8px; }
+.cd-dropzone-text { font-size: 13px; color: #666; margin-bottom: 4px; }
+.cd-dropzone-hint { font-size: 11px; color: #aaa; }
+.cd-file-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.cd-file-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: #f9f9f9; border: 1px solid #eee; }
+.cd-file-thumb { width: 44px; height: 44px; flex-shrink: 0; overflow: hidden; background: #eee; display: flex; align-items: center; justify-content: center; }
+.cd-file-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.cd-file-video-icon { font-size: 16px; color: #888; }
+.cd-file-info { flex: 1; min-width: 0; }
+.cd-file-name { font-size: 12px; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cd-file-size { font-size: 11px; color: #aaa; margin-top: 2px; }
+.cd-file-remove { background: none; border: none; font-size: 18px; color: #ccc; cursor: pointer; padding: 4px 8px; line-height: 1; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+.cd-file-remove:hover { color: #888; }
+.cd-upload-progress { margin-top: 12px; margin-bottom: 4px; }
+.cd-upload-progress-bar { height: 3px; background: #111; transition: width 0.3s; }
+.cd-upload-progress-text { font-size: 11px; color: #888; margin-top: 6px; }
+.cd-upload-success { text-align: center; padding: 32px 0; }
+.cd-upload-success-icon { width: 48px; height: 48px; border-radius: 50%; background: #111; color: white; display: flex; align-items: center; justify-content: center; font-size: 22px; margin: 0 auto 16px; }
+.cd-upload-success-title { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 300; color: #111; margin-bottom: 6px; }
+.cd-upload-success-sub { font-size: 13px; color: #888; margin-bottom: 12px; }
+.cd-upload-success-link { font-size: 12px; color: #111; text-decoration: none; letter-spacing: 0.04em; }
+.cd-upload-success-link:hover { text-decoration: underline; }
 
 /* EMPTY */
 .cd-empty { padding: 52px 36px; text-align: center; border-top: 1px solid #e8e8e8; }
@@ -459,8 +488,8 @@ const CSS = `
 `
 
 const TABS = ['ads', 'wardrobe', 'request', 'submit', 'settings']
-const TAB_LABELS = { wardrobe: 'Wardrobe & Orders', request: 'Request New Styles', ads: 'Ads', submit: 'Submit', settings: 'Payment Info' }
-const TAB_LABELS_SHORT = { wardrobe: 'Wardrobe', request: 'Request', ads: 'Ads', submit: 'Submit', settings: 'Payment' }
+const TAB_LABELS = { wardrobe: 'Wardrobe & Orders', request: 'Request New Styles', ads: 'Ads', submit: 'Submit Content', settings: 'Payment Info' }
+const TAB_LABELS_SHORT = { wardrobe: 'Wardrobe', request: 'Request', ads: 'Ads', submit: 'Submit Content', settings: 'Payment' }
 
 export default function CreatorDashboard() {
   const router = useRouter()
@@ -495,10 +524,11 @@ export default function CreatorDashboard() {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   })
-  const [contentUrl, setContentUrl] = useState('')
+  const [contentFiles, setContentFiles] = useState([])
   const [contentNotes, setContentNotes] = useState('')
   const [contentSubmitting, setContentSubmitting] = useState(false)
-  const [contentSuccess, setContentSuccess] = useState(false)
+  const [contentProgress, setContentProgress] = useState(0)
+  const [contentSuccess, setContentSuccess] = useState(null) // null | { folderUrl }
   const [submissions, setSubmissions] = useState([])
 
   const [copied, setCopied] = useState(false)
@@ -685,24 +715,65 @@ export default function CreatorDashboard() {
   }
 
   async function submitContent() {
-    if (!contentUrl.trim() || !creator) return
+    if (!contentFiles.length || !creator) return
     setContentSubmitting(true)
-    const { error } = await supabase.from('creator_content_submissions').insert({
-      creator_id: creator.id,
-      month: contentMonth,
-      video_url: contentUrl,
-      notes: contentNotes || null,
-      status: 'submitted',
-    })
-    if (!error) {
-      setContentSuccess(true)
-      setContentUrl('')
+    setContentProgress(0)
+    try {
+      const formData = new FormData()
+      formData.append('month', contentMonth)
+      if (contentNotes.trim()) formData.append('notes', contentNotes)
+      contentFiles.forEach(f => formData.append('files', f))
+
+      const xhr = new XMLHttpRequest()
+      const result = await new Promise((resolve, reject) => {
+        xhr.upload.addEventListener('progress', e => {
+          if (e.lengthComputable) setContentProgress(Math.round((e.loaded / e.total) * 100))
+        })
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve(JSON.parse(xhr.responseText))
+          } else {
+            reject(new Error(xhr.responseText || 'Upload failed'))
+          }
+        })
+        xhr.addEventListener('error', () => reject(new Error('Upload failed')))
+        xhr.open('POST', '/api/creator/submit-content')
+        xhr.send(formData)
+      })
+
+      setContentSuccess({ folderUrl: result.submission?.drive_folder_url })
+      setContentFiles([])
       setContentNotes('')
       const { data } = await supabase.from('creator_content_submissions').select('*').eq('creator_id', creator.id).order('created_at', { ascending: false })
       setSubmissions(data || [])
-      setTimeout(() => setContentSuccess(false), 3000)
+    } catch (err) {
+      console.error('Submit content error:', err)
     }
     setContentSubmitting(false)
+    setContentProgress(0)
+  }
+
+  function handleContentFileDrop(e) {
+    e.preventDefault()
+    const allowed = ['video/mp4', 'video/quicktime', 'image/jpeg', 'image/png', 'image/webp']
+    const dropped = Array.from(e.dataTransfer?.files || []).filter(f => allowed.includes(f.type))
+    if (dropped.length) setContentFiles(prev => [...prev, ...dropped])
+  }
+
+  function handleContentFileSelect(e) {
+    const selected = Array.from(e.target.files || [])
+    if (selected.length) setContentFiles(prev => [...prev, ...selected])
+    e.target.value = ''
+  }
+
+  function removeContentFile(index) {
+    setContentFiles(prev => prev.filter((_, i) => i !== index))
+  }
+
+  function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
   }
 
   function copyCode() {
@@ -1427,59 +1498,163 @@ export default function CreatorDashboard() {
     )
   }
 
+  function getMonthOptions() {
+    const options = []
+    const now = new Date()
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      const label = d.toLocaleString('en', { month: 'long', year: 'numeric' })
+      options.push({ value: val, label })
+    }
+    return options
+  }
+
+  function getStatusBadgeClass(status) {
+    if (status === 'approved') return ' cd-badge-green'
+    if (status === 'revision_requested') return ' cd-badge-yellow'
+    if (status === 'rejected') return ' cd-badge-red'
+    return ' cd-badge-pending'
+  }
+
+  function getFilePreview(file) {
+    if (file.type.startsWith('image/')) {
+      return URL.createObjectURL(file)
+    }
+    return null
+  }
+
   function renderSubmitContent(mobile) {
+    const prefix = mobile ? 'cd-m-' : 'cd-'
+    const monthOptions = getMonthOptions()
+
+    if (contentSuccess) {
+      return (
+        <div className="cd-upload-success">
+          <div className="cd-upload-success-icon">✓</div>
+          <div className="cd-upload-success-title">Submitted</div>
+          <div className="cd-upload-success-sub">We&apos;ll review within 48 hours.</div>
+          {contentSuccess.folderUrl && (
+            <a href={contentSuccess.folderUrl} target="_blank" rel="noopener noreferrer" className="cd-upload-success-link">
+              View in Google Drive →
+            </a>
+          )}
+          <button className={mobile ? 'cd-m-submit' : 'cd-submit'} style={{ marginTop: 20 }} onClick={() => setContentSuccess(null)}>
+            Submit More Content
+          </button>
+        </div>
+      )
+    }
+
     return (
       <>
-        {mobile ? (
-          <>
-            <label className="cd-m-field-label">Month</label>
-            <input className="cd-m-field-input" type="month" value={contentMonth} onChange={e => setContentMonth(e.target.value)} />
-            <label className="cd-m-field-label">Video URL</label>
-            <input className="cd-m-field-input" value={contentUrl} onChange={e => setContentUrl(e.target.value)} placeholder="Google Drive, Dropbox…" />
-            <label className="cd-m-field-label">Notes (optional)</label>
-            <input className="cd-m-field-input" value={contentNotes} onChange={e => setContentNotes(e.target.value)} placeholder="Anything we should know…" />
-            {contentSuccess && <div className="cd-success">Submitted successfully.</div>}
-            <button className="cd-m-submit" onClick={submitContent} disabled={!contentUrl.trim() || contentSubmitting}>
-              {contentSubmitting ? 'Submitting…' : 'Submit Content →'}
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="cd-form-row">
-              <div>
-                <label className="cd-field-label">Month</label>
-                <input className="cd-field-input" type="month" value={contentMonth} onChange={e => setContentMonth(e.target.value)} />
-              </div>
-              <div>
-                <label className="cd-field-label">Video URL</label>
-                <input className="cd-field-input" value={contentUrl} onChange={e => setContentUrl(e.target.value)} placeholder="Google Drive, Dropbox…" />
-              </div>
-            </div>
-            <label className="cd-field-label">Notes (optional)</label>
-            <textarea className="cd-field-textarea" value={contentNotes} onChange={e => setContentNotes(e.target.value)} placeholder="Anything we should know about this video…" />
-            {contentSuccess && <div className="cd-success">Submitted successfully.</div>}
-            <button className="cd-submit" onClick={submitContent} disabled={!contentUrl.trim() || contentSubmitting}>
-              {contentSubmitting ? 'Submitting…' : 'Submit Content →'}
-            </button>
-          </>
+        <div className="cd-upload-sub">Upload your videos or photos below. We&apos;ll review within 48 hours.</div>
+
+        <label className={mobile ? 'cd-m-field-label' : 'cd-field-label'}>Month</label>
+        <select className={mobile ? 'cd-m-field-input' : 'cd-field-input'} value={contentMonth} onChange={e => setContentMonth(e.target.value)} style={{ marginBottom: 16 }}>
+          {monthOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+
+        <label className={mobile ? 'cd-m-field-label' : 'cd-field-label'}>Files</label>
+        <div
+          className="cd-dropzone"
+          onDragOver={e => e.preventDefault()}
+          onDrop={handleContentFileDrop}
+          onClick={() => document.getElementById(mobile ? 'cd-m-file-input' : 'cd-file-input')?.click()}
+        >
+          <div className="cd-dropzone-icon">↑</div>
+          <div className="cd-dropzone-text">Drag & drop files here or click to browse</div>
+          <div className="cd-dropzone-hint">MP4, MOV, JPG, PNG, WebP</div>
+          <input
+            id={mobile ? 'cd-m-file-input' : 'cd-file-input'}
+            type="file"
+            multiple
+            accept="video/mp4,video/quicktime,image/jpeg,image/png,image/webp"
+            style={{ display: 'none' }}
+            onChange={handleContentFileSelect}
+          />
+        </div>
+
+        {contentFiles.length > 0 && (
+          <div className="cd-file-list">
+            {contentFiles.map((file, i) => {
+              const preview = getFilePreview(file)
+              const isVideo = file.type.startsWith('video/')
+              return (
+                <div key={i} className="cd-file-item">
+                  <div className="cd-file-thumb">
+                    {preview ? (
+                      <img src={preview} alt={file.name} />
+                    ) : isVideo ? (
+                      <div className="cd-file-video-icon">▶</div>
+                    ) : null}
+                  </div>
+                  <div className="cd-file-info">
+                    <div className="cd-file-name">{file.name}</div>
+                    <div className="cd-file-size">{formatFileSize(file.size)}</div>
+                  </div>
+                  <button className="cd-file-remove" onClick={() => removeContentFile(i)}>×</button>
+                </div>
+              )
+            })}
+          </div>
         )}
 
+        <label className={mobile ? 'cd-m-field-label' : 'cd-field-label'} style={{ marginTop: 16 }}>Notes (optional)</label>
+        <textarea
+          className={mobile ? 'cd-m-field-input' : 'cd-field-textarea'}
+          value={contentNotes}
+          onChange={e => setContentNotes(e.target.value)}
+          placeholder="Anything we should know about these videos?"
+          style={mobile ? { minHeight: 60 } : undefined}
+        />
+
+        {contentSubmitting && (
+          <div className="cd-upload-progress">
+            <div className="cd-upload-progress-bar" style={{ width: `${contentProgress}%` }} />
+            <div className="cd-upload-progress-text">Uploading… {contentProgress}%</div>
+          </div>
+        )}
+
+        <button
+          className={mobile ? 'cd-m-submit' : 'cd-submit'}
+          onClick={submitContent}
+          disabled={!contentFiles.length || contentSubmitting}
+          style={{ marginTop: 16 }}
+        >
+          {contentSubmitting ? 'Uploading…' : 'Submit Content →'}
+        </button>
+
         {submissions.length > 0 && (
-          <div style={{ marginTop: 24 }}>
+          <div style={{ marginTop: 32 }}>
             <div className="cd-cart-label">Past Submissions</div>
-            {submissions.map(sub => (
-              <div key={sub.id} className="cd-past-item">
-                <div>
-                  <a href={sub.video_url} target="_blank" rel="noopener noreferrer" className="cd-past-link">{sub.video_url}</a>
-                  <div className="cd-past-label">{sub.month}</div>
-                  {sub.notes && <div className="cd-past-notes">{sub.notes}</div>}
-                  {sub.reviewer_notes && <div style={{ fontSize: 11, color: '#a68307', marginTop: 3 }}>Feedback: {sub.reviewer_notes}</div>}
+            {submissions.map(sub => {
+              const files = Array.isArray(sub.files) ? sub.files : []
+              const [yr, mo] = (sub.month || '').split('-')
+              const monthLabel = yr && mo ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString('en', { month: 'long', year: 'numeric' }) : sub.month
+              return (
+                <div key={sub.id} className="cd-past-item">
+                  <div style={{ flex: 1 }}>
+                    <div className="cd-past-text">{monthLabel}</div>
+                    <div className="cd-past-label">{files.length} file{files.length !== 1 ? 's' : ''}</div>
+                    {sub.drive_folder_url && (
+                      <a href={sub.drive_folder_url} target="_blank" rel="noopener noreferrer" className="cd-past-link" style={{ fontSize: 11 }}>
+                        View in Drive →
+                      </a>
+                    )}
+                    {sub.notes && <div className="cd-past-notes">{sub.notes}</div>}
+                    {sub.admin_feedback && (
+                      <div style={{ fontSize: 11, color: sub.status === 'revision_requested' ? '#a68307' : sub.status === 'rejected' ? '#c62828' : '#2e7d32', marginTop: 3 }}>
+                        Feedback: {sub.admin_feedback}
+                      </div>
+                    )}
+                  </div>
+                  <span className={`cd-badge${getStatusBadgeClass(sub.status)}`}>
+                    {(sub.status || '').replace(/_/g, ' ')}
+                  </span>
                 </div>
-                <span className={`cd-badge${sub.status === 'submitted' ? ' cd-badge-pending' : sub.status === 'revision_requested' ? ' cd-badge-yellow' : ''}`}>
-                  {sub.status.replace('_', ' ')}
-                </span>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </>
