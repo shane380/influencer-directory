@@ -449,8 +449,8 @@ const CSS = `
 `
 
 const TABS = ['ads', 'wardrobe', 'request', 'submit', 'settings']
-const TAB_LABELS = { wardrobe: 'Wardrobe & Orders', request: 'Request Styles', ads: 'Ads', submit: 'Submit', settings: 'Settings' }
-const TAB_LABELS_SHORT = { wardrobe: 'Wardrobe', request: 'Request', ads: 'Ads', submit: 'Submit', settings: 'Settings' }
+const TAB_LABELS = { wardrobe: 'Wardrobe & Orders', request: 'Request Styles', ads: 'Ads', submit: 'Submit', settings: 'Payment Info' }
+const TAB_LABELS_SHORT = { wardrobe: 'Wardrobe', request: 'Request', ads: 'Ads', submit: 'Submit', settings: 'Payment' }
 
 export default function CreatorDashboard() {
   const router = useRouter()
@@ -1579,7 +1579,7 @@ export default function CreatorDashboard() {
           <div className="cd-card-head">
             <div>
               <div className="cd-card-eyebrow">Account</div>
-              <div className="cd-card-title">Settings</div>
+              <div className="cd-card-title">Payment Info</div>
             </div>
           </div>
           <div className="cd-card-body">
@@ -1807,7 +1807,7 @@ export default function CreatorDashboard() {
             <div className="cd-m-section" style={activeTab !== 'settings' ? { display: 'none' } : undefined}>
               <div className="cd-m-section-head">
                 <div className="cd-m-section-eyebrow">Account</div>
-                <div className="cd-m-section-title">Settings</div>
+                <div className="cd-m-section-title">Payment Info</div>
               </div>
               <div className="cd-m-section-body">{renderSettings(true)}</div>
             </div>
