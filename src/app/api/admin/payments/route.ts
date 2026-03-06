@@ -1,0 +1,94 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+function getSupabase() {
+  return createClient(supabaseUrl, supabaseServiceKey);
+}
+
+// GET /api/admin/payments?month=2026-03
+export async function GET(request: NextRequest) {
+  const month = request.nextUrl.searchParams.get("month");
+  if (!month) {
+    return NextResponse.json({ error: "month required" }, { status: 400 });
+  }
+
+  const supabase = getSupabase();
+
+  const { data: payments, error } = await (supabase.from as any)("creator_payments")
+    .select("*")
+    .eq("month", month)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Enrich with influencer data
+  const influencerIds = [...new Set((payments || []).map((p: any) => p.influencer_id).filter(Boolean))];
+  const enriched: any[] = [];
+
+  let influencerMap: Record<string, any> = {};
+  if (influencerIds.length > 0) {
+    const { data: influencers } = await supabase
+      .from("influencers")
+      .select("id, name, instagram_handle, profile_photo_url")
+      .in("id", influencerIds);
+
+    for (const inf of influencers || []) {
+      influencerMap[inf.id] = inf;
+    }
+  }
+
+  for (const p of payments || []) {
+    enriched.push({
+      ...p,
+      influencer: influencerMap[p.influencer_id] || null,
+    });
+  }
+
+  return NextResponse.json({ payments: enriched });
+}
+
+// PATCH /api/admin/payments — update status, amount, notes
+export async function PATCH(request: NextRequest) {
+  const body = await request.json();
+  const { id, ...updates } = body;
+
+  if (!id) {
+    return NextResponse.json({ error: "id required" }, { status: 400 });
+  }
+
+  const supabase = getSupabase();
+
+  if (updates.status === "approved") {
+    updates.approved_at = new Date().toISOString();
+  }
+  if (updates.status === "paid") {
+    updates.paid_at = new Date().toISOString();
+    if (!updates.amount_paid && !body.amount_paid) {
+      // Default amount_paid to amount_owed
+      const { data: existing } = await (supabase.from as any)("creator_payments")
+        .select("amount_owed")
+        .eq("id", id)
+        .single();
+      if (existing) {
+        updates.amount_paid = existing.amount_owed;
+      }
+    }
+  }
+
+  const { data, error } = await (supabase.from as any)("creator_payments")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ payment: data });
+}

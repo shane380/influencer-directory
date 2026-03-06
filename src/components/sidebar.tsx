@@ -10,6 +10,7 @@ import {
   DollarSign,
   Share2,
   Heart,
+  CreditCard,
   ChevronDown,
   ChevronRight,
   User,
@@ -133,6 +134,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
     { id: "paid_collabs", label: "Paid Collabs", icon: DollarSign },
     { id: "whitelisting", label: "Whitelisting", icon: Share2 },
     { id: "creators", label: "Creators", icon: Heart },
+    { id: "payments", label: "Payments", icon: CreditCard },
   ];
 
   const handleNavClick = (id: string) => {
@@ -140,6 +142,8 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
       setCampaignsExpanded(!campaignsExpanded);
     } else if (id === "creators") {
       router.push("/partnerships/creators");
+    } else if (id === "payments") {
+      router.push("/partnerships/payments");
     } else {
       router.push(`/?tab=${id}`);
     }
@@ -164,7 +168,8 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
             const Icon = item.icon;
             const isActive = activeTab === item.id ||
               (item.id === "campaigns" && pathname?.startsWith("/campaigns")) ||
-              (item.id === "creators" && pathname?.startsWith("/partnerships/creators"));
+              (item.id === "creators" && pathname?.startsWith("/partnerships/creators")) ||
+              (item.id === "payments" && pathname?.startsWith("/partnerships/payments"));
 
             return (
               <li key={item.id}>
