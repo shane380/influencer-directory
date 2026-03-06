@@ -192,6 +192,8 @@ const CSS = `
 .cd-product-info { padding: 12px 14px 14px; }
 .cd-product-name { font-size: 12px; color: #111; margin-bottom: 2px; }
 .cd-product-variant { font-size: 10.5px; color: #aaa; font-weight: 300; }
+.cd-load-more { display: inline-block; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; cursor: pointer; padding: 8px 20px; background: transparent; color: #999; border: 1px solid #e8e8e8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; transition: all 0.15s; }
+.cd-load-more:hover { border-color: #111; color: #111; }
 .cd-product-cta { display: inline-block; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; margin-top: 10px; cursor: pointer; padding: 7px 16px; background: #111; color: #fff; border: 1px solid #111; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
 .cd-product-cta.added { background: transparent; color: #ccc; border-color: #e8e8e8; cursor: default; }
 .cd-size-row { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
@@ -1006,6 +1008,8 @@ export default function CreatorDashboard() {
     } catch {}
   }
 
+  const [wardrobeExpanded, setWardrobeExpanded] = useState(false)
+
   function renderWardrobeGrid(mobile) {
     const allItems = getAllLineItems()
     if (allItems.length === 0) {
@@ -1024,10 +1028,13 @@ export default function CreatorDashboard() {
 
     const p = mobile ? 'cd-m-' : 'cd-'
     const status = getStatusInfo
+    const visibleItems = wardrobeExpanded ? allItems : allItems.slice(0, 4)
+    const hasMore = allItems.length > 4
 
     return (
-      <div className={`${p}wardrobe-grid`}>
-        {allItems.map(item => {
+      <div>
+        <div className={`${p}wardrobe-grid`}>
+        {visibleItems.map(item => {
           const s = status(item.fulfillmentStatus)
           const isOpen = feedbackOpen[item.key]
           const isDone = feedbackDone[item.key]
@@ -1089,6 +1096,14 @@ export default function CreatorDashboard() {
             </div>
           )
         })}
+        </div>
+        {hasMore && !wardrobeExpanded && (
+          <div style={{ textAlign: 'center', padding: mobile ? '16px 20px' : '20px 36px' }}>
+            <button className="cd-load-more" onClick={() => setWardrobeExpanded(true)}>
+              Load More ({allItems.length - 4} more)
+            </button>
+          </div>
+        )}
       </div>
     )
   }
