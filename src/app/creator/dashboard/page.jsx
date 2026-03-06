@@ -2442,7 +2442,7 @@ export default function CreatorDashboard() {
               <div className="cd-m-section-body">{renderCampaigns(true)}</div>
             </div>
 
-            {/* Wardrobe */}
+            {/* Wardrobe + Request Styles */}
             <div style={activeTab !== 'wardrobe' ? { display: 'none' } : undefined}>
               <div className="cd-m-section">
                 <div className="cd-m-section-head">
@@ -2460,15 +2460,13 @@ export default function CreatorDashboard() {
                   <div className="cd-m-section-body">{renderOrderHistory(true)}</div>
                 </div>
               )}
-            </div>
-
-            {/* Request Styles */}
-            <div className="cd-m-section" style={activeTab !== 'request' ? { display: 'none' } : undefined}>
-              <div className="cd-m-section-head">
-                <div className="cd-m-section-eyebrow">Monthly Allowance</div>
-                <div className="cd-m-section-title">Request New Styles</div>
+              <div className="cd-m-section">
+                <div className="cd-m-section-head">
+                  <div className="cd-m-section-eyebrow">Monthly Allowance</div>
+                  <div className="cd-m-section-title">Request New Styles</div>
+                </div>
+                <div className="cd-m-section-body">{renderRequestStyles(true)}</div>
               </div>
-              <div className="cd-m-section-body">{renderRequestStyles(true)}</div>
             </div>
 
             {/* Live Ads */}
