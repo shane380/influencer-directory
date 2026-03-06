@@ -639,7 +639,7 @@ export default function CreatorDashboard() {
       }
 
       const { data: inviteData } = await supabase.from('creator_invites').select('*').eq('id', creatorData.invite_id).single()
-      console.log('[DEBUG] invite data:', { deal_type: inviteData?.deal_type, ad_spend_percentage: inviteData?.ad_spend_percentage, commission_rate: inviteData?.commission_rate })
+      console.log('[DEBUG] invite data:', { has_ad_spend: inviteData?.has_ad_spend, has_affiliate: inviteData?.has_affiliate, has_retainer: inviteData?.has_retainer, ad_spend_percentage: inviteData?.ad_spend_percentage, commission_rate: inviteData?.commission_rate })
       setInvite(inviteData)
 
       // Find linked influencer — by invite's influencer_id, or fallback to name match
@@ -1312,8 +1312,7 @@ export default function CreatorDashboard() {
   }
 
   function renderEarnings(mobile) {
-    const dealType = invite?.deal_type
-    if (dealType !== 'ad_spend') return null
+    if (!invite?.has_ad_spend) return null
 
     const rate = (invite?.ad_spend_percentage || commissionRate || 10) / 100
     const totalSpend = adsTotals.spend
@@ -2327,7 +2326,7 @@ export default function CreatorDashboard() {
                 ))}
               </div>
 
-              {affiliateCode && (
+              {affiliateCode && invite?.has_affiliate && (
                 <div className="cd-aff-wrap">
                   <div className="cd-aff-block">
                     <div className="cd-aff-top">
@@ -2414,7 +2413,7 @@ export default function CreatorDashboard() {
             <div className="cd-m-stat"><div className="cd-m-stat-l">Ads Live</div><div className="cd-m-stat-v">{adsRunning}</div></div>
           </div>
 
-          {affiliateCode && (
+          {affiliateCode && invite?.has_affiliate && (
             <div className="cd-m-aff-wrap">
               <div className="cd-m-aff">
                 <div className="cd-m-aff-top">

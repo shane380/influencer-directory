@@ -248,12 +248,14 @@ export default function InvitePage() {
       if (!error && data) {
         setInvite(data)
         setForm(f => ({ ...f, name: data.creator_name, email: data.creator_email || '' }))
+        // Derive deal type from boolean flags, fallback to deal_type for backwards compat
+        const derivedDeal = data.has_retainer ? 'retainer' : data.has_ad_spend ? 'ad_spend' : data.deal_type || 'affiliate'
         if (data.offer_choice) {
           setStep('choose')
           setSelectedDeal('retainer')
         } else {
           setStep('terms')
-          setSelectedDeal(data.deal_type || 'affiliate')
+          setSelectedDeal(derivedDeal)
         }
       }
       setLoading(false)
@@ -450,7 +452,9 @@ export default function InvitePage() {
 
   const left = getLeftContent()
 
-  const hasAffiliateAddon = (selectedDeal === 'retainer' || selectedDeal === 'ad_spend') && commissionRate > 0
+  const hasAffiliateAddon = invite?.has_affiliate !== undefined
+    ? invite.has_affiliate && commissionRate > 0
+    : (selectedDeal === 'retainer' || selectedDeal === 'ad_spend') && commissionRate > 0
 
   // Agree text
   function getAgreeText() {
