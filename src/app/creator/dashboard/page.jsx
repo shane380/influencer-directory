@@ -438,7 +438,7 @@ const CSS = `
 .cd-loading { display: flex; align-items: center; justify-content: center; min-height: 100vh; font-size: 12px; color: #aaa; letter-spacing: 0.15em; text-transform: uppercase; }
 `
 
-const TABS = ['wardrobe', 'request', 'ads', 'submit']
+const TABS = ['ads', 'wardrobe', 'request', 'submit']
 const TAB_LABELS = { wardrobe: 'Wardrobe & Orders', request: 'Request Styles', ads: 'Ads', submit: 'Submit' }
 const TAB_LABELS_SHORT = { wardrobe: 'Wardrobe', request: 'Request', ads: 'Ads', submit: 'Submit' }
 
@@ -451,7 +451,7 @@ export default function CreatorDashboard() {
   const [invite, setInvite] = useState(null)
   const [influencer, setInfluencer] = useState(null)
   const [orders, setOrders] = useState([])
-  const [activeTab, setActiveTab] = useState('wardrobe')
+  const [activeTab, setActiveTab] = useState('ads')
 
   // Request styles
   const [searchQuery, setSearchQuery] = useState('')
