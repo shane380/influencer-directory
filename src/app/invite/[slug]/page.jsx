@@ -4,188 +4,203 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-const S = {
-  root: {
-    minHeight: '100vh',
-    background: '#FFFFFF',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontFamily: "'Helvetica Neue', Helvetica, sans-serif",
-    fontWeight: 300,
-    padding: '40px 20px',
-    boxSizing: 'border-box',
-  },
-  card: {
-    background: '#ffffff',
-    border: '1px solid #e8e8e8',
-    borderRadius: 4,
-    maxWidth: 560,
-    width: '100%',
-    padding: '56px 48px',
-  },
-  eyebrow: {
-    fontSize: 11,
-    letterSpacing: '0.15em',
-    textTransform: 'uppercase',
-    color: '#888888',
-    marginBottom: 12,
-  },
-  headline: {
-    fontFamily: "'Cormorant Garamond', Georgia, serif",
-    fontSize: 'clamp(28px, 8vw, 38px)',
-    fontWeight: 300,
-    lineHeight: 1.15,
-    color: '#111111',
-    marginBottom: 8,
-  },
-  headlineEm: {
-    fontStyle: 'italic',
-    color: '#111111',
-  },
-  intro: {
-    fontSize: 14,
-    color: '#888888',
-    lineHeight: 1.75,
-    marginBottom: 36,
-    borderBottom: '1px solid #e8e8e8',
-    paddingBottom: 28,
-  },
-  termsGrid: {
-    display: 'grid',
-    gap: 18,
-    marginBottom: 32,
-  },
-  termLabel: {
-    fontSize: 10,
-    letterSpacing: '0.15em',
-    textTransform: 'uppercase',
-    color: '#888888',
-    paddingTop: 3,
-  },
-  termValue: {
-    fontFamily: "'Cormorant Garamond', Georgia, serif",
-    fontSize: 18,
-    color: '#111111',
-    lineHeight: 1.4,
-  },
-  termNote: {
-    fontSize: 12,
-    color: '#888888',
-    marginTop: 2,
-    fontFamily: 'inherit',
-  },
-  commissionDesc: {
-    fontSize: 13,
-    color: '#ffffff',
-    lineHeight: 1.6,
-    opacity: 0.7,
-  },
-  sectionLabel: {
-    fontSize: 10,
-    letterSpacing: '0.15em',
-    textTransform: 'uppercase',
-    color: '#888888',
-    marginBottom: 20,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-  },
-  rule: {
-    flex: 1,
-    height: 1,
-    background: '#e8e8e8',
-  },
-  checkboxWrap: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: 12,
-    marginBottom: 20,
-    cursor: 'pointer',
-    minHeight: 44,
-  },
-  checkboxLabel: {
-    fontSize: 12,
-    color: '#888888',
-    lineHeight: 1.6,
-    userSelect: 'none',
-  },
-  form: { display: 'grid', gap: 14 },
-  inputWrap: { display: 'grid', gap: 6 },
-  inputLabel: {
-    fontSize: 10,
-    letterSpacing: '0.15em',
-    textTransform: 'uppercase',
-    color: '#888888',
-  },
-  input: {
-    border: '1px solid #e8e8e8',
-    borderRadius: 2,
-    padding: '12px 14px',
-    minHeight: 44,
-    fontSize: 16,
-    fontFamily: 'inherit',
-    color: '#111111',
-    outline: 'none',
-    background: '#ffffff',
-    width: '100%',
-    transition: 'border-color 0.15s',
-    boxSizing: 'border-box',
-  },
-  btn: {
-    width: '100%',
-    background: '#111111',
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: 2,
-    padding: '14px 24px',
-    minHeight: 44,
-    fontSize: 12,
-    letterSpacing: '0.15em',
-    textTransform: 'uppercase',
-    cursor: 'pointer',
-    marginTop: 4,
-    transition: 'background 0.15s',
-    boxSizing: 'border-box',
-  },
-  btnDisabled: {
-    background: '#cccccc',
-    cursor: 'not-allowed',
-  },
-  error: {
-    fontSize: 13,
-    color: '#c0392b',
-    padding: '10px 14px',
-    background: '#fdf3f2',
-    border: '1px solid #e8c8c5',
-    borderRadius: 2,
-  },
-  success: {
-    textAlign: 'center',
-    padding: '32px 0 0',
-  },
-  successIcon: {
-    fontSize: 36,
-    marginBottom: 16,
-  },
-  successTitle: {
-    fontFamily: "'Cormorant Garamond', Georgia, serif",
-    fontSize: 28,
-    fontWeight: 300,
-    color: '#111111',
-    marginBottom: 8,
-  },
-  successText: {
-    fontSize: 14,
-    color: '#888888',
-    lineHeight: 1.7,
-  },
-  notFound: {
-    textAlign: 'center',
-    color: '#888888',
-    fontSize: 14,
-  },
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Jost:wght@300;400;500&display=swap');
+.nama-invite { font-family: 'Jost', sans-serif; -webkit-font-smoothing: antialiased; color: #111; margin: 0; padding: 0; }
+.nama-invite *, .nama-invite *::before, .nama-invite *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Desktop */
+.ni-desktop { display: block; }
+.ni-mobile { display: none; }
+@media (max-width: 768px) {
+  .ni-desktop { display: none !important; }
+  .ni-mobile { display: block !important; }
 }
+
+/* PAGE LAYOUT */
+.ni-page { background: white; max-width: 960px; margin: 0 auto; min-height: 100vh; display: grid; grid-template-columns: 380px 1fr; }
+.ni-panel-left { padding: 56px 48px; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; justify-content: space-between; position: sticky; top: 0; height: 100vh; background: white; }
+.ni-panel-right { padding: 56px 52px; overflow-y: auto; }
+
+.ni-logo { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-style: italic; color: #111; }
+.ni-eyebrow { font-size: 9px; letter-spacing: 0.42em; text-transform: uppercase; color: #666; margin-bottom: 18px; }
+.ni-headline { font-family: 'Cormorant Garamond', serif; font-size: 52px; font-weight: 300; color: #111; line-height: 1.02; margin-bottom: 22px; }
+.ni-headline em { font-style: italic; color: #888; display: block; }
+.ni-intro { font-size: 13px; color: #888; line-height: 1.9; font-weight: 300; max-width: 260px; }
+.ni-left-footer { font-size: 10px; color: #ccc; letter-spacing: 0.15em; text-transform: uppercase; }
+
+/* SECTION LABEL */
+.ni-sec-label { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #888; margin-bottom: 22px; display: flex; align-items: center; gap: 12px; }
+.ni-sec-label::after { content: ''; flex: 1; height: 1px; background: #ebebeb; }
+
+/* OPTION CARDS */
+.ni-option-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 36px; }
+.ni-option-card { border: 1.5px solid #e8e8e8; border-radius: 14px; padding: 24px 22px; cursor: pointer; transition: all 0.2s; position: relative; background: white; }
+.ni-option-card:hover { border-color: #ccc; }
+.ni-option-card.selected { border-color: #111; }
+.ni-option-card.selected .ni-check { opacity: 1; }
+.ni-check { position: absolute; top: 14px; right: 14px; width: 20px; height: 20px; border-radius: 50%; background: #111; color: white; font-size: 9px; font-family: 'Jost', sans-serif; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; }
+.ni-option-tag { font-size: 8.5px; letter-spacing: 0.28em; text-transform: uppercase; color: #555; margin-bottom: 12px; }
+.ni-option-rate { font-family: 'Cormorant Garamond', serif; font-size: 40px; font-weight: 300; color: #111; line-height: 1; margin-bottom: 6px; }
+.ni-option-rate sub { font-size: 14px; font-style: italic; color: #999; vertical-align: baseline; }
+.ni-option-rate sup { font-size: 16px; vertical-align: super; color: #888; }
+.ni-option-name { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #888; margin-bottom: 10px; font-weight: 400; }
+.ni-option-rule { height: 1px; background: #f0f0f0; margin-bottom: 12px; }
+.ni-option-detail { font-size: 11.5px; color: #aaa; font-weight: 300; line-height: 1.75; }
+.ni-option-detail strong { color: #555; font-weight: 500; }
+
+/* TERM ROWS */
+.ni-term-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid #f2f2f2; }
+.ni-term-row:last-child { border-bottom: none; }
+.ni-term-key { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #666; padding-top: 4px; }
+.ni-term-val { text-align: right; }
+.ni-term-primary { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 400; color: #111; }
+.ni-term-secondary { font-size: 11px; color: #bbb; font-weight: 300; margin-top: 2px; }
+.ni-footnote { font-size: 12px; color: #aaa; font-style: italic; line-height: 1.8; margin: 18px 0 32px; padding-left: 14px; border-left: 1.5px solid #e8e8e8; }
+
+/* PERKS */
+.ni-perk-row { display: flex; align-items: center; gap: 14px; padding: 11px 0; border-bottom: 1px solid #f5f5f5; font-family: 'Cormorant Garamond', serif; font-size: 18px; color: #111; line-height: 1.3; }
+.ni-perk-row:last-child { border-bottom: none; }
+.ni-perk-dot { width: 18px; height: 18px; border-radius: 50%; background: #111; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: white; font-size: 9px; font-family: 'Jost', sans-serif; }
+
+/* HIGHLIGHT BLOCK */
+.ni-highlight { background: #111; border-radius: 14px; padding: 26px 28px; display: flex; align-items: center; justify-content: space-between; margin: 28px 0; }
+.ni-highlight-tag { font-size: 8.5px; letter-spacing: 0.3em; text-transform: uppercase; color: rgba(255,255,255,0.3); margin-bottom: 6px; }
+.ni-highlight-val { font-family: 'Cormorant Garamond', serif; font-size: 58px; font-weight: 300; color: white; line-height: 1; letter-spacing: -0.02em; }
+.ni-highlight-val sup { font-size: 22px; vertical-align: super; opacity: 0.4; }
+.ni-highlight-desc { font-size: 12px; color: rgba(255,255,255,0.35); line-height: 1.8; font-weight: 300; max-width: 140px; text-align: right; }
+
+/* MIN NOTE */
+.ni-min-note { background: #fafafa; border: 1px solid #ebebeb; border-radius: 10px; padding: 14px 18px; margin-bottom: 24px; display: flex; gap: 12px; align-items: flex-start; }
+.ni-min-note-icon { font-size: 12px; color: #999; flex-shrink: 0; margin-top: 2px; }
+.ni-min-note-text { font-size: 12px; color: #888; line-height: 1.7; font-weight: 300; }
+.ni-min-note-text strong { color: #333; font-weight: 500; }
+
+/* AGREE */
+.ni-agree-row { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 24px; }
+.ni-agree-box { width: 18px; height: 18px; border-radius: 4px; border: 1.5px solid #ccc; flex-shrink: 0; margin-top: 2px; background: white; appearance: none; -webkit-appearance: none; cursor: pointer; position: relative; transition: all 0.15s; }
+.ni-agree-box:checked { background: #111; border-color: #111; }
+.ni-agree-box:checked::after { content: "\\2713"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 10px; font-family: 'Jost', sans-serif; line-height: 1; }
+.ni-agree-text { font-size: 12.5px; color: #888; line-height: 1.75; font-weight: 300; }
+
+/* BUTTONS */
+.ni-btn { width: 100%; padding: 16px; background: #111; color: white; border: none; font-family: 'Jost', sans-serif; font-size: 10.5px; font-weight: 500; letter-spacing: 0.25em; text-transform: uppercase; cursor: pointer; border-radius: 6px; transition: background 0.2s; }
+.ni-btn:hover { background: #333; }
+.ni-btn:disabled { background: #ccc; cursor: not-allowed; }
+.ni-btn:disabled:hover { background: #ccc; }
+.ni-btn-outline { width: 100%; padding: 14px; background: transparent; color: #aaa; border: 1.5px solid #e8e8e8; font-family: 'Jost', sans-serif; font-size: 10.5px; font-weight: 400; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; border-radius: 6px; margin-top: 10px; }
+
+/* FORM */
+.ni-form-group { margin-bottom: 18px; }
+.ni-form-label { font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; color: #bbb; display: block; margin-bottom: 8px; }
+.ni-form-input { width: 100%; padding: 14px 18px; border: 1.5px solid #e8e8e8; background: #fafafa; font-family: 'Jost', sans-serif; font-size: 14px; color: #111; outline: none; border-radius: 8px; transition: border-color 0.2s; box-sizing: border-box; }
+.ni-form-input:focus { border-color: #aaa; background: white; }
+
+/* SUCCESS */
+.ni-success-badge { display: inline-flex; align-items: center; gap: 7px; background: #f5f5f5; border: 1px solid #e8e8e8; padding: 6px 14px; border-radius: 100px; margin-bottom: 24px; font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: #888; }
+.ni-success-title { font-family: 'Cormorant Garamond', serif; font-size: 44px; font-weight: 300; color: #111; line-height: 1.05; margin-bottom: 12px; }
+.ni-success-title em { font-style: italic; color: #999; }
+.ni-success-sub { font-size: 13px; color: #888; font-weight: 300; line-height: 1.85; margin-bottom: 28px; }
+.ni-code-block { background: #fafafa; border: 1px solid #e8e8e8; border-radius: 12px; padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
+.ni-code-label { font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase; color: #ccc; margin-bottom: 6px; }
+.ni-code-val { font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 500; color: #111; letter-spacing: 0.1em; }
+.ni-code-copy { padding: 8px 18px; border-radius: 100px; border: 1.5px solid #e0e0e0; background: white; font-family: 'Jost', sans-serif; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #999; cursor: pointer; }
+.ni-next-steps { border-top: 1px solid #ebebeb; padding-top: 22px; margin-bottom: 28px; }
+.ni-next-step { display: flex; gap: 16px; padding: 11px 0; border-bottom: 1px solid #f5f5f5; }
+.ni-next-step:last-child { border-bottom: none; }
+.ni-step-num { font-family: 'Cormorant Garamond', serif; font-size: 18px; color: #ddd; flex-shrink: 0; line-height: 1.3; }
+.ni-step-text { font-size: 13px; color: #888; font-weight: 300; line-height: 1.65; }
+.ni-error { font-size: 13px; color: #c0392b; padding: 10px 14px; background: #fdf3f2; border: 1px solid #e8c8c5; border-radius: 6px; margin-bottom: 18px; }
+
+/* ======================== */
+/*     MOBILE               */
+/* ======================== */
+.ni-m-wrap { background: #f0f0f0; min-height: 100vh; display: flex; justify-content: center; padding: 0; }
+.ni-m-inner { max-width: 390px; width: 100%; min-height: 100vh; background: white; }
+@media (max-width: 390px) { .ni-m-inner { max-width: 100%; } }
+.ni-m-topbar { padding: 20px 24px; border-bottom: 1px solid #ebebeb; }
+.ni-m-logo { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-style: italic; color: #111; }
+.ni-m-hero { padding: 32px 24px 28px; border-bottom: 1px solid #ebebeb; }
+.ni-m-eyebrow { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #666; margin-bottom: 14px; }
+.ni-m-headline { font-family: 'Cormorant Garamond', serif; font-size: 44px; font-weight: 300; color: #111; line-height: 1.02; }
+.ni-m-headline em { font-style: italic; color: #999; display: block; }
+.ni-m-intro { font-size: 13px; color: #999; font-weight: 300; line-height: 1.8; margin-top: 14px; }
+.ni-m-body { padding: 28px 24px 56px; }
+.ni-m-sec-label { font-size: 9px; letter-spacing: 0.38em; text-transform: uppercase; color: #555; margin-bottom: 18px; display: flex; align-items: center; gap: 10px; }
+.ni-m-sec-label::after { content: ''; flex: 1; height: 1px; background: #ebebeb; }
+
+/* Mobile option cards */
+.ni-m-option-cards { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+.ni-m-option-card { border: 1.5px solid #e8e8e8; border-radius: 12px; padding: 20px 18px; cursor: pointer; transition: border-color 0.2s; position: relative; }
+.ni-m-option-card:hover { border-color: #ccc; }
+.ni-m-option-card.selected { border-color: #111; }
+.ni-m-option-card.selected .ni-m-check { opacity: 1; }
+.ni-m-check { position: absolute; top: 14px; right: 14px; width: 20px; height: 20px; border-radius: 50%; background: #111; color: white; font-size: 9px; font-family: 'Jost', sans-serif; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; }
+.ni-m-option-tag { font-size: 8.5px; letter-spacing: 0.26em; text-transform: uppercase; color: #555; margin-bottom: 10px; }
+.ni-m-option-rate { font-family: 'Cormorant Garamond', serif; font-size: 36px; font-weight: 300; color: #111; line-height: 1; margin-bottom: 4px; }
+.ni-m-option-rate sub { font-size: 13px; font-style: italic; color: #999; vertical-align: baseline; }
+.ni-m-option-rate sup { font-size: 15px; vertical-align: super; color: #999; }
+.ni-m-option-name { font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #999; margin-bottom: 10px; }
+.ni-m-option-rule { height: 1px; background: #f0f0f0; margin-bottom: 10px; }
+.ni-m-option-detail { font-size: 11.5px; color: #aaa; font-weight: 300; line-height: 1.7; }
+.ni-m-option-detail strong { color: #555; font-weight: 500; }
+
+.ni-m-term-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #f2f2f2; }
+.ni-m-term-row:last-child { border-bottom: none; }
+.ni-m-term-key { font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; color: #666; padding-top: 4px; }
+.ni-m-term-primary { font-family: 'Cormorant Garamond', serif; font-size: 20px; color: #111; text-align: right; }
+.ni-m-term-secondary { font-size: 11px; color: #bbb; font-weight: 300; margin-top: 2px; text-align: right; }
+.ni-m-footnote { font-size: 12px; color: #aaa; font-style: italic; line-height: 1.75; margin: 16px 0 26px; padding-left: 12px; border-left: 1.5px solid #e8e8e8; }
+.ni-m-perk-row { display: flex; align-items: center; gap: 14px; padding: 11px 0; border-bottom: 1px solid #f5f5f5; font-family: 'Cormorant Garamond', serif; font-size: 17px; color: #111; }
+.ni-m-perk-row:last-child { border-bottom: none; }
+.ni-m-perk-dot { width: 18px; height: 18px; border-radius: 50%; background: #111; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: white; font-size: 9px; font-family: 'Jost', sans-serif; }
+.ni-m-highlight { background: #111; border-radius: 12px; padding: 22px 22px; display: flex; align-items: center; justify-content: space-between; margin: 22px 0; }
+.ni-m-highlight-tag { font-size: 8px; letter-spacing: 0.28em; text-transform: uppercase; color: rgba(255,255,255,0.28); margin-bottom: 4px; }
+.ni-m-highlight-val { font-family: 'Cormorant Garamond', serif; font-size: 50px; font-weight: 300; color: white; line-height: 1; }
+.ni-m-highlight-val sup { font-size: 19px; vertical-align: super; opacity: 0.4; }
+.ni-m-highlight-desc { font-size: 11.5px; color: rgba(255,255,255,0.32); line-height: 1.75; font-weight: 300; max-width: 120px; text-align: right; }
+.ni-m-min-note { background: #fafafa; border: 1px solid #ebebeb; border-radius: 10px; padding: 13px 16px; margin-bottom: 22px; display: flex; gap: 10px; }
+.ni-m-min-note-text { font-size: 12px; color: #888; line-height: 1.7; font-weight: 300; }
+.ni-m-min-note-text strong { color: #333; font-weight: 500; }
+.ni-m-agree-row { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 20px; }
+.ni-m-agree-box { width: 18px; height: 18px; border-radius: 4px; border: 1.5px solid #ccc; flex-shrink: 0; margin-top: 2px; background: white; appearance: none; -webkit-appearance: none; cursor: pointer; position: relative; transition: all 0.15s; }
+.ni-m-agree-box:checked { background: #111; border-color: #111; }
+.ni-m-agree-box:checked::after { content: "\\2713"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 10px; font-family: 'Jost', sans-serif; line-height: 1; }
+.ni-m-agree-text { font-size: 12.5px; color: #888; line-height: 1.75; font-weight: 300; }
+.ni-m-btn { width: 100%; padding: 16px; background: #111; color: white; border: none; font-family: 'Jost', sans-serif; font-size: 10.5px; font-weight: 500; letter-spacing: 0.25em; text-transform: uppercase; cursor: pointer; border-radius: 6px; }
+.ni-m-btn:disabled { background: #ccc; cursor: not-allowed; }
+.ni-m-btn-outline { width: 100%; padding: 14px; background: transparent; color: #aaa; border: 1.5px solid #e8e8e8; font-family: 'Jost', sans-serif; font-size: 10.5px; font-weight: 400; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; border-radius: 6px; margin-top: 10px; }
+.ni-m-form-group { margin-bottom: 16px; }
+.ni-m-form-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #bbb; display: block; margin-bottom: 7px; }
+.ni-m-form-input { width: 100%; padding: 13px 16px; border: 1.5px solid #e8e8e8; background: #fafafa; font-family: 'Jost', sans-serif; font-size: 14px; color: #111; outline: none; border-radius: 8px; box-sizing: border-box; }
+.ni-m-form-input:focus { border-color: #aaa; background: white; }
+.ni-m-success-badge { display: inline-flex; align-items: center; gap: 7px; background: #f5f5f5; border: 1px solid #e8e8e8; padding: 6px 14px; border-radius: 100px; margin-bottom: 22px; font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: #888; }
+.ni-m-success-title { font-family: 'Cormorant Garamond', serif; font-size: 38px; font-weight: 300; color: #111; line-height: 1.05; margin-bottom: 12px; }
+.ni-m-success-title em { font-style: italic; color: #999; }
+.ni-m-success-sub { font-size: 13px; color: #888; font-weight: 300; line-height: 1.85; margin-bottom: 24px; }
+.ni-m-code-block { background: #fafafa; border: 1px solid #e8e8e8; border-radius: 12px; padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 26px; }
+.ni-m-code-label { font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; color: #ccc; margin-bottom: 4px; }
+.ni-m-code-val { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 500; color: #111; letter-spacing: 0.08em; }
+.ni-m-code-copy { padding: 7px 14px; border-radius: 100px; border: 1.5px solid #e0e0e0; background: white; font-family: 'Jost', sans-serif; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #999; cursor: pointer; }
+.ni-m-next-steps { border-top: 1px solid #ebebeb; padding-top: 20px; margin-bottom: 24px; }
+.ni-m-next-step { display: flex; gap: 14px; padding: 11px 0; border-bottom: 1px solid #f5f5f5; }
+.ni-m-next-step:last-child { border-bottom: none; }
+.ni-m-step-num { font-family: 'Cormorant Garamond', serif; font-size: 18px; color: #ddd; flex-shrink: 0; }
+.ni-m-step-text { font-size: 13px; color: #888; font-weight: 300; line-height: 1.6; }
+`
+
+const PERKS = [
+  'A monthly wardrobe allowance, yours to keep',
+  'First access to new collections before they drop',
+  'Invitations to exclusive Nama partner events',
+  'A dedicated point of contact for anything you need',
+]
+
+const NEXT_STEPS = [
+  'Request your first styles from your wardrobe',
+  'Drop your affiliate link in your bio to start earning',
+  'Early drop access and event invites arrive within 24 hours',
+]
 
 export default function InvitePage() {
   const { slug } = useParams()
@@ -194,12 +209,13 @@ export default function InvitePage() {
 
   const [invite, setInvite] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [step, setStep] = useState('view')
+  const [step, setStep] = useState('terms')
+  const [selectedDeal, setSelectedDeal] = useState(null)
   const [agreed, setAgreed] = useState(false)
-
-  const [form, setForm] = useState({ name: '', email: '', password: '' })
+  const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+  const [codeCopied, setCodeCopied] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -208,20 +224,39 @@ export default function InvitePage() {
         .select('*')
         .eq('slug', slug)
         .single()
-
       if (!error && data) {
         setInvite(data)
         setForm(f => ({ ...f, name: data.creator_name, email: data.creator_email || '' }))
+        if (data.offer_choice) {
+          setStep('choose')
+          setSelectedDeal('retainer')
+        } else {
+          setStep('terms')
+          setSelectedDeal(data.deal_type || 'affiliate')
+        }
       }
       setLoading(false)
     }
     if (slug) load()
   }, [slug])
 
+  function goToTerms() {
+    setAgreed(false)
+    setStep('terms')
+  }
+
+  function goToChoose() {
+    setAgreed(false)
+    setStep('choose')
+  }
+
   async function handleSignup() {
+    if (form.password !== form.confirmPassword) {
+      setError('Passwords do not match.')
+      return
+    }
     setError(null)
     setSubmitting(true)
-
     try {
       const res = await fetch('/api/creators/signup', {
         method: 'POST',
@@ -240,326 +275,571 @@ export default function InvitePage() {
         setSubmitting(false)
         return
       }
-    } catch (err) {
+      setStep('done')
+    } catch {
       setError('Something went wrong. Please try again.')
-      setSubmitting(false)
-      return
     }
-
-    setStep('done')
     setSubmitting(false)
+  }
+
+  function copyCode() {
+    const code = affiliateCode
+    if (code) {
+      navigator.clipboard.writeText(code)
+      setCodeCopied(true)
+      setTimeout(() => setCodeCopied(false), 2000)
+    }
   }
 
   if (loading) {
     return (
-      <div style={S.root}>
-        <div style={{ color: '#888888', fontSize: 13, letterSpacing: '0.1em' }}>Loading…</div>
+      <div className="nama-invite" style={{ minHeight: '100vh', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <style>{CSS}</style>
+        <div style={{ color: '#888', fontSize: 13, letterSpacing: '0.1em', fontFamily: "'Jost', sans-serif" }}>Loading…</div>
       </div>
     )
   }
 
   if (!invite) {
     return (
-      <div style={S.root}>
-        <div style={S.notFound}>
+      <div className="nama-invite" style={{ minHeight: '100vh', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <style>{CSS}</style>
+        <div style={{ textAlign: 'center', color: '#888', fontSize: 14, fontFamily: "'Jost', sans-serif" }}>
           <p style={{ fontSize: 32, marginBottom: 12 }}>🌸</p>
-          <p>This invite link doesn't exist or has expired.</p>
+          <p>This invite link doesn&apos;t exist or has expired.</p>
         </div>
       </div>
     )
   }
 
+  const firstName = invite.creator_name?.split(' ')[0] || ''
+  const videos = invite.videos_per_month || '3–5'
+  const contentType = invite.content_type || 'Talking-style UGC'
+  const affiliateCode = (invite.creator_name || '')
+    .toUpperCase()
+    .replace(/\s+/g, '')
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 12) + '10'
+
+  // Deal data helpers
+  const retainerAmount = invite.retainer_amount
+  const adSpendPct = invite.ad_spend_percentage
+  const adSpendMin = invite.ad_spend_minimum
+  const commissionRate = invite.commission_rate || 10
+
+  // Determine available deals for choose step
+  const availableDeals = []
+  if (invite.offer_choice) {
+    if (retainerAmount) availableDeals.push('retainer')
+    if (adSpendPct) availableDeals.push('ad_spend')
+    if (!retainerAmount && !adSpendPct) {
+      availableDeals.push('retainer', 'ad_spend')
+    }
+  }
+
+  // Left panel content per step
+  function getLeftContent() {
+    if (step === 'choose') {
+      return {
+        eyebrow: 'A Private Invitation',
+        headline: <>Hi {firstName},<br /><em>choose your<br />partnership.</em></>,
+        intro: 'Two ways to work with us — same perks, different structure. Pick what suits you.',
+      }
+    }
+    if (step === 'terms') {
+      if (selectedDeal === 'retainer') {
+        return {
+          eyebrow: invite.offer_choice ? 'Option A — Retainer' : 'Retainer Partnership',
+          headline: <>Guaranteed,<br /><em>every single<br />month.</em></>,
+          intro: `$${retainerAmount?.toLocaleString()} paid on the 1st, every month, regardless of views or reach.`,
+        }
+      }
+      if (selectedDeal === 'ad_spend') {
+        return {
+          eyebrow: invite.offer_choice ? 'Option B — Ad Spend' : 'Ad Spend Partnership',
+          headline: <>The more we<br /><em>scale, the more<br />you earn.</em></>,
+          intro: `Every dollar we spend on your content earns you ${adSpendPct}% back — with no ceiling.`,
+        }
+      }
+      // affiliate
+      return {
+        eyebrow: 'A Private Invitation',
+        headline: <>Hi {firstName},<br /><em>let&apos;s make it<br />official.</em></>,
+        intro: "We'd love to make this an ongoing partnership. Here's everything we're proposing.",
+      }
+    }
+    if (step === 'signup') {
+      return {
+        eyebrow: 'Last Step',
+        headline: <>Create your<br /><em>account.</em></>,
+        intro: 'Set up your login for your dashboard, wardrobe, and affiliate link.',
+      }
+    }
+    // done
+    return {
+      eyebrow: "You're In",
+      headline: <>Welcome to<br />the <em>Nama<br />family.</em></>,
+      intro: 'Your partnership is live. Everything you need is in your dashboard.',
+    }
+  }
+
+  const left = getLeftContent()
+
+  // Agree text
+  function getAgreeText() {
+    if (selectedDeal === 'retainer') {
+      return `I agree to provide ${videos} UGC videos per month in exchange for a $${retainerAmount?.toLocaleString()} monthly retainer, payable on the 1st of each month.`
+    }
+    if (selectedDeal === 'ad_spend') {
+      const minText = adSpendMin ? `, with a guaranteed minimum of $${adSpendMin.toLocaleString()} in month one` : ''
+      return `I agree to provide ${videos} UGC videos per month in exchange for ${adSpendPct}% of monthly ad spend${minText}.`
+    }
+    return `I agree to provide ${videos} UGC videos per month in exchange for ${commissionRate}% affiliate commission on sales.`
+  }
+
+  // --- RENDER HELPERS ---
+
+  function renderRetainerOptionCard(mobile) {
+    const sel = selectedDeal === 'retainer'
+    if (mobile) {
+      return (
+        <div className={`ni-m-option-card${sel ? ' selected' : ''}`} onClick={() => setSelectedDeal('retainer')}>
+          <div className="ni-m-check">✓</div>
+          <div className="ni-m-option-tag">Option A</div>
+          <div className="ni-m-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
+          <div className="ni-m-option-name">Monthly Retainer</div>
+          <div className="ni-m-option-rule" />
+          <div className="ni-m-option-detail">Fixed payment on the 1st · {videos} videos per month · No performance pressure</div>
+        </div>
+      )
+    }
+    return (
+      <div className={`ni-option-card${sel ? ' selected' : ''}`} onClick={() => setSelectedDeal('retainer')}>
+        <div className="ni-check">✓</div>
+        <div className="ni-option-tag">Option A</div>
+        <div className="ni-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
+        <div className="ni-option-name">Monthly Retainer</div>
+        <div className="ni-option-rule" />
+        <div className="ni-option-detail">Fixed payment on the 1st<br />{videos} videos per month<br />No performance pressure</div>
+      </div>
+    )
+  }
+
+  function renderAdSpendOptionCard(mobile) {
+    const sel = selectedDeal === 'ad_spend'
+    if (mobile) {
+      return (
+        <div className={`ni-m-option-card${sel ? ' selected' : ''}`} onClick={() => setSelectedDeal('ad_spend')}>
+          <div className="ni-m-check">✓</div>
+          <div className="ni-m-option-tag">Option B</div>
+          <div className="ni-m-option-rate">{adSpendPct}<sup>%</sup></div>
+          <div className="ni-m-option-name">% of Ad Spend</div>
+          <div className="ni-m-option-rule" />
+          <div className="ni-m-option-detail">{adSpendPct}% of monthly spend · {adSpendMin ? <><strong>${adSpendMin.toLocaleString()} min in month 1</strong> · </> : ''}Uncapped</div>
+        </div>
+      )
+    }
+    return (
+      <div className={`ni-option-card${sel ? ' selected' : ''}`} onClick={() => setSelectedDeal('ad_spend')}>
+        <div className="ni-check">✓</div>
+        <div className="ni-option-tag">Option B</div>
+        <div className="ni-option-rate">{adSpendPct}<sup>%</sup></div>
+        <div className="ni-option-name">% of Ad Spend</div>
+        <div className="ni-option-rule" />
+        <div className="ni-option-detail">{adSpendPct}% of monthly ad spend<br />{adSpendMin ? <><strong>${adSpendMin.toLocaleString()} minimum in month 1</strong><br /></> : ''}Uncapped earning potential</div>
+      </div>
+    )
+  }
+
+  function renderDesktopPerks() {
+    return (
+      <div style={{ marginBottom: 4 }}>
+        {PERKS.map((p, i) => (
+          <div className="ni-perk-row" key={i}><span className="ni-perk-dot">✓</span>{p}</div>
+        ))}
+      </div>
+    )
+  }
+
+  function renderMobilePerks() {
+    return (
+      <div style={{ marginBottom: 4 }}>
+        {PERKS.map((p, i) => (
+          <div className="ni-m-perk-row" key={i}><span className="ni-m-perk-dot">✓</span>{p}</div>
+        ))}
+      </div>
+    )
+  }
+
+  // --- DESKTOP CONTENT ---
+  function renderDesktopContent() {
+    if (step === 'choose') {
+      return (
+        <>
+          <div className="ni-sec-label">Select Your Deal Structure</div>
+          <div className="ni-option-cards">
+            {availableDeals.includes('retainer') && renderRetainerOptionCard(false)}
+            {availableDeals.includes('ad_spend') && renderAdSpendOptionCard(false)}
+          </div>
+          <div className="ni-sec-label">Included Either Way</div>
+          <div style={{ marginBottom: 36 }}>
+            {PERKS.map((p, i) => (
+              <div className="ni-perk-row" key={i}><span className="ni-perk-dot">✓</span>{p}</div>
+            ))}
+          </div>
+          <button className="ni-btn" onClick={goToTerms}>Continue with Selected →</button>
+        </>
+      )
+    }
+
+    if (step === 'terms') {
+      if (selectedDeal === 'retainer') {
+        return (
+          <>
+            <div className="ni-sec-label">Partnership Terms</div>
+            <div className="ni-term-row">
+              <span className="ni-term-key">Retainer</span>
+              <div className="ni-term-val"><div className="ni-term-primary">${retainerAmount?.toLocaleString()} / month</div><div className="ni-term-secondary">Paid on the 1st</div></div>
+            </div>
+            <div className="ni-term-row">
+              <span className="ni-term-key">Content</span>
+              <div className="ni-term-val"><div className="ni-term-primary">{videos} videos / month</div><div className="ni-term-secondary">{contentType}</div></div>
+            </div>
+            <div className="ni-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for the duration of our partnership.</div>
+            <div className="ni-sec-label">Partnership Perks</div>
+            {renderDesktopPerks()}
+            <div className="ni-highlight">
+              <div><div className="ni-highlight-tag">Monthly Retainer</div><div className="ni-highlight-val" style={{ fontSize: 48 }}>${retainerAmount?.toLocaleString()}</div></div>
+              <div className="ni-highlight-desc">Fixed payment every month on the 1st. No conditions, no variables.</div>
+            </div>
+            <div className="ni-agree-row">
+              <input type="checkbox" className="ni-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
+              <p className="ni-agree-text">{getAgreeText()}</p>
+            </div>
+            <button className="ni-btn" disabled={!agreed} onClick={() => setStep('signup')}>Accept &amp; Create Account →</button>
+            {invite.offer_choice && <button className="ni-btn-outline" onClick={goToChoose}>← View other option</button>}
+          </>
+        )
+      }
+
+      if (selectedDeal === 'ad_spend') {
+        return (
+          <>
+            <div className="ni-sec-label">Partnership Terms</div>
+            <div className="ni-term-row">
+              <span className="ni-term-key">Commission</span>
+              <div className="ni-term-val"><div className="ni-term-primary">{adSpendPct}% of ad spend</div><div className="ni-term-secondary">Paid monthly</div></div>
+            </div>
+            <div className="ni-term-row">
+              <span className="ni-term-key">Content</span>
+              <div className="ni-term-val"><div className="ni-term-primary">{videos} videos / month</div><div className="ni-term-secondary">{contentType}</div></div>
+            </div>
+            <div className="ni-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for the duration of our partnership.</div>
+            <div className="ni-sec-label">Partnership Perks</div>
+            {renderDesktopPerks()}
+            <div className="ni-highlight">
+              <div><div className="ni-highlight-tag">Ad Spend Commission</div><div className="ni-highlight-val">{adSpendPct}<sup>%</sup></div></div>
+              <div className="ni-highlight-desc">Of every dollar we put behind your content. No ceiling, paid monthly.</div>
+            </div>
+            {adSpendMin > 0 && (
+              <div className="ni-min-note">
+                <div className="ni-min-note-icon">—</div>
+                <div className="ni-min-note-text">To get you started, we&apos;re guaranteeing a minimum of <strong>${adSpendMin.toLocaleString()} in your first month</strong> regardless of how much we spend.</div>
+              </div>
+            )}
+            <div className="ni-agree-row">
+              <input type="checkbox" className="ni-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
+              <p className="ni-agree-text">{getAgreeText()}</p>
+            </div>
+            <button className="ni-btn" disabled={!agreed} onClick={() => setStep('signup')}>Accept &amp; Create Account →</button>
+            {invite.offer_choice && <button className="ni-btn-outline" onClick={goToChoose}>← View other option</button>}
+          </>
+        )
+      }
+
+      // affiliate
+      return (
+        <>
+          <div className="ni-sec-label">Partnership Terms</div>
+          <div className="ni-term-row">
+            <span className="ni-term-key">Commission</span>
+            <div className="ni-term-val"><div className="ni-term-primary">{commissionRate}% per sale</div><div className="ni-term-secondary">Tracked automatically</div></div>
+          </div>
+          <div className="ni-term-row">
+            <span className="ni-term-key">Content</span>
+            <div className="ni-term-val"><div className="ni-term-primary">{videos} videos / month</div><div className="ni-term-secondary">{contentType}</div></div>
+          </div>
+          <div className="ni-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for the duration of our partnership.</div>
+          <div className="ni-sec-label">Partnership Perks</div>
+          {renderDesktopPerks()}
+          <div className="ni-highlight">
+            <div><div className="ni-highlight-tag">Affiliate Commission</div><div className="ni-highlight-val">{commissionRate}<sup>%</sup></div></div>
+            <div className="ni-highlight-desc">On every sale through your link. No cap, paid monthly.</div>
+          </div>
+          <div className="ni-agree-row">
+            <input type="checkbox" className="ni-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
+            <p className="ni-agree-text">{getAgreeText()}</p>
+          </div>
+          <button className="ni-btn" disabled={!agreed} onClick={() => setStep('signup')}>Accept &amp; Create Account →</button>
+        </>
+      )
+    }
+
+    if (step === 'signup') {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '100%' }}>
+          <div className="ni-form-group"><label className="ni-form-label">Full Name</label><input className="ni-form-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></div>
+          <div className="ni-form-group"><label className="ni-form-label">Email Address</label><input className="ni-form-input" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="your@email.com" /></div>
+          <div className="ni-form-group"><label className="ni-form-label">Create Password</label><input className="ni-form-input" type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="••••••••" /></div>
+          <div className="ni-form-group" style={{ marginBottom: 28 }}><label className="ni-form-label">Confirm Password</label><input className="ni-form-input" type="password" value={form.confirmPassword} onChange={e => setForm(f => ({ ...f, confirmPassword: e.target.value }))} placeholder="••••••••" /></div>
+          {error && <div className="ni-error">{error}</div>}
+          <button className="ni-btn" onClick={handleSignup} disabled={submitting || !form.email || !form.password || !form.confirmPassword}>
+            {submitting ? 'Creating account…' : 'Create My Account →'}
+          </button>
+          <p style={{ fontSize: 12, color: '#ccc', textAlign: 'center', marginTop: 14, cursor: 'pointer' }} onClick={() => { setAgreed(false); setStep('terms') }}>← Back to terms</p>
+        </div>
+      )
+    }
+
+    // done
+    return (
+      <>
+        <div className="ni-success-badge">✦&nbsp;&nbsp;Partnership Active</div>
+        <div className="ni-success-title">Your account<br />is <em>ready.</em></div>
+        <p className="ni-success-sub">Your affiliate code is live. Share it anywhere and earn on every sale — tracked automatically, paid monthly.</p>
+        <div className="ni-code-block">
+          <div><div className="ni-code-label">Your Affiliate Code</div><div className="ni-code-val">{affiliateCode}</div></div>
+          <button className="ni-code-copy" onClick={copyCode}>{codeCopied ? 'Copied' : 'Copy'}</button>
+        </div>
+        <div className="ni-next-steps">
+          {NEXT_STEPS.map((s, i) => (
+            <div className="ni-next-step" key={i}><span className="ni-step-num">{String(i + 1).padStart(2, '0')}</span><span className="ni-step-text">{s}</span></div>
+          ))}
+        </div>
+        <button className="ni-btn" onClick={() => router.push('/creator/dashboard')}>Go to My Dashboard →</button>
+      </>
+    )
+  }
+
+  // --- MOBILE CONTENT ---
+  function renderMobileContent() {
+    if (step === 'choose') {
+      return (
+        <>
+          <div className="ni-m-sec-label">Select Your Structure</div>
+          <div className="ni-m-option-cards">
+            {availableDeals.includes('retainer') && renderRetainerOptionCard(true)}
+            {availableDeals.includes('ad_spend') && renderAdSpendOptionCard(true)}
+          </div>
+          <div className="ni-m-sec-label">Included Either Way</div>
+          <div style={{ marginBottom: 28 }}>
+            {PERKS.map((p, i) => (
+              <div className="ni-m-perk-row" key={i}><span className="ni-m-perk-dot">✓</span>{p}</div>
+            ))}
+          </div>
+          <button className="ni-m-btn" onClick={goToTerms}>Continue with Selected →</button>
+        </>
+      )
+    }
+
+    if (step === 'terms') {
+      if (selectedDeal === 'retainer') {
+        return (
+          <>
+            <div className="ni-m-sec-label">Partnership Terms</div>
+            <div className="ni-m-term-row"><span className="ni-m-term-key">Retainer</span><div className="ni-term-val"><div className="ni-m-term-primary">${retainerAmount?.toLocaleString()} / month</div><div className="ni-m-term-secondary">Paid on the 1st</div></div></div>
+            <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
+            <div className="ni-m-footnote">Content is licensed to Nama for use across paid media for the duration of our partnership.</div>
+            <div className="ni-m-sec-label">Perks</div>
+            {renderMobilePerks()}
+            <div className="ni-m-highlight">
+              <div><div className="ni-m-highlight-tag">Monthly Retainer</div><div className="ni-m-highlight-val" style={{ fontSize: 44 }}>${retainerAmount?.toLocaleString()}</div></div>
+              <div className="ni-m-highlight-desc">Fixed payment every month on the 1st.</div>
+            </div>
+            <div className="ni-m-agree-row">
+              <input type="checkbox" className="ni-m-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
+              <p className="ni-m-agree-text">{getAgreeText()}</p>
+            </div>
+            <button className="ni-m-btn" disabled={!agreed} onClick={() => setStep('signup')}>Accept &amp; Create Account →</button>
+            {invite.offer_choice && <button className="ni-m-btn-outline" onClick={goToChoose}>← View other option</button>}
+          </>
+        )
+      }
+
+      if (selectedDeal === 'ad_spend') {
+        return (
+          <>
+            <div className="ni-m-sec-label">Partnership Terms</div>
+            <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{adSpendPct}% of ad spend</div><div className="ni-m-term-secondary">Paid monthly</div></div></div>
+            <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
+            <div className="ni-m-footnote">Content is licensed to Nama for use across paid media for the duration of our partnership.</div>
+            <div className="ni-m-sec-label">Perks</div>
+            <div style={{ marginBottom: 20 }}>
+              {PERKS.map((p, i) => (
+                <div className="ni-m-perk-row" key={i}><span className="ni-m-perk-dot">✓</span>{p}</div>
+              ))}
+            </div>
+            <div className="ni-m-highlight">
+              <div><div className="ni-m-highlight-tag">Ad Spend Commission</div><div className="ni-m-highlight-val">{adSpendPct}<sup>%</sup></div></div>
+              <div className="ni-m-highlight-desc">Of every dollar behind your content. No ceiling.</div>
+            </div>
+            {adSpendMin > 0 && (
+              <div className="ni-m-min-note">
+                <div style={{ fontSize: 12, color: '#999', flexShrink: 0, marginTop: 2 }}>—</div>
+                <div className="ni-m-min-note-text">Guaranteed minimum of <strong>${adSpendMin.toLocaleString()} in your first month</strong> regardless of spend.</div>
+              </div>
+            )}
+            <div className="ni-m-agree-row">
+              <input type="checkbox" className="ni-m-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
+              <p className="ni-m-agree-text">{getAgreeText()}</p>
+            </div>
+            <button className="ni-m-btn" disabled={!agreed} onClick={() => setStep('signup')}>Accept &amp; Create Account →</button>
+            {invite.offer_choice && <button className="ni-m-btn-outline" onClick={goToChoose}>← View other option</button>}
+          </>
+        )
+      }
+
+      // affiliate
+      return (
+        <>
+          <div className="ni-m-sec-label">Partnership Terms</div>
+          <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% per sale</div><div className="ni-m-term-secondary">Tracked automatically</div></div></div>
+          <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
+          <div className="ni-m-footnote">Content is licensed to Nama for use across paid media for the duration of our partnership.</div>
+          <div className="ni-m-sec-label">Perks</div>
+          {renderMobilePerks()}
+          <div className="ni-m-highlight">
+            <div><div className="ni-m-highlight-tag">Affiliate Commission</div><div className="ni-m-highlight-val">{commissionRate}<sup>%</sup></div></div>
+            <div className="ni-m-highlight-desc">On every sale through your link. No cap.</div>
+          </div>
+          <div className="ni-m-agree-row">
+            <input type="checkbox" className="ni-m-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
+            <p className="ni-m-agree-text">{getAgreeText()}</p>
+          </div>
+          <button className="ni-m-btn" disabled={!agreed} onClick={() => setStep('signup')}>Accept &amp; Create Account →</button>
+        </>
+      )
+    }
+
+    if (step === 'signup') {
+      return (
+        <>
+          <div className="ni-m-form-group"><label className="ni-m-form-label">Full Name</label><input className="ni-m-form-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></div>
+          <div className="ni-m-form-group"><label className="ni-m-form-label">Email</label><input className="ni-m-form-input" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="your@email.com" /></div>
+          <div className="ni-m-form-group"><label className="ni-m-form-label">Password</label><input className="ni-m-form-input" type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="••••••••" /></div>
+          <div className="ni-m-form-group" style={{ marginBottom: 24 }}><label className="ni-m-form-label">Confirm Password</label><input className="ni-m-form-input" type="password" value={form.confirmPassword} onChange={e => setForm(f => ({ ...f, confirmPassword: e.target.value }))} placeholder="••••••••" /></div>
+          {error && <div className="ni-error">{error}</div>}
+          <button className="ni-m-btn" onClick={handleSignup} disabled={submitting || !form.email || !form.password || !form.confirmPassword}>
+            {submitting ? 'Creating account…' : 'Create My Account →'}
+          </button>
+          <p style={{ fontSize: 12, color: '#ccc', textAlign: 'center', marginTop: 14, cursor: 'pointer' }} onClick={() => { setAgreed(false); setStep('terms') }}>← Back to terms</p>
+        </>
+      )
+    }
+
+    // done
+    return (
+      <>
+        <div className="ni-m-success-badge">✦&nbsp;&nbsp;Partnership Active</div>
+        <div className="ni-m-success-title">Your account<br />is <em>ready.</em></div>
+        <p className="ni-m-success-sub">Your affiliate code is live. Share it anywhere — earnings tracked automatically, paid monthly.</p>
+        <div className="ni-m-code-block">
+          <div><div className="ni-m-code-label">Affiliate Code</div><div className="ni-m-code-val">{affiliateCode}</div></div>
+          <button className="ni-m-code-copy" onClick={copyCode}>{codeCopied ? 'Copied' : 'Copy'}</button>
+        </div>
+        <div className="ni-m-next-steps">
+          {NEXT_STEPS.map((s, i) => (
+            <div className="ni-m-next-step" key={i}><span className="ni-m-step-num">{String(i + 1).padStart(2, '0')}</span><span className="ni-m-step-text">{s}</span></div>
+          ))}
+        </div>
+        <button className="ni-m-btn" onClick={() => router.push('/creator/dashboard')}>Go to My Dashboard →</button>
+      </>
+    )
+  }
+
+  // Mobile hero content
+  function getMobileHero() {
+    if (step === 'choose') {
+      return (
+        <>
+          <div className="ni-m-eyebrow">A Private Invitation</div>
+          <div className="ni-m-headline">Hi {firstName},<br /><em>choose your<br />partnership.</em></div>
+          <p className="ni-m-intro">Two structures, same perks. Pick what works for you.</p>
+        </>
+      )
+    }
+    if (step === 'terms') {
+      if (selectedDeal === 'retainer') {
+        return (
+          <>
+            <div className="ni-m-eyebrow">{invite.offer_choice ? 'Option A — Retainer' : 'Retainer Partnership'}</div>
+            <div className="ni-m-headline">Guaranteed,<br /><em>every month.</em></div>
+          </>
+        )
+      }
+      if (selectedDeal === 'ad_spend') {
+        return (
+          <>
+            <div className="ni-m-eyebrow">{invite.offer_choice ? 'Option B — Ad Spend' : 'Ad Spend Partnership'}</div>
+            <div className="ni-m-headline">The more we<br /><em>scale, the<br />more you earn.</em></div>
+          </>
+        )
+      }
+      return (
+        <>
+          <div className="ni-m-eyebrow">A Private Invitation</div>
+          <div className="ni-m-headline">Hi {firstName},<br /><em>let&apos;s make it<br />official.</em></div>
+        </>
+      )
+    }
+    if (step === 'signup') {
+      return (
+        <>
+          <div className="ni-m-eyebrow">Last Step</div>
+          <div className="ni-m-headline">Create your<br /><em>account.</em></div>
+        </>
+      )
+    }
+    return (
+      <>
+        <div className="ni-m-eyebrow">You&apos;re In</div>
+        <div className="ni-m-headline">Welcome to<br />the <em>Nama<br />family.</em></div>
+      </>
+    )
+  }
+
   return (
-    <>
-      <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&display=swap" rel="stylesheet" />
-      <meta name="viewport" content="width=device-width, initial-scale=1" />
-      <style>{`
-        .nama-checkbox {
-          width: 16px;
-          height: 16px;
-          min-width: 16px;
-          appearance: none;
-          -webkit-appearance: none;
-          border: 1px solid #111111;
-          border-radius: 2px;
-          background: transparent;
-          cursor: pointer;
-          position: relative;
-          margin-top: 2px;
-          padding: 0;
-        }
-        .nama-checkbox:checked {
-          background: #111111;
-        }
-        .nama-checkbox:checked::after {
-          content: '';
-          position: absolute;
-          left: 4px;
-          top: 1.5px;
-          width: 5px;
-          height: 8px;
-          border: solid #ffffff;
-          border-width: 0 1.5px 1.5px 0;
-          transform: rotate(45deg);
-        }
-        .nama-card {
-          background: #ffffff;
-          border: 1px solid #e8e8e8;
-          border-radius: 4px;
-          max-width: 560px;
-          width: 100%;
-          padding: 56px 48px;
-        }
-        .nama-term-row {
-          display: grid;
-          grid-template-columns: 140px 1fr;
-          gap: 12px;
-          align-items: start;
-        }
-        .nama-commission-block {
-          background: #111111;
-          border-radius: 2px;
-          padding: 24px 28px;
-          margin-bottom: 32px;
-          display: flex;
-          align-items: center;
-          gap: 20px;
-        }
-        .nama-commission-rate {
-          font-family: 'Cormorant Garamond', Georgia, serif;
-          font-size: 48px;
-          font-weight: 300;
-          color: #ffffff;
-          line-height: 1;
-          flex-shrink: 0;
-        }
-        @media (max-width: 480px) {
-          .nama-card {
-            padding: 32px 24px;
-          }
-          .nama-term-row {
-            grid-template-columns: 1fr;
-            gap: 4px;
-          }
-          .nama-commission-block {
-            flex-direction: column;
-            align-items: flex-start;
-            padding: 20px 20px;
-            gap: 12px;
-          }
-          .nama-commission-rate {
-            font-size: 36px;
-          }
-          .nama-signup-headline {
-            font-size: clamp(22px, 6vw, 28px) !important;
-          }
-        }
-      `}</style>
-      <div style={S.root}>
-        <div className="nama-card">
-          {step === 'done' && (
-            <div style={S.success}>
-              <h2 style={S.successTitle}>You're in.</h2>
-              <p style={S.successText}>Welcome to the Nama creator family. We'll be in touch with next steps - outfits incoming.</p>
-              <button
-                style={{ ...S.btn, marginTop: 20 }}
-                onClick={() => router.push('/creator/dashboard')}
-              >
-                Go to your dashboard →
-              </button>
+    <div className="nama-invite" style={{ background: '#f0f0f0', minHeight: '100vh' }}>
+      <style>{CSS}</style>
+
+      {/* Desktop */}
+      <div className="ni-desktop">
+        <div className="ni-page">
+          <div className="ni-panel-left">
+            <div className="ni-logo">Nama</div>
+            <div>
+              <div className="ni-eyebrow">{left.eyebrow}</div>
+              <div className="ni-headline">{left.headline}</div>
+              {left.intro && <p className="ni-intro">{left.intro}</p>}
             </div>
-          )}
-
-          {step === 'confirm-email' && (
-            <div style={S.success}>
-              <div style={S.successIcon}>✉</div>
-              <h2 style={S.successTitle}>Check your email</h2>
-              <p style={S.successText}>We've sent a confirmation link to <strong>{form.email}</strong>. Click the link to confirm your account and complete signup.</p>
-            </div>
-          )}
-
-          {step === 'view' && (
-            <>
-              <div style={{ marginBottom: 32 }}>
-                <img src="/nama-logo.svg" alt="Nama" style={{ width: 80, display: 'block' }} />
-              </div>
-              <p style={S.eyebrow}>You're invited</p>
-              <h1 style={S.headline}>
-                Hi {invite.creator_name.split(' ')[0]},<br />
-                <span style={S.headlineEm}>let's make it official.</span>
-              </h1>
-              <p style={S.intro}>
-                We've truly loved working with you — and we'd love to make this an ongoing partnership. Here's everything we're proposing, all in one place.
-              </p>
-
-              <div style={{ ...S.sectionLabel, marginBottom: 20 }}>
-                <span>Partnership Terms</span>
-                <div style={S.rule} />
-              </div>
-              <div style={S.termsGrid}>
-                <div className="nama-term-row">
-                  <span style={S.termLabel}>Content</span>
-                  <div>
-                    <div style={S.termValue}>{invite.videos_per_month} videos / month</div>
-                    <div style={S.termNote}>{invite.content_type}</div>
-                  </div>
-                </div>
-              </div>
-
-              <p style={{ fontSize: 11, color: '#888888', fontStyle: 'italic', lineHeight: 1.6, marginBottom: 32 }}>
-                Content created as part of this partnership is licensed to Nama for use across paid media for the duration of our partnership.
-              </p>
-
-              <div style={{ fontSize: 8.5, letterSpacing: '0.4em', textTransform: 'uppercase', color: '#888888', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span>Partnership Perks</span>
-                <div style={{ flex: 1, height: 1, background: '#e8e8e8' }} />
-              </div>
-              <div style={{ marginBottom: 32 }}>
-                {[
-                  'A monthly wardrobe allowance, yours to keep',
-                  'First access to new collections before they drop',
-                  'Invitations to exclusive Nama partner events',
-                  'A dedicated point of contact for anything you need',
-                ].map((perk, i) => (
-                  <div key={i} style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 17, color: '#111111', lineHeight: 2, display: 'flex', alignItems: 'baseline', gap: 10 }}>
-                    <span style={{ fontSize: 13, color: '#888888', flexShrink: 0 }}>✓</span>
-                    {perk}
-                  </div>
-                ))}
-              </div>
-
-              {(() => {
-                const ds = invite.deal_structure
-                if (ds?.type === 'ad_spend') {
-                  return (
-                    <>
-                      <div className="nama-commission-block">
-                        <div className="nama-commission-rate">{ds.percentage}%</div>
-                        <div style={S.commissionDesc}>
-                          Of monthly ad spend{ds.minimum_spend > 0 ? ` (minimum $${ds.minimum_spend.toLocaleString()} spend)` : ''}. Tracked and paid monthly.
-                        </div>
-                      </div>
-                      {ds.first_month_minimum > 0 && (
-                        <div style={{ background: '#f9f9f6', border: '1px solid #e8e8e8', borderRadius: 2, padding: '16px 20px', marginBottom: 32, fontSize: 13, color: '#555555', lineHeight: 1.7 }}>
-                          To get you started, we're guaranteeing a minimum payment of <strong style={{ color: '#111111' }}>${ds.first_month_minimum.toLocaleString()}</strong> for your first month — regardless of ad spend.
-                        </div>
-                      )}
-                    </>
-                  )
-                }
-                if (ds?.type === 'retainer') {
-                  return (
-                    <div className="nama-commission-block">
-                      <div className="nama-commission-rate">${ds.monthly_rate}</div>
-                      <div style={S.commissionDesc}>
-                        Monthly retainer. Paid consistently, every month.
-                      </div>
-                    </div>
-                  )
-                }
-                if (ds?.type === 'hybrid') {
-                  return (
-                    <div className="nama-commission-block">
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
-                        <div className="nama-commission-rate" style={{ fontSize: 36 }}>{ds.commission_rate}%</div>
-                        <div style={{ fontSize: 14, color: '#ffffff', opacity: 0.5, textAlign: 'center' }}>+ ${ds.retainer}/mo</div>
-                      </div>
-                      <div style={S.commissionDesc}>
-                        Affiliate commission on every sale through your link, plus a ${ds.retainer}/month retainer. Tracked automatically, paid monthly.
-                      </div>
-                    </div>
-                  )
-                }
-                // Default: affiliate (or no deal_structure — backwards compat)
-                const rate = ds?.commission_rate ?? invite.commission_rate
-                return (
-                  <div className="nama-commission-block">
-                    <div className="nama-commission-rate">{rate}%</div>
-                    <div style={S.commissionDesc}>
-                      Affiliate commission on every sale through your link. No cap — tracked automatically, paid monthly.
-                    </div>
-                  </div>
-                )
-              })()}
-
-              <label style={S.checkboxWrap}>
-                <input
-                  type="checkbox"
-                  className="nama-checkbox"
-                  checked={agreed}
-                  onChange={e => setAgreed(e.target.checked)}
-                />
-                <span style={S.checkboxLabel}>
-                  {(() => {
-                    const ds = invite.deal_structure
-                    const base = `I agree to the partnership terms above, including providing ${invite.videos_per_month} UGC videos per month`
-                    if (ds?.type === 'ad_spend') {
-                      return `${base} and ${ds.percentage}% of monthly ad spend.`
-                    }
-                    if (ds?.type === 'retainer') {
-                      return `${base} and a $${ds.monthly_rate}/month retainer.`
-                    }
-                    if (ds?.type === 'hybrid') {
-                      return `${base} and ${ds.commission_rate}% commission plus a $${ds.retainer}/month retainer.`
-                    }
-                    const rate = ds?.commission_rate ?? invite.commission_rate
-                    return `${base} and ${rate}% affiliate commission on sales.`
-                  })()}
-                </span>
-              </label>
-
-              <button
-                style={!agreed ? { ...S.btn, ...S.btnDisabled } : S.btn}
-                onClick={() => setStep('signup')}
-                disabled={!agreed}
-              >
-                Accept & Create Account →
-              </button>
-            </>
-          )}
-
-          {step === 'signup' && (
-            <>
-              <div style={{ marginBottom: 32 }}>
-                <img src="/nama-logo.svg" alt="Nama" style={{ width: 80, display: 'block' }} />
-              </div>
-              <p style={S.eyebrow}>Create your account</p>
-              <h2 className="nama-signup-headline" style={{ ...S.headline, fontSize: 28, marginBottom: 24 }}>
-                Almost there.
-              </h2>
-
-              <div style={S.form}>
-                <div style={S.inputWrap}>
-                  <label style={S.inputLabel}>Your Name</label>
-                  <input style={S.input} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Charlee" />
-                </div>
-                <div style={S.inputWrap}>
-                  <label style={S.inputLabel}>Email</label>
-                  <input style={S.input} type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="charlee@email.com" />
-                </div>
-                <div style={S.inputWrap}>
-                  <label style={S.inputLabel}>Password</label>
-                  <input style={S.input} type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="Choose a password" />
-                </div>
-
-                {error && <div style={S.error}>{error}</div>}
-
-                <button
-                  style={submitting ? { ...S.btn, ...S.btnDisabled } : S.btn}
-                  onClick={handleSignup}
-                  disabled={submitting || !form.email || !form.password}
-                >
-                  {submitting ? 'Creating account…' : 'Create Account →'}
-                </button>
-
-                <button style={{ ...S.btn, background: 'transparent', color: '#888888', fontSize: 11 }} onClick={() => setStep('view')}>
-                  ← Back
-                </button>
-              </div>
-            </>
-          )}
+            <div className="ni-left-footer">namaclo.com</div>
+          </div>
+          <div className="ni-panel-right">
+            {renderDesktopContent()}
+          </div>
         </div>
       </div>
-    </>
+
+      {/* Mobile */}
+      <div className="ni-mobile">
+        <div className="ni-m-wrap">
+          <div className="ni-m-inner">
+            <div className="ni-m-topbar"><div className="ni-m-logo">Nama</div></div>
+            <div className="ni-m-hero">{getMobileHero()}</div>
+            <div className="ni-m-body">{renderMobileContent()}</div>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }

@@ -12,6 +12,11 @@ export async function createInvite({
   expiryDays = null,
   influencerId = null,
   dealStructure = null,
+  dealType = null,
+  retainerAmount = null,
+  adSpendPercentage = null,
+  adSpendMinimum = null,
+  offerChoice = false,
 }) {
   const supabase = createClient()
 
@@ -44,6 +49,11 @@ export async function createInvite({
   }
   if (influencerId) insertData.influencer_id = influencerId
   if (dealStructure) insertData.deal_structure = dealStructure
+  if (dealType) insertData.deal_type = dealType
+  if (retainerAmount != null) insertData.retainer_amount = retainerAmount
+  if (adSpendPercentage != null) insertData.ad_spend_percentage = adSpendPercentage
+  if (adSpendMinimum != null) insertData.ad_spend_minimum = adSpendMinimum
+  insertData.offer_choice = offerChoice
 
   const { data, error } = await supabase
     .from('creator_invites')
