@@ -43,12 +43,12 @@ const CSS = `
 .cd-status-pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #e8e8e8; font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: #555; padding: 4px 12px; border-radius: 100px; }
 .cd-dot { width: 5px; height: 5px; border-radius: 50%; background: #5db075; flex-shrink: 0; }
 
-/* STATS */
-.cd-stats { border-bottom: 1px solid #e8e8e8; }
-.cd-stat-row { display: flex; align-items: baseline; justify-content: space-between; padding: 13px 32px; border-bottom: 1px solid #e8e8e8; }
-.cd-stat-row:last-child { border-bottom: none; }
-.cd-stat-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; }
-.cd-stat-val { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 400; color: #111; }
+/* STATS BAR */
+.cd-stats-bar { display: flex; border-bottom: 1px solid #e8e8e8; background: #fff; padding: 16px 0; }
+.cd-stats-bar-item { flex: 1; text-align: center; position: relative; }
+.cd-stats-bar-item + .cd-stats-bar-item::before { content: ''; position: absolute; left: 0; top: 4px; bottom: 4px; width: 1px; background: #e8e8e8; }
+.cd-stats-bar-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin-bottom: 4px; }
+.cd-stats-bar-val { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 400; color: #111; }
 
 /* AFFILIATE */
 .cd-aff-wrap { padding: 24px 32px; border-top: 1px solid #e8e8e8; }
@@ -2298,23 +2298,6 @@ export default function CreatorDashboard() {
                 <div className="cd-status-pill"><span className="cd-dot" /> Active Partner</div>
               </div>
 
-              <div className="cd-stats">
-                {commissionRate > 0 && (
-                  <div className="cd-stat-row">
-                    <span className="cd-stat-label">Commission</span>
-                    <span className="cd-stat-val">{commissionRate}%</span>
-                  </div>
-                )}
-                <div className="cd-stat-row">
-                  <span className="cd-stat-label">Videos / Month</span>
-                  <span className="cd-stat-val">{videosPerMonth}</span>
-                </div>
-                <div className="cd-stat-row">
-                  <span className="cd-stat-label">Ads Running</span>
-                  <span className="cd-stat-val">{adsRunning}</span>
-                </div>
-              </div>
-
               <div className="cd-sidenav">
                 {TABS.map((tab, i) => (
                   <button
@@ -2351,6 +2334,22 @@ export default function CreatorDashboard() {
             </div>
 
             <div className="cd-content">
+              <div className="cd-stats-bar">
+                {commissionRate > 0 && (
+                  <div className="cd-stats-bar-item">
+                    <div className="cd-stats-bar-label">Commission</div>
+                    <div className="cd-stats-bar-val">{commissionRate}%</div>
+                  </div>
+                )}
+                <div className="cd-stats-bar-item">
+                  <div className="cd-stats-bar-label">Videos / Month</div>
+                  <div className="cd-stats-bar-val">{videosPerMonth}</div>
+                </div>
+                <div className="cd-stats-bar-item">
+                  <div className="cd-stats-bar-label">Ads Running</div>
+                  <div className="cd-stats-bar-val">{adsRunning}</div>
+                </div>
+              </div>
               {renderDesktopCard()}
             </div>
           </div>
