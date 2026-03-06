@@ -1,0 +1,6 @@
+ALTER TABLE creator_invites
+  ADD COLUMN IF NOT EXISTS deal_type TEXT,
+  ADD COLUMN IF NOT EXISTS retainer_amount INTEGER,
+  ADD COLUMN IF NOT EXISTS ad_spend_percentage INTEGER,
+  ADD COLUMN IF NOT EXISTS ad_spend_minimum INTEGER,
+  ADD COLUMN IF NOT EXISTS offer_choice BOOLEAN NOT NULL DEFAULT false;
