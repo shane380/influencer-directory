@@ -250,7 +250,7 @@ const CSS = `
 .cd-status-shipped { color: #2e7d32; border-color: #d4edda; background: #f0faf0; }
 .cd-status-transit { color: #1565c0; border-color: #bbdefb; background: #e3f2fd; }
 .cd-status-processing { color: #e65100; border-color: #ffe0b2; background: #fff3e0; }
-.cd-feedback-toggle { position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.92); border: 1px solid #e8e8e8; padding: 4px 10px; border-radius: 100px; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: #555; cursor: pointer; backdrop-filter: blur(4px); font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+.cd-feedback-toggle { position: absolute; bottom: 10px; right: 10px; background: rgba(255,255,255,0.92); border: 1px solid #e8e8e8; padding: 4px 10px; border-radius: 100px; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: #555; cursor: pointer; backdrop-filter: blur(4px); font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; z-index: 1; }
 .cd-feedback-panel { border-top: 1px solid #e8e8e8; padding: 20px 16px; background: #f5f5f5; }
 .cd-feedback-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin-bottom: 6px; display: block; }
 .cd-feedback-reactions { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
@@ -418,7 +418,7 @@ const CSS = `
 .cd-m-wardrobe-info { padding: 10px 12px 14px; }
 .cd-m-wardrobe-name { font-size: 12px; color: #111; margin-bottom: 2px; line-height: 1.3; }
 .cd-m-wardrobe-variant { font-size: 10px; color: #aaa; font-weight: 300; margin-bottom: 8px; }
-.cd-m-feedback-toggle { position: absolute; top: 8px; right: 8px; background: rgba(255,255,255,0.92); border: 1px solid #e8e8e8; padding: 3px 8px; border-radius: 100px; font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase; color: #555; cursor: pointer; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+.cd-m-feedback-toggle { position: absolute; bottom: 8px; right: 8px; background: rgba(255,255,255,0.92); border: 1px solid #e8e8e8; padding: 3px 8px; border-radius: 100px; font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase; color: #555; cursor: pointer; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; z-index: 1; }
 .cd-m-feedback-panel { border-top: 1px solid #e8e8e8; padding: 14px 12px; background: #f5f5f5; }
 .cd-m-feedback-reactions { display: flex; gap: 5px; margin-bottom: 12px; flex-wrap: wrap; }
 .cd-m-feedback-reaction { padding: 3px 10px; border: 1px solid #e8e8e8; background: #fff; font-size: 10px; color: #555; cursor: pointer; border-radius: 100px; transition: all 0.15s; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
@@ -684,8 +684,6 @@ export default function CreatorDashboard() {
 
   // --- SHARED SECTION RENDERERS ---
 
-  const REACTIONS = ['Love it', 'Fits well', 'Runs small', 'Runs large']
-  const WEAR_CONTEXTS = ['Pilates', 'Gym', 'Errands', 'Content only']
 
   function getStatusInfo(fulfillmentStatus) {
     if (fulfillmentStatus === 'fulfilled') return { label: 'Shipped', cls: 'shipped' }
@@ -713,15 +711,6 @@ export default function CreatorDashboard() {
     return items
   }
 
-  function toggleReaction(key, value, field) {
-    setFeedbackData(prev => {
-      const current = prev[key] || { reactions: [], wearContext: [], notes: '' }
-      const arr = current[field] || []
-      const next = arr.includes(value) ? arr.filter(v => v !== value) : [...arr, value]
-      return { ...prev, [key]: { ...current, [field]: next } }
-    })
-  }
-
   async function submitFeedback(key, item) {
     const data = feedbackData[key] || {}
     try {
@@ -729,8 +718,8 @@ export default function CreatorDashboard() {
         creator_id: creator.id,
         influencer_order_id: item.orderId,
         product_name: item.productName,
-        reactions: data.reactions || [],
-        wear_context: data.wearContext || [],
+        reactions: data.reactions ? [data.reactions] : [],
+        wear_context: data.wearContext ? [data.wearContext] : [],
         notes: data.notes || '',
       })
       setFeedbackDone(prev => ({ ...prev, [key]: true }))
@@ -755,7 +744,6 @@ export default function CreatorDashboard() {
 
     const p = mobile ? 'cd-m-' : 'cd-'
     const status = getStatusInfo
-    const rCls = mobile ? 'cd-m-feedback-reaction' : 'cd-feedback-reaction'
 
     return (
       <div className={`${p}wardrobe-grid`}>
@@ -763,7 +751,7 @@ export default function CreatorDashboard() {
           const s = status(item.fulfillmentStatus)
           const isOpen = feedbackOpen[item.key]
           const isDone = feedbackDone[item.key]
-          const fb = feedbackData[item.key] || { reactions: [], wearContext: [], notes: '' }
+          const fb = feedbackData[item.key] || { reactions: '', wearContext: '', notes: '' }
 
           return (
             <div key={item.key} className={`${p}wardrobe-item`}>
@@ -793,17 +781,19 @@ export default function CreatorDashboard() {
                 ) : (
                   <div className={mobile ? 'cd-m-feedback-panel' : 'cd-feedback-panel'}>
                     <span className={mobile ? 'cd-m-field-label' : 'cd-feedback-label'}>What did you think?</span>
-                    <div className={mobile ? 'cd-m-feedback-reactions' : 'cd-feedback-reactions'}>
-                      {REACTIONS.map(r => (
-                        <div key={r} className={`${rCls}${fb.reactions.includes(r) ? ' selected' : ''}`} onClick={() => toggleReaction(item.key, r, 'reactions')}>{r}</div>
-                      ))}
-                    </div>
+                    <input
+                      className="cd-feedback-input"
+                      placeholder="Love it, fits well, runs small…"
+                      value={fb.reactions}
+                      onChange={e => setFeedbackData(prev => ({ ...prev, [item.key]: { ...fb, reactions: e.target.value } }))}
+                    />
                     <span className={mobile ? 'cd-m-field-label' : 'cd-feedback-label'}>Where do you wear it most?</span>
-                    <div className={mobile ? 'cd-m-feedback-reactions' : 'cd-feedback-reactions'}>
-                      {WEAR_CONTEXTS.map(w => (
-                        <div key={w} className={`${rCls}${fb.wearContext.includes(w) ? ' selected' : ''}`} onClick={() => toggleReaction(item.key, w, 'wearContext')}>{w}</div>
-                      ))}
-                    </div>
+                    <input
+                      className="cd-feedback-input"
+                      placeholder="Pilates, gym, errands…"
+                      value={fb.wearContext}
+                      onChange={e => setFeedbackData(prev => ({ ...prev, [item.key]: { ...fb, wearContext: e.target.value } }))}
+                    />
                     <span className={mobile ? 'cd-m-field-label' : 'cd-feedback-label'}>Anything else?</span>
                     <textarea
                       className="cd-feedback-input"
