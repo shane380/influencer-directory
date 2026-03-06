@@ -39,7 +39,7 @@ export async function createInvite({
     expires_at: expiresAt,
     status: 'pending',
   }
-  if (influencerId) upsertData.influencer_id = influencerId
+  upsertData.influencer_id = influencerId || null
   if (dealStructure) upsertData.deal_structure = dealStructure
   if (dealType) upsertData.deal_type = dealType
   if (retainerAmount != null) upsertData.retainer_amount = retainerAmount
