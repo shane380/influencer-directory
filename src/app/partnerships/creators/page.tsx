@@ -60,6 +60,7 @@ export default function CreatorsListPage() {
   const [dealRetainer, setDealRetainer] = useState(1500);
   const [offerChoice, setOfferChoice] = useState(false);
   const [secondDealType, setSecondDealType] = useState<"affiliate" | "ad_spend" | "retainer">("ad_spend");
+  const [isExistingCreator, setIsExistingCreator] = useState(false);
   const [submittingInvite, setSubmittingInvite] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -201,6 +202,7 @@ export default function CreatorsListPage() {
     setDealRetainer(1500);
     setOfferChoice(false);
     setSecondDealType("ad_spend");
+    setIsExistingCreator(false);
     setGeneratedUrl(null);
     setCopied(false);
   }
@@ -253,6 +255,7 @@ export default function CreatorsListPage() {
         adSpendPercentage: fields.adSpendPercentage,
         adSpendMinimum: fields.adSpendMinimum,
         offerChoice,
+        isExistingCreator,
       });
       setGeneratedUrl(url);
     } catch (err: any) {
@@ -615,6 +618,16 @@ export default function CreatorsListPage() {
                       className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
                     />
                   </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isExistingCreator}
+                      onChange={(e) => setIsExistingCreator(e.target.checked)}
+                      className="rounded border-gray-300"
+                    />
+                    <span className="text-sm text-gray-700">Existing creator</span>
+                  </label>
+
                   {/* Deal Structure */}
                   <div className="border-t pt-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Deal Type</label>

@@ -17,6 +17,7 @@ export async function createInvite({
   adSpendPercentage = null,
   adSpendMinimum = null,
   offerChoice = false,
+  isExistingCreator = false,
 }) {
   const supabase = createClient()
 
@@ -54,6 +55,7 @@ export async function createInvite({
   if (adSpendPercentage != null) insertData.ad_spend_percentage = adSpendPercentage
   if (adSpendMinimum != null) insertData.ad_spend_minimum = adSpendMinimum
   insertData.offer_choice = offerChoice
+  insertData.is_existing_creator = isExistingCreator
 
   const { data, error } = await supabase
     .from('creator_invites')

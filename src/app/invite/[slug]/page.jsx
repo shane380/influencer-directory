@@ -337,11 +337,20 @@ export default function InvitePage() {
     }
   }
 
+  const isExisting = invite.is_existing_creator
+  const defaultEyebrow = isExisting ? 'Welcome Back' : 'A Private Invitation'
+  const defaultHeadline = isExisting
+    ? <>Hi {firstName},<br /><em>let&apos;s keep it<br />going.</em></>
+    : <>Hi {firstName},<br /><em>let&apos;s make it<br />official.</em></>
+  const defaultIntro = isExisting
+    ? "You've already shown us what you can do. This is us making it official."
+    : "We've truly loved working with you — this is our formal proposal, all in one place."
+
   // Left panel content per step
   function getLeftContent() {
     if (step === 'choose') {
       return {
-        eyebrow: 'A Private Invitation',
+        eyebrow: defaultEyebrow,
         headline: <>Hi {firstName},<br /><em>choose your<br />partnership.</em></>,
         intro: 'Two ways to work with us — same perks, different structure. Pick what suits you.',
       }
@@ -363,9 +372,9 @@ export default function InvitePage() {
       }
       // affiliate
       return {
-        eyebrow: 'A Private Invitation',
-        headline: <>Hi {firstName},<br /><em>let&apos;s make it<br />official.</em></>,
-        intro: "We'd love to make this an ongoing partnership. Here's everything we're proposing.",
+        eyebrow: defaultEyebrow,
+        headline: defaultHeadline,
+        intro: defaultIntro,
       }
     }
     if (step === 'signup') {
@@ -762,7 +771,7 @@ export default function InvitePage() {
     if (step === 'choose') {
       return (
         <>
-          <div className="ni-m-eyebrow">A Private Invitation</div>
+          <div className="ni-m-eyebrow">{defaultEyebrow}</div>
           <div className="ni-m-headline">Hi {firstName},<br /><em>choose your<br />partnership.</em></div>
           <p className="ni-m-intro">Two structures, same perks. Pick what works for you.</p>
         </>
@@ -787,8 +796,8 @@ export default function InvitePage() {
       }
       return (
         <>
-          <div className="ni-m-eyebrow">A Private Invitation</div>
-          <div className="ni-m-headline">Hi {firstName},<br /><em>let&apos;s make it<br />official.</em></div>
+          <div className="ni-m-eyebrow">{defaultEyebrow}</div>
+          <div className="ni-m-headline">{isExisting ? <>Hi {firstName},<br /><em>let&apos;s keep it<br />going.</em></> : <>Hi {firstName},<br /><em>let&apos;s make it<br />official.</em></>}</div>
         </>
       )
     }
