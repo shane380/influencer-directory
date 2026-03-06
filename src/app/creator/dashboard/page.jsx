@@ -448,9 +448,9 @@ const CSS = `
 .cd-loading { display: flex; align-items: center; justify-content: center; min-height: 100vh; font-size: 12px; color: #aaa; letter-spacing: 0.15em; text-transform: uppercase; }
 `
 
-const TABS = ['ads', 'wardrobe', 'request', 'submit']
-const TAB_LABELS = { wardrobe: 'Wardrobe & Orders', request: 'Request Styles', ads: 'Ads', submit: 'Submit' }
-const TAB_LABELS_SHORT = { wardrobe: 'Wardrobe', request: 'Request', ads: 'Ads', submit: 'Submit' }
+const TABS = ['ads', 'wardrobe', 'request', 'submit', 'settings']
+const TAB_LABELS = { wardrobe: 'Wardrobe & Orders', request: 'Request Styles', ads: 'Ads', submit: 'Submit', settings: 'Settings' }
+const TAB_LABELS_SHORT = { wardrobe: 'Wardrobe', request: 'Request', ads: 'Ads', submit: 'Submit', settings: 'Settings' }
 
 export default function CreatorDashboard() {
   const router = useRouter()
@@ -499,6 +499,13 @@ export default function CreatorDashboard() {
   const [feedbackData, setFeedbackData] = useState({})
   const [feedbackDone, setFeedbackDone] = useState({})
 
+  // Payment settings
+  const [paymentEditing, setPaymentEditing] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState(null)
+  const [paymentForm, setPaymentForm] = useState({ paypalEmail: '', bankName: '', bankInstitution: '', bankAccount: '', bankRouting: '' })
+  const [paymentSaving, setPaymentSaving] = useState(false)
+  const [paymentSaved, setPaymentSaved] = useState(false)
+
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -507,6 +514,16 @@ export default function CreatorDashboard() {
       const { data: creatorData } = await supabase.from('creators').select('*').eq('user_id', user.id).single()
       if (!creatorData) { router.push('/creator/login'); return }
       setCreator(creatorData)
+
+      // Initialize payment form from saved data
+      if (creatorData.payment_method) {
+        setPaymentMethod(creatorData.payment_method)
+        if (creatorData.payment_method === 'paypal') {
+          setPaymentForm(f => ({ ...f, paypalEmail: creatorData.paypal_email || '' }))
+        } else {
+          setPaymentForm(f => ({ ...f, bankName: creatorData.bank_account_name || '', bankInstitution: creatorData.bank_institution || '', bankAccount: creatorData.bank_account_number || '', bankRouting: creatorData.bank_routing_number || '' }))
+        }
+      }
 
       const { data: inviteData } = await supabase.from('creator_invites').select('*').eq('id', creatorData.invite_id).single()
       setInvite(inviteData)
@@ -1387,6 +1404,135 @@ export default function CreatorDashboard() {
     )
   }
 
+  async function savePayment() {
+    setPaymentSaving(true)
+    try {
+      const body = { payment_method: paymentMethod }
+      if (paymentMethod === 'paypal') {
+        body.paypal_email = paymentForm.paypalEmail
+      } else {
+        body.bank_account_name = paymentForm.bankName
+        body.bank_institution = paymentForm.bankInstitution
+        body.bank_account_number = paymentForm.bankAccount
+        body.bank_routing_number = paymentForm.bankRouting
+      }
+      const res = await fetch('/api/creators/payment', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setCreator(data.creator)
+        setPaymentEditing(false)
+        setPaymentSaved(true)
+        setTimeout(() => setPaymentSaved(false), 3000)
+      }
+    } catch {}
+    setPaymentSaving(false)
+  }
+
+  function isPaymentValid() {
+    if (!paymentMethod) return false
+    if (paymentMethod === 'paypal') return paymentForm.paypalEmail.trim().length > 0
+    return paymentForm.bankName.trim().length > 0 && paymentForm.bankAccount.trim().length > 0 && paymentForm.bankRouting.trim().length > 0
+  }
+
+  function renderPaymentForm(mobile) {
+    const fl = mobile ? 'cd-m-field-label' : 'cd-feedback-label'
+    const fi = mobile ? 'cd-m-field-input' : 'cd-field-input'
+    return (
+      <>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+          <div
+            style={{ border: `1.5px solid ${paymentMethod === 'paypal' ? '#111' : '#e8e8e8'}`, borderRadius: 14, padding: '20px 18px', cursor: 'pointer', position: 'relative', transition: 'border-color 0.2s' }}
+            onClick={() => setPaymentMethod('paypal')}
+          >
+            {paymentMethod === 'paypal' && <div style={{ position: 'absolute', top: 12, right: 12, width: 20, height: 20, borderRadius: '50%', background: '#111', color: '#fff', fontSize: 9, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✓</div>}
+            <div style={{ fontSize: 10.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#888', marginBottom: 10 }}>PayPal</div>
+            <div style={{ height: 1, background: '#f0f0f0', marginBottom: 10 }} />
+            <div style={{ fontSize: 11.5, color: '#666', fontWeight: 300, lineHeight: 1.7 }}>Fast, simple. We send directly to your PayPal.</div>
+          </div>
+          <div
+            style={{ border: `1.5px solid ${paymentMethod === 'bank' ? '#111' : '#e8e8e8'}`, borderRadius: 14, padding: '20px 18px', cursor: 'pointer', position: 'relative', transition: 'border-color 0.2s' }}
+            onClick={() => setPaymentMethod('bank')}
+          >
+            {paymentMethod === 'bank' && <div style={{ position: 'absolute', top: 12, right: 12, width: 20, height: 20, borderRadius: '50%', background: '#111', color: '#fff', fontSize: 9, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✓</div>}
+            <div style={{ fontSize: 10.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#888', marginBottom: 10 }}>Bank Transfer</div>
+            <div style={{ height: 1, background: '#f0f0f0', marginBottom: 10 }} />
+            <div style={{ fontSize: 11.5, color: '#666', fontWeight: 300, lineHeight: 1.7 }}>Direct deposit to your bank account.</div>
+          </div>
+        </div>
+        {paymentMethod === 'paypal' && (
+          <div style={{ marginBottom: 20 }}>
+            <label className={fl} style={{ display: 'block', marginBottom: 7 }}>PayPal Email Address</label>
+            <input className={fi} type="email" value={paymentForm.paypalEmail} onChange={e => setPaymentForm(f => ({ ...f, paypalEmail: e.target.value }))} placeholder="your@paypal.com" />
+          </div>
+        )}
+        {paymentMethod === 'bank' && (
+          <>
+            <div style={{ marginBottom: 14 }}><label className={fl} style={{ display: 'block', marginBottom: 7 }}>Account Holder Name</label><input className={fi} value={paymentForm.bankName} onChange={e => setPaymentForm(f => ({ ...f, bankName: e.target.value }))} /></div>
+            <div style={{ marginBottom: 14 }}><label className={fl} style={{ display: 'block', marginBottom: 7 }}>Institution Name</label><input className={fi} value={paymentForm.bankInstitution} onChange={e => setPaymentForm(f => ({ ...f, bankInstitution: e.target.value }))} placeholder="e.g. TD Bank" /></div>
+            <div style={{ marginBottom: 14 }}><label className={fl} style={{ display: 'block', marginBottom: 7 }}>Account Number</label><input className={fi} value={paymentForm.bankAccount} onChange={e => setPaymentForm(f => ({ ...f, bankAccount: e.target.value }))} /></div>
+            <div style={{ marginBottom: 20 }}><label className={fl} style={{ display: 'block', marginBottom: 7 }}>Routing / Transit Number</label><input className={fi} value={paymentForm.bankRouting} onChange={e => setPaymentForm(f => ({ ...f, bankRouting: e.target.value }))} /></div>
+          </>
+        )}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="cd-submit" onClick={savePayment} disabled={paymentSaving || !isPaymentValid()}>
+            {paymentSaving ? 'Saving…' : 'Save Payment Info'}
+          </button>
+          <button style={{ padding: '14px 24px', background: 'transparent', border: '1px solid #e8e8e8', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '9.5px', fontWeight: 500, letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer', color: '#999' }} onClick={() => setPaymentEditing(false)}>Cancel</button>
+        </div>
+      </>
+    )
+  }
+
+  function renderSettings(mobile) {
+    const hasSaved = creator?.payment_method
+    const maskedAccount = creator?.bank_account_number ? '···' + creator.bank_account_number.slice(-4) : ''
+    const updatedAt = creator?.payment_updated_at ? new Date(creator.payment_updated_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : null
+
+    return (
+      <div>
+        <div style={{ fontSize: 9, letterSpacing: '0.4em', textTransform: 'uppercase', color: '#aaa', display: 'flex', alignItems: 'center', gap: 14, marginBottom: 22 }}>
+          Payment Info
+          <span style={{ flex: 1, height: 1, background: '#e8e8e8' }} />
+        </div>
+
+        {paymentSaved && <div className="cd-success" style={{ marginBottom: 16 }}>Payment info updated.</div>}
+
+        {!paymentEditing ? (
+          <div>
+            {hasSaved ? (
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: 13, color: '#111', marginBottom: 4 }}>
+                    {creator.payment_method === 'paypal' ? `PayPal — ${creator.paypal_email}` : `Bank Transfer — ${creator.bank_institution || 'Bank'} ${maskedAccount}`}
+                  </div>
+                  {updatedAt && <div style={{ fontSize: 11, color: '#aaa', fontWeight: 300 }}>Last updated {updatedAt}</div>}
+                </div>
+                <button
+                  style={{ padding: '6px 14px', border: '1px solid #e8e8e8', background: 'transparent', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '8.5px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#999', cursor: 'pointer', borderRadius: 2 }}
+                  onClick={() => setPaymentEditing(true)}
+                >Edit</button>
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontSize: 13, color: '#aaa', fontWeight: 300, marginBottom: 14 }}>No payment method set yet.</div>
+                <button
+                  style={{ padding: '10px 20px', background: '#111', color: 'white', border: 'none', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '9.5px', fontWeight: 500, letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer' }}
+                  onClick={() => setPaymentEditing(true)}
+                >Add Payment Info</button>
+              </div>
+            )}
+          </div>
+        ) : (
+          renderPaymentForm(mobile)
+        )}
+      </div>
+    )
+  }
+
   // --- DESKTOP RENDER ---
   function renderDesktopCard() {
     // Ads tab renders its own card structure (earnings + momentum)
@@ -1423,6 +1569,22 @@ export default function CreatorDashboard() {
               {renderOrderHistory(false)}
             </div>
           )}
+        </div>
+      )
+    }
+
+    if (activeTab === 'settings') {
+      return (
+        <div className="cd-card">
+          <div className="cd-card-head">
+            <div>
+              <div className="cd-card-eyebrow">Account</div>
+              <div className="cd-card-title">Settings</div>
+            </div>
+          </div>
+          <div className="cd-card-body">
+            {renderSettings(false)}
+          </div>
         </div>
       )
     }
@@ -1639,6 +1801,15 @@ export default function CreatorDashboard() {
                 <div className="cd-m-section-title">Submit Content</div>
               </div>
               <div className="cd-m-section-body">{renderSubmitContent(true)}</div>
+            </div>
+
+            {/* Settings */}
+            <div className="cd-m-section" style={activeTab !== 'settings' ? { display: 'none' } : undefined}>
+              <div className="cd-m-section-head">
+                <div className="cd-m-section-eyebrow">Account</div>
+                <div className="cd-m-section-title">Settings</div>
+              </div>
+              <div className="cd-m-section-body">{renderSettings(true)}</div>
             </div>
           </div>
 

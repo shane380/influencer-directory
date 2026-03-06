@@ -233,6 +233,11 @@ export default function InvitePage() {
   const [error, setError] = useState(null)
   const [codeCopied, setCodeCopied] = useState(false)
 
+  // Payment step
+  const [paymentMethod, setPaymentMethod] = useState(null)
+  const [paymentForm, setPaymentForm] = useState({ paypalEmail: '', bankName: '', bankInstitution: '', bankAccount: '', bankRouting: '' })
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false)
+
   useEffect(() => {
     async function load() {
       const { data, error } = await supabase
@@ -291,11 +296,39 @@ export default function InvitePage() {
         setSubmitting(false)
         return
       }
-      setStep('done')
+      setStep('payment')
     } catch {
       setError('Something went wrong. Please try again.')
     }
     setSubmitting(false)
+  }
+
+  async function handlePaymentSubmit() {
+    setPaymentSubmitting(true)
+    try {
+      const body = { payment_method: paymentMethod }
+      if (paymentMethod === 'paypal') {
+        body.paypal_email = paymentForm.paypalEmail
+      } else {
+        body.bank_account_name = paymentForm.bankName
+        body.bank_institution = paymentForm.bankInstitution
+        body.bank_account_number = paymentForm.bankAccount
+        body.bank_routing_number = paymentForm.bankRouting
+      }
+      await fetch('/api/creators/payment', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    } catch {}
+    setPaymentSubmitting(false)
+    setStep('done')
+  }
+
+  function isPaymentValid() {
+    if (!paymentMethod) return false
+    if (paymentMethod === 'paypal') return paymentForm.paypalEmail.trim().length > 0
+    return paymentForm.bankName.trim().length > 0 && paymentForm.bankAccount.trim().length > 0 && paymentForm.bankRouting.trim().length > 0
   }
 
   function copyCode() {
@@ -395,9 +428,16 @@ export default function InvitePage() {
     }
     if (step === 'signup') {
       return {
-        eyebrow: 'Last Step',
+        eyebrow: 'Almost There',
         headline: <>Create your<br /><em>account.</em></>,
         intro: 'Set up your login for your dashboard, wardrobe, and affiliate link.',
+      }
+    }
+    if (step === 'payment') {
+      return {
+        eyebrow: 'Last Step',
+        headline: <>How should<br /><em>we pay you?</em></>,
+        intro: "You'll receive your first payment on the 1st of next month.",
       }
     }
     // done
@@ -691,6 +731,46 @@ export default function InvitePage() {
       )
     }
 
+    if (step === 'payment') {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '100%' }}>
+          <div className="ni-sec-label">Select Payment Method</div>
+          <div className="ni-option-cards" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: 24 }}>
+            <div className={`ni-option-card${paymentMethod === 'paypal' ? ' selected' : ''}`} onClick={() => setPaymentMethod('paypal')}>
+              <div className="ni-check">✓</div>
+              <div className="ni-option-name">PayPal</div>
+              <div className="ni-option-rule" />
+              <div className="ni-option-detail">Fast, simple. We send directly to your PayPal account.</div>
+            </div>
+            <div className={`ni-option-card${paymentMethod === 'bank' ? ' selected' : ''}`} onClick={() => setPaymentMethod('bank')}>
+              <div className="ni-check">✓</div>
+              <div className="ni-option-name">Bank Transfer</div>
+              <div className="ni-option-rule" />
+              <div className="ni-option-detail">Direct deposit to your bank account.</div>
+            </div>
+          </div>
+          {paymentMethod === 'paypal' && (
+            <div className="ni-form-group">
+              <label className="ni-form-label">PayPal Email Address</label>
+              <input className="ni-form-input" type="email" value={paymentForm.paypalEmail} onChange={e => setPaymentForm(f => ({ ...f, paypalEmail: e.target.value }))} placeholder="your@paypal.com" />
+            </div>
+          )}
+          {paymentMethod === 'bank' && (
+            <>
+              <div className="ni-form-group"><label className="ni-form-label">Account Holder Name</label><input className="ni-form-input" value={paymentForm.bankName} onChange={e => setPaymentForm(f => ({ ...f, bankName: e.target.value }))} /></div>
+              <div className="ni-form-group"><label className="ni-form-label">Institution Name</label><input className="ni-form-input" value={paymentForm.bankInstitution} onChange={e => setPaymentForm(f => ({ ...f, bankInstitution: e.target.value }))} placeholder="e.g. TD Bank" /></div>
+              <div className="ni-form-group"><label className="ni-form-label">Account Number</label><input className="ni-form-input" value={paymentForm.bankAccount} onChange={e => setPaymentForm(f => ({ ...f, bankAccount: e.target.value }))} /></div>
+              <div className="ni-form-group" style={{ marginBottom: 28 }}><label className="ni-form-label">Routing / Transit Number</label><input className="ni-form-input" value={paymentForm.bankRouting} onChange={e => setPaymentForm(f => ({ ...f, bankRouting: e.target.value }))} /></div>
+            </>
+          )}
+          <button className="ni-btn" onClick={handlePaymentSubmit} disabled={paymentSubmitting || !isPaymentValid()}>
+            {paymentSubmitting ? 'Saving…' : 'Save & Continue →'}
+          </button>
+          <p style={{ fontSize: 12, color: '#ccc', textAlign: 'center', marginTop: 14, cursor: 'pointer' }} onClick={() => setStep('done')}>Skip for now</p>
+        </div>
+      )
+    }
+
     // done
     return (
       <>
@@ -859,6 +939,46 @@ export default function InvitePage() {
       )
     }
 
+    if (step === 'payment') {
+      return (
+        <>
+          <div className="ni-m-sec-label">Select Payment Method</div>
+          <div className="ni-m-option-cards" style={{ marginBottom: 20 }}>
+            <div className={`ni-m-option-card${paymentMethod === 'paypal' ? ' selected' : ''}`} onClick={() => setPaymentMethod('paypal')}>
+              <div className="ni-m-check">✓</div>
+              <div className="ni-m-option-name">PayPal</div>
+              <div className="ni-m-option-rule" />
+              <div className="ni-m-option-detail">Fast, simple. We send directly to your PayPal account.</div>
+            </div>
+            <div className={`ni-m-option-card${paymentMethod === 'bank' ? ' selected' : ''}`} onClick={() => setPaymentMethod('bank')}>
+              <div className="ni-m-check">✓</div>
+              <div className="ni-m-option-name">Bank Transfer</div>
+              <div className="ni-m-option-rule" />
+              <div className="ni-m-option-detail">Direct deposit to your bank account.</div>
+            </div>
+          </div>
+          {paymentMethod === 'paypal' && (
+            <div className="ni-m-form-group">
+              <label className="ni-m-form-label">PayPal Email Address</label>
+              <input className="ni-m-form-input" type="email" value={paymentForm.paypalEmail} onChange={e => setPaymentForm(f => ({ ...f, paypalEmail: e.target.value }))} placeholder="your@paypal.com" />
+            </div>
+          )}
+          {paymentMethod === 'bank' && (
+            <>
+              <div className="ni-m-form-group"><label className="ni-m-form-label">Account Holder Name</label><input className="ni-m-form-input" value={paymentForm.bankName} onChange={e => setPaymentForm(f => ({ ...f, bankName: e.target.value }))} /></div>
+              <div className="ni-m-form-group"><label className="ni-m-form-label">Institution Name</label><input className="ni-m-form-input" value={paymentForm.bankInstitution} onChange={e => setPaymentForm(f => ({ ...f, bankInstitution: e.target.value }))} placeholder="e.g. TD Bank" /></div>
+              <div className="ni-m-form-group"><label className="ni-m-form-label">Account Number</label><input className="ni-m-form-input" value={paymentForm.bankAccount} onChange={e => setPaymentForm(f => ({ ...f, bankAccount: e.target.value }))} /></div>
+              <div className="ni-m-form-group" style={{ marginBottom: 24 }}><label className="ni-m-form-label">Routing / Transit Number</label><input className="ni-m-form-input" value={paymentForm.bankRouting} onChange={e => setPaymentForm(f => ({ ...f, bankRouting: e.target.value }))} /></div>
+            </>
+          )}
+          <button className="ni-m-btn" onClick={handlePaymentSubmit} disabled={paymentSubmitting || !isPaymentValid()}>
+            {paymentSubmitting ? 'Saving…' : 'Save & Continue →'}
+          </button>
+          <p style={{ fontSize: 12, color: '#ccc', textAlign: 'center', marginTop: 14, cursor: 'pointer' }} onClick={() => setStep('done')}>Skip for now</p>
+        </>
+      )
+    }
+
     // done
     return (
       <>
@@ -905,8 +1025,17 @@ export default function InvitePage() {
     if (step === 'signup') {
       return (
         <>
-          <div className="ni-m-eyebrow">Last Step</div>
+          <div className="ni-m-eyebrow">Almost There</div>
           <div className="ni-m-headline">Create your<br /><em>account.</em></div>
+        </>
+      )
+    }
+    if (step === 'payment') {
+      return (
+        <>
+          <div className="ni-m-eyebrow">Last Step</div>
+          <div className="ni-m-headline">How should<br /><em>we pay you?</em></div>
+          <p className="ni-m-intro">You&apos;ll receive your first payment on the 1st of next month.</p>
         </>
       )
     }
