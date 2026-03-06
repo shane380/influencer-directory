@@ -58,6 +58,10 @@ const CSS = `
 .cd-aff-code { font-family: 'Playfair Display', serif; font-size: 28px; color: #111; letter-spacing: 0.06em; }
 .cd-aff-copy { padding: 4px 10px; border: 1px solid #e8e8e8; background: transparent; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 8.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #999; cursor: pointer; border-radius: 2px; transition: all 0.2s; }
 .cd-aff-copy:hover { border-color: #111; color: #111; }
+.cd-aff-divider { border: none; border-top: 1px solid #e8e8e8; margin: 14px 0; }
+.cd-aff-link-row { display: flex; align-items: flex-start; justify-content: space-between; }
+.cd-aff-link-label { font-size: 9px; letter-spacing: 0.32em; text-transform: uppercase; color: #aaa; margin-bottom: 5px; }
+.cd-aff-link-url { font-size: 11px; color: #999; font-weight: 300; }
 
 /* SIDENAV */
 .cd-sidenav { flex: 1; }
@@ -305,6 +309,10 @@ const CSS = `
 .cd-m-aff-code { font-family: 'Playfair Display', serif; font-size: 22px; color: #111; letter-spacing: 0.06em; }
 .cd-m-aff-copy { padding: 4px 10px; border: 1px solid #e8e8e8; background: transparent; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 8.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #999; cursor: pointer; border-radius: 2px; transition: all 0.2s; }
 .cd-m-aff-copy:hover { border-color: #111; color: #111; }
+.cd-m-aff-divider { border: none; border-top: 1px solid #e8e8e8; margin: 12px 0; }
+.cd-m-aff-link-row { display: flex; align-items: flex-start; justify-content: space-between; }
+.cd-m-aff-link-label { font-size: 9px; letter-spacing: 0.32em; text-transform: uppercase; color: #aaa; margin-bottom: 5px; }
+.cd-m-aff-link-url { font-size: 11px; color: #999; font-weight: 300; }
 
 .cd-m-sections { padding-bottom: 90px; }
 .cd-m-section { background: #fff; border-bottom: 8px solid #f7f7f7; }
@@ -484,6 +492,7 @@ export default function CreatorDashboard() {
   const [submissions, setSubmissions] = useState([])
 
   const [copied, setCopied] = useState(false)
+  const [copiedLink, setCopiedLink] = useState(false)
 
   // Feedback state: keyed by "orderId-itemIndex"
   const [feedbackOpen, setFeedbackOpen] = useState({})
@@ -632,7 +641,14 @@ export default function CreatorDashboard() {
   function copyCode() {
     navigator.clipboard.writeText(creator?.affiliate_code || '')
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  function copyLink() {
+    const code = (creator?.affiliate_code || '').toLowerCase()
+    navigator.clipboard.writeText(`namaclo.com/?ref=${code}`)
+    setCopiedLink(true)
+    setTimeout(() => setCopiedLink(false), 1500)
   }
 
   function formatSpend(val) {
@@ -1504,6 +1520,14 @@ export default function CreatorDashboard() {
                       <button className="cd-aff-copy" onClick={copyCode}>{copied ? 'Copied' : 'Copy'}</button>
                     </div>
                     <div className="cd-aff-code">{affiliateCode.toUpperCase()}</div>
+                    <hr className="cd-aff-divider" />
+                    <div className="cd-aff-link-row">
+                      <div>
+                        <div className="cd-aff-link-label">Your Link</div>
+                        <div className="cd-aff-link-url">namaclo.com/?ref={affiliateCode.toLowerCase()}</div>
+                      </div>
+                      <button className="cd-aff-copy" onClick={copyLink}>{copiedLink ? 'Copied' : 'Copy'}</button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1568,6 +1592,14 @@ export default function CreatorDashboard() {
                   <button className="cd-m-aff-copy" onClick={copyCode}>{copied ? 'Copied' : 'Copy'}</button>
                 </div>
                 <div className="cd-m-aff-code">{affiliateCode.toUpperCase()}</div>
+                <hr className="cd-m-aff-divider" />
+                <div className="cd-m-aff-link-row">
+                  <div>
+                    <div className="cd-m-aff-link-label">Your Link</div>
+                    <div className="cd-m-aff-link-url">namaclo.com/?ref={affiliateCode.toLowerCase()}</div>
+                  </div>
+                  <button className="cd-m-aff-copy" onClick={copyLink}>{copiedLink ? 'Copied' : 'Copy'}</button>
+                </div>
               </div>
             </div>
           )}
