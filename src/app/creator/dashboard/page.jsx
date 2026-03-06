@@ -110,8 +110,8 @@ const CSS = `
 .cd-product-info { padding: 12px 14px 14px; }
 .cd-product-name { font-size: 12px; color: #111; margin-bottom: 2px; }
 .cd-product-variant { font-size: 10.5px; color: #aaa; font-weight: 300; }
-.cd-product-cta { font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: #999; margin-top: 8px; cursor: pointer; }
-.cd-product-cta.added { color: #ccc; }
+.cd-product-cta { display: inline-block; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; margin-top: 10px; cursor: pointer; padding: 7px 16px; background: #111; color: #fff; border: 1px solid #111; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+.cd-product-cta.added { background: transparent; color: #ccc; border-color: #e8e8e8; cursor: default; }
 .cd-size-row { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
 .cd-size-pill { padding: 3px 10px; border: 1px solid #e8e8e8; background: #fff; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #555; cursor: pointer; border-radius: 100px; transition: all 0.15s; letter-spacing: 0.04em; }
 .cd-size-pill:hover { border-color: #aaa; }
@@ -343,7 +343,8 @@ const CSS = `
 .cd-m-product-info { padding: 10px 12px 12px; }
 .cd-m-product-name { font-size: 11.5px; color: #111; margin-bottom: 2px; }
 .cd-m-product-variant { font-size: 10px; color: #aaa; font-weight: 300; }
-.cd-m-product-cta { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: #999; margin-top: 6px; }
+.cd-m-product-cta { display: inline-block; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; margin-top: 8px; cursor: pointer; padding: 6px 14px; background: #111; color: #fff; border: 1px solid #111; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+.cd-m-product-cta.added { background: transparent; color: #ccc; border-color: #e8e8e8; cursor: default; }
 
 /* MOBILE EARNINGS */
 .cd-m-earnings { background: #fff; border: 1px solid #e8e8e8; margin-bottom: 14px; }
@@ -1024,7 +1025,7 @@ export default function CreatorDashboard() {
                       className={`${mobile ? 'cd-m-product-cta' : 'cd-product-cta'}${inCart || anyInCart ? ' added' : ''}`}
                       onClick={() => !inCart && !anyInCart && handleAddToCart(product)}
                     >
-                      {inCart || anyInCart ? '✓ Added' : '+ Request this style'}
+                      {inCart || anyInCart ? '✓ Added' : 'Add'}
                     </div>
                   </div>
                 </div>
