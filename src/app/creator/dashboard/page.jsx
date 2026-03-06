@@ -439,7 +439,7 @@ const CSS = `
 `
 
 const TABS = ['wardrobe', 'request', 'ads', 'submit']
-const TAB_LABELS = { wardrobe: 'Wardrobe', request: 'Request Styles', ads: 'Ads', submit: 'Submit' }
+const TAB_LABELS = { wardrobe: 'Wardrobe & Orders', request: 'Request Styles', ads: 'Ads', submit: 'Submit' }
 const TAB_LABELS_SHORT = { wardrobe: 'Wardrobe', request: 'Request', ads: 'Ads', submit: 'Submit' }
 
 export default function CreatorDashboard() {
