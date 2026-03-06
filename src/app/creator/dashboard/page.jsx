@@ -55,7 +55,7 @@ const CSS = `
 .cd-aff-block { border: 1px solid #e8e8e8; padding: 16px 18px; border-radius: 0; }
 .cd-aff-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .cd-aff-label { font-size: 9px; letter-spacing: 0.32em; text-transform: uppercase; color: #aaa; }
-.cd-aff-code { font-family: 'Playfair Display', serif; font-size: 28px; color: #111; letter-spacing: 0.06em; }
+.cd-aff-code { font-family: 'Playfair Display', serif; font-size: 22px; color: #111; letter-spacing: 0.06em; }
 .cd-aff-copy { padding: 4px 10px; border: 1px solid #e8e8e8; background: transparent; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 8.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #999; cursor: pointer; border-radius: 2px; transition: all 0.2s; }
 .cd-aff-copy:hover { border-color: #111; color: #111; }
 .cd-aff-divider { border: none; border-top: 1px solid #e8e8e8; margin: 14px 0; }
