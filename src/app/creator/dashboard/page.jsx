@@ -190,10 +190,10 @@ const CSS = `
 .cd-streak-note { font-size: 11px; color: #999; margin-top: 14px; font-weight: 300; }
 .cd-ads-section { padding: 0 36px 36px; border-top: 1px solid #e8e8e8; padding-top: 24px; }
 .cd-ads-section-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin-bottom: 14px; }
-.cd-ad-card { border: 1px solid #e8e8e8; margin-bottom: 16px; }
+.cd-ad-card { border: 1px solid #e8e8e8; margin-bottom: 16px; max-width: 100%; }
 .cd-ad-card:last-child { margin-bottom: 0; }
-.cd-ad-thumb { position: relative; height: 280px; overflow: hidden; background: #1a1a1a; }
-.cd-ad-thumb img { width: 100%; height: 100%; object-fit: cover; opacity: 0.85; }
+.cd-ad-thumb { position: relative; height: 320px; overflow: hidden; background: #1a1a1a; }
+.cd-ad-thumb img { width: 100%; height: 100%; object-fit: cover; opacity: 0.85; display: block; }
 .cd-ad-thumb-overlay { position: absolute; bottom: 0; left: 0; right: 0; padding: 16px 20px; background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%); display: flex; align-items: flex-end; justify-content: space-between; }
 .cd-ad-thumb-name { font-size: 13px; color: white; font-weight: 300; }
 .cd-ad-thumb-status { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: #5db075; background: rgba(0,0,0,0.4); padding: 4px 10px; border-radius: 100px; border: 1px solid rgba(93,176,117,0.4); }
@@ -386,7 +386,7 @@ const CSS = `
 .cd-m-ad-card { border: 1px solid #e8e8e8; margin-bottom: 12px; }
 .cd-m-ad-card:last-child { margin-bottom: 0; }
 .cd-m-ad-thumb { position: relative; height: 200px; overflow: hidden; background: #1a1a1a; }
-.cd-m-ad-thumb img { width: 100%; height: 100%; object-fit: cover; opacity: 0.85; }
+.cd-m-ad-thumb img { width: 100%; height: 100%; object-fit: cover; opacity: 0.85; display: block; }
 .cd-m-ad-thumb-overlay { position: absolute; bottom: 0; left: 0; right: 0; padding: 12px 16px; background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%); display: flex; align-items: flex-end; justify-content: space-between; }
 .cd-m-ad-thumb-name { font-size: 12px; color: white; font-weight: 300; }
 .cd-m-ad-thumb-status { font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase; color: #5db075; background: rgba(0,0,0,0.4); padding: 3px 8px; border-radius: 100px; border: 1px solid rgba(93,176,117,0.4); }
@@ -468,6 +468,8 @@ export default function CreatorDashboard() {
   const [ads, setAds] = useState([])
   const [adsTotals, setAdsTotals] = useState({ spend: 0, impressions: 0 })
   const [adsMonthly, setAdsMonthly] = useState([])
+  const [adsMtd, setAdsMtd] = useState({ spend: 0, impressions: 0 })
+  const [adsLastMtd, setAdsLastMtd] = useState({ spend: 0, impressions: 0 })
   const [adsLoading, setAdsLoading] = useState(false)
 
   // Content submissions
@@ -542,6 +544,8 @@ export default function CreatorDashboard() {
             setAds(data.ads || [])
             setAdsTotals(data.totals || { spend: 0, impressions: 0 })
             setAdsMonthly(data.monthly || [])
+            setAdsMtd(data.mtd || { spend: 0, impressions: 0 })
+            setAdsLastMtd(data.lastMtd || { spend: 0, impressions: 0 })
           } catch {}
           setAdsLoading(false)
         }
@@ -1156,15 +1160,9 @@ export default function CreatorDashboard() {
     const totalImps = adsTotals.impressions
     const activeCount = ads.filter(a => a.status === 'ACTIVE').length
 
-    // Delta vs last month
-    const now = new Date()
-    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-    const lastMonthKey = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`
-    const currentMonth = adsMonthly.find(m => m.month === currentMonthKey)
-    const lastMonth = adsMonthly.find(m => m.month === lastMonthKey)
-    const spendDelta = lastMonth?.spend > 0 ? Math.round(((currentMonth?.spend || 0) - lastMonth.spend) / lastMonth.spend * 100) : null
-    const impsDelta = lastMonth?.impressions > 0 ? Math.round(((currentMonth?.impressions || 0) - lastMonth.impressions) / lastMonth.impressions * 100) : null
+    // Delta: MTD vs same date range last month
+    const spendDelta = adsLastMtd.spend > 0 ? Math.round((adsMtd.spend - adsLastMtd.spend) / adsLastMtd.spend * 100) : null
+    const impsDelta = adsLastMtd.impressions > 0 ? Math.round((adsMtd.impressions - adsLastMtd.impressions) / adsLastMtd.impressions * 100) : null
 
     const percentile = getPercentile(totalSpend)
     const streakMonths = getStreakMonths()

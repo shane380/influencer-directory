@@ -38,19 +38,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ads: [], totals: { spend: 0, impressions: 0 }, monthly: [], error: data.error.message });
     }
 
-    // Fetch monthly breakdown at ad-account level for this creator's ads
-    const monthlyInsightsUrl = `https://graph.facebook.com/v19.0/${actId}/insights?` +
-      `fields=spend,impressions` +
-      `&filtering=${encodeURIComponent(filtering)}` +
-      `&time_increment=monthly` +
-      `&date_preset=last_3d` + // will try last_90d below
-      `&level=account` +
-      `&access_token=${accessToken}`;
-
-    // Actually, Meta doesn't support filtering on account-level insights.
-    // Instead, get monthly insights per ad and aggregate.
+    // Get monthly insights per ad and aggregate
     const adIds = (data.data || []).map((ad: any) => ad.id);
     let monthly: { month: string; spend: number; impressions: number }[] = [];
+
+    // MTD comparison: current month-to-date vs same date range last month
+    const now = new Date();
+    const todayDay = now.getDate();
+    const currentMonthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const currentEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(todayDay).padStart(2, '0')}`;
+    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthStart = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}-01`;
+    // Cap last month comparison day to same day number (or last day of that month)
+    const lastMonthLastDay = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+    const lastCompareDay = Math.min(todayDay, lastMonthLastDay);
+    const lastMonthEnd = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}-${String(lastCompareDay).padStart(2, '0')}`;
+
+    let mtd = { spend: 0, impressions: 0 };
+    let lastMtd = { spend: 0, impressions: 0 };
 
     if (adIds.length > 0) {
       // Fetch last 90 days of insights per ad with monthly granularity
@@ -69,7 +74,33 @@ export async function GET(request: NextRequest) {
         }
       });
 
-      const allMonthlyData = await Promise.all(monthlyPromises);
+      // Fetch MTD insights for current month and same range last month
+      const mtdPromises = adIds.map(async (adId: string) => {
+        const currentUrl = `https://graph.facebook.com/v19.0/${adId}/insights?` +
+          `fields=spend,impressions` +
+          `&time_range=${encodeURIComponent(JSON.stringify({ since: currentMonthStart, until: currentEnd }))}` +
+          `&access_token=${accessToken}`;
+        const lastUrl = `https://graph.facebook.com/v19.0/${adId}/insights?` +
+          `fields=spend,impressions` +
+          `&time_range=${encodeURIComponent(JSON.stringify({ since: lastMonthStart, until: lastMonthEnd }))}` +
+          `&access_token=${accessToken}`;
+        try {
+          const [cRes, lRes] = await Promise.all([fetch(currentUrl), fetch(lastUrl)]);
+          const [cData, lData] = await Promise.all([cRes.json(), lRes.json()]);
+          return {
+            current: cData.data?.[0] || null,
+            last: lData.data?.[0] || null,
+          };
+        } catch {
+          return { current: null, last: null };
+        }
+      });
+
+      const [allMonthlyData, allMtdData] = await Promise.all([
+        Promise.all(monthlyPromises),
+        Promise.all(mtdPromises),
+      ]);
+
       const monthMap: Record<string, { spend: number; impressions: number }> = {};
 
       for (const adMonthly of allMonthlyData) {
@@ -85,6 +116,18 @@ export async function GET(request: NextRequest) {
       monthly = Object.entries(monthMap)
         .sort(([a], [b]) => b.localeCompare(a))
         .map(([month, vals]) => ({ month, ...vals }));
+
+      // Aggregate MTD totals
+      for (const m of allMtdData) {
+        if (m.current) {
+          mtd.spend += parseFloat(m.current.spend || '0');
+          mtd.impressions += parseInt(m.current.impressions || '0');
+        }
+        if (m.last) {
+          lastMtd.spend += parseFloat(m.last.spend || '0');
+          lastMtd.impressions += parseInt(m.last.impressions || '0');
+        }
+      }
     }
 
     let totalSpend = 0;
@@ -128,6 +171,8 @@ export async function GET(request: NextRequest) {
       ads,
       totals: { spend: totalSpend, impressions: totalImpressions },
       monthly,
+      mtd,
+      lastMtd,
     });
   } catch (err: any) {
     return NextResponse.json({ ads: [], totals: { spend: 0, impressions: 0 }, monthly: [], error: err.message });
