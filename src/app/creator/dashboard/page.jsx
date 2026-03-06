@@ -190,10 +190,10 @@ const CSS = `
 .cd-streak-note { font-size: 11px; color: #999; margin-top: 14px; font-weight: 300; }
 .cd-ads-section { padding: 0 36px 36px; border-top: 1px solid #e8e8e8; padding-top: 24px; }
 .cd-ads-section-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin-bottom: 14px; }
-.cd-ad-card { border: 1px solid #e8e8e8; margin-bottom: 16px; max-width: 100%; }
-.cd-ad-card:last-child { margin-bottom: 0; }
-.cd-ad-thumb { position: relative; height: 320px; overflow: hidden; background: #1a1a1a; }
-.cd-ad-thumb img { width: 100%; height: 100%; object-fit: cover; opacity: 0.85; display: block; }
+.cd-ads-row { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 8px; }
+.cd-ad-card { border: 1px solid #e8e8e8; flex-shrink: 0; width: 260px; }
+.cd-ad-thumb { position: relative; height: 360px; width: 100%; overflow: hidden; background: #1a1a1a; }
+.cd-ad-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: center; opacity: 0.85; display: block; }
 .cd-ad-thumb-overlay { position: absolute; bottom: 0; left: 0; right: 0; padding: 16px 20px; background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%); display: flex; align-items: flex-end; justify-content: space-between; }
 .cd-ad-thumb-name { font-size: 13px; color: white; font-weight: 300; }
 .cd-ad-thumb-status { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: #5db075; background: rgba(0,0,0,0.4); padding: 4px 10px; border-radius: 100px; border: 1px solid rgba(93,176,117,0.4); }
@@ -383,10 +383,10 @@ const CSS = `
 .cd-m-streak-note { font-size: 10px; color: #999; margin-top: 12px; font-weight: 300; }
 .cd-m-ads-section { padding: 16px 20px 20px; border-top: 1px solid #e8e8e8; }
 .cd-m-ads-label { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: #aaa; margin-bottom: 12px; }
-.cd-m-ad-card { border: 1px solid #e8e8e8; margin-bottom: 12px; }
-.cd-m-ad-card:last-child { margin-bottom: 0; }
-.cd-m-ad-thumb { position: relative; height: 200px; overflow: hidden; background: #1a1a1a; }
-.cd-m-ad-thumb img { width: 100%; height: 100%; object-fit: cover; opacity: 0.85; display: block; }
+.cd-m-ads-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; }
+.cd-m-ad-card { border: 1px solid #e8e8e8; flex-shrink: 0; width: 220px; }
+.cd-m-ad-thumb { position: relative; height: 300px; width: 100%; overflow: hidden; background: #1a1a1a; }
+.cd-m-ad-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: center; opacity: 0.85; display: block; }
 .cd-m-ad-thumb-overlay { position: absolute; bottom: 0; left: 0; right: 0; padding: 12px 16px; background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%); display: flex; align-items: flex-end; justify-content: space-between; }
 .cd-m-ad-thumb-name { font-size: 12px; color: white; font-weight: 300; }
 .cd-m-ad-thumb-status { font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase; color: #5db075; background: rgba(0,0,0,0.4); padding: 3px 8px; border-radius: 100px; border: 1px solid rgba(93,176,117,0.4); }
@@ -1218,26 +1218,28 @@ export default function CreatorDashboard() {
           </div>
           <div className="cd-m-ads-section">
             <div className="cd-m-ads-label">Running Now</div>
-            {ads.map((ad, i) => {
-              const name = cleanAdName(ad.name)
-              const isActive = ad.status === 'ACTIVE'
-              return (
-                <div key={i} className="cd-m-ad-card">
-                  <div className="cd-m-ad-thumb">
-                    {ad.thumbnailUrl ? <img src={ad.thumbnailUrl} alt={name} /> : <div style={{ width: '100%', height: '100%', background: '#222' }} />}
-                    <div className="cd-m-ad-thumb-overlay">
-                      <div className="cd-m-ad-thumb-name">{name}</div>
-                      <div className={`cd-m-ad-thumb-status${!isActive ? ' cd-m-ad-thumb-status-paused' : ''}`}>● {isActive ? 'Active' : 'Paused'}</div>
+            <div className="cd-m-ads-row">
+              {ads.map((ad, i) => {
+                const name = cleanAdName(ad.name)
+                const isActive = ad.status === 'ACTIVE'
+                return (
+                  <div key={i} className="cd-m-ad-card">
+                    <div className="cd-m-ad-thumb">
+                      {ad.thumbnailUrl ? <img src={ad.thumbnailUrl} alt={name} /> : <div style={{ width: '100%', height: '100%', background: '#222' }} />}
+                      <div className="cd-m-ad-thumb-overlay">
+                        <div className="cd-m-ad-thumb-name">{name}</div>
+                        <div className={`cd-m-ad-thumb-status${!isActive ? ' cd-m-ad-thumb-status-paused' : ''}`}>● {isActive ? 'Active' : 'Paused'}</div>
+                      </div>
+                    </div>
+                    <div className="cd-m-ad-stats-strip">
+                      <div className="cd-m-ad-stat"><div className="cd-m-ad-stat-l">Spent</div><div className="cd-m-ad-stat-v">{formatSpend(ad.spend)}</div></div>
+                      <div className="cd-m-ad-stat"><div className="cd-m-ad-stat-l">Impressions</div><div className="cd-m-ad-stat-v">{formatImpressions(ad.impressions)}</div></div>
+                      <div className="cd-m-ad-stat"><div className="cd-m-ad-stat-l">Performance</div><div style={{ marginTop: 4 }}>{getScorePill(ad.spend, true)}</div></div>
                     </div>
                   </div>
-                  <div className="cd-m-ad-stats-strip">
-                    <div className="cd-m-ad-stat"><div className="cd-m-ad-stat-l">Spent</div><div className="cd-m-ad-stat-v">{formatSpend(ad.spend)}</div></div>
-                    <div className="cd-m-ad-stat"><div className="cd-m-ad-stat-l">Impressions</div><div className="cd-m-ad-stat-v">{formatImpressions(ad.impressions)}</div></div>
-                    <div className="cd-m-ad-stat"><div className="cd-m-ad-stat-l">Performance</div><div style={{ marginTop: 4 }}>{getScorePill(ad.spend, true)}</div></div>
-                  </div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
         </div>
       )
@@ -1293,26 +1295,28 @@ export default function CreatorDashboard() {
         </div>
         <div className="cd-ads-section">
           <div className="cd-ads-section-label">Running Now</div>
-          {ads.map((ad, i) => {
-            const name = cleanAdName(ad.name)
-            const isActive = ad.status === 'ACTIVE'
-            return (
-              <div key={i} className="cd-ad-card">
-                <div className="cd-ad-thumb">
-                  {ad.thumbnailUrl ? <img src={ad.thumbnailUrl} alt={name} /> : <div style={{ width: '100%', height: '100%', background: '#222' }} />}
-                  <div className="cd-ad-thumb-overlay">
-                    <div className="cd-ad-thumb-name">{name}</div>
-                    <div className={`cd-ad-thumb-status${!isActive ? ' cd-ad-thumb-status-paused' : ''}`}>● {isActive ? 'Active' : 'Paused'}</div>
+          <div className="cd-ads-row">
+            {ads.map((ad, i) => {
+              const name = cleanAdName(ad.name)
+              const isActive = ad.status === 'ACTIVE'
+              return (
+                <div key={i} className="cd-ad-card">
+                  <div className="cd-ad-thumb">
+                    {ad.thumbnailUrl ? <img src={ad.thumbnailUrl} alt={name} /> : <div style={{ width: '100%', height: '100%', background: '#222' }} />}
+                    <div className="cd-ad-thumb-overlay">
+                      <div className="cd-ad-thumb-name">{name}</div>
+                      <div className={`cd-ad-thumb-status${!isActive ? ' cd-ad-thumb-status-paused' : ''}`}>● {isActive ? 'Active' : 'Paused'}</div>
+                    </div>
+                  </div>
+                  <div className="cd-ad-stats-strip">
+                    <div className="cd-ad-stat"><div className="cd-ad-stat-l">Total Spent</div><div className="cd-ad-stat-v">${parseFloat(ad.spend).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div></div>
+                    <div className="cd-ad-stat"><div className="cd-ad-stat-l">Impressions</div><div className="cd-ad-stat-v">{formatImpressions(ad.impressions)}</div></div>
+                    <div className="cd-ad-stat"><div className="cd-ad-stat-l">Performance</div><div style={{ marginTop: 4 }}>{getScorePill(ad.spend, false)}</div></div>
                   </div>
                 </div>
-                <div className="cd-ad-stats-strip">
-                  <div className="cd-ad-stat"><div className="cd-ad-stat-l">Total Spent</div><div className="cd-ad-stat-v">${parseFloat(ad.spend).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div></div>
-                  <div className="cd-ad-stat"><div className="cd-ad-stat-l">Impressions</div><div className="cd-ad-stat-v">{formatImpressions(ad.impressions)}</div></div>
-                  <div className="cd-ad-stat"><div className="cd-ad-stat-l">Performance</div><div style={{ marginTop: 4 }}>{getScorePill(ad.spend, false)}</div></div>
-                </div>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
       </div>
     )
