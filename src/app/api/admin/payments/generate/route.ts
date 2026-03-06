@@ -8,10 +8,14 @@ function getSupabase() {
   return createClient(supabaseUrl, supabaseServiceKey);
 }
 
-async function getMetaSpendForMonth(handle: string, month: string): Promise<number> {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL
+function getBaseUrl(): string {
+  return process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL
     ? `https://${process.env.VERCEL_URL}`
-    : "http://localhost:3000";
+    : "http://localhost:3000");
+}
+
+async function getMetaSpendForMonth(handle: string, month: string): Promise<number> {
+  const baseUrl = getBaseUrl();
 
   try {
     const res = await fetch(`${baseUrl}/api/meta/creator-ads?handle=${encodeURIComponent(handle)}`, {
@@ -37,7 +41,7 @@ export async function POST(request: NextRequest) {
 
   // Get all creators with their invite data
   const { data: creators } = await (supabase.from as any)("creators")
-    .select("id, creator_name, invite_id");
+    .select("id, creator_name, invite_id, affiliate_code, commission_rate");
 
   if (!creators || creators.length === 0) {
     return NextResponse.json({ summary: { created: 0, skipped: 0, errors: 0 }, message: "No creators found" });
@@ -115,16 +119,53 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Affiliate commission
+    // Affiliate commission — auto-calculate from Shopify orders
     if (invite.has_affiliate && !existingTypes.has("affiliate_commission")) {
+      const affiliateCode = creator.affiliate_code;
+      const affCommissionRate = creator.commission_rate || invite.ad_spend_percentage || 10;
+      let affAmount = 0;
+      let affNotes = "No affiliate code";
+      let calcDetails: any = null;
+
+      if (affiliateCode) {
+        try {
+          const baseUrl = getBaseUrl();
+          const affRes = await fetch(
+            `${baseUrl}/api/shopify/affiliate-orders?discount_code=${encodeURIComponent(affiliateCode)}&month=${month}&commission_rate=${affCommissionRate}`,
+            { headers: { "Content-Type": "application/json" } }
+          );
+          const affData = await affRes.json();
+          if (affData.summary) {
+            affAmount = affData.summary.commission_owed || 0;
+            affNotes = affData.summary.order_count > 0
+              ? `${affData.summary.order_count} orders, $${affData.summary.total_gross.toFixed(2)} gross, -$${affData.summary.total_refunds.toFixed(2)} refunds, $${affData.summary.total_net.toFixed(2)} net × ${affCommissionRate}%`
+              : "No orders this month";
+            calcDetails = {
+              ...affData.summary,
+              orders: (affData.orders || []).map((o: any) => ({
+                order_number: o.order_number,
+                created_at: o.created_at,
+                gross_amount: o.gross_amount,
+                refund_amount: o.refund_amount,
+                net_amount: o.net_amount,
+              })),
+            };
+          }
+        } catch (err) {
+          console.error(`Failed to fetch affiliate orders for ${creator.creator_name}:`, err);
+          affNotes = "Failed to calculate — enter manually";
+        }
+      }
+
       rowsToInsert.push({
         influencer_id: influencerId,
         month,
         payment_type: "affiliate_commission",
-        amount_owed: 0,
+        amount_owed: affAmount,
         payment_method: paymentMethod,
         payment_detail: paymentDetail,
-        notes: "Enter manually",
+        notes: affNotes,
+        calculation_details: calcDetails,
       });
     }
 

@@ -251,6 +251,25 @@ const CSS = `
 .cd-payment-date { font-size: 11px; color: #999; margin-top: 2px; }
 .cd-payment-amount { font-family: 'Playfair Display', serif; font-size: 20px; color: #111; }
 
+/* AFFILIATE SALES CARD — reuses cd-earnings styles with overrides */
+.cd-aff-sales { background: #fff; border: 1px solid #e8e8e8; }
+.cd-aff-sales-head { padding: 32px 36px 0; margin-bottom: 24px; }
+.cd-aff-sales-eyebrow { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+.cd-aff-sales-eyebrow::after { content: ''; width: 32px; height: 1px; background: #e8e8e8; }
+.cd-aff-sales-title { font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 300; color: #111; line-height: 1; }
+.cd-aff-sales-hero { padding: 0 36px 28px; display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; border-bottom: 1px solid #e8e8e8; }
+.cd-aff-sales-stat { text-align: center; }
+.cd-aff-sales-stat-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin-bottom: 6px; }
+.cd-aff-sales-stat-val { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 300; color: #111; line-height: 1; }
+.cd-aff-sales-orders { padding: 0 36px 28px; }
+.cd-aff-sales-orders-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin: 24px 0 14px; }
+.cd-aff-order-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e8e8e8; }
+.cd-aff-order-row:last-child { border-bottom: none; }
+.cd-aff-order-num { font-size: 12px; color: #555; }
+.cd-aff-order-date { font-size: 11px; color: #aaa; }
+.cd-aff-order-net { font-size: 12px; color: #555; }
+.cd-aff-order-comm { font-family: 'Playfair Display', serif; font-size: 17px; color: #111; }
+
 /* MOMENTUM / LIVE ADS CARD */
 .cd-momentum { background: #fff; border: 1px solid #e8e8e8; }
 .cd-momentum-head { padding: 32px 36px 0; margin-bottom: 24px; display: flex; align-items: flex-start; justify-content: space-between; }
@@ -458,6 +477,23 @@ const CSS = `
 .cd-m-payment-amount { font-family: 'Playfair Display', serif; font-size: 18px; color: #111; }
 
 /* MOBILE MOMENTUM */
+.cd-m-aff-sales { background: #fff; border: 1px solid #e8e8e8; margin-bottom: 14px; }
+.cd-m-aff-sales-head { padding: 20px 20px 0; margin-bottom: 16px; }
+.cd-m-aff-sales-eyebrow { font-size: 9px; letter-spacing: 0.32em; text-transform: uppercase; color: #aaa; margin-bottom: 8px; }
+.cd-m-aff-sales-title { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 300; color: #111; }
+.cd-m-aff-sales-stats { display: flex; border-bottom: 1px solid #e8e8e8; border-top: 1px solid #e8e8e8; }
+.cd-m-aff-sales-stat { flex: 1; padding: 14px 16px; border-right: 1px solid #e8e8e8; }
+.cd-m-aff-sales-stat:last-child { border-right: none; }
+.cd-m-aff-sales-stat-label { font-size: 8.5px; letter-spacing: 0.18em; text-transform: uppercase; color: #aaa; margin-bottom: 4px; }
+.cd-m-aff-sales-stat-val { font-family: 'Playfair Display', serif; font-size: 22px; color: #111; font-weight: 300; line-height: 1; }
+.cd-m-aff-sales-orders { padding: 0 20px 20px; }
+.cd-m-aff-sales-orders-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin: 16px 0 10px; }
+.cd-m-aff-order-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e8e8e8; }
+.cd-m-aff-order-row:last-child { border-bottom: none; }
+.cd-m-aff-order-left { }
+.cd-m-aff-order-num { font-size: 11px; color: #555; }
+.cd-m-aff-order-date { font-size: 10px; color: #aaa; }
+.cd-m-aff-order-comm { font-family: 'Playfair Display', serif; font-size: 16px; color: #111; }
 .cd-m-momentum { background: #fff; border: 1px solid #e8e8e8; }
 .cd-m-momentum-head { padding: 20px 20px 0; margin-bottom: 16px; }
 .cd-m-momentum-eyebrow { font-size: 9px; letter-spacing: 0.32em; text-transform: uppercase; color: #aaa; margin-bottom: 8px; }
@@ -598,6 +634,11 @@ export default function CreatorDashboard() {
   const [copied, setCopied] = useState(false)
   const [copiedLink, setCopiedLink] = useState(false)
 
+  // Affiliate sales
+  const [affiliateData, setAffiliateData] = useState(null) // { orders, summary }
+  const [affiliateHistory, setAffiliateHistory] = useState([]) // [{ month, orders, summary }]
+  const [affiliateLoading, setAffiliateLoading] = useState(false)
+
   // Feedback state: keyed by "orderId-itemIndex"
   const [feedbackOpen, setFeedbackOpen] = useState({})
   const [feedbackData, setFeedbackData] = useState({})
@@ -640,7 +681,6 @@ export default function CreatorDashboard() {
       }
 
       const { data: inviteData } = await supabase.from('creator_invites').select('*').eq('id', creatorData.invite_id).single()
-      console.log('[DEBUG] invite data:', { has_ad_spend: inviteData?.has_ad_spend, has_affiliate: inviteData?.has_affiliate, has_retainer: inviteData?.has_retainer, ad_spend_percentage: inviteData?.ad_spend_percentage, commission_rate: inviteData?.commission_rate })
       setInvite(inviteData)
 
       // Find linked influencer — by invite's influencer_id, or fallback to name match
@@ -690,6 +730,35 @@ export default function CreatorDashboard() {
           } catch {}
           setAdsLoading(false)
         }
+      }
+
+      // Fetch affiliate sales data if has_affiliate
+      if (inviteData?.has_affiliate && creatorData.affiliate_code) {
+        setAffiliateLoading(true)
+        try {
+          const now = new Date()
+          const rate = creatorData.commission_rate || inviteData.ad_spend_percentage || 10
+          const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+          const affRes = await fetch(`/api/shopify/affiliate-orders?discount_code=${encodeURIComponent(creatorData.affiliate_code)}&month=${currentMonth}&commission_rate=${rate}`)
+          const affData = await affRes.json()
+          setAffiliateData(affData)
+
+          // Fetch last 3 months history
+          const history = []
+          for (let i = 1; i <= 3; i++) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+            const mKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+            try {
+              const hRes = await fetch(`/api/shopify/affiliate-orders?discount_code=${encodeURIComponent(creatorData.affiliate_code)}&month=${mKey}&commission_rate=${rate}`)
+              const hData = await hRes.json()
+              history.push({ month: mKey, ...hData })
+            } catch {}
+          }
+          setAffiliateHistory(history)
+        } catch (err) {
+          console.error('Failed to fetch affiliate data:', err)
+        }
+        setAffiliateLoading(false)
       }
 
       const { data: reqData } = await supabase.from('creator_sample_requests').select('*').eq('creator_id', creatorData.id).order('created_at', { ascending: false })
@@ -1462,6 +1531,147 @@ export default function CreatorDashboard() {
     )
   }
 
+  function renderAffiliateSales(mobile) {
+    if (!invite?.has_affiliate) return null
+    if (affiliateLoading) return <div style={{ fontSize: 12, color: '#aaa', padding: '20px 0' }}>Loading affiliate data…</div>
+    if (!affiliateData?.summary) return null
+
+    const s = affiliateData.summary
+    const rate = s.commission_rate * 100
+    const recentOrders = (affiliateData.orders || []).slice(0, 5)
+
+    const now = new Date()
+    const monthName = now.toLocaleString('en', { month: 'long', year: 'numeric' })
+
+    // Progress milestone
+    const milestone = Math.ceil((s.commission_owed + 1) / 250) * 250
+    const progress = milestone > 0 ? Math.min((s.commission_owed / milestone) * 100, 100) : 0
+    const remaining = milestone - s.commission_owed
+
+    if (mobile) {
+      return (
+        <div className="cd-m-aff-sales">
+          <div className="cd-m-aff-sales-head">
+            <div className="cd-m-aff-sales-eyebrow">Affiliate Sales</div>
+            <div className="cd-m-aff-sales-title">Your Code</div>
+          </div>
+          <div className="cd-m-aff-sales-stats">
+            <div className="cd-m-aff-sales-stat">
+              <div className="cd-m-aff-sales-stat-label">Orders</div>
+              <div className="cd-m-aff-sales-stat-val">{s.order_count}</div>
+            </div>
+            <div className="cd-m-aff-sales-stat">
+              <div className="cd-m-aff-sales-stat-label">Net Sales</div>
+              <div className="cd-m-aff-sales-stat-val">${s.total_net.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+            </div>
+            <div className="cd-m-aff-sales-stat">
+              <div className="cd-m-aff-sales-stat-label">Earned</div>
+              <div className="cd-m-aff-sales-stat-val">${s.commission_owed.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+            </div>
+          </div>
+          <div className="cd-m-progress" style={{ padding: '14px 20px' }}>
+            <div className="cd-m-progress-header">
+              <span className="cd-m-progress-label">Progress to ${milestone}</span>
+              <span className="cd-m-progress-val">${Math.round(s.commission_owed)} of ${milestone}</span>
+            </div>
+            <div className="cd-m-progress-track"><div className="cd-m-progress-fill" style={{ width: `${progress}%` }} /></div>
+          </div>
+          {recentOrders.length > 0 && (
+            <div className="cd-m-aff-sales-orders">
+              <div className="cd-m-aff-sales-orders-label">Recent Orders</div>
+              {recentOrders.map((o, i) => (
+                <div key={i} className="cd-m-aff-order-row">
+                  <div className="cd-m-aff-order-left">
+                    <div className="cd-m-aff-order-num">#{o.order_number}</div>
+                    <div className="cd-m-aff-order-date">{new Date(o.created_at).toLocaleDateString()}</div>
+                  </div>
+                  <div className="cd-m-aff-order-comm">${(o.net_amount * s.commission_rate).toFixed(2)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    return (
+      <div className="cd-aff-sales">
+        <div className="cd-aff-sales-head">
+          <div className="cd-aff-sales-eyebrow">Affiliate Sales</div>
+          <div className="cd-aff-sales-title">Your Code</div>
+        </div>
+        <div className="cd-aff-sales-hero">
+          <div className="cd-aff-sales-stat">
+            <div className="cd-aff-sales-stat-label">{monthName} Orders</div>
+            <div className="cd-aff-sales-stat-val">{s.order_count}</div>
+          </div>
+          <div className="cd-aff-sales-stat">
+            <div className="cd-aff-sales-stat-label">Gross Sales</div>
+            <div className="cd-aff-sales-stat-val">${s.total_gross.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+          </div>
+          <div className="cd-aff-sales-stat">
+            <div className="cd-aff-sales-stat-label">Net Sales</div>
+            <div className="cd-aff-sales-stat-val">${s.total_net.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+          </div>
+          <div className="cd-aff-sales-stat">
+            <div className="cd-aff-sales-stat-label">Your Earnings</div>
+            <div className="cd-aff-sales-stat-val">${s.commission_owed.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+          </div>
+        </div>
+        <div className="cd-progress-wrap">
+          <div className="cd-progress-header">
+            <span className="cd-progress-label">Progress to ${milestone} milestone</span>
+            <span className="cd-progress-val">${Math.round(s.commission_owed).toLocaleString()} of ${milestone.toLocaleString()}</span>
+          </div>
+          <div className="cd-progress-track"><div className="cd-progress-fill" style={{ width: `${progress}%` }} /></div>
+          <div className="cd-progress-note">${remaining.toLocaleString()} away.</div>
+        </div>
+        {affiliateHistory.length > 0 && (
+          <div className="cd-breakdown">
+            <div className="cd-breakdown-label">Monthly History</div>
+            <div>
+              {affiliateHistory.map((h, i) => {
+                const hs = h.summary || {}
+                const hEarned = hs.commission_owed || 0
+                const maxEarned = Math.max(...affiliateHistory.map(x => x.summary?.commission_owed || 0))
+                const barPct = maxEarned > 0 ? (hEarned / maxEarned) * 100 : 0
+                const mDate = new Date(h.month + '-01')
+                const mLabel = mDate.toLocaleString('en', { month: 'long', year: 'numeric' })
+                return (
+                  <div key={i} className="cd-breakdown-row">
+                    <div><span className="cd-breakdown-month">{mLabel}</span></div>
+                    <div className="cd-breakdown-right">
+                      <span className="cd-breakdown-spend">{hs.order_count || 0} orders</span>
+                      <div className="cd-breakdown-bar-wrap"><div className="cd-breakdown-bar" style={{ width: `${barPct}%` }} /></div>
+                      <span className="cd-breakdown-earned">${Math.round(hEarned).toLocaleString()}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+        {recentOrders.length > 0 && (
+          <div className="cd-aff-sales-orders">
+            <div className="cd-aff-sales-orders-label">Recent Orders</div>
+            {recentOrders.map((o, i) => (
+              <div key={i} className="cd-aff-order-row">
+                <div>
+                  <span className="cd-aff-order-num">#{o.order_number}</span>
+                  <span className="cd-aff-order-date" style={{ marginLeft: 12 }}>{new Date(o.created_at).toLocaleDateString()}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+                  <span className="cd-aff-order-net">${o.net_amount.toFixed(2)} net</span>
+                  <span className="cd-aff-order-comm">${(o.net_amount * s.commission_rate).toFixed(2)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   function renderMomentum(mobile) {
     if (adsLoading) {
       return <div style={{ fontSize: 12, color: '#aaa', padding: '20px 0' }}>Loading ads…</div>
@@ -2204,6 +2414,7 @@ export default function CreatorDashboard() {
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {renderEarnings(false)}
+          {renderAffiliateSales(false)}
           {renderMomentum(false)}
         </div>
       )
@@ -2488,6 +2699,7 @@ export default function CreatorDashboard() {
             <div style={activeTab !== 'ads' ? { display: 'none' } : undefined}>
               <div className="cd-m-section-body" style={{ padding: '16px 0' }}>
                 {renderEarnings(true)}
+                {renderAffiliateSales(true)}
                 {renderMomentum(true)}
               </div>
             </div>

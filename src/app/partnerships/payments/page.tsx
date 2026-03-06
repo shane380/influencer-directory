@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Sidebar } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, RefreshCw, Pencil, Check, X } from "lucide-react";
+import { Download, RefreshCw, Pencil, Check, X, ChevronDown } from "lucide-react";
 
 interface Payment {
   id: string;
@@ -23,6 +23,7 @@ interface Payment {
   approved_at: string | null;
   paid_by: string | null;
   paid_at: string | null;
+  calculation_details: any;
   created_at: string;
   influencer: {
     id: string;
@@ -78,6 +79,7 @@ export default function PaymentsPage() {
   const [noteText, setNoteText] = useState("");
   const [editingAmount, setEditingAmount] = useState<string | null>(null);
   const [amountText, setAmountText] = useState("");
+  const [expandedDetails, setExpandedDetails] = useState<Set<string>>(new Set());
   const monthOptions = getMonthOptions();
 
   useEffect(() => {
@@ -308,14 +310,31 @@ export default function PaymentsPage() {
                   const sc = STATUS_CONFIG[p.status] || STATUS_CONFIG.pending;
 
                   return (
+                    <div key={p.id}>
                     <div
-                      key={p.id}
                       className="flex items-center gap-4 px-5 py-2.5 pl-16 border-t border-gray-50 hover:bg-gray-50/30"
                     >
                       {/* Type badge */}
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider border ${tc.color}`}>
                         {tc.label}
                       </span>
+
+                      {/* Expand button for affiliate rows with details */}
+                      {p.payment_type === "affiliate_commission" && p.calculation_details?.orders?.length > 0 && (
+                        <button
+                          className="text-gray-400 hover:text-gray-600 flex-shrink-0"
+                          onClick={() => {
+                            setExpandedDetails((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(p.id)) next.delete(p.id);
+                              else next.add(p.id);
+                              return next;
+                            });
+                          }}
+                        >
+                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expandedDetails.has(p.id) ? "rotate-180" : ""}`} />
+                        </button>
+                      )}
 
                       {/* Amount */}
                       <div className="w-24 text-sm text-gray-900">
@@ -455,6 +474,36 @@ export default function PaymentsPage() {
                           </button>
                         )}
                       </div>
+                    </div>
+
+                    {/* Expanded affiliate detail */}
+                    {p.payment_type === "affiliate_commission" &&
+                      expandedDetails.has(p.id) &&
+                      p.calculation_details && (
+                        <div className="px-5 pl-16 pb-3 bg-amber-50/30 border-t border-amber-100">
+                          <div className="text-[10px] uppercase tracking-wider text-gray-400 mt-2 mb-1.5">
+                            {p.calculation_details.order_count} orders &middot;{" "}
+                            ${p.calculation_details.total_gross?.toFixed(2)} gross &middot;{" "}
+                            -${p.calculation_details.total_refunds?.toFixed(2)} refunds &middot;{" "}
+                            ${p.calculation_details.total_net?.toFixed(2)} net &times;{" "}
+                            {(p.calculation_details.commission_rate * 100).toFixed(0)}% ={" "}
+                            ${p.calculation_details.commission_owed?.toFixed(2)}
+                          </div>
+                          <div className="space-y-0.5">
+                            {(p.calculation_details.orders || []).map((o: any, idx: number) => (
+                              <div key={idx} className="flex items-center gap-4 text-[11px] text-gray-500">
+                                <span className="w-16 text-gray-400">#{o.order_number}</span>
+                                <span className="w-20">{new Date(o.created_at).toLocaleDateString()}</span>
+                                <span className="w-16 text-right">${o.gross_amount.toFixed(2)}</span>
+                                {o.refund_amount > 0 && (
+                                  <span className="text-red-400 w-16 text-right">-${o.refund_amount.toFixed(2)}</span>
+                                )}
+                                <span className="font-medium text-gray-700">${o.net_amount.toFixed(2)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
