@@ -70,8 +70,8 @@ const CSS = `
 .cd-nav-item.active { background: #f5f5f5; }
 .cd-nav-label { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: #aaa; }
 .cd-nav-item.active .cd-nav-label { color: #111; }
-.cd-nav-arrow { font-size: 11px; color: #e8e8e8; }
-.cd-nav-item.active .cd-nav-arrow { color: #999; }
+.cd-nav-arrow { font-size: 11px; color: #999; }
+.cd-nav-item.active .cd-nav-arrow { color: #111; }
 
 /* CONTENT */
 .cd-content { padding: 40px 48px 80px; display: flex; flex-direction: column; gap: 20px; }
