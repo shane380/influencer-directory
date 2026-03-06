@@ -338,7 +338,9 @@ export default function CreatorsListPage() {
                     <div>
                       <div className="text-sm font-medium text-gray-900">{inv.creator_name}</div>
                       <div className="text-xs text-gray-500">
-                        {inv.creator_email || "No email"} · Created {new Date(inv.created_at).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}
+                        {inv.creator_email || "No email"}
+                        {inv.deal_type && <> · <span className="capitalize">{inv.deal_type === "ad_spend" ? "% of Ad Spend" : inv.deal_type === "retainer" ? "Retainer" : "Affiliate"}</span></>}
+                        {" "}· Sent {new Date(inv.created_at).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -373,7 +375,11 @@ export default function CreatorsListPage() {
             <p className="text-gray-500 text-sm">Loading...</p>
           ) : creators.length === 0 && pendingInvites.length === 0 ? (
             <p className="text-gray-500 text-sm">No creators yet.</p>
-          ) : (
+          ) : creators.length > 0 ? (
+            <>
+            {pendingInvites.length > 0 && (
+              <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">Active Creators</h2>
+            )}
             <div className="bg-white border rounded-lg overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
@@ -463,7 +469,8 @@ export default function CreatorsListPage() {
                 </tbody>
               </table>
             </div>
-          )}
+            </>
+          ) : null}
         </div>
       </main>
 
