@@ -372,7 +372,9 @@ const CSS = `
 /* ===================== */
 .cd-m-wrap { background: #f7f7f7; min-height: 100vh; }
 .cd-m-topbar { padding: 0 20px; height: 52px; background: #fff; border-bottom: 1px solid #e8e8e8; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
-.cd-m-logo { height: 24px; display: block; width: fit-content; }
+.cd-m-logo-lockup { display: flex; flex-direction: column; align-items: flex-start; }
+.cd-m-logo { height: 20px; display: block; width: fit-content; }
+.cd-m-logo-sub { font-size: 7.5px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; padding-left: 2px; margin-top: 2px; }
 .cd-m-avatar { width: 28px; height: 28px; border-radius: 50%; border: 1px solid #e8e8e8; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #555; overflow: hidden; }
 .cd-m-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
@@ -401,7 +403,7 @@ const CSS = `
 .cd-m-aff-link-label { font-size: 9px; letter-spacing: 0.32em; text-transform: uppercase; color: #aaa; margin-bottom: 5px; }
 .cd-m-aff-link-url { font-size: 11px; color: #999; font-weight: 300; }
 
-.cd-m-sections { padding-bottom: 90px; }
+.cd-m-sections { padding-bottom: 80px; }
 .cd-m-section { background: #fff; border-bottom: 8px solid #f7f7f7; }
 .cd-m-section-head { padding: 24px 20px 0; margin-bottom: 16px; }
 .cd-m-section-eyebrow { font-size: 9px; letter-spacing: 0.38em; text-transform: uppercase; color: #aaa; margin-bottom: 8px; }
@@ -526,13 +528,19 @@ const CSS = `
 .cd-m-submit { width: 100%; padding: 14px; background: #111; color: white; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 9.5px; font-weight: 500; letter-spacing: 0.22em; text-transform: uppercase; cursor: pointer; margin-top: 4px; }
 .cd-m-submit:disabled { background: #ccc; cursor: not-allowed; }
 
-/* MOBILE BOTTOM NAV */
-.cd-m-bottom-nav { position: sticky; top: 52px; left: 0; right: 0; background: #fff; border-bottom: 1px solid #e8e8e8; display: flex; padding: 10px 0; z-index: 90; }
-.cd-m-nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; background: none; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-.cd-m-nav-label { font-size: 8.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #aaa; }
-.cd-m-nav-item.active .cd-m-nav-label { color: #111; }
-.cd-m-nav-tick { width: 16px; height: 1px; background: transparent; }
-.cd-m-nav-item.active .cd-m-nav-tick { background: #111; }
+/* MOBILE BOTTOM TAB BAR */
+.cd-m-tabbar { display: none; }
+@media (max-width: 768px) {
+  .cd-m-tabbar { display: flex; position: fixed; bottom: 0; left: 0; right: 0; height: 68px; background: #fff; border-top: 1px solid #e8e8e8; z-index: 50; padding-top: 10px; }
+}
+.cd-m-tabbar-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; background: none; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 0; }
+.cd-m-tabbar-icon svg { width: 22px; height: 22px; stroke: #ccc; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.cd-m-tabbar-item.active .cd-m-tabbar-icon svg { stroke: #111; }
+.cd-m-tabbar-label { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: #aaa; }
+.cd-m-tabbar-item.active .cd-m-tabbar-label { color: #111; }
+
+/* HIDE OLD MOBILE NAV */
+.cd-m-bottom-nav { display: none; }
 
 /* LOADING */
 .cd-loading { display: flex; align-items: center; justify-content: center; min-height: 100vh; font-size: 12px; color: #aaa; letter-spacing: 0.15em; text-transform: uppercase; }
@@ -2357,7 +2365,10 @@ export default function CreatorDashboard() {
       <div className="cd-mobile">
         <div className="cd-m-wrap">
           <div className="cd-m-topbar">
-            <img src="/nama-logo.svg" alt="Nama" className="cd-m-logo" />
+            <div className="cd-m-logo-lockup">
+              <img src="/nama-logo.svg" alt="Nama" className="cd-m-logo" />
+              <div className="cd-m-logo-sub">Partners</div>
+            </div>
             <div className="cd-m-avatar">
               {photoUrl ? <img src={photoUrl} alt="" /> : initials}
             </div>
@@ -2476,6 +2487,29 @@ export default function CreatorDashboard() {
               </div>
               <div className="cd-m-section-body">{renderSettings(true)}</div>
             </div>
+          </div>
+
+          <div className="cd-m-tabbar">
+            <button className={`cd-m-tabbar-item${activeTab === 'ads' ? ' active' : ''}`} onClick={() => setActiveTab('ads')}>
+              <div className="cd-m-tabbar-icon"><svg viewBox="0 0 24 24"><rect x="4" y="14" width="4" height="6" rx="0.5" /><rect x="10" y="10" width="4" height="10" rx="0.5" /><rect x="16" y="4" width="4" height="16" rx="0.5" /></svg></div>
+              <div className="cd-m-tabbar-label">Ads</div>
+            </button>
+            <button className={`cd-m-tabbar-item${activeTab === 'campaigns' ? ' active' : ''}`} onClick={() => setActiveTab('campaigns')}>
+              <div className="cd-m-tabbar-icon"><svg viewBox="0 0 24 24"><path d="M4 15V9l8-4v14l-8-4z" /><path d="M12 7l5-2v14l-5-2" /><line x1="20" y1="10" x2="22" y2="9" /><line x1="20" y1="12" x2="22" y2="12" /><line x1="20" y1="14" x2="22" y2="15" /></svg></div>
+              <div className="cd-m-tabbar-label">Campaigns</div>
+            </button>
+            <button className={`cd-m-tabbar-item${activeTab === 'wardrobe' ? ' active' : ''}`} onClick={() => setActiveTab('wardrobe')}>
+              <div className="cd-m-tabbar-icon"><svg viewBox="0 0 24 24"><path d="M12 2a4 4 0 0 1 4 4" /><path d="M12 2a4 4 0 0 0-4 4" /><path d="M8 6l-5 4h18l-5-4" /><line x1="12" y1="2" x2="12" y2="6" /></svg></div>
+              <div className="cd-m-tabbar-label">Wardrobe</div>
+            </button>
+            <button className={`cd-m-tabbar-item${activeTab === 'submit' ? ' active' : ''}`} onClick={() => setActiveTab('submit')}>
+              <div className="cd-m-tabbar-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="15" x2="12" y2="3" /><polyline points="5 10 12 3 19 10" /><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg></div>
+              <div className="cd-m-tabbar-label">Submit</div>
+            </button>
+            <button className={`cd-m-tabbar-item${activeTab === 'settings' ? ' active' : ''}`} onClick={() => setActiveTab('settings')}>
+              <div className="cd-m-tabbar-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" /></svg></div>
+              <div className="cd-m-tabbar-label">Account</div>
+            </button>
           </div>
 
         </div>
