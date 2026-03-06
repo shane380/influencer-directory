@@ -35,6 +35,10 @@ const CSS = `
 
 /* SIDEBAR */
 .cd-sidebar { background: #fff; border-right: 1px solid #e8e8e8; position: sticky; top: 0; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; }
+.cd-sidebar-logo { padding: 28px 32px 24px; border-bottom: 1px solid #e8e8e8; }
+.cd-logo-lockup { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.cd-logo-img { height: 24px; display: block; }
+.cd-logo-sub { font-size: 8px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; text-align: center; }
 .cd-identity { padding: 36px 32px 28px; border-bottom: 1px solid #e8e8e8; }
 .cd-eyebrow { font-size: 9px; letter-spacing: 0.38em; text-transform: uppercase; color: #aaa; margin-bottom: 14px; }
 .cd-creator-name { font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 400; color: #111; line-height: 1.0; margin-bottom: 4px; }
@@ -2291,8 +2295,13 @@ export default function CreatorDashboard() {
 
           <div className="cd-layout">
             <div className="cd-sidebar">
+              <div className="cd-sidebar-logo">
+                <div className="cd-logo-lockup">
+                  <img src="/nama-logo.svg" alt="Nama" className="cd-logo-img" />
+                  <div className="cd-logo-sub">Partners</div>
+                </div>
+              </div>
               <div className="cd-identity">
-                <div className="cd-eyebrow">Creator Portal</div>
                 {photoUrl ? (
                   <img className="cd-profile-photo" src={photoUrl} alt={creatorName} />
                 ) : (
