@@ -485,7 +485,7 @@ const CSS = `
 .cd-m-ads-section { padding: 16px 20px 20px; border-top: 1px solid #e8e8e8; }
 .cd-m-ads-label { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: #aaa; margin-bottom: 12px; }
 .cd-m-ads-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; }
-.cd-m-ad-card { border: 1px solid #e8e8e8; flex-shrink: 0; width: 280px; }
+.cd-m-ad-card { border: 1px solid #e8e8e8; flex-shrink: 0; width: 280px; overflow: hidden; }
 .cd-m-ad-preview { width: 280px; height: 540px; overflow: hidden; background: #fff; display: flex; align-items: center; justify-content: center; }
 .cd-m-ad-preview iframe { width: 320px; height: 620px; border: none; display: block; transform: scale(0.875); transform-origin: top left; }
 .cd-m-ad-thumb { position: relative; height: 300px; width: 100%; overflow: hidden; background: #1a1a1a; }
@@ -494,8 +494,8 @@ const CSS = `
 .cd-m-ad-thumb-name { font-size: 12px; color: white; font-weight: 300; }
 .cd-m-ad-thumb-status { font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase; color: #5db075; background: rgba(0,0,0,0.4); padding: 3px 8px; border-radius: 100px; border: 1px solid rgba(93,176,117,0.4); }
 .cd-m-ad-thumb-status-paused { color: #aaa; border-color: rgba(170,170,170,0.4); }
-.cd-m-ad-stats-strip { display: flex; border-top: 1px solid #e8e8e8; }
-.cd-m-ad-stat { flex: 1; padding: 10px 14px; border-right: 1px solid #e8e8e8; }
+.cd-m-ad-stats-strip { display: flex; border-top: 1px solid #e8e8e8; width: 100%; min-width: 0; }
+.cd-m-ad-stat { flex: 1; padding: 10px 12px; border-right: 1px solid #e8e8e8; min-width: 0; overflow: hidden; }
 .cd-m-ad-stat:last-child { border-right: none; }
 .cd-m-ad-stat-l { font-size: 8px; letter-spacing: 0.18em; text-transform: uppercase; color: #aaa; margin-bottom: 3px; }
 .cd-m-ad-stat-v { font-family: 'Playfair Display', serif; font-size: 18px; color: #111; }
