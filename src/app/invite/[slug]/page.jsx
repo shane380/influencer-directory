@@ -551,7 +551,7 @@ export default function InvitePage() {
               <span className="ni-term-key">Content</span>
               <div className="ni-term-val"><div className="ni-term-primary">{videos} videos / month</div><div className="ni-term-secondary">{contentType}</div></div>
             </div>
-            <div className="ni-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for the duration of our partnership.</div>
+            <div className="ni-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for as long as we&apos;re actively working together. If the partnership ends, usage rights end with it.</div>
             <div className="ni-sec-label">Partnership Perks</div>
             {renderDesktopPerks()}
             <div className="ni-highlight">
@@ -605,7 +605,7 @@ export default function InvitePage() {
               <span className="ni-term-key">Content</span>
               <div className="ni-term-val"><div className="ni-term-primary">{videos} videos / month</div><div className="ni-term-secondary">{contentType}</div></div>
             </div>
-            <div className="ni-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for the duration of our partnership.</div>
+            <div className="ni-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for as long as we&apos;re actively working together. If the partnership ends, usage rights end with it.</div>
             <div className="ni-sec-label">Partnership Perks</div>
             {renderDesktopPerks()}
             <div className="ni-highlight">
@@ -659,7 +659,7 @@ export default function InvitePage() {
             <span className="ni-term-key">Content</span>
             <div className="ni-term-val"><div className="ni-term-primary">{videos} videos / month</div><div className="ni-term-secondary">{contentType}</div></div>
           </div>
-          <div className="ni-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for the duration of our partnership.</div>
+          <div className="ni-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for as long as we&apos;re actively working together. If the partnership ends, usage rights end with it.</div>
           <div className="ni-sec-label">Partnership Perks</div>
           {renderDesktopPerks()}
           <div className="ni-highlight">
@@ -742,7 +742,7 @@ export default function InvitePage() {
               <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% on all sales</div><div className="ni-m-term-secondary">Tracked automatically</div></div></div>
             )}
             <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
-            <div className="ni-m-footnote">Content is licensed to Nama for use across paid media for the duration of our partnership.</div>
+            <div className="ni-m-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for as long as we&apos;re actively working together. If the partnership ends, usage rights end with it.</div>
             <div className="ni-m-sec-label">Perks</div>
             {renderMobilePerks()}
             <div className="ni-m-highlight">
@@ -787,7 +787,7 @@ export default function InvitePage() {
               <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% on all sales</div><div className="ni-m-term-secondary">Tracked automatically</div></div></div>
             )}
             <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
-            <div className="ni-m-footnote">Content is licensed to Nama for use across paid media for the duration of our partnership.</div>
+            <div className="ni-m-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for as long as we&apos;re actively working together. If the partnership ends, usage rights end with it.</div>
             <div className="ni-m-sec-label">Perks</div>
             <div style={{ marginBottom: 20 }}>
               {PERKS.map((p, i) => (
@@ -839,7 +839,7 @@ export default function InvitePage() {
           <div className="ni-m-sec-label">Partnership Terms</div>
           <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% per sale</div><div className="ni-m-term-secondary">Tracked automatically</div></div></div>
           <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
-          <div className="ni-m-footnote">Content is licensed to Nama for use across paid media for the duration of our partnership.</div>
+          <div className="ni-m-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for as long as we&apos;re actively working together. If the partnership ends, usage rights end with it.</div>
           <div className="ni-m-sec-label">Perks</div>
           {renderMobilePerks()}
           <div className="ni-m-highlight">
