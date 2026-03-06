@@ -21,22 +21,13 @@ export async function createInvite({
 }) {
   const supabase = createClient()
 
-  let resolvedSlug = slug || creatorName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-
-  // Check for duplicate slug and append number if needed
-  const { count } = await supabase
-    .from('creator_invites')
-    .select('id', { count: 'exact', head: true })
-    .eq('slug', resolvedSlug)
-  if (count > 0) {
-    resolvedSlug = `${resolvedSlug}-${count + 1}`
-  }
+  const resolvedSlug = slug || creatorName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
 
   const expiresAt = expiryDays
     ? new Date(Date.now() + expiryDays * 86400000).toISOString()
     : null
 
-  const insertData = {
+  const upsertData = {
     slug: resolvedSlug,
     creator_name: creatorName,
     creator_email: creatorEmail,
@@ -48,18 +39,18 @@ export async function createInvite({
     expires_at: expiresAt,
     status: 'pending',
   }
-  if (influencerId) insertData.influencer_id = influencerId
-  if (dealStructure) insertData.deal_structure = dealStructure
-  if (dealType) insertData.deal_type = dealType
-  if (retainerAmount != null) insertData.retainer_amount = retainerAmount
-  if (adSpendPercentage != null) insertData.ad_spend_percentage = adSpendPercentage
-  if (adSpendMinimum != null) insertData.ad_spend_minimum = adSpendMinimum
-  insertData.offer_choice = offerChoice
-  insertData.is_existing_creator = isExistingCreator
+  if (influencerId) upsertData.influencer_id = influencerId
+  if (dealStructure) upsertData.deal_structure = dealStructure
+  if (dealType) upsertData.deal_type = dealType
+  if (retainerAmount != null) upsertData.retainer_amount = retainerAmount
+  if (adSpendPercentage != null) upsertData.ad_spend_percentage = adSpendPercentage
+  if (adSpendMinimum != null) upsertData.ad_spend_minimum = adSpendMinimum
+  upsertData.offer_choice = offerChoice
+  upsertData.is_existing_creator = isExistingCreator
 
   const { data, error } = await supabase
     .from('creator_invites')
-    .insert(insertData)
+    .upsert(upsertData, { onConflict: 'slug' })
     .select()
     .single()
 
