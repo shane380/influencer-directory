@@ -167,13 +167,20 @@ export async function GET(request: NextRequest) {
       };
     }));
 
-    return NextResponse.json({
-      ads,
-      totals: { spend: totalSpend, impressions: totalImpressions },
-      monthly,
-      mtd,
-      lastMtd,
-    });
+    return NextResponse.json(
+      {
+        ads,
+        totals: { spend: totalSpend, impressions: totalImpressions },
+        monthly,
+        mtd,
+        lastMtd,
+      },
+      {
+        headers: {
+          'Cache-Control': 's-maxage=300, stale-while-revalidate=600',
+        },
+      }
+    );
   } catch (err: any) {
     return NextResponse.json({ ads: [], totals: { spend: 0, impressions: 0 }, monthly: [], error: err.message });
   }

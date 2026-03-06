@@ -10,6 +10,17 @@ const CSS = `
 .cd-wrap { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #111; margin: 0; padding: 0; }
 .cd-wrap *, .cd-wrap *::before, .cd-wrap *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Skeleton loaders */
+@keyframes cd-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+.cd-skel { background: #f0f0f0; border-radius: 4px; animation: cd-pulse 1.5s ease-in-out infinite; }
+.cd-skel-stat { width: 40px; height: 24px; }
+.cd-skel-stat-lg { width: 80px; height: 48px; }
+.cd-skel-line { width: 100%; height: 14px; margin-bottom: 6px; }
+.cd-skel-line-sm { width: 60%; height: 10px; }
+.cd-skel-ad { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.cd-skel-spinner { width: 24px; height: 24px; border: 2px solid #e0e0e0; border-top-color: #bbb; border-radius: 50%; animation: cd-spin 0.8s linear infinite; }
+@keyframes cd-spin { to { transform: rotate(360deg); } }
+
 /* Desktop */
 .cd-desktop { display: block; }
 .cd-mobile { display: none; }
@@ -634,7 +645,7 @@ export default function CreatorDashboard() {
   const [adsMonthly, setAdsMonthly] = useState([])
   const [adsMtd, setAdsMtd] = useState({ spend: 0, impressions: 0 })
   const [adsLastMtd, setAdsLastMtd] = useState({ spend: 0, impressions: 0 })
-  const [adsLoading, setAdsLoading] = useState(false)
+  const [adsLoading, setAdsLoading] = useState(true)
 
   // Content submissions
   const [contentMonth, setContentMonth] = useState(() => {
@@ -687,6 +698,7 @@ export default function CreatorDashboard() {
 
   useEffect(() => {
     async function load() {
+      // Phase 1: Auth + core data (minimal, needed for page shell)
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/creator/login'); return }
 
@@ -717,32 +729,45 @@ export default function CreatorDashboard() {
         const { data } = await supabase.from('influencers').select('*').ilike('name', creatorData.creator_name).single()
         infData = data
       }
-      if (infData) {
-        setInfluencer(infData)
+      if (infData) setInfluencer(infData)
+      if (!infData) setAdsLoading(false)
 
-        // Sync orders from Shopify if the influencer has a customer ID
-        if (infData.shopify_customer_id) {
-          try {
-            const syncRes = await fetch('/api/shopify/orders/sync', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ influencer_id: infData.id, shopify_customer_id: infData.shopify_customer_id }),
-            })
-            const syncData = await syncRes.json()
-            if (syncData.orders) {
-              setOrders(syncData.orders)
+      // Phase 1 done — render the page shell immediately
+      setLoading(false)
+
+      // Phase 2: Non-blocking parallel data fetches
+      // These all run concurrently and update state as they resolve
+      const bgTasks = []
+
+      // Orders (Shopify sync or DB fallback)
+      if (infData) {
+        bgTasks.push((async () => {
+          if (infData.shopify_customer_id) {
+            try {
+              const syncRes = await fetch('/api/shopify/orders/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ influencer_id: infData.id, shopify_customer_id: infData.shopify_customer_id }),
+              })
+              const syncData = await syncRes.json()
+              if (syncData.orders) setOrders(syncData.orders)
+            } catch {
+              const { data: orderData } = await supabase.from('influencer_orders').select('*').eq('influencer_id', infData.id).order('order_date', { ascending: false })
+              setOrders(orderData || [])
             }
-          } catch {
-            // Fallback to reading from DB if sync fails
+          } else {
             const { data: orderData } = await supabase.from('influencer_orders').select('*').eq('influencer_id', infData.id).order('order_date', { ascending: false })
             setOrders(orderData || [])
           }
-        } else {
-          const { data: orderData } = await supabase.from('influencer_orders').select('*').eq('influencer_id', infData.id).order('order_date', { ascending: false })
-          setOrders(orderData || [])
-        }
-        if (infData.instagram_handle) {
-          setAdsLoading(true)
+        })())
+      }
+
+      // Meta ads
+      if (!infData?.instagram_handle) {
+        setAdsLoading(false)
+      }
+      if (infData?.instagram_handle) {
+        bgTasks.push((async () => {
           try {
             const res = await fetch(`/api/meta/creator-ads?handle=${encodeURIComponent(infData.instagram_handle)}`)
             const data = await res.json()
@@ -753,61 +778,75 @@ export default function CreatorDashboard() {
             setAdsLastMtd(data.lastMtd || { spend: 0, impressions: 0 })
           } catch {}
           setAdsLoading(false)
-        }
+        })())
       }
 
-      // Fetch code change requests
+      // Code change requests
       if (inviteData?.has_affiliate) {
-        try {
-          const ccRes = await fetch('/api/creator/code-change-request')
-          const ccData = await ccRes.json()
-          setCodeChangeRequests(ccData.requests || [])
-        } catch {}
+        bgTasks.push((async () => {
+          try {
+            const ccRes = await fetch('/api/creator/code-change-request')
+            const ccData = await ccRes.json()
+            setCodeChangeRequests(ccData.requests || [])
+          } catch {}
+        })())
       }
 
-      // Fetch affiliate sales data if has_affiliate
+      // Affiliate sales
       if (inviteData?.has_affiliate && creatorData.affiliate_code) {
         setAffiliateLoading(true)
-        try {
-          const now = new Date()
-          const rate = creatorData.commission_rate || inviteData.ad_spend_percentage || 10
-          const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-          const affRes = await fetch(`/api/shopify/affiliate-orders?discount_code=${encodeURIComponent(creatorData.affiliate_code)}&month=${currentMonth}&commission_rate=${rate}`)
-          const affData = await affRes.json()
-          setAffiliateData(affData)
+        bgTasks.push((async () => {
+          try {
+            const now = new Date()
+            const rate = creatorData.commission_rate || inviteData.ad_spend_percentage || 10
+            const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
-          // Fetch last 3 months history
-          const history = []
-          for (let i = 1; i <= 3; i++) {
-            const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-            const mKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-            try {
-              const hRes = await fetch(`/api/shopify/affiliate-orders?discount_code=${encodeURIComponent(creatorData.affiliate_code)}&month=${mKey}&commission_rate=${rate}`)
-              const hData = await hRes.json()
-              history.push({ month: mKey, ...hData })
-            } catch {}
+            // Fetch current month + last 3 months in parallel
+            const months = [currentMonth]
+            for (let i = 1; i <= 3; i++) {
+              const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+              months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+            }
+
+            const results = await Promise.all(
+              months.map(m =>
+                fetch(`/api/shopify/affiliate-orders?discount_code=${encodeURIComponent(creatorData.affiliate_code)}&month=${m}&commission_rate=${rate}`)
+                  .then(r => r.json())
+                  .catch(() => null)
+              )
+            )
+
+            if (results[0]) setAffiliateData(results[0])
+            setAffiliateHistory(
+              results.slice(1).filter(Boolean).map((r, i) => ({ month: months[i + 1], ...r }))
+            )
+          } catch (err) {
+            console.error('Failed to fetch affiliate data:', err)
           }
-          setAffiliateHistory(history)
-        } catch (err) {
-          console.error('Failed to fetch affiliate data:', err)
-        }
-        setAffiliateLoading(false)
+          setAffiliateLoading(false)
+        })())
       }
 
-      const { data: reqData } = await supabase.from('creator_sample_requests').select('*').eq('creator_id', creatorData.id).order('created_at', { ascending: false })
-      setPastRequests(reqData || [])
+      // Past requests + submissions + campaigns in parallel
+      bgTasks.push((async () => {
+        const [reqResult, subResult] = await Promise.all([
+          supabase.from('creator_sample_requests').select('*').eq('creator_id', creatorData.id).order('created_at', { ascending: false }),
+          supabase.from('creator_content_submissions').select('*').eq('creator_id', creatorData.id).order('created_at', { ascending: false }),
+        ])
+        setPastRequests(reqResult.data || [])
+        setSubmissions(subResult.data || [])
+      })())
 
-      const { data: subData } = await supabase.from('creator_content_submissions').select('*').eq('creator_id', creatorData.id).order('created_at', { ascending: false })
-      setSubmissions(subData || [])
+      bgTasks.push((async () => {
+        try {
+          const campRes = await fetch(`/api/creator/campaigns?creator_id=${creatorData.id}`)
+          const campData = await campRes.json()
+          setCampaignAssignments(campData.assignments || [])
+        } catch {}
+      })())
 
-      // Fetch campaign assignments
-      try {
-        const campRes = await fetch(`/api/creator/campaigns?creator_id=${creatorData.id}`)
-        const campData = await campRes.json()
-        setCampaignAssignments(campData.assignments || [])
-      } catch {}
-
-      setLoading(false)
+      // Fire all background tasks (don't await — they update state independently)
+      Promise.all(bgTasks).catch(() => {})
     }
     load()
   }, [])
@@ -1466,6 +1505,49 @@ export default function CreatorDashboard() {
   function renderEarnings(mobile) {
     if (!invite?.has_ad_spend) return null
 
+    // Skeleton while ads data is loading
+    if (adsLoading) {
+      if (mobile) {
+        return (
+          <div className="cd-m-earnings">
+            <div className="cd-m-earnings-head">
+              <div className="cd-m-earnings-eyebrow">Ad Spend Commission</div>
+              <div className="cd-m-earnings-title">Your Earnings</div>
+            </div>
+            <div className="cd-m-earnings-hero">
+              <div className="cd-skel cd-skel-stat-lg" style={{ marginBottom: 8 }} />
+              <div className="cd-skel cd-skel-line-sm" />
+            </div>
+            <div className="cd-m-earnings-proj" style={{ padding: '14px 20px' }}>
+              <div className="cd-skel cd-skel-stat" />
+            </div>
+          </div>
+        )
+      }
+      return (
+        <div className="cd-earnings">
+          <div className="cd-earnings-head">
+            <div>
+              <div className="cd-earnings-eyebrow">Ad Spend Commission</div>
+              <div className="cd-earnings-title">Your Earnings</div>
+            </div>
+          </div>
+          <div className="cd-earnings-hero">
+            <div>
+              <div className="cd-skel cd-skel-line-sm" style={{ marginBottom: 12 }} />
+              <div className="cd-skel cd-skel-stat-lg" style={{ width: 120, height: 60 }} />
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div className="cd-skel cd-skel-stat" style={{ marginLeft: 'auto' }} />
+            </div>
+          </div>
+          <div className="cd-progress-wrap">
+            <div className="cd-skel cd-skel-line" style={{ width: '100%', height: 3 }} />
+          </div>
+        </div>
+      )
+    }
+
     const rate = (invite?.ad_spend_percentage || commissionRate || 10) / 100
     const totalSpend = adsTotals.spend
     const earned = Math.round(totalSpend * rate)
@@ -1798,7 +1880,51 @@ export default function CreatorDashboard() {
 
   function renderMomentum(mobile) {
     if (adsLoading) {
-      return <div style={{ fontSize: 12, color: '#aaa', padding: '20px 0' }}>Loading ads…</div>
+      if (mobile) {
+        return (
+          <div className="cd-m-momentum">
+            <div className="cd-m-momentum-head">
+              <div className="cd-m-momentum-eyebrow">Paid Media</div>
+              <div className="cd-m-momentum-title">Live Ads</div>
+            </div>
+            <div className="cd-m-momentum-stats">
+              <div className="cd-m-momentum-stat"><div className="cd-m-momentum-stat-label">Spent</div><div className="cd-skel cd-skel-stat" /></div>
+              <div className="cd-m-momentum-stat"><div className="cd-m-momentum-stat-label">Impressions</div><div className="cd-skel cd-skel-stat" /></div>
+              <div className="cd-m-momentum-stat"><div className="cd-m-momentum-stat-label">Active</div><div className="cd-skel cd-skel-stat" /></div>
+            </div>
+            <div style={{ padding: 20 }}>
+              <div className="cd-skel" style={{ width: '100%', height: 200, borderRadius: 0 }}>
+                <div className="cd-skel-ad"><div className="cd-skel-spinner" /></div>
+              </div>
+            </div>
+          </div>
+        )
+      }
+      return (
+        <div className="cd-momentum">
+          <div className="cd-momentum-head">
+            <div>
+              <div className="cd-momentum-eyebrow">Paid Media</div>
+              <div className="cd-momentum-title">Live Ads</div>
+            </div>
+          </div>
+          <div className="cd-momentum-top">
+            <div className="cd-momentum-stat"><div className="cd-momentum-stat-label">Total Spend</div><div className="cd-skel cd-skel-stat" style={{ marginTop: 4 }} /></div>
+            <div className="cd-momentum-stat"><div className="cd-momentum-stat-label">Total Impressions</div><div className="cd-skel cd-skel-stat" style={{ marginTop: 4 }} /></div>
+            <div className="cd-momentum-stat"><div className="cd-momentum-stat-label">Active Ads</div><div className="cd-skel cd-skel-stat" style={{ marginTop: 4 }} /></div>
+          </div>
+          <div className="cd-ads-section">
+            <div className="cd-ads-section-label">Your Ads</div>
+            <div className="cd-ads-row">
+              <div className="cd-ad-card">
+                <div className="cd-ad-preview">
+                  <div className="cd-skel-ad"><div className="cd-skel-spinner" /></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
     }
     if (ads.length === 0) {
       return mobile ? (
@@ -2711,7 +2837,7 @@ export default function CreatorDashboard() {
                 </div>
                 <div className="cd-stats-bar-item">
                   <div className="cd-stats-bar-label">Ads Running</div>
-                  <div className="cd-stats-bar-val">{adsRunning}</div>
+                  <div className="cd-stats-bar-val">{adsLoading ? <span className="cd-skel cd-skel-stat" style={{ display: 'inline-block' }} /> : adsRunning}</div>
                 </div>
               </div>
               {renderDesktopCard()}
@@ -2760,7 +2886,7 @@ export default function CreatorDashboard() {
               <div className="cd-m-stat"><div className="cd-m-stat-l">Commission</div><div className="cd-m-stat-v">{commissionRate}%</div></div>
             )}
             <div className="cd-m-stat"><div className="cd-m-stat-l">Videos</div><div className="cd-m-stat-v">{videosPerMonth}</div></div>
-            <div className="cd-m-stat"><div className="cd-m-stat-l">Ads Live</div><div className="cd-m-stat-v">{adsRunning}</div></div>
+            <div className="cd-m-stat"><div className="cd-m-stat-l">Ads Live</div><div className="cd-m-stat-v">{adsLoading ? <span className="cd-skel cd-skel-stat" style={{ display: 'inline-block' }} /> : adsRunning}</div></div>
           </div>
 
           {affiliateCode && invite?.has_affiliate && (
