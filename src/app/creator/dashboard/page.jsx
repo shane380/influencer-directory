@@ -379,8 +379,7 @@ const CSS = `
 .cd-m-logo-lockup { display: flex; flex-direction: column; align-items: center; }
 .cd-m-logo { height: 34px; display: block; width: fit-content; }
 .cd-m-logo-sub { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; margin-top: 2px; }
-.cd-m-topbar-account { width: 36px; height: 36px; min-width: 36px; border-radius: 50%; border: 1px solid #e8e8e8; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #555; overflow: hidden; flex-shrink: 0; position: absolute; right: 20px; background: none; cursor: pointer; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-.cd-m-topbar-account img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cd-m-topbar-account { display: flex; align-items: center; justify-content: center; position: absolute; right: 20px; background: none; border: none; cursor: pointer; padding: 4px; }
 
 .cd-m-hero { padding: 16px 20px; border-bottom: 1px solid #e8e8e8; background: #fff; display: flex; flex-direction: row; align-items: center; gap: 14px; }
 .cd-m-eyebrow { display: none; }
@@ -2379,7 +2378,7 @@ export default function CreatorDashboard() {
               <div className="cd-m-logo-sub">Partners</div>
             </div>
             <button className="cd-m-topbar-account" onClick={() => setActiveTab('settings')}>
-              {photoUrl ? <img src={photoUrl} alt="" /> : <span>{initials}</span>}
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke={activeTab === 'settings' ? '#111' : '#999'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" /></svg>
             </button>
           </div>
 
