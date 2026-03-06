@@ -230,7 +230,7 @@ const CSS = `
 .cd-progress-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; }
 .cd-progress-val { font-family: 'Playfair Display', serif; font-size: 15px; color: #111; }
 .cd-progress-track { height: 3px; background: #e8e8e8; border-radius: 2px; overflow: hidden; }
-.cd-progress-fill { height: 100%; background: #111; border-radius: 2px; transition: width 1s ease; }
+.cd-progress-fill { height: 100%; background: #2e7d32; border-radius: 2px; transition: width 1s ease; }
 .cd-progress-note { font-size: 11px; color: #aaa; margin-top: 8px; }
 .cd-breakdown { padding: 0 36px 28px; }
 .cd-breakdown-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin: 24px 0 14px; }
@@ -450,7 +450,7 @@ const CSS = `
 .cd-m-progress-label { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: #aaa; }
 .cd-m-progress-val { font-size: 12px; color: #111; }
 .cd-m-progress-track { height: 3px; background: #e8e8e8; border-radius: 2px; overflow: hidden; }
-.cd-m-progress-fill { height: 100%; background: #111; border-radius: 2px; }
+.cd-m-progress-fill { height: 100%; background: #2e7d32; border-radius: 2px; }
 .cd-m-payment { padding: 14px 20px; background: #f5f5f5; display: flex; align-items: center; justify-content: space-between; }
 .cd-m-payment-left { font-size: 11px; color: #555; }
 .cd-m-payment-amount { font-family: 'Playfair Display', serif; font-size: 18px; color: #111; }
