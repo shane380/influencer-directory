@@ -48,6 +48,7 @@ const CSS = `
 .ni-option-rule { height: 1px; background: #f0f0f0; margin-bottom: 12px; }
 .ni-option-detail { font-size: 11.5px; color: #aaa; font-weight: 300; line-height: 1.75; }
 .ni-option-detail strong { color: #555; font-weight: 500; }
+.ni-option-hint { font-size: 11px; font-style: italic; color: #999; text-align: center; margin-top: 8px; }
 
 /* TERM ROWS */
 .ni-term-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid #f2f2f2; }
@@ -158,6 +159,7 @@ const CSS = `
 .ni-m-option-rule { height: 1px; background: #f0f0f0; margin-bottom: 10px; }
 .ni-m-option-detail { font-size: 11.5px; color: #aaa; font-weight: 300; line-height: 1.7; }
 .ni-m-option-detail strong { color: #555; font-weight: 500; }
+.ni-m-option-hint { font-size: 11px; font-style: italic; color: #999; text-align: center; margin-top: 8px; }
 
 .ni-m-term-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #f2f2f2; }
 .ni-m-term-row:last-child { border-bottom: none; }
@@ -429,24 +431,30 @@ export default function InvitePage() {
     const sel = selectedDeal === 'retainer'
     if (mobile) {
       return (
-        <div className={`ni-m-option-card${sel ? ' selected' : ''}`} onClick={() => setSelectedDeal('retainer')}>
-          <div className="ni-m-check">✓</div>
-          <div className="ni-m-option-tag">Option A</div>
-          <div className="ni-m-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
-          <div className="ni-m-option-name">Monthly Retainer</div>
-          <div className="ni-m-option-rule" />
-          <div className="ni-m-option-detail">Fixed payment on the 1st · {videos} videos per month · No performance pressure</div>
+        <div>
+          <div className={`ni-m-option-card${sel ? ' selected' : ''}`} onClick={() => setSelectedDeal('retainer')}>
+            <div className="ni-m-check">✓</div>
+            <div className="ni-m-option-tag">Option A</div>
+            <div className="ni-m-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
+            <div className="ni-m-option-name">Monthly Retainer</div>
+            <div className="ni-m-option-rule" />
+            <div className="ni-m-option-detail">Fixed payment on the 1st · {videos} videos per month · No performance pressure</div>
+          </div>
+          <div className="ni-m-option-hint">More details on the next page</div>
         </div>
       )
     }
     return (
-      <div className={`ni-option-card${sel ? ' selected' : ''}`} onClick={() => setSelectedDeal('retainer')}>
-        <div className="ni-check">✓</div>
-        <div className="ni-option-tag">Option A</div>
-        <div className="ni-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
-        <div className="ni-option-name">Monthly Retainer</div>
-        <div className="ni-option-rule" />
-        <div className="ni-option-detail">Fixed payment on the 1st<br />{videos} videos per month<br />No performance pressure</div>
+      <div>
+        <div className={`ni-option-card${sel ? ' selected' : ''}`} onClick={() => setSelectedDeal('retainer')}>
+          <div className="ni-check">✓</div>
+          <div className="ni-option-tag">Option A</div>
+          <div className="ni-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
+          <div className="ni-option-name">Monthly Retainer</div>
+          <div className="ni-option-rule" />
+          <div className="ni-option-detail">Fixed payment on the 1st<br />{videos} videos per month<br />No performance pressure</div>
+        </div>
+        <div className="ni-option-hint">More details on the next page</div>
       </div>
     )
   }
@@ -455,24 +463,30 @@ export default function InvitePage() {
     const sel = selectedDeal === 'ad_spend'
     if (mobile) {
       return (
-        <div className={`ni-m-option-card${sel ? ' selected' : ''}`} onClick={() => setSelectedDeal('ad_spend')}>
-          <div className="ni-m-check">✓</div>
-          <div className="ni-m-option-tag">Option B</div>
-          <div className="ni-m-option-rate">{adSpendPct}<sup>%</sup></div>
-          <div className="ni-m-option-name">% of Ad Spend</div>
-          <div className="ni-m-option-rule" />
-          <div className="ni-m-option-detail">{adSpendPct}% of monthly spend · {adSpendMin ? <><strong>${adSpendMin.toLocaleString()} min in month 1</strong> · </> : ''}Uncapped</div>
+        <div>
+          <div className={`ni-m-option-card${sel ? ' selected' : ''}`} onClick={() => setSelectedDeal('ad_spend')}>
+            <div className="ni-m-check">✓</div>
+            <div className="ni-m-option-tag">Option B</div>
+            <div className="ni-m-option-rate">{adSpendPct}<sup>%</sup></div>
+            <div className="ni-m-option-name">% of Ad Spend</div>
+            <div className="ni-m-option-rule" />
+            <div className="ni-m-option-detail">{adSpendPct}% of monthly spend · {adSpendMin ? <><strong>${adSpendMin.toLocaleString()} min in month 1</strong> · </> : ''}Uncapped</div>
+          </div>
+          <div className="ni-m-option-hint">More details on the next page</div>
         </div>
       )
     }
     return (
-      <div className={`ni-option-card${sel ? ' selected' : ''}`} onClick={() => setSelectedDeal('ad_spend')}>
-        <div className="ni-check">✓</div>
-        <div className="ni-option-tag">Option B</div>
-        <div className="ni-option-rate">{adSpendPct}<sup>%</sup></div>
-        <div className="ni-option-name">% of Ad Spend</div>
-        <div className="ni-option-rule" />
-        <div className="ni-option-detail">{adSpendPct}% of monthly ad spend<br />{adSpendMin ? <><strong>${adSpendMin.toLocaleString()} minimum in month 1</strong><br /></> : ''}Uncapped earning potential</div>
+      <div>
+        <div className={`ni-option-card${sel ? ' selected' : ''}`} onClick={() => setSelectedDeal('ad_spend')}>
+          <div className="ni-check">✓</div>
+          <div className="ni-option-tag">Option B</div>
+          <div className="ni-option-rate">{adSpendPct}<sup>%</sup></div>
+          <div className="ni-option-name">% of Ad Spend</div>
+          <div className="ni-option-rule" />
+          <div className="ni-option-detail">{adSpendPct}% of monthly ad spend<br />{adSpendMin ? <><strong>${adSpendMin.toLocaleString()} minimum in month 1</strong><br /></> : ''}Uncapped earning potential</div>
+        </div>
+        <div className="ni-option-hint">More details on the next page</div>
       </div>
     )
   }
@@ -544,6 +558,25 @@ export default function InvitePage() {
               <div><div className="ni-highlight-tag">Monthly Retainer</div><div className="ni-highlight-val" style={{ fontSize: 48 }}>${retainerAmount?.toLocaleString()}</div></div>
               <div className="ni-highlight-desc">Fixed payment every month on the 1st. No conditions, no variables.</div>
             </div>
+            <div className="ni-sec-label">How It Works</div>
+            <div className="ni-faq">
+              <div className="ni-faq-item">
+                <div className="ni-faq-q">When do I get paid?</div>
+                <div className="ni-faq-a">Payment is sent on the 1st of each month via e-transfer or PayPal — whichever you prefer.</div>
+              </div>
+              <div className="ni-faq-item">
+                <div className="ni-faq-q">What if I can&apos;t deliver all videos one month?</div>
+                <div className="ni-faq-a">Life happens. Just give us a heads up and we&apos;ll work it out. Consistent communication is all we ask.</div>
+              </div>
+              <div className="ni-faq-item">
+                <div className="ni-faq-q">Is this month-to-month or a fixed contract?</div>
+                <div className="ni-faq-a">Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.</div>
+              </div>
+              <div className="ni-faq-item">
+                <div className="ni-faq-q">How do I submit my content?</div>
+                <div className="ni-faq-a">Through your creator dashboard. You&apos;ll get access immediately after signing up.</div>
+              </div>
+            </div>
             <div className="ni-agree-row">
               <input type="checkbox" className="ni-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
               <p className="ni-agree-text">{getAgreeText()}</p>
@@ -589,7 +622,7 @@ export default function InvitePage() {
             <div className="ni-faq">
               <div className="ni-faq-item">
                 <div className="ni-faq-q">How much will Nama spend on my content?</div>
-                <div className="ni-faq-a">We determine spend based on how your content performs. Videos that get strong early results get scaled — we&apos;ll increase budget as we see traction. There&apos;s no fixed cap.</div>
+                <div className="ni-faq-a">We determine spend based on how your content performs. Videos that get strong early results get scaled — we increase budget as we see traction. There&apos;s no fixed cap.</div>
               </div>
               <div className="ni-faq-item">
                 <div className="ni-faq-q">How do I know what&apos;s being spent?</div>
@@ -597,7 +630,11 @@ export default function InvitePage() {
               </div>
               <div className="ni-faq-item">
                 <div className="ni-faq-q">When do I get paid?</div>
-                <div className="ni-faq-a">Your earnings are calculated on the last day of each month and paid within 5 business days.</div>
+                <div className="ni-faq-a">Earnings are calculated on the last day of each month and paid within 5 business days via e-transfer or PayPal.</div>
+              </div>
+              <div className="ni-faq-item">
+                <div className="ni-faq-q">What if my content doesn&apos;t get much spend in month 1?</div>
+                <div className="ni-faq-a">That&apos;s what the minimum guarantee is for. You&apos;re covered regardless of how much we spend while we find what works.</div>
               </div>
             </div>
             <div className="ni-agree-row">
@@ -712,6 +749,25 @@ export default function InvitePage() {
               <div><div className="ni-m-highlight-tag">Monthly Retainer</div><div className="ni-m-highlight-val" style={{ fontSize: 44 }}>${retainerAmount?.toLocaleString()}</div></div>
               <div className="ni-m-highlight-desc">Fixed payment every month on the 1st.</div>
             </div>
+            <div className="ni-m-sec-label">How It Works</div>
+            <div className="ni-m-faq">
+              <div className="ni-m-faq-item">
+                <div className="ni-m-faq-q">When do I get paid?</div>
+                <div className="ni-m-faq-a">Payment is sent on the 1st of each month via e-transfer or PayPal — whichever you prefer.</div>
+              </div>
+              <div className="ni-m-faq-item">
+                <div className="ni-m-faq-q">What if I can&apos;t deliver all videos one month?</div>
+                <div className="ni-m-faq-a">Life happens. Just give us a heads up and we&apos;ll work it out. Consistent communication is all we ask.</div>
+              </div>
+              <div className="ni-m-faq-item">
+                <div className="ni-m-faq-q">Is this month-to-month or a fixed contract?</div>
+                <div className="ni-m-faq-a">Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.</div>
+              </div>
+              <div className="ni-m-faq-item">
+                <div className="ni-m-faq-q">How do I submit my content?</div>
+                <div className="ni-m-faq-a">Through your creator dashboard. You&apos;ll get access immediately after signing up.</div>
+              </div>
+            </div>
             <div className="ni-m-agree-row">
               <input type="checkbox" className="ni-m-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
               <p className="ni-m-agree-text">{getAgreeText()}</p>
@@ -752,7 +808,7 @@ export default function InvitePage() {
             <div className="ni-m-faq">
               <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">How much will Nama spend on my content?</div>
-                <div className="ni-m-faq-a">We determine spend based on how your content performs. Videos that get strong early results get scaled — we&apos;ll increase budget as we see traction. There&apos;s no fixed cap.</div>
+                <div className="ni-m-faq-a">We determine spend based on how your content performs. Videos that get strong early results get scaled — we increase budget as we see traction. There&apos;s no fixed cap.</div>
               </div>
               <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">How do I know what&apos;s being spent?</div>
@@ -760,7 +816,11 @@ export default function InvitePage() {
               </div>
               <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">When do I get paid?</div>
-                <div className="ni-m-faq-a">Your earnings are calculated on the last day of each month and paid within 5 business days.</div>
+                <div className="ni-m-faq-a">Earnings are calculated on the last day of each month and paid within 5 business days via e-transfer or PayPal.</div>
+              </div>
+              <div className="ni-m-faq-item">
+                <div className="ni-m-faq-q">What if my content doesn&apos;t get much spend in month 1?</div>
+                <div className="ni-m-faq-a">That&apos;s what the minimum guarantee is for. You&apos;re covered regardless of how much we spend while we find what works.</div>
               </div>
             </div>
             <div className="ni-m-agree-row">
