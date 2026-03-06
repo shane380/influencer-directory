@@ -119,16 +119,19 @@ const CSS = `
 .cd-cart-submit:disabled { background: #ccc; cursor: not-allowed; }
 
 /* AD */
-.cd-ad { border: 1px solid #e8e8e8; margin-bottom: 16px; }
+.cd-ad { border: 1px solid #e8e8e8; margin-bottom: 16px; overflow: hidden; }
 .cd-ad:last-child { margin-bottom: 0; }
-.cd-ad-preview { background: #111; height: 260px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-.cd-ad-preview iframe { width: 335px; height: 450px; border: none; transform: scale(0.58); transform-origin: center center; }
-.cd-ad-preview-txt { font-size: 9.5px; color: rgba(255,255,255,0.1); letter-spacing: 0.22em; text-transform: uppercase; }
+.cd-ad-preview { height: 320px; overflow: hidden; position: relative; }
+.cd-ad-preview iframe { width: 100%; height: 320px; border: none; }
+.cd-ad-preview-txt { font-size: 9.5px; color: #ccc; letter-spacing: 0.22em; text-transform: uppercase; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
 .cd-ad-footer { padding: 18px 22px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #e8e8e8; }
 .cd-ad-name { font-size: 13px; color: #555; font-weight: 300; line-height: 1.4; }
-.cd-ad-stats { display: flex; gap: 28px; }
+.cd-ad-stats { display: flex; gap: 28px; align-items: center; }
 .cd-ad-stat-l { font-size: 8.5px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin-bottom: 3px; }
 .cd-ad-stat-v { font-family: 'Playfair Display', serif; font-size: 22px; color: #111; }
+.cd-ad-status { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; padding: 4px 10px; border-radius: 100px; font-weight: 500; }
+.cd-ad-status-active { background: #e6f4ea; color: #1e7e34; }
+.cd-ad-status-paused { background: #f0f0f0; color: #888; }
 
 /* FORM */
 .cd-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 14px; }
@@ -208,15 +211,19 @@ const CSS = `
 .cd-m-product-variant { font-size: 10px; color: #aaa; font-weight: 300; }
 .cd-m-product-cta { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: #999; margin-top: 6px; }
 
-.cd-m-ad { border: 1px solid #e8e8e8; margin-bottom: 14px; }
+.cd-m-ad { border: 1px solid #e8e8e8; margin-bottom: 14px; overflow: hidden; }
 .cd-m-ad:last-child { margin-bottom: 0; }
-.cd-m-ad-preview { background: #111; height: 200px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-.cd-m-ad-preview iframe { width: 335px; height: 450px; border: none; transform: scale(0.44); transform-origin: center center; }
-.cd-m-ad-meta { padding: 14px 16px; }
+.cd-m-ad-preview { height: 240px; overflow: hidden; position: relative; }
+.cd-m-ad-preview iframe { width: 100%; height: 240px; border: none; }
+.cd-m-ad-preview-txt { font-size: 9.5px; color: #ccc; letter-spacing: 0.22em; text-transform: uppercase; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+.cd-m-ad-meta { padding: 14px 16px; border-top: 1px solid #e8e8e8; }
 .cd-m-ad-name { font-size: 12px; color: #555; font-weight: 300; line-height: 1.45; margin-bottom: 12px; }
-.cd-m-ad-stats { display: flex; gap: 20px; }
+.cd-m-ad-stats { display: flex; gap: 20px; align-items: center; }
 .cd-m-ad-stat-l { font-size: 8.5px; letter-spacing: 0.2em; text-transform: uppercase; color: #aaa; margin-bottom: 2px; }
 .cd-m-ad-stat-v { font-family: 'Playfair Display', serif; font-size: 20px; color: #111; }
+.cd-m-ad-status { font-size: 8px; letter-spacing: 0.16em; text-transform: uppercase; padding: 3px 8px; border-radius: 100px; font-weight: 500; }
+.cd-m-ad-status-active { background: #e6f4ea; color: #1e7e34; }
+.cd-m-ad-status-paused { background: #f0f0f0; color: #888; }
 
 .cd-m-field-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; display: block; margin-bottom: 6px; }
 .cd-m-field-input { width: 100%; padding: 11px 14px; border: 1px solid #e8e8e8; background: #f5f5f5; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #111; outline: none; display: block; margin-bottom: 12px; }
@@ -568,34 +575,49 @@ export default function CreatorDashboard() {
       )
     }
 
-    return ads.map((ad, i) => (
-      <div key={i} className={mobile ? 'cd-m-ad' : 'cd-ad'}>
-        <div className={mobile ? 'cd-m-ad-preview' : 'cd-ad-preview'}>
-          {ad.previewHtml ? (
-            <iframe srcDoc={ad.previewHtml} sandbox="allow-scripts allow-same-origin" scrolling="no" />
+    return ads.map((ad, i) => {
+      // Clean up ad name: take first product, title-case it
+      const cleanName = (ad.name || '')
+        .split(',')[0]
+        .trim()
+        .replace(/\b\w/g, c => c.toUpperCase())
+        .replace(/\s+(Washed|In|With)\s+/g, (m, w) => ` — ${w.charAt(0).toUpperCase() + w.slice(1)} `)
+        .trim()
+
+      const isActive = ad.status === 'ACTIVE'
+      const p = mobile ? 'cd-m' : 'cd'
+
+      return (
+        <div key={i} className={`${p}-ad`}>
+          <div className={`${p}-ad-preview`}>
+            {ad.previewHtml ? (
+              <iframe srcDoc={ad.previewHtml} sandbox="allow-scripts allow-same-origin" scrolling="no" />
+            ) : (
+              <div className={`${p}-ad-preview-txt`}>Preview unavailable</div>
+            )}
+          </div>
+          {mobile ? (
+            <div className="cd-m-ad-meta">
+              <div className="cd-m-ad-name">{cleanName}</div>
+              <div className="cd-m-ad-stats">
+                <span className={`cd-m-ad-status ${isActive ? 'cd-m-ad-status-active' : 'cd-m-ad-status-paused'}`}>{isActive ? 'Active' : 'Paused'}</span>
+                <div><div className="cd-m-ad-stat-l">Spent</div><div className="cd-m-ad-stat-v">{formatSpend(ad.spend)}</div></div>
+                <div><div className="cd-m-ad-stat-l">Reach</div><div className="cd-m-ad-stat-v">{formatImpressions(ad.impressions)}</div></div>
+              </div>
+            </div>
           ) : (
-            <div className={mobile ? 'cd-m-ad-preview-txt' : 'cd-ad-preview-txt'}>Preview unavailable</div>
+            <div className="cd-ad-footer">
+              <div className="cd-ad-name">{cleanName}</div>
+              <div className="cd-ad-stats">
+                <span className={`cd-ad-status ${isActive ? 'cd-ad-status-active' : 'cd-ad-status-paused'}`}>{isActive ? 'Active' : 'Paused'}</span>
+                <div><div className="cd-ad-stat-l">Total Spent</div><div className="cd-ad-stat-v">{formatSpend(ad.spend)}</div></div>
+                <div><div className="cd-ad-stat-l">Impressions</div><div className="cd-ad-stat-v">{formatImpressions(ad.impressions)}</div></div>
+              </div>
+            </div>
           )}
         </div>
-        {mobile ? (
-          <div className="cd-m-ad-meta">
-            <div className="cd-m-ad-name">{ad.name}</div>
-            <div className="cd-m-ad-stats">
-              <div><div className="cd-m-ad-stat-l">Spent</div><div className="cd-m-ad-stat-v">{formatSpend(ad.spend)}</div></div>
-              <div><div className="cd-m-ad-stat-l">Reach</div><div className="cd-m-ad-stat-v">{formatImpressions(ad.impressions)}</div></div>
-            </div>
-          </div>
-        ) : (
-          <div className="cd-ad-footer">
-            <div className="cd-ad-name">{ad.name}</div>
-            <div className="cd-ad-stats">
-              <div><div className="cd-ad-stat-l">Total Spent</div><div className="cd-ad-stat-v">{formatSpend(ad.spend)}</div></div>
-              <div><div className="cd-ad-stat-l">Impressions</div><div className="cd-ad-stat-v">{formatImpressions(ad.impressions)}</div></div>
-            </div>
-          </div>
-        )}
-      </div>
-    ))
+      )
+    })
   }
 
   function renderSubmitContent(mobile) {
