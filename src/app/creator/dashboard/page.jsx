@@ -30,11 +30,11 @@ const CSS = `
 .cd-topnav-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
 /* LAYOUT */
-.cd-layout { display: grid; grid-template-columns: 300px 1fr; min-height: calc(100vh - 56px); }
-.cd-page { background: #f7f7f7; min-height: 100vh; padding-top: 56px; }
+.cd-layout { display: grid; grid-template-columns: 300px 1fr; min-height: 100vh; }
+.cd-page { background: #f7f7f7; min-height: 100vh; }
 
 /* SIDEBAR */
-.cd-sidebar { background: #fff; border-right: 1px solid #e8e8e8; position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto; display: flex; flex-direction: column; }
+.cd-sidebar { background: #fff; border-right: 1px solid #e8e8e8; position: sticky; top: 0; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; }
 .cd-identity { padding: 36px 32px 28px; border-bottom: 1px solid #e8e8e8; }
 .cd-eyebrow { font-size: 9px; letter-spacing: 0.38em; text-transform: uppercase; color: #aaa; margin-bottom: 14px; }
 .cd-creator-name { font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 400; color: #111; line-height: 1.0; margin-bottom: 4px; }
@@ -2270,21 +2270,6 @@ export default function CreatorDashboard() {
       {/* ====== DESKTOP ====== */}
       <div className="cd-desktop">
         <div className="cd-page">
-          <nav className="cd-topnav">
-            <img src="/nama-logo.svg" alt="Nama" className="cd-topnav-logo" />
-            <div className="cd-topnav-links">
-              {TABS.map(tab => (
-                <button key={tab} className={`cd-topnav-link${activeTab === tab ? ' active' : ''}`} onClick={() => setActiveTab(tab)}>
-                  {TAB_LABELS[tab]}
-                </button>
-              ))}
-            </div>
-            <div className="cd-topnav-right">
-              <div className="cd-topnav-avatar">
-                {photoUrl ? <img src={photoUrl} alt="" /> : initials}
-              </div>
-            </div>
-          </nav>
 
           <div className="cd-layout">
             <div className="cd-sidebar">
