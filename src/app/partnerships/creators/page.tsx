@@ -89,7 +89,7 @@ export default function CreatorsListPage() {
       const { data: creatorsData } = await supabase
         .from("creators" as any)
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("onboarded_at", { ascending: false });
 
       // Fetch pending invites (before early return so they always load)
       const { data: invitesData } = await supabase
