@@ -516,7 +516,7 @@ export default function InvitePage() {
     if (step === 'choose') {
       return (
         <>
-          <div className="ni-sec-label">Select Your Deal Structure</div>
+          <div className="ni-sec-label">Select Your Structure</div>
           <div className="ni-option-cards">
             {availableDeals.includes('retainer') && renderRetainerOptionCard(false)}
             {availableDeals.includes('ad_spend') && renderAdSpendOptionCard(false)}
