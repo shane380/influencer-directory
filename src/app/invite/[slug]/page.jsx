@@ -46,7 +46,7 @@ const CSS = `
 .ni-option-rate sup { font-size: 16px; vertical-align: super; color: #888; }
 .ni-option-name { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #888; margin-bottom: 10px; font-weight: 400; }
 .ni-option-rule { height: 1px; background: #f0f0f0; margin-bottom: 12px; }
-.ni-option-detail { font-size: 11.5px; color: #aaa; font-weight: 300; line-height: 1.75; }
+.ni-option-detail { font-size: 11.5px; color: #666; font-weight: 300; line-height: 1.75; }
 .ni-option-detail strong { color: #555; font-weight: 500; }
 .ni-option-hint { font-size: 11px; font-style: italic; color: #999; text-align: center; margin-top: 8px; }
 
@@ -69,7 +69,7 @@ const CSS = `
 .ni-highlight-tag { font-size: 8.5px; letter-spacing: 0.3em; text-transform: uppercase; color: rgba(255,255,255,0.3); margin-bottom: 6px; }
 .ni-highlight-val { font-family: 'Playfair Display', serif; font-size: 58px; font-weight: 300; color: white; line-height: 1; letter-spacing: -0.02em; }
 .ni-highlight-val sup { font-size: 22px; vertical-align: super; opacity: 0.4; }
-.ni-highlight-desc { font-size: 12px; color: rgba(255,255,255,0.35); line-height: 1.8; font-weight: 300; max-width: 140px; text-align: right; }
+.ni-highlight-desc { font-size: 12px; color: rgba(255,255,255,0.6); line-height: 1.8; font-weight: 300; max-width: 140px; text-align: right; }
 
 /* MIN NOTE */
 .ni-min-note { background: #fafafa; border: 1px solid #ebebeb; border-radius: 10px; padding: 14px 18px; margin-bottom: 24px; display: flex; gap: 12px; align-items: flex-start; }
@@ -157,7 +157,7 @@ const CSS = `
 .ni-m-option-rate sup { font-size: 15px; vertical-align: super; color: #999; }
 .ni-m-option-name { font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #999; margin-bottom: 10px; }
 .ni-m-option-rule { height: 1px; background: #f0f0f0; margin-bottom: 10px; }
-.ni-m-option-detail { font-size: 11.5px; color: #aaa; font-weight: 300; line-height: 1.7; }
+.ni-m-option-detail { font-size: 11.5px; color: #666; font-weight: 300; line-height: 1.7; }
 .ni-m-option-detail strong { color: #555; font-weight: 500; }
 .ni-m-option-hint { font-size: 11px; font-style: italic; color: #999; text-align: center; margin-top: 8px; }
 
@@ -174,7 +174,7 @@ const CSS = `
 .ni-m-highlight-tag { font-size: 8px; letter-spacing: 0.28em; text-transform: uppercase; color: rgba(255,255,255,0.28); margin-bottom: 4px; }
 .ni-m-highlight-val { font-family: 'Playfair Display', serif; font-size: 50px; font-weight: 300; color: white; line-height: 1; }
 .ni-m-highlight-val sup { font-size: 19px; vertical-align: super; opacity: 0.4; }
-.ni-m-highlight-desc { font-size: 11.5px; color: rgba(255,255,255,0.32); line-height: 1.75; font-weight: 300; max-width: 120px; text-align: right; }
+.ni-m-highlight-desc { font-size: 11.5px; color: rgba(255,255,255,0.6); line-height: 1.75; font-weight: 300; max-width: 120px; text-align: right; }
 .ni-m-min-note { background: #fafafa; border: 1px solid #ebebeb; border-radius: 10px; padding: 13px 16px; margin-bottom: 22px; display: flex; gap: 10px; }
 .ni-m-min-note-text { font-size: 12px; color: #888; line-height: 1.7; font-weight: 300; }
 .ni-m-min-note-text strong { color: #333; font-weight: 500; }
