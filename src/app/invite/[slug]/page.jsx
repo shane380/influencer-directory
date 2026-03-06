@@ -694,18 +694,6 @@ export default function InvitePage() {
     // done
     return (
       <>
-        <div className="ni-success-badge">✦&nbsp;&nbsp;Partnership Active</div>
-        <div className="ni-success-title">Your account<br />is <em>ready.</em></div>
-        <p className="ni-success-sub">Your affiliate code is live. Share it anywhere and earn on every sale — tracked automatically, paid monthly.</p>
-        <div className="ni-code-block">
-          <div><div className="ni-code-label">Your Affiliate Code</div><div className="ni-code-val">{affiliateCode}</div></div>
-          <button className="ni-code-copy" onClick={copyCode}>{codeCopied ? 'Copied' : 'Copy'}</button>
-        </div>
-        <div className="ni-next-steps">
-          {NEXT_STEPS.map((s, i) => (
-            <div className="ni-next-step" key={i}><span className="ni-step-num">{String(i + 1).padStart(2, '0')}</span><span className="ni-step-text">{s}</span></div>
-          ))}
-        </div>
         <button className="ni-btn" onClick={() => router.push('/creator/dashboard')}>Go to My Dashboard →</button>
       </>
     )
@@ -874,18 +862,6 @@ export default function InvitePage() {
     // done
     return (
       <>
-        <div className="ni-m-success-badge">✦&nbsp;&nbsp;Partnership Active</div>
-        <div className="ni-m-success-title">Your account<br />is <em>ready.</em></div>
-        <p className="ni-m-success-sub">Your affiliate code is live. Share it anywhere — earnings tracked automatically, paid monthly.</p>
-        <div className="ni-m-code-block">
-          <div><div className="ni-m-code-label">Affiliate Code</div><div className="ni-m-code-val">{affiliateCode}</div></div>
-          <button className="ni-m-code-copy" onClick={copyCode}>{codeCopied ? 'Copied' : 'Copy'}</button>
-        </div>
-        <div className="ni-m-next-steps">
-          {NEXT_STEPS.map((s, i) => (
-            <div className="ni-m-next-step" key={i}><span className="ni-m-step-num">{String(i + 1).padStart(2, '0')}</span><span className="ni-m-step-text">{s}</span></div>
-          ))}
-        </div>
         <button className="ni-m-btn" onClick={() => router.push('/creator/dashboard')}>Go to My Dashboard →</button>
       </>
     )

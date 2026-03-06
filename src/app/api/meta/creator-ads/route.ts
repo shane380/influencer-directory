@@ -31,6 +31,8 @@ export async function GET(request: NextRequest) {
     const res = await fetch(url);
     const data = await res.json();
 
+    console.log(`[creator-ads] handle="${handle}" filter=${filtering} results=${data.data?.length ?? 0}`, data.error ? `error: ${data.error.message}` : '');
+
     if (data.error) {
       return NextResponse.json({ ads: [], error: data.error.message });
     }

@@ -288,14 +288,21 @@ export default function CreatorDashboard() {
       const { data: inviteData } = await supabase.from('creator_invites').select('*').eq('id', creatorData.invite_id).single()
       setInvite(inviteData)
 
+      // Find linked influencer — by invite's influencer_id, or fallback to name match
+      let infData = null
       if (inviteData?.influencer_id) {
-        const { data: infData } = await supabase.from('influencers').select('*').eq('id', inviteData.influencer_id).single()
+        const { data } = await supabase.from('influencers').select('*').eq('id', inviteData.influencer_id).single()
+        infData = data
+      }
+      if (!infData && creatorData.creator_name) {
+        const { data } = await supabase.from('influencers').select('*').ilike('name', creatorData.creator_name).single()
+        infData = data
+      }
+      if (infData) {
         setInfluencer(infData)
-        if (infData) {
-          const { data: orderData } = await supabase.from('influencer_orders').select('*').eq('influencer_id', infData.id).order('order_date', { ascending: false })
-          setOrders(orderData || [])
-        }
-        if (infData?.instagram_handle) {
+        const { data: orderData } = await supabase.from('influencer_orders').select('*').eq('influencer_id', infData.id).order('order_date', { ascending: false })
+        setOrders(orderData || [])
+        if (infData.instagram_handle) {
           setAdsLoading(true)
           try {
             const res = await fetch(`/api/meta/creator-ads?handle=${encodeURIComponent(infData.instagram_handle)}`)
