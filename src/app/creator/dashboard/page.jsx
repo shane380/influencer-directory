@@ -379,8 +379,8 @@ const CSS = `
 .cd-m-logo-lockup { display: flex; flex-direction: column; align-items: center; }
 .cd-m-logo { height: 34px; display: block; width: fit-content; }
 .cd-m-logo-sub { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; margin-top: 2px; }
-.cd-m-avatar { width: 36px; height: 36px; min-width: 36px; border-radius: 50%; border: 1px solid #e8e8e8; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #555; overflow: hidden; flex-shrink: 0; position: absolute; right: 20px; }
-.cd-m-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cd-m-topbar-account { width: 36px; height: 36px; min-width: 36px; border-radius: 50%; border: 1px solid #e8e8e8; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #555; overflow: hidden; flex-shrink: 0; position: absolute; right: 20px; background: none; cursor: pointer; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+.cd-m-topbar-account img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 .cd-m-hero { padding: 16px 20px; border-bottom: 1px solid #e8e8e8; background: #fff; display: flex; flex-direction: row; align-items: center; gap: 14px; }
 .cd-m-eyebrow { display: none; }
@@ -2378,9 +2378,9 @@ export default function CreatorDashboard() {
               <img src="/nama-logo.svg" alt="Nama" className="cd-m-logo" />
               <div className="cd-m-logo-sub">Partners</div>
             </div>
-            <div className="cd-m-avatar">
-              {photoUrl ? <img src={photoUrl} alt="" /> : initials}
-            </div>
+            <button className="cd-m-topbar-account" onClick={() => setActiveTab('settings')}>
+              {photoUrl ? <img src={photoUrl} alt="" /> : <span>{initials}</span>}
+            </button>
           </div>
 
           <div className="cd-m-bottom-nav">
@@ -2515,10 +2515,6 @@ export default function CreatorDashboard() {
             <button className={`cd-m-tabbar-item${activeTab === 'submit' ? ' active' : ''}`} onClick={() => setActiveTab('submit')}>
               <div className="cd-m-tabbar-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="15" x2="12" y2="3" /><polyline points="5 10 12 3 19 10" /><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg></div>
               <div className="cd-m-tabbar-label">Submit</div>
-            </button>
-            <button className={`cd-m-tabbar-item${activeTab === 'settings' ? ' active' : ''}`} onClick={() => setActiveTab('settings')}>
-              <div className="cd-m-tabbar-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" /></svg></div>
-              <div className="cd-m-tabbar-label">Account</div>
             </button>
           </div>
 
