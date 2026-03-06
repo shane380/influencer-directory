@@ -414,7 +414,7 @@ export default function InvitePage() {
 
   // Agree text
   function getAgreeText() {
-    const affiliateAddon = hasAffiliateAddon ? `, plus ${commissionRate}% affiliate commission on sales` : ''
+    const affiliateAddon = hasAffiliateAddon ? `, plus ${commissionRate}% affiliate commission on sales generated through my unique link and discount code` : ''
     if (selectedDeal === 'retainer') {
       return `I agree to provide ${videos} UGC videos per month in exchange for a $${retainerAmount?.toLocaleString()} monthly retainer, payable on the 1st of each month${affiliateAddon}.`
     }
@@ -422,7 +422,7 @@ export default function InvitePage() {
       const minText = adSpendMin ? `, with a guaranteed minimum of $${adSpendMin.toLocaleString()} in month one` : ''
       return `I agree to provide ${videos} UGC videos per month in exchange for ${adSpendPct}% of monthly ad spend${minText}${affiliateAddon}.`
     }
-    return `I agree to provide ${videos} UGC videos per month in exchange for ${commissionRate}% affiliate commission on sales.`
+    return `I agree to provide ${videos} UGC videos per month in exchange for ${commissionRate}% affiliate commission on sales generated through my unique link and discount code.`
   }
 
   // --- RENDER HELPERS ---
@@ -544,7 +544,7 @@ export default function InvitePage() {
             {hasAffiliateAddon && (
               <div className="ni-term-row">
                 <span className="ni-term-key">Commission</span>
-                <div className="ni-term-val"><div className="ni-term-primary">{commissionRate}% on all sales</div><div className="ni-term-secondary">Tracked automatically</div></div>
+                <div className="ni-term-val"><div className="ni-term-primary">{commissionRate}% on all sales</div><div className="ni-term-secondary">Via your unique link &amp; discount code</div></div>
               </div>
             )}
             <div className="ni-term-row">
@@ -598,7 +598,7 @@ export default function InvitePage() {
             {hasAffiliateAddon && (
               <div className="ni-term-row">
                 <span className="ni-term-key">Commission</span>
-                <div className="ni-term-val"><div className="ni-term-primary">{commissionRate}% on all sales</div><div className="ni-term-secondary">Tracked automatically</div></div>
+                <div className="ni-term-val"><div className="ni-term-primary">{commissionRate}% on all sales</div><div className="ni-term-secondary">Via your unique link &amp; discount code</div></div>
               </div>
             )}
             <div className="ni-term-row">
@@ -622,7 +622,7 @@ export default function InvitePage() {
             <div className="ni-faq">
               <div className="ni-faq-item">
                 <div className="ni-faq-q">How much will Nama spend on my content?</div>
-                <div className="ni-faq-a">We determine spend based on how your content performs. Videos that get strong early results get scaled — we increase budget as we see traction. There&apos;s no fixed cap.</div>
+                <div className="ni-faq-a">Our system automatically allocates more budget to high-converting content. When your videos perform well, the algorithm picks up spend and scales it — we run flexible budgets specifically to let winning content grow without a cap.</div>
               </div>
               <div className="ni-faq-item">
                 <div className="ni-faq-q">How do I know what&apos;s being spent?</div>
@@ -653,7 +653,7 @@ export default function InvitePage() {
           <div className="ni-sec-label">Partnership Terms</div>
           <div className="ni-term-row">
             <span className="ni-term-key">Commission</span>
-            <div className="ni-term-val"><div className="ni-term-primary">{commissionRate}% per sale</div><div className="ni-term-secondary">Tracked automatically</div></div>
+            <div className="ni-term-val"><div className="ni-term-primary">{commissionRate}% per sale</div><div className="ni-term-secondary">Via your unique link &amp; discount code</div></div>
           </div>
           <div className="ni-term-row">
             <span className="ni-term-key">Content</span>
@@ -739,7 +739,7 @@ export default function InvitePage() {
             <div className="ni-m-sec-label">Partnership Terms</div>
             <div className="ni-m-term-row"><span className="ni-m-term-key">Retainer</span><div className="ni-term-val"><div className="ni-m-term-primary">${retainerAmount?.toLocaleString()} / month</div><div className="ni-m-term-secondary">Paid on the 1st</div></div></div>
             {hasAffiliateAddon && (
-              <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% on all sales</div><div className="ni-m-term-secondary">Tracked automatically</div></div></div>
+              <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% on all sales</div><div className="ni-m-term-secondary">Via your unique link &amp; discount code</div></div></div>
             )}
             <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
             <div className="ni-m-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for as long as we&apos;re actively working together. If the partnership ends, usage rights end with it.</div>
@@ -784,7 +784,7 @@ export default function InvitePage() {
             <div className="ni-m-sec-label">Partnership Terms</div>
             <div className="ni-m-term-row"><span className="ni-m-term-key">Ad Spend</span><div className="ni-term-val"><div className="ni-m-term-primary">{adSpendPct}% of ad spend</div><div className="ni-m-term-secondary">Paid monthly</div></div></div>
             {hasAffiliateAddon && (
-              <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% on all sales</div><div className="ni-m-term-secondary">Tracked automatically</div></div></div>
+              <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% on all sales</div><div className="ni-m-term-secondary">Via your unique link &amp; discount code</div></div></div>
             )}
             <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
             <div className="ni-m-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for as long as we&apos;re actively working together. If the partnership ends, usage rights end with it.</div>
@@ -808,7 +808,7 @@ export default function InvitePage() {
             <div className="ni-m-faq">
               <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">How much will Nama spend on my content?</div>
-                <div className="ni-m-faq-a">We determine spend based on how your content performs. Videos that get strong early results get scaled — we increase budget as we see traction. There&apos;s no fixed cap.</div>
+                <div className="ni-m-faq-a">Our system automatically allocates more budget to high-converting content. When your videos perform well, the algorithm picks up spend and scales it — we run flexible budgets specifically to let winning content grow without a cap.</div>
               </div>
               <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">How do I know what&apos;s being spent?</div>
@@ -837,7 +837,7 @@ export default function InvitePage() {
       return (
         <>
           <div className="ni-m-sec-label">Partnership Terms</div>
-          <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% per sale</div><div className="ni-m-term-secondary">Tracked automatically</div></div></div>
+          <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% per sale</div><div className="ni-m-term-secondary">Via your unique link &amp; discount code</div></div></div>
           <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
           <div className="ni-m-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for as long as we&apos;re actively working together. If the partnership ends, usage rights end with it.</div>
           <div className="ni-m-sec-label">Perks</div>
