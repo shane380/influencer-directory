@@ -53,13 +53,15 @@ export default function CreatorsListPage() {
     videosPerMonth: "3-5",
     usageRights: "90 days per campaign, renewable",
   });
-  const [dealType, setDealType] = useState<"affiliate" | "ad_spend" | "retainer">("affiliate");
+  const [dealType, setDealType] = useState<"affiliate" | "ad_spend" | "retainer">("retainer");
   const [dealAffiliate, setDealAffiliate] = useState(10);
   const [dealAdSpendPct, setDealAdSpendPct] = useState(5);
   const [dealAdSpendMin, setDealAdSpendMin] = useState(0);
   const [dealRetainer, setDealRetainer] = useState(1500);
+  const [addAffiliate, setAddAffiliate] = useState(false);
   const [offerChoice, setOfferChoice] = useState(false);
   const [secondDealType, setSecondDealType] = useState<"affiliate" | "ad_spend" | "retainer">("ad_spend");
+  const [secondAddAffiliate, setSecondAddAffiliate] = useState(false);
   const [isExistingCreator, setIsExistingCreator] = useState(false);
   const [submittingInvite, setSubmittingInvite] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
@@ -195,13 +197,15 @@ export default function CreatorsListPage() {
       videosPerMonth: "3-5",
       usageRights: "90 days per campaign, renewable",
     });
-    setDealType("affiliate");
+    setDealType("retainer");
     setDealAffiliate(10);
     setDealAdSpendPct(5);
     setDealAdSpendMin(0);
     setDealRetainer(1500);
+    setAddAffiliate(false);
     setOfferChoice(false);
     setSecondDealType("ad_spend");
+    setSecondAddAffiliate(false);
     setIsExistingCreator(false);
     setGeneratedUrl(null);
     setCopied(false);
@@ -212,9 +216,9 @@ export default function CreatorsListPage() {
       case "affiliate":
         return { type: "affiliate", commission_rate: dealAffiliate };
       case "ad_spend":
-        return { type: "ad_spend", percentage: dealAdSpendPct, ...(dealAdSpendMin > 0 ? { first_month_minimum: dealAdSpendMin } : {}) };
+        return { type: "ad_spend", percentage: dealAdSpendPct, ...(dealAdSpendMin > 0 ? { first_month_minimum: dealAdSpendMin } : {}), ...(addAffiliate ? { commission_rate: dealAffiliate } : {}) };
       case "retainer":
-        return { type: "retainer", monthly_rate: dealRetainer };
+        return { type: "retainer", monthly_rate: dealRetainer, ...(addAffiliate ? { commission_rate: dealAffiliate } : {}) };
     }
   }
 
@@ -232,6 +236,11 @@ export default function CreatorsListPage() {
         adSpendMinimum = dealAdSpendMin > 0 ? dealAdSpendMin : null;
       }
       if (t === "affiliate") commissionRate = dealAffiliate;
+    }
+
+    // Add-on affiliate commission applies to any deal type
+    if (addAffiliate || secondAddAffiliate) {
+      commissionRate = dealAffiliate;
     }
 
     return { retainerAmount, adSpendPercentage, adSpendMinimum, commissionRate };
@@ -636,16 +645,17 @@ export default function CreatorsListPage() {
                       onChange={(e) => {
                         const val = e.target.value as typeof dealType;
                         setDealType(val);
+                        if (val === "affiliate") setAddAffiliate(false);
                         if (offerChoice && val === secondDealType) {
-                          const opts = ["affiliate", "ad_spend", "retainer"].filter(t => t !== val) as typeof dealType[];
+                          const opts = ["retainer", "ad_spend", "affiliate"].filter(t => t !== val) as typeof dealType[];
                           setSecondDealType(opts[0]);
                         }
                       }}
                       className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300 mb-3"
                     >
-                      <option value="affiliate">Affiliate Commission</option>
-                      <option value="ad_spend">% of Ad Spend</option>
                       <option value="retainer">Monthly Retainer</option>
+                      <option value="ad_spend">% of Ad Spend</option>
+                      <option value="affiliate">Affiliate Only</option>
                     </select>
 
                     {dealType === "affiliate" && (
@@ -673,6 +683,21 @@ export default function CreatorsListPage() {
                       </div>
                     )}
 
+                    {dealType !== "affiliate" && (
+                      <div className="mb-3">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={addAffiliate} onChange={(e) => setAddAffiliate(e.target.checked)} className="rounded border-gray-300" />
+                          <span className="text-xs text-gray-600">Add affiliate commission</span>
+                        </label>
+                        {addAffiliate && (
+                          <div className="mt-2">
+                            <label className="block text-xs text-gray-500 mb-1">Commission %</label>
+                            <input type="number" value={dealAffiliate} onChange={(e) => setDealAffiliate(Number(e.target.value))} className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300" />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Offer Choice Toggle */}
                     <div className="border-t pt-3 mt-3">
                       <label className="flex items-center gap-2 cursor-pointer">
@@ -692,12 +717,16 @@ export default function CreatorsListPage() {
                         <label className="block text-sm font-medium text-gray-700 mb-1">Second Deal Type</label>
                         <select
                           value={secondDealType}
-                          onChange={(e) => setSecondDealType(e.target.value as typeof secondDealType)}
+                          onChange={(e) => {
+                            const val = e.target.value as typeof secondDealType;
+                            setSecondDealType(val);
+                            if (val === "affiliate") setSecondAddAffiliate(false);
+                          }}
                           className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300 mb-3"
                         >
-                          {dealType !== "affiliate" && <option value="affiliate">Affiliate Commission</option>}
-                          {dealType !== "ad_spend" && <option value="ad_spend">% of Ad Spend</option>}
                           {dealType !== "retainer" && <option value="retainer">Monthly Retainer</option>}
+                          {dealType !== "ad_spend" && <option value="ad_spend">% of Ad Spend</option>}
+                          {dealType !== "affiliate" && <option value="affiliate">Affiliate Only</option>}
                         </select>
 
                         {secondDealType === "affiliate" && (
@@ -722,6 +751,21 @@ export default function CreatorsListPage() {
                           <div>
                             <label className="block text-xs text-gray-500 mb-1">Monthly Retainer (USD)</label>
                             <input type="number" value={dealRetainer} onChange={(e) => setDealRetainer(Number(e.target.value))} className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300" />
+                          </div>
+                        )}
+
+                        {secondDealType !== "affiliate" && (
+                          <div className="mt-3">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input type="checkbox" checked={secondAddAffiliate} onChange={(e) => setSecondAddAffiliate(e.target.checked)} className="rounded border-gray-300" />
+                              <span className="text-xs text-gray-600">Add affiliate commission</span>
+                            </label>
+                            {secondAddAffiliate && (
+                              <div className="mt-2">
+                                <label className="block text-xs text-gray-500 mb-1">Commission %</label>
+                                <input type="number" value={dealAffiliate} onChange={(e) => setDealAffiliate(Number(e.target.value))} className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300" />
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
