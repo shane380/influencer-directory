@@ -52,12 +52,12 @@ const CSS = `
 
 /* AFFILIATE */
 .cd-aff-wrap { padding: 24px 32px; border-bottom: 1px solid #e8e8e8; }
-.cd-aff-block { background: #111; padding: 18px 20px; border-radius: 4px; }
-.cd-aff-label { font-size: 8.5px; letter-spacing: 0.32em; text-transform: uppercase; color: rgba(255,255,255,0.35); margin-bottom: 8px; }
-.cd-aff-row { display: flex; align-items: center; justify-content: space-between; }
-.cd-aff-code { font-family: 'Playfair Display', serif; font-size: 26px; color: white; letter-spacing: 0.08em; }
-.cd-aff-copy { padding: 5px 12px; border: 1px solid rgba(255,255,255,0.2); background: transparent; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.45); cursor: pointer; border-radius: 2px; transition: all 0.2s; }
-.cd-aff-copy:hover { border-color: rgba(255,255,255,0.4); color: rgba(255,255,255,0.7); }
+.cd-aff-block { border: 1px solid #e8e8e8; padding: 16px 18px; border-radius: 0; }
+.cd-aff-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.cd-aff-label { font-size: 9px; letter-spacing: 0.32em; text-transform: uppercase; color: #aaa; }
+.cd-aff-code { font-family: 'Playfair Display', serif; font-size: 28px; color: #111; letter-spacing: 0.06em; }
+.cd-aff-copy { padding: 4px 10px; border: 1px solid #e8e8e8; background: transparent; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 8.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #999; cursor: pointer; border-radius: 2px; transition: all 0.2s; }
+.cd-aff-copy:hover { border-color: #111; color: #111; }
 
 /* SIDENAV */
 .cd-sidenav { flex: 1; }
@@ -299,10 +299,12 @@ const CSS = `
 .cd-m-stat-v { font-family: 'Playfair Display', serif; font-size: 20px; color: #111; }
 
 .cd-m-aff-wrap { padding: 20px; border-bottom: 1px solid #e8e8e8; background: #fff; }
-.cd-m-aff { background: #111; padding: 16px 18px; border-radius: 4px; display: flex; align-items: center; justify-content: space-between; }
-.cd-m-aff-label { font-size: 8.5px; letter-spacing: 0.28em; text-transform: uppercase; color: rgba(255,255,255,0.35); margin-bottom: 5px; }
-.cd-m-aff-code { font-family: 'Playfair Display', serif; font-size: 24px; color: white; letter-spacing: 0.08em; }
-.cd-m-aff-copy { padding: 6px 14px; border: 1px solid rgba(255,255,255,0.2); background: transparent; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.4); cursor: pointer; border-radius: 2px; }
+.cd-m-aff { border: 1px solid #e8e8e8; padding: 14px 16px; }
+.cd-m-aff-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.cd-m-aff-label { font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase; color: #aaa; }
+.cd-m-aff-code { font-family: 'Playfair Display', serif; font-size: 22px; color: #111; letter-spacing: 0.06em; }
+.cd-m-aff-copy { padding: 4px 10px; border: 1px solid #e8e8e8; background: transparent; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 8.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #999; cursor: pointer; border-radius: 2px; transition: all 0.2s; }
+.cd-m-aff-copy:hover { border-color: #111; color: #111; }
 
 .cd-m-sections { padding-bottom: 90px; }
 .cd-m-section { background: #fff; border-bottom: 8px solid #f7f7f7; }
@@ -1495,11 +1497,11 @@ export default function CreatorDashboard() {
               {affiliateCode && (
                 <div className="cd-aff-wrap">
                   <div className="cd-aff-block">
-                    <div className="cd-aff-label">Your Affiliate Code</div>
-                    <div className="cd-aff-row">
-                      <div className="cd-aff-code">{affiliateCode.toUpperCase()}</div>
+                    <div className="cd-aff-top">
+                      <div className="cd-aff-label">Your Affiliate Code</div>
                       <button className="cd-aff-copy" onClick={copyCode}>{copied ? 'Copied' : 'Copy'}</button>
                     </div>
+                    <div className="cd-aff-code">{affiliateCode.toUpperCase()}</div>
                   </div>
                 </div>
               )}
@@ -1559,11 +1561,11 @@ export default function CreatorDashboard() {
           {affiliateCode && (
             <div className="cd-m-aff-wrap">
               <div className="cd-m-aff">
-                <div>
+                <div className="cd-m-aff-top">
                   <div className="cd-m-aff-label">Affiliate Code</div>
-                  <div className="cd-m-aff-code">{affiliateCode.toUpperCase()}</div>
+                  <button className="cd-m-aff-copy" onClick={copyCode}>{copied ? 'Copied' : 'Copy'}</button>
                 </div>
-                <button className="cd-m-aff-copy" onClick={copyCode}>{copied ? 'Copied' : 'Copy'}</button>
+                <div className="cd-m-aff-code">{affiliateCode.toUpperCase()}</div>
               </div>
             </div>
           )}
