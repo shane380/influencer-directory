@@ -49,6 +49,7 @@ export function InfluencerSubmissionsTab({ influencerId }: Props) {
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackAction, setFeedbackAction] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<SubmissionFile | null>(null);
 
   useEffect(() => {
     fetchSubmissions();
@@ -201,40 +202,46 @@ export function InfluencerSubmissionsTab({ influencerId }: Props) {
                     )}
                   </div>
 
-                  {/* File thumbnails */}
+                  {/* File previews */}
                   {files.length > 0 && (
-                    <div className="flex gap-2 mb-3 flex-wrap">
+                    <div className="space-y-2 mb-3">
                       {files.map((file, i) => {
                         const isImage = file.mime_type?.startsWith("image/");
                         const isVideo = file.mime_type?.startsWith("video/");
+                        const previewUrl = `/api/drive/preview/${file.drive_file_id}`;
                         return (
-                          <a
-                            key={i}
-                            href={file.drive_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block w-16 h-16 rounded overflow-hidden bg-gray-100 border border-gray-200 relative group"
-                            title={file.name}
-                          >
-                            {isImage && file.drive_url ? (
+                          <div key={i} className="relative group">
+                            {isImage ? (
                               <img
-                                src={`https://drive.google.com/thumbnail?id=${file.drive_file_id}&sz=w128`}
+                                src={previewUrl}
                                 alt={file.name}
-                                className="w-full h-full object-cover"
+                                className="max-w-full max-h-64 rounded border border-gray-200 cursor-pointer object-contain"
+                                onClick={() => setPreviewFile(file)}
                               />
                             ) : isVideo ? (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <span className="text-gray-400 text-lg">▶</span>
-                              </div>
+                              <video
+                                controls
+                                preload="metadata"
+                                src={previewUrl}
+                                className="max-w-full max-h-[400px] rounded border border-gray-200"
+                              />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center">
+                              <div className="w-16 h-16 rounded bg-gray-100 border border-gray-200 flex items-center justify-center">
                                 <span className="text-gray-400 text-[10px]">FILE</span>
                               </div>
                             )}
-                            <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[9px] px-1 py-0.5 truncate opacity-0 group-hover:opacity-100 transition-opacity">
-                              {file.name}
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[10px] text-gray-400 truncate">{file.name}</span>
+                              <a
+                                href={file.drive_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] text-blue-500 hover:text-blue-700 shrink-0"
+                              >
+                                Open in Drive
+                              </a>
                             </div>
-                          </a>
+                          </div>
                         );
                       })}
                     </div>
@@ -345,6 +352,36 @@ export function InfluencerSubmissionsTab({ influencerId }: Props) {
           </div>
         </div>
       ))}
+      {/* Lightbox */}
+      {previewFile && (
+        <div
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] cursor-pointer"
+          onClick={() => setPreviewFile(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white text-2xl hover:text-gray-300 z-10"
+            onClick={() => setPreviewFile(null)}
+          >
+            ×
+          </button>
+          {previewFile.mime_type?.startsWith("image/") ? (
+            <img
+              src={`/api/drive/preview/${previewFile.drive_file_id}`}
+              alt={previewFile.name}
+              className="max-w-[90vw] max-h-[90vh] object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <video
+              controls
+              autoPlay
+              src={`/api/drive/preview/${previewFile.drive_file_id}`}
+              className="max-w-[90vw] max-h-[90vh]"
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }

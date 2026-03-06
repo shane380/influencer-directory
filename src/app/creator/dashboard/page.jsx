@@ -119,6 +119,20 @@ const CSS = `
 .cd-upload-success-link { font-size: 12px; color: #111; text-decoration: none; letter-spacing: 0.04em; }
 .cd-upload-success-link:hover { text-decoration: underline; }
 
+/* SUBMISSION PREVIEWS */
+.cd-sub-previews { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; margin-bottom: 4px; }
+.cd-sub-preview-wrap { position: relative; }
+.cd-sub-preview-img { max-height: 120px; border: 1px solid #eee; object-fit: contain; cursor: pointer; display: block; }
+.cd-sub-preview-video { max-height: 180px; max-width: 100%; border: 1px solid #eee; display: block; }
+.cd-sub-preview-name { font-size: 10px; color: #aaa; margin-top: 3px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cd-sub-drive-link { font-size: 10px; color: #888; text-decoration: none; }
+.cd-sub-drive-link:hover { text-decoration: underline; }
+
+/* LIGHTBOX */
+.cd-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 9999; cursor: pointer; }
+.cd-lightbox img, .cd-lightbox video { max-width: 90vw; max-height: 90vh; object-fit: contain; cursor: default; }
+.cd-lightbox-close { position: absolute; top: 16px; right: 16px; background: none; border: none; color: #fff; font-size: 28px; cursor: pointer; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1; z-index: 10; }
+
 /* EMPTY */
 .cd-empty { padding: 52px 36px; text-align: center; border-top: 1px solid #e8e8e8; }
 .cd-empty-title { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 300; font-style: italic; color: #111; margin-bottom: 8px; }
@@ -581,6 +595,7 @@ export default function CreatorDashboard() {
   const [campaignNotes, setCampaignNotes] = useState({})
   const [campaignConfirming, setCampaignConfirming] = useState(null)
   const [showPastCampaigns, setShowPastCampaigns] = useState(false)
+  const [lightboxFile, setLightboxFile] = useState(null) // { drive_file_id, name, mime_type }
   const [campaignContentTarget, setCampaignContentTarget] = useState(null) // assignment ID to tag content with
 
   // Payment settings
@@ -1972,25 +1987,48 @@ export default function CreatorDashboard() {
               const [yr, mo] = (sub.month || '').split('-')
               const monthLabel = yr && mo ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString('en', { month: 'long', year: 'numeric' }) : sub.month
               return (
-                <div key={sub.id} className="cd-past-item">
-                  <div style={{ flex: 1 }}>
-                    <div className="cd-past-text">{monthLabel}</div>
-                    <div className="cd-past-label">{files.length} file{files.length !== 1 ? 's' : ''}</div>
-                    {sub.drive_folder_url && (
-                      <a href={sub.drive_folder_url} target="_blank" rel="noopener noreferrer" className="cd-past-link" style={{ fontSize: 11 }}>
-                        View in Drive →
-                      </a>
-                    )}
-                    {sub.notes && <div className="cd-past-notes">{sub.notes}</div>}
-                    {sub.admin_feedback && (
-                      <div style={{ fontSize: 11, color: sub.status === 'revision_requested' ? '#a68307' : sub.status === 'rejected' ? '#c62828' : '#2e7d32', marginTop: 3 }}>
-                        Feedback: {sub.admin_feedback}
-                      </div>
-                    )}
+                <div key={sub.id} style={{ paddingBottom: 16, marginBottom: 16, borderBottom: '1px solid #f2f2f2' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                    <div>
+                      <div className="cd-past-text">{monthLabel}</div>
+                      <div className="cd-past-label">{files.length} file{files.length !== 1 ? 's' : ''}</div>
+                    </div>
+                    <span className={`cd-badge${getStatusBadgeClass(sub.status)}`}>
+                      {(sub.status || '').replace(/_/g, ' ')}
+                    </span>
                   </div>
-                  <span className={`cd-badge${getStatusBadgeClass(sub.status)}`}>
-                    {(sub.status || '').replace(/_/g, ' ')}
-                  </span>
+                  {files.length > 0 && (
+                    <div className="cd-sub-previews">
+                      {files.map((file, fi) => {
+                        const isImage = file.mime_type?.startsWith('image/')
+                        const isVideo = file.mime_type?.startsWith('video/')
+                        const previewUrl = `/api/drive/preview/${file.drive_file_id}`
+                        return (
+                          <div key={fi} className="cd-sub-preview-wrap">
+                            {isImage ? (
+                              <img src={previewUrl} alt={file.name} className="cd-sub-preview-img" onClick={() => setLightboxFile(file)} />
+                            ) : isVideo ? (
+                              <video controls preload="metadata" src={previewUrl} className="cd-sub-preview-video" />
+                            ) : (
+                              <div style={{ width: 48, height: 48, background: '#f5f5f5', border: '1px solid #eee', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#ccc' }}>FILE</div>
+                            )}
+                            <div className="cd-sub-preview-name">{file.name}</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                  {sub.drive_folder_url && (
+                    <a href={sub.drive_folder_url} target="_blank" rel="noopener noreferrer" className="cd-sub-drive-link">
+                      Open in Drive →
+                    </a>
+                  )}
+                  {sub.notes && <div className="cd-past-notes">{sub.notes}</div>}
+                  {sub.admin_feedback && (
+                    <div style={{ fontSize: 11, color: sub.status === 'revision_requested' ? '#a68307' : sub.status === 'rejected' ? '#c62828' : '#2e7d32', marginTop: 3 }}>
+                      Feedback: {sub.admin_feedback}
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -2445,6 +2483,18 @@ export default function CreatorDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Lightbox */}
+      {lightboxFile && (
+        <div className="cd-lightbox" onClick={() => setLightboxFile(null)}>
+          <button className="cd-lightbox-close" onClick={() => setLightboxFile(null)}>×</button>
+          {lightboxFile.mime_type?.startsWith('image/') ? (
+            <img src={`/api/drive/preview/${lightboxFile.drive_file_id}`} alt={lightboxFile.name} onClick={e => e.stopPropagation()} />
+          ) : (
+            <video controls autoPlay src={`/api/drive/preview/${lightboxFile.drive_file_id}`} onClick={e => e.stopPropagation()} />
+          )}
+        </div>
+      )}
     </div>
   )
 }
