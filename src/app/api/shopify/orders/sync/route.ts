@@ -12,6 +12,12 @@ interface ShopifyOrder {
   created_at: string;
   total_price: string;
   financial_status: string;
+  fulfillment_status: string | null;
+  fulfillments: {
+    status: string;
+    tracking_url: string | null;
+    shipment_status: string | null;
+  }[];
   line_items: {
     title: string;
     variant_title: string | null;
@@ -248,6 +254,8 @@ export async function POST(request: NextRequest) {
         quantity: li.quantity,
       }));
 
+      const fulfillment = order.fulfillments?.[0];
+
       return {
         influencer_id,
         shopify_order_id: String(order.id),
@@ -257,6 +265,9 @@ export async function POST(request: NextRequest) {
         total_amount: totalAmount,
         is_gift: totalAmount === 0,
         line_items: lineItems,
+        fulfillment_status: order.fulfillment_status || 'unfulfilled',
+        tracking_url: fulfillment?.tracking_url || null,
+        delivery_status: fulfillment?.shipment_status || null,
         synced_at: new Date().toISOString(),
       };
     });

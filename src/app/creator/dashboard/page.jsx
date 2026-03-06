@@ -441,8 +441,28 @@ export default function CreatorDashboard() {
       }
       if (infData) {
         setInfluencer(infData)
-        const { data: orderData } = await supabase.from('influencer_orders').select('*').eq('influencer_id', infData.id).order('order_date', { ascending: false })
-        setOrders(orderData || [])
+
+        // Sync orders from Shopify if the influencer has a customer ID
+        if (infData.shopify_customer_id) {
+          try {
+            const syncRes = await fetch('/api/shopify/orders/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ influencer_id: infData.id, shopify_customer_id: infData.shopify_customer_id }),
+            })
+            const syncData = await syncRes.json()
+            if (syncData.orders) {
+              setOrders(syncData.orders)
+            }
+          } catch {
+            // Fallback to reading from DB if sync fails
+            const { data: orderData } = await supabase.from('influencer_orders').select('*').eq('influencer_id', infData.id).order('order_date', { ascending: false })
+            setOrders(orderData || [])
+          }
+        } else {
+          const { data: orderData } = await supabase.from('influencer_orders').select('*').eq('influencer_id', infData.id).order('order_date', { ascending: false })
+          setOrders(orderData || [])
+        }
         if (infData.instagram_handle) {
           setAdsLoading(true)
           try {
@@ -587,11 +607,27 @@ export default function CreatorDashboard() {
         </div>
       )
     }
+    const statusLabel = (s) => {
+      if (!s || s === 'unfulfilled') return 'Processing'
+      if (s === 'fulfilled') return 'Shipped'
+      if (s === 'partial') return 'Partially Shipped'
+      return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+    }
+    const statusColor = (s) => {
+      if (s === 'fulfilled') return '#2e7d32'
+      if (s === 'partial') return '#e65100'
+      return '#999'
+    }
+
     return (
       <div style={{ padding: mobile ? 0 : undefined }}>
         {orders.map(order => (
           <div key={order.id} className="cd-order-row">
             <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                <span style={{ fontSize: 11, color: '#aaa', fontWeight: 300 }}>{order.order_number}</span>
+                <span style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: statusColor(order.fulfillment_status), fontWeight: 500 }}>{statusLabel(order.fulfillment_status)}</span>
+              </div>
               {(order.line_items || []).map((item, i) => (
                 <div key={i}>
                   <div className="cd-past-text">{item.product_name}{item.variant_title && <span style={{ color: '#aaa' }}> — {item.variant_title}</span>}{item.quantity > 1 && <span style={{ color: '#aaa' }}> x{item.quantity}</span>}</div>
@@ -600,8 +636,11 @@ export default function CreatorDashboard() {
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
               <div className="cd-past-label">
-                {new Date(order.order_date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}
+                {new Date(order.order_date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
               </div>
+              {order.delivery_status && (
+                <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>{order.delivery_status.replace(/_/g, ' ')}</div>
+              )}
             </div>
           </div>
         ))}
