@@ -37,7 +37,7 @@ const CSS = `
 .cd-sidebar { background: #fff; border-right: 1px solid #e8e8e8; position: sticky; top: 0; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; }
 .cd-sidebar-logo { padding: 28px 32px 24px; border-bottom: 1px solid #e8e8e8; }
 .cd-logo-lockup { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.cd-logo-img { height: 28px; display: block; }
+.cd-logo-img { height: 34px; display: block; }
 .cd-logo-sub { font-size: 8px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; text-align: center; }
 .cd-identity { padding: 36px 32px 28px; border-bottom: 1px solid #e8e8e8; }
 .cd-eyebrow { font-size: 9px; letter-spacing: 0.38em; text-transform: uppercase; color: #aaa; margin-bottom: 14px; }
