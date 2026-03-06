@@ -91,7 +91,15 @@ export default function CreatorsListPage() {
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (!creatorsData) {
+      // Fetch pending invites (before early return so they always load)
+      const { data: invitesData } = await supabase
+        .from("creator_invites" as any)
+        .select("*")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false }) as any;
+      setPendingInvites(invitesData || []);
+
+      if (!creatorsData || creatorsData.length === 0) {
         setLoading(false);
         return;
       }
@@ -140,15 +148,6 @@ export default function CreatorsListPage() {
       );
 
       setCreators(enriched);
-
-      // Fetch pending invites
-      const { data: invitesData } = await supabase
-        .from("creator_invites" as any)
-        .select("*")
-        .eq("status", "pending")
-        .order("created_at", { ascending: false }) as any;
-      setPendingInvites(invitesData || []);
-
       setLoading(false);
     }
     load();
