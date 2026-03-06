@@ -1496,6 +1496,7 @@ export default function CreatorDashboard() {
             </div>
             <div>
               <span className="cd-m-percentile-number">Top {percentile.rank}</span><span className="cd-m-percentile-pct">%</span>
+              <div className="cd-m-percentile-sub" style={{ textAlign: 'right', marginTop: '3px' }}>of Nama creators</div>
             </div>
           </div>
           <div className="cd-m-streak">
@@ -1577,6 +1578,7 @@ export default function CreatorDashboard() {
           </div>
           <div>
             <span className="cd-percentile-number">Top {percentile.rank}</span><span className="cd-percentile-pct">%</span>
+            <div className="cd-percentile-sub" style={{ textAlign: 'right', marginTop: '4px' }}>of Nama creators</div>
           </div>
         </div>
         <div className="cd-streak">
