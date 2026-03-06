@@ -354,9 +354,9 @@ export default function InvitePage() {
   }
 
   const isExisting = invite.is_existing_creator
-  const defaultEyebrow = isExisting ? 'Welcome Back' : 'A Private Invitation'
+  const defaultEyebrow = isExisting ? 'A Private Invitation' : 'A Private Invitation'
   const defaultHeadline = isExisting
-    ? <>Hi {firstName},<br /><em>let&apos;s keep it<br />going.</em></>
+    ? <>Hi {firstName},<br /><em>let&apos;s make it<br />official.</em></>
     : <>Hi {firstName},<br /><em>let&apos;s make it<br />official.</em></>
   const defaultIntro = isExisting
     ? "You've already shown us what you can do. This is us making it official."
@@ -922,7 +922,7 @@ export default function InvitePage() {
       return (
         <>
           <div className="ni-m-eyebrow">{defaultEyebrow}</div>
-          <div className="ni-m-headline">{isExisting ? <>Hi {firstName},<br /><em>let&apos;s keep it<br />going.</em></> : <>Hi {firstName},<br /><em>let&apos;s make it<br />official.</em></>}</div>
+          <div className="ni-m-headline">{<>Hi {firstName},<br /><em>let&apos;s make it<br />official.</em></>}</div>
         </>
       )
     }
