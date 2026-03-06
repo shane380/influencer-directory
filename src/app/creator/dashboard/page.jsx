@@ -38,7 +38,7 @@ const CSS = `
 .cd-sidebar-logo { padding: 28px 32px 24px; border-bottom: 1px solid #e8e8e8; }
 .cd-logo-lockup { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .cd-logo-img { height: 34px; display: block; }
-.cd-logo-sub { font-size: 8px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; text-align: center; }
+.cd-logo-sub { font-size: 9.5px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; text-align: center; }
 .cd-identity { padding: 36px 32px 28px; border-bottom: 1px solid #e8e8e8; }
 .cd-eyebrow { font-size: 9px; letter-spacing: 0.38em; text-transform: uppercase; color: #aaa; margin-bottom: 14px; }
 .cd-creator-name { font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 400; color: #111; line-height: 1.0; margin-bottom: 4px; }
@@ -377,8 +377,8 @@ const CSS = `
 .cd-m-wrap { background: #f7f7f7; min-height: 100vh; }
 .cd-m-topbar { padding: 0 20px; height: 56px; background: #fff; border-bottom: 1px solid #e8e8e8; display: flex; align-items: center; justify-content: center; position: sticky; top: 0; z-index: 100; }
 .cd-m-logo-lockup { display: flex; flex-direction: column; align-items: center; }
-.cd-m-logo { height: 28px; display: block; width: fit-content; }
-.cd-m-logo-sub { font-size: 7.5px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; margin-top: 2px; }
+.cd-m-logo { height: 34px; display: block; width: fit-content; }
+.cd-m-logo-sub { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; margin-top: 2px; }
 .cd-m-avatar { width: 36px; height: 36px; min-width: 36px; border-radius: 50%; border: 1px solid #e8e8e8; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #555; overflow: hidden; flex-shrink: 0; position: absolute; right: 20px; }
 .cd-m-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
