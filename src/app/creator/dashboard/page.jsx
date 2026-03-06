@@ -639,6 +639,7 @@ export default function CreatorDashboard() {
       }
 
       const { data: inviteData } = await supabase.from('creator_invites').select('*').eq('id', creatorData.invite_id).single()
+      console.log('[DEBUG] invite data:', { deal_type: inviteData?.deal_type, ad_spend_percentage: inviteData?.ad_spend_percentage, commission_rate: inviteData?.commission_rate })
       setInvite(inviteData)
 
       // Find linked influencer — by invite's influencer_id, or fallback to name match
