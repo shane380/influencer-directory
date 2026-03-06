@@ -470,8 +470,8 @@ const CSS = `
 .cd-m-percentile { margin: 16px 20px; padding: 16px 0; display: flex; align-items: center; justify-content: space-between; }
 .cd-m-percentile-headline { font-family: 'Playfair Display', serif; font-size: 17px; color: #111; font-weight: 400; line-height: 1.2; }
 .cd-m-percentile-sub { font-size: 11px; color: #999; margin-top: 3px; font-weight: 300; }
-.cd-m-percentile-number { font-family: 'Playfair Display', serif; font-size: 40px; font-weight: 300; color: #111; line-height: 1; }
-.cd-m-percentile-pct { font-size: 18px; font-weight: 300; color: #999; }
+.cd-m-percentile-number { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 300; color: #111; line-height: 1; white-space: nowrap; }
+.cd-m-percentile-pct { font-size: 14px; font-weight: 300; color: #999; }
 .cd-m-streak { padding: 16px 20px; border-top: 1px solid #e8e8e8; }
 .cd-m-streak-label { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: #aaa; margin-bottom: 12px; }
 .cd-m-streak-months { display: flex; gap: 6px; }
@@ -1509,7 +1509,7 @@ export default function CreatorDashboard() {
             </div>
             <div>
               <span className="cd-m-percentile-number">Top {percentile.rank}</span><span className="cd-m-percentile-pct">%</span>
-              <div className="cd-m-percentile-sub" style={{ textAlign: 'right', marginTop: '3px' }}>of Nama creators</div>
+              <div className="cd-m-percentile-sub" style={{ textAlign: 'left', marginTop: '3px' }}>of Nama creators</div>
             </div>
           </div>
           <div className="cd-m-streak">
