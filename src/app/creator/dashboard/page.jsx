@@ -928,7 +928,7 @@ export default function CreatorDashboard() {
 
   function copyLink() {
     const code = (creator?.affiliate_code || '').toLowerCase()
-    navigator.clipboard.writeText(`namaclo.com/?ref=${code}`)
+    navigator.clipboard.writeText(`namaclo.com/discount/${code}`)
     setCopiedLink(true)
     setTimeout(() => setCopiedLink(false), 1500)
   }
@@ -2352,7 +2352,7 @@ export default function CreatorDashboard() {
                     <div className="cd-aff-link-row">
                       <div>
                         <div className="cd-aff-link-label">Your Link</div>
-                        <div className="cd-aff-link-url">namaclo.com/?ref={affiliateCode.toLowerCase()}</div>
+                        <div className="cd-aff-link-url">namaclo.com/discount/{affiliateCode.toLowerCase()}</div>
                       </div>
                       <button className="cd-aff-copy" onClick={copyLink}>{copiedLink ? 'Copied' : 'Copy'}</button>
                     </div>
@@ -2439,7 +2439,7 @@ export default function CreatorDashboard() {
                 <div className="cd-m-aff-link-row">
                   <div>
                     <div className="cd-m-aff-link-label">Your Link</div>
-                    <div className="cd-m-aff-link-url">namaclo.com/?ref={affiliateCode.toLowerCase()}</div>
+                    <div className="cd-m-aff-link-url">namaclo.com/discount/{affiliateCode.toLowerCase()}</div>
                   </div>
                   <button className="cd-m-aff-copy" onClick={copyLink}>{copiedLink ? 'Copied' : 'Copy'}</button>
                 </div>
