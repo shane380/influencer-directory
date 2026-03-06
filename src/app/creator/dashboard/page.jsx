@@ -449,7 +449,7 @@ const CSS = `
 `
 
 const TABS = ['ads', 'wardrobe', 'request', 'submit', 'settings']
-const TAB_LABELS = { wardrobe: 'Wardrobe & Orders', request: 'Request Styles', ads: 'Ads', submit: 'Submit', settings: 'Payment Info' }
+const TAB_LABELS = { wardrobe: 'Wardrobe & Orders', request: 'Request New Styles', ads: 'Ads', submit: 'Submit', settings: 'Payment Info' }
 const TAB_LABELS_SHORT = { wardrobe: 'Wardrobe', request: 'Request', ads: 'Ads', submit: 'Submit', settings: 'Payment' }
 
 export default function CreatorDashboard() {
@@ -1590,7 +1590,7 @@ export default function CreatorDashboard() {
     }
 
     const config = {
-      request: { eyebrow: 'Monthly Allowance', title: 'Request Styles' },
+      request: { eyebrow: 'Monthly Allowance', title: 'Request New Styles' },
       submit: { eyebrow: 'Monthly Delivery', title: 'Submit Content' },
     }
     const c = config[activeTab]
@@ -1781,7 +1781,7 @@ export default function CreatorDashboard() {
             <div className="cd-m-section" style={activeTab !== 'request' ? { display: 'none' } : undefined}>
               <div className="cd-m-section-head">
                 <div className="cd-m-section-eyebrow">Monthly Allowance</div>
-                <div className="cd-m-section-title">Request Styles</div>
+                <div className="cd-m-section-title">Request New Styles</div>
               </div>
               <div className="cd-m-section-body">{renderRequestStyles(true)}</div>
             </div>
