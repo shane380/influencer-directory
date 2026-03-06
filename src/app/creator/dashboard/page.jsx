@@ -751,13 +751,13 @@ export default function CreatorDashboard() {
                 ) : (
                   <div className={`${p}wardrobe-img-placeholder`}>No image</div>
                 )}
-                <button
-                  className={mobile ? 'cd-m-feedback-toggle' : 'cd-feedback-toggle'}
-                  onClick={() => setFeedbackOpen(prev => ({ ...prev, [item.key]: !prev[item.key] }))}
-                >
-                  {isDone ? '✓ Done' : isOpen ? '− Close' : '+ Feedback'}
-                </button>
               </div>
+              <button
+                className={mobile ? 'cd-m-feedback-toggle' : 'cd-feedback-toggle'}
+                onClick={() => setFeedbackOpen(prev => ({ ...prev, [item.key]: !prev[item.key] }))}
+              >
+                {isDone ? '✓ Done' : isOpen ? '− Close' : '+ Feedback'}
+              </button>
               <div className={`${p}wardrobe-info`}>
                 <div className={`${p}wardrobe-name`}>{item.productName}</div>
                 {item.variantTitle && <div className={`${p}wardrobe-variant`}>{item.variantTitle}</div>}
