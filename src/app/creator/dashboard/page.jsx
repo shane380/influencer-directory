@@ -382,12 +382,12 @@ const CSS = `
 .cd-m-avatar { width: 36px; height: 36px; min-width: 36px; border-radius: 50%; border: 1px solid #e8e8e8; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #555; overflow: hidden; flex-shrink: 0; position: absolute; right: 20px; }
 .cd-m-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-.cd-m-hero { padding: 28px 20px 24px; border-bottom: 1px solid #e8e8e8; background: #fff; display: none; }
-.cd-m-eyebrow { font-size: 9px; letter-spacing: 0.38em; text-transform: uppercase; color: #aaa; margin-bottom: 12px; }
-.cd-m-name { font-family: 'Playfair Display', serif; font-size: 34px; font-weight: 400; color: #111; line-height: 1.05; margin-bottom: 4px; }
-.cd-m-handle { font-size: 11px; color: #aaa; margin-bottom: 16px; }
-.cd-m-profile-photo { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; display: block; border: 1px solid #e8e8e8; margin-bottom: 14px; }
-.cd-m-status { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #e8e8e8; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: #555; padding: 4px 12px; border-radius: 100px; }
+.cd-m-hero { padding: 16px 20px; border-bottom: 1px solid #e8e8e8; background: #fff; display: flex; flex-direction: row; align-items: center; gap: 14px; }
+.cd-m-eyebrow { display: none; }
+.cd-m-name { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 400; color: #111; line-height: 1.05; margin-bottom: 2px; }
+.cd-m-handle { font-size: 11px; color: #aaa; margin-bottom: 6px; }
+.cd-m-profile-photo { width: 48px; height: 48px; min-width: 48px; border-radius: 50%; object-fit: cover; display: block; border: 1px solid #e8e8e8; margin-bottom: 0; flex-shrink: 0; }
+.cd-m-status { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #e8e8e8; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: #555; padding: 3px 10px; border-radius: 100px; }
 
 .cd-m-stats { display: none; border-bottom: 1px solid #e8e8e8; background: #fff; }
 .cd-m-stat { flex: 1; padding: 14px 0; text-align: center; border-right: 1px solid #e8e8e8; }
@@ -2394,15 +2394,16 @@ export default function CreatorDashboard() {
           </div>
 
           <div className="cd-m-hero">
-            <div className="cd-m-eyebrow">Creator Portal</div>
             {photoUrl ? (
               <img className="cd-m-profile-photo" src={photoUrl} alt={creatorName} />
             ) : (
               <div className="cd-m-profile-photo" style={{ background: '#e8e8e8' }} />
             )}
-            <div className="cd-m-name">{creatorName}</div>
-            {handle && <div className="cd-m-handle">{handle}</div>}
-            <div className="cd-m-status"><span className="cd-dot" /> Active Partner</div>
+            <div>
+              <div className="cd-m-name">{creatorName}</div>
+              {handle && <div className="cd-m-handle">{handle}</div>}
+              <div className="cd-m-status"><span className="cd-dot" /> Active Partner</div>
+            </div>
           </div>
 
           <div className="cd-m-stats">
