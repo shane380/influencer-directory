@@ -76,6 +76,20 @@ const CSS = `
 .ni-min-note-text { font-size: 12px; color: #888; line-height: 1.7; font-weight: 300; }
 .ni-min-note-text strong { color: #333; font-weight: 500; }
 
+/* FAQ */
+.ni-faq { margin-bottom: 28px; }
+.ni-faq-item { padding: 18px 0; border-bottom: 1px solid #f2f2f2; }
+.ni-faq-item:first-child { padding-top: 0; }
+.ni-faq-item:last-child { border-bottom: none; }
+.ni-faq-q { font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 400; color: #111; line-height: 1.3; margin-bottom: 8px; }
+.ni-faq-a { font-size: 12.5px; color: #888; font-weight: 300; line-height: 1.8; }
+.ni-m-faq { margin-bottom: 24px; }
+.ni-m-faq-item { padding: 16px 0; border-bottom: 1px solid #f2f2f2; }
+.ni-m-faq-item:first-child { padding-top: 0; }
+.ni-m-faq-item:last-child { border-bottom: none; }
+.ni-m-faq-q { font-family: 'Cormorant Garamond', serif; font-size: 18px; font-weight: 400; color: #111; line-height: 1.3; margin-bottom: 6px; }
+.ni-m-faq-a { font-size: 12px; color: #888; font-weight: 300; line-height: 1.8; }
+
 /* AGREE */
 .ni-agree-row { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 24px; }
 .ni-agree-box { width: 18px !important; height: 18px !important; min-width: 18px; border-radius: 4px !important; border: 1.5px solid #ccc !important; flex-shrink: 0; margin-top: 2px; background: white !important; appearance: none !important; -webkit-appearance: none !important; cursor: pointer; position: relative; transition: all 0.15s; padding: 0 !important; }
@@ -571,6 +585,21 @@ export default function InvitePage() {
                 <div className="ni-min-note-text">To get you started, we&apos;re guaranteeing a minimum of <strong>${adSpendMin.toLocaleString()} in your first month</strong> regardless of how much we spend.</div>
               </div>
             )}
+            <div className="ni-sec-label">How It Works</div>
+            <div className="ni-faq">
+              <div className="ni-faq-item">
+                <div className="ni-faq-q">How much will Nama spend on my content?</div>
+                <div className="ni-faq-a">We determine spend based on how your content performs. Videos that get strong early results get scaled — we&apos;ll increase budget as we see traction. There&apos;s no fixed cap.</div>
+              </div>
+              <div className="ni-faq-item">
+                <div className="ni-faq-q">How do I know what&apos;s being spent?</div>
+                <div className="ni-faq-a">You&apos;ll see a live breakdown of ad spend and your earnings in your dashboard each month, updated in real time.</div>
+              </div>
+              <div className="ni-faq-item">
+                <div className="ni-faq-q">When do I get paid?</div>
+                <div className="ni-faq-a">Your earnings are calculated on the last day of each month and paid within 5 business days.</div>
+              </div>
+            </div>
             <div className="ni-agree-row">
               <input type="checkbox" className="ni-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
               <p className="ni-agree-text">{getAgreeText()}</p>
@@ -719,6 +748,21 @@ export default function InvitePage() {
                 <div className="ni-m-min-note-text">Guaranteed minimum of <strong>${adSpendMin.toLocaleString()} in your first month</strong> regardless of spend.</div>
               </div>
             )}
+            <div className="ni-m-sec-label">How It Works</div>
+            <div className="ni-m-faq">
+              <div className="ni-m-faq-item">
+                <div className="ni-m-faq-q">How much will Nama spend on my content?</div>
+                <div className="ni-m-faq-a">We determine spend based on how your content performs. Videos that get strong early results get scaled — we&apos;ll increase budget as we see traction. There&apos;s no fixed cap.</div>
+              </div>
+              <div className="ni-m-faq-item">
+                <div className="ni-m-faq-q">How do I know what&apos;s being spent?</div>
+                <div className="ni-m-faq-a">You&apos;ll see a live breakdown of ad spend and your earnings in your dashboard each month, updated in real time.</div>
+              </div>
+              <div className="ni-m-faq-item">
+                <div className="ni-m-faq-q">When do I get paid?</div>
+                <div className="ni-m-faq-a">Your earnings are calculated on the last day of each month and paid within 5 business days.</div>
+              </div>
+            </div>
             <div className="ni-m-agree-row">
               <input type="checkbox" className="ni-m-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
               <p className="ni-m-agree-text">{getAgreeText()}</p>
