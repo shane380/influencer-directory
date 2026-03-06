@@ -118,20 +118,95 @@ const CSS = `
 .cd-cart-submit { width: 100%; padding: 14px; background: #111; color: white; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 9.5px; font-weight: 500; letter-spacing: 0.22em; text-transform: uppercase; cursor: pointer; margin-top: 12px; }
 .cd-cart-submit:disabled { background: #ccc; cursor: not-allowed; }
 
-/* AD */
-.cd-ad { border: 1px solid #e8e8e8; margin-bottom: 16px; overflow: hidden; max-width: 420px; }
-.cd-ad:last-child { margin-bottom: 0; }
-.cd-ad-preview { height: 320px; overflow: hidden; position: relative; }
-.cd-ad-preview iframe { width: 100%; height: 320px; border: none; }
-.cd-ad-preview-txt { font-size: 9.5px; color: #ccc; letter-spacing: 0.22em; text-transform: uppercase; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
-.cd-ad-footer { padding: 18px 22px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #e8e8e8; }
-.cd-ad-name { font-size: 13px; color: #555; font-weight: 300; line-height: 1.4; }
-.cd-ad-stats { display: flex; gap: 28px; align-items: center; }
-.cd-ad-stat-l { font-size: 8.5px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin-bottom: 3px; }
+/* EARNINGS CARD */
+.cd-earnings { background: #fff; border: 1px solid #e8e8e8; }
+.cd-earnings-head { padding: 32px 36px 0; margin-bottom: 24px; display: flex; align-items: flex-start; justify-content: space-between; }
+.cd-earnings-title { font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 300; color: #111; line-height: 1; }
+.cd-earnings-eyebrow { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+.cd-earnings-eyebrow::after { content: ''; width: 32px; height: 1px; background: #e8e8e8; }
+.cd-earnings-hero { padding: 0 36px 28px; display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; border-bottom: 1px solid #e8e8e8; margin-bottom: 28px; }
+.cd-earnings-sublabel { font-size: 9px; letter-spacing: 0.32em; text-transform: uppercase; color: #aaa; margin-bottom: 12px; }
+.cd-earnings-amount { display: flex; align-items: baseline; gap: 6px; margin-bottom: 6px; }
+.cd-earnings-currency { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 300; color: #999; line-height: 1; align-self: flex-start; margin-top: 10px; }
+.cd-earnings-val { font-family: 'Playfair Display', serif; font-size: 72px; font-weight: 300; color: #111; line-height: 1; }
+.cd-earnings-context { font-size: 12px; color: #999; font-weight: 300; }
+.cd-earnings-right { text-align: right; padding-bottom: 8px; flex-shrink: 0; }
+.cd-earnings-proj-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin-bottom: 6px; }
+.cd-earnings-proj-val { font-family: 'Playfair Display', serif; font-size: 32px; color: #111; font-weight: 300; }
+.cd-earnings-proj-note { font-size: 11px; color: #999; margin-top: 3px; }
+.cd-progress-wrap { padding: 0 36px 28px; border-bottom: 1px solid #e8e8e8; }
+.cd-progress-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+.cd-progress-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; }
+.cd-progress-val { font-family: 'Playfair Display', serif; font-size: 15px; color: #111; }
+.cd-progress-track { height: 3px; background: #e8e8e8; border-radius: 2px; overflow: hidden; }
+.cd-progress-fill { height: 100%; background: #111; border-radius: 2px; transition: width 1s ease; }
+.cd-progress-note { font-size: 11px; color: #aaa; margin-top: 8px; }
+.cd-breakdown { padding: 0 36px 28px; }
+.cd-breakdown-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin: 24px 0 14px; }
+.cd-breakdown-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e8e8e8; }
+.cd-breakdown-row:last-child { border-bottom: none; }
+.cd-breakdown-month { font-size: 12px; color: #555; }
+.cd-breakdown-right { display: flex; align-items: center; gap: 20px; }
+.cd-breakdown-spend { font-size: 11px; color: #aaa; }
+.cd-breakdown-earned { font-family: 'Playfair Display', serif; font-size: 17px; color: #111; }
+.cd-breakdown-bar-wrap { width: 80px; height: 2px; background: #e8e8e8; border-radius: 2px; }
+.cd-breakdown-bar { height: 100%; background: #111; border-radius: 2px; }
+.cd-breakdown-current .cd-breakdown-month { color: #111; font-weight: 500; }
+.cd-current-badge { font-size: 8.5px; letter-spacing: 0.14em; text-transform: uppercase; color: #2e7d32; background: #f0faf0; border: 1px solid #d4edda; padding: 2px 8px; border-radius: 100px; margin-left: 8px; }
+.cd-payment-strip { padding: 16px 36px; background: #f5f5f5; border-top: 1px solid #e8e8e8; display: flex; align-items: center; justify-content: space-between; }
+.cd-payment-left { font-size: 12px; color: #555; font-weight: 300; }
+.cd-payment-date { font-size: 11px; color: #999; margin-top: 2px; }
+.cd-payment-amount { font-family: 'Playfair Display', serif; font-size: 20px; color: #111; }
+
+/* MOMENTUM / LIVE ADS CARD */
+.cd-momentum { background: #fff; border: 1px solid #e8e8e8; }
+.cd-momentum-head { padding: 32px 36px 0; margin-bottom: 24px; display: flex; align-items: flex-start; justify-content: space-between; }
+.cd-momentum-title { font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 300; color: #111; line-height: 1; }
+.cd-momentum-eyebrow { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+.cd-momentum-eyebrow::after { content: ''; width: 32px; height: 1px; background: #e8e8e8; }
+.cd-momentum-top { padding: 28px 36px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; border-bottom: 1px solid #e8e8e8; }
+.cd-momentum-stat { padding: 0 28px 0 0; border-right: 1px solid #e8e8e8; margin-right: 28px; }
+.cd-momentum-stat:last-child { border-right: none; margin-right: 0; padding-right: 0; }
+.cd-momentum-stat-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin-bottom: 8px; }
+.cd-momentum-stat-val { font-family: 'Playfair Display', serif; font-size: 36px; color: #111; font-weight: 300; line-height: 1; margin-bottom: 4px; }
+.cd-momentum-stat-sub { font-size: 11px; color: #999; }
+.cd-momentum-delta { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: #2e7d32; margin-top: 4px; }
+.cd-momentum-delta-neg { color: #c0392b; }
+.cd-percentile { margin: 0 36px 28px; border: 1px solid #e8e8e8; padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.cd-percentile-eyebrow { font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase; color: #aaa; margin-bottom: 6px; }
+.cd-percentile-headline { font-family: 'Playfair Display', serif; font-size: 22px; color: #111; font-weight: 400; line-height: 1.2; }
+.cd-percentile-sub { font-size: 12px; color: #999; margin-top: 4px; font-weight: 300; }
+.cd-percentile-number { font-family: 'Playfair Display', serif; font-size: 56px; font-weight: 300; color: #111; line-height: 1; }
+.cd-percentile-pct { font-size: 22px; font-weight: 300; color: #999; }
+.cd-streak { padding: 0 36px 28px; border-top: 1px solid #e8e8e8; padding-top: 24px; }
+.cd-streak-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin-bottom: 14px; }
+.cd-streak-months { display: flex; gap: 8px; }
+.cd-streak-month { flex: 1; text-align: center; }
+.cd-streak-dot { width: 32px; height: 32px; border-radius: 50%; background: #111; margin: 0 auto 6px; display: flex; align-items: center; justify-content: center; }
+.cd-streak-dot svg { opacity: 0.8; }
+.cd-streak-dot.empty { background: #f5f5f5; border: 1px solid #e8e8e8; }
+.cd-streak-month-label { font-size: 9px; color: #aaa; letter-spacing: 0.08em; }
+.cd-streak-month.active .cd-streak-month-label { color: #111; }
+.cd-streak-note { font-size: 11px; color: #999; margin-top: 14px; font-weight: 300; }
+.cd-ads-section { padding: 0 36px 36px; border-top: 1px solid #e8e8e8; padding-top: 24px; }
+.cd-ads-section-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin-bottom: 14px; }
+.cd-ad-card { border: 1px solid #e8e8e8; margin-bottom: 16px; }
+.cd-ad-card:last-child { margin-bottom: 0; }
+.cd-ad-thumb { position: relative; height: 280px; overflow: hidden; background: #1a1a1a; }
+.cd-ad-thumb img { width: 100%; height: 100%; object-fit: cover; opacity: 0.85; }
+.cd-ad-thumb-overlay { position: absolute; bottom: 0; left: 0; right: 0; padding: 16px 20px; background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%); display: flex; align-items: flex-end; justify-content: space-between; }
+.cd-ad-thumb-name { font-size: 13px; color: white; font-weight: 300; }
+.cd-ad-thumb-status { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: #5db075; background: rgba(0,0,0,0.4); padding: 4px 10px; border-radius: 100px; border: 1px solid rgba(93,176,117,0.4); }
+.cd-ad-thumb-status-paused { color: #aaa; border-color: rgba(170,170,170,0.4); }
+.cd-ad-stats-strip { display: flex; border-top: 1px solid #e8e8e8; }
+.cd-ad-stat { flex: 1; padding: 14px 20px; border-right: 1px solid #e8e8e8; }
+.cd-ad-stat:last-child { border-right: none; }
+.cd-ad-stat-l { font-size: 8.5px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin-bottom: 4px; }
 .cd-ad-stat-v { font-family: 'Playfair Display', serif; font-size: 22px; color: #111; }
-.cd-ad-status { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; padding: 4px 10px; border-radius: 100px; font-weight: 500; }
-.cd-ad-status-active { background: #e6f4ea; color: #1e7e34; }
-.cd-ad-status-paused { background: #f0f0f0; color: #888; }
+.cd-score-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; padding: 4px 12px; border-radius: 100px; border: 1px solid; }
+.cd-score-strong { color: #2e7d32; border-color: #d4edda; background: #f0faf0; }
+.cd-score-scaling { color: #1565c0; border-color: #bbdefb; background: #e3f2fd; }
+.cd-score-testing { color: #e65100; border-color: #ffe0b2; background: #fff3e0; }
 
 /* FORM */
 .cd-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 14px; }
@@ -211,19 +286,76 @@ const CSS = `
 .cd-m-product-variant { font-size: 10px; color: #aaa; font-weight: 300; }
 .cd-m-product-cta { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: #999; margin-top: 6px; }
 
-.cd-m-ad { border: 1px solid #e8e8e8; margin-bottom: 14px; overflow: hidden; }
-.cd-m-ad:last-child { margin-bottom: 0; }
-.cd-m-ad-preview { height: 240px; overflow: hidden; position: relative; }
-.cd-m-ad-preview iframe { width: 100%; height: 240px; border: none; }
-.cd-m-ad-preview-txt { font-size: 9.5px; color: #ccc; letter-spacing: 0.22em; text-transform: uppercase; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
-.cd-m-ad-meta { padding: 14px 16px; border-top: 1px solid #e8e8e8; }
-.cd-m-ad-name { font-size: 12px; color: #555; font-weight: 300; line-height: 1.45; margin-bottom: 12px; }
-.cd-m-ad-stats { display: flex; gap: 20px; align-items: center; }
-.cd-m-ad-stat-l { font-size: 8.5px; letter-spacing: 0.2em; text-transform: uppercase; color: #aaa; margin-bottom: 2px; }
-.cd-m-ad-stat-v { font-family: 'Playfair Display', serif; font-size: 20px; color: #111; }
-.cd-m-ad-status { font-size: 8px; letter-spacing: 0.16em; text-transform: uppercase; padding: 3px 8px; border-radius: 100px; font-weight: 500; }
-.cd-m-ad-status-active { background: #e6f4ea; color: #1e7e34; }
-.cd-m-ad-status-paused { background: #f0f0f0; color: #888; }
+/* MOBILE EARNINGS */
+.cd-m-earnings { background: #fff; border: 1px solid #e8e8e8; margin-bottom: 14px; }
+.cd-m-earnings-head { padding: 20px 20px 0; margin-bottom: 16px; }
+.cd-m-earnings-eyebrow { font-size: 9px; letter-spacing: 0.32em; text-transform: uppercase; color: #aaa; margin-bottom: 8px; }
+.cd-m-earnings-title { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 300; color: #111; }
+.cd-m-earnings-hero { padding: 0 20px 20px; border-bottom: 1px solid #e8e8e8; }
+.cd-m-earnings-sublabel { font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase; color: #aaa; margin-bottom: 10px; }
+.cd-m-earnings-amount { display: flex; align-items: baseline; gap: 4px; margin-bottom: 4px; }
+.cd-m-earnings-currency { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 300; color: #999; align-self: flex-start; margin-top: 6px; }
+.cd-m-earnings-val { font-family: 'Playfair Display', serif; font-size: 52px; font-weight: 300; color: #111; line-height: 1; }
+.cd-m-earnings-context { font-size: 11px; color: #999; font-weight: 300; }
+.cd-m-earnings-proj { padding: 14px 20px; border-bottom: 1px solid #e8e8e8; display: flex; justify-content: space-between; align-items: center; }
+.cd-m-earnings-proj-label { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: #aaa; }
+.cd-m-earnings-proj-val { font-family: 'Playfair Display', serif; font-size: 22px; color: #111; font-weight: 300; }
+.cd-m-progress { padding: 16px 20px; border-bottom: 1px solid #e8e8e8; }
+.cd-m-progress-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.cd-m-progress-label { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: #aaa; }
+.cd-m-progress-val { font-size: 12px; color: #111; }
+.cd-m-progress-track { height: 3px; background: #e8e8e8; border-radius: 2px; overflow: hidden; }
+.cd-m-progress-fill { height: 100%; background: #111; border-radius: 2px; }
+.cd-m-payment { padding: 14px 20px; background: #f5f5f5; display: flex; align-items: center; justify-content: space-between; }
+.cd-m-payment-left { font-size: 11px; color: #555; }
+.cd-m-payment-amount { font-family: 'Playfair Display', serif; font-size: 18px; color: #111; }
+
+/* MOBILE MOMENTUM */
+.cd-m-momentum { background: #fff; border: 1px solid #e8e8e8; }
+.cd-m-momentum-head { padding: 20px 20px 0; margin-bottom: 16px; }
+.cd-m-momentum-eyebrow { font-size: 9px; letter-spacing: 0.32em; text-transform: uppercase; color: #aaa; margin-bottom: 8px; }
+.cd-m-momentum-title { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 300; color: #111; }
+.cd-m-momentum-stats { display: flex; border-bottom: 1px solid #e8e8e8; }
+.cd-m-momentum-stat { flex: 1; padding: 14px 16px; border-right: 1px solid #e8e8e8; }
+.cd-m-momentum-stat:last-child { border-right: none; }
+.cd-m-momentum-stat-label { font-size: 8px; letter-spacing: 0.18em; text-transform: uppercase; color: #aaa; margin-bottom: 6px; }
+.cd-m-momentum-stat-val { font-family: 'Playfair Display', serif; font-size: 24px; color: #111; font-weight: 300; line-height: 1; }
+.cd-m-momentum-delta { font-size: 9px; color: #2e7d32; margin-top: 4px; }
+.cd-m-momentum-delta-neg { color: #c0392b; }
+.cd-m-percentile { margin: 16px 20px; border: 1px solid #e8e8e8; padding: 16px; display: flex; align-items: center; justify-content: space-between; }
+.cd-m-percentile-headline { font-family: 'Playfair Display', serif; font-size: 17px; color: #111; font-weight: 400; line-height: 1.2; }
+.cd-m-percentile-sub { font-size: 11px; color: #999; margin-top: 3px; font-weight: 300; }
+.cd-m-percentile-number { font-family: 'Playfair Display', serif; font-size: 40px; font-weight: 300; color: #111; line-height: 1; }
+.cd-m-percentile-pct { font-size: 18px; font-weight: 300; color: #999; }
+.cd-m-streak { padding: 16px 20px; border-top: 1px solid #e8e8e8; }
+.cd-m-streak-label { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: #aaa; margin-bottom: 12px; }
+.cd-m-streak-months { display: flex; gap: 6px; }
+.cd-m-streak-month { flex: 1; text-align: center; }
+.cd-m-streak-dot { width: 28px; height: 28px; border-radius: 50%; background: #111; margin: 0 auto 4px; display: flex; align-items: center; justify-content: center; }
+.cd-m-streak-dot svg { opacity: 0.8; }
+.cd-m-streak-dot.empty { background: #f5f5f5; border: 1px solid #e8e8e8; }
+.cd-m-streak-month-label { font-size: 8px; color: #aaa; letter-spacing: 0.06em; }
+.cd-m-streak-month.active .cd-m-streak-month-label { color: #111; }
+.cd-m-streak-note { font-size: 10px; color: #999; margin-top: 12px; font-weight: 300; }
+.cd-m-ads-section { padding: 16px 20px 20px; border-top: 1px solid #e8e8e8; }
+.cd-m-ads-label { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: #aaa; margin-bottom: 12px; }
+.cd-m-ad-card { border: 1px solid #e8e8e8; margin-bottom: 12px; }
+.cd-m-ad-card:last-child { margin-bottom: 0; }
+.cd-m-ad-thumb { position: relative; height: 200px; overflow: hidden; background: #1a1a1a; }
+.cd-m-ad-thumb img { width: 100%; height: 100%; object-fit: cover; opacity: 0.85; }
+.cd-m-ad-thumb-overlay { position: absolute; bottom: 0; left: 0; right: 0; padding: 12px 16px; background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%); display: flex; align-items: flex-end; justify-content: space-between; }
+.cd-m-ad-thumb-name { font-size: 12px; color: white; font-weight: 300; }
+.cd-m-ad-thumb-status { font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase; color: #5db075; background: rgba(0,0,0,0.4); padding: 3px 8px; border-radius: 100px; border: 1px solid rgba(93,176,117,0.4); }
+.cd-m-ad-thumb-status-paused { color: #aaa; border-color: rgba(170,170,170,0.4); }
+.cd-m-ad-stats-strip { display: flex; border-top: 1px solid #e8e8e8; }
+.cd-m-ad-stat { flex: 1; padding: 10px 14px; border-right: 1px solid #e8e8e8; }
+.cd-m-ad-stat:last-child { border-right: none; }
+.cd-m-ad-stat-l { font-size: 8px; letter-spacing: 0.18em; text-transform: uppercase; color: #aaa; margin-bottom: 3px; }
+.cd-m-ad-stat-v { font-family: 'Playfair Display', serif; font-size: 18px; color: #111; }
+.cd-m-score-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase; padding: 3px 10px; border-radius: 100px; border: 1px solid; }
+.cd-m-score-strong { color: #2e7d32; border-color: #d4edda; background: #f0faf0; }
+.cd-m-score-scaling { color: #1565c0; border-color: #bbdefb; background: #e3f2fd; }
+.cd-m-score-testing { color: #e65100; border-color: #ffe0b2; background: #fff3e0; }
 
 .cd-m-field-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; display: block; margin-bottom: 6px; }
 .cd-m-field-input { width: 100%; padding: 11px 14px; border: 1px solid #e8e8e8; background: #f5f5f5; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #111; outline: none; display: block; margin-bottom: 12px; }
@@ -268,6 +400,8 @@ export default function CreatorDashboard() {
 
   // Meta ads
   const [ads, setAds] = useState([])
+  const [adsTotals, setAdsTotals] = useState({ spend: 0, impressions: 0 })
+  const [adsMonthly, setAdsMonthly] = useState([])
   const [adsLoading, setAdsLoading] = useState(false)
 
   // Content submissions
@@ -315,6 +449,8 @@ export default function CreatorDashboard() {
             const res = await fetch(`/api/meta/creator-ads?handle=${encodeURIComponent(infData.instagram_handle)}`)
             const data = await res.json()
             setAds(data.ads || [])
+            setAdsTotals(data.totals || { spend: 0, impressions: 0 })
+            setAdsMonthly(data.monthly || [])
           } catch {}
           setAdsLoading(false)
         }
@@ -557,7 +693,188 @@ export default function CreatorDashboard() {
     )
   }
 
-  function renderAds(mobile) {
+  function cleanAdName(name) {
+    return (name || '')
+      .split(',')[0]
+      .trim()
+      .replace(/\b\w/g, c => c.toUpperCase())
+      .replace(/\s+(Washed|In|With)\s+/g, (m, w) => ` — ${w.charAt(0).toUpperCase() + w.slice(1)} `)
+      .trim()
+  }
+
+  function getScorePill(spend, mobile) {
+    const n = parseFloat(spend)
+    const p = mobile ? 'cd-m-score' : 'cd-score'
+    if (n > 2000) return <span className={`${p}-pill ${p}-strong`}>Strong</span>
+    if (n > 500) return <span className={`${p}-pill ${p}-scaling`}>Scaling</span>
+    return <span className={`${p}-pill ${p}-testing`}>Testing</span>
+  }
+
+  function getPercentile(totalSpend) {
+    if (totalSpend > 3000) return { rank: 10, label: 'top performers' }
+    if (totalSpend > 1000) return { rank: 25, label: 'top quarter' }
+    return { rank: 50, label: 'active creators' }
+  }
+
+  function getStreakMonths() {
+    const now = new Date()
+    const months = []
+    for (let i = -2; i <= 3; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1)
+      months.push({
+        key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        label: d.toLocaleString('en', { month: 'short' }),
+        isCurrent: i === 0,
+        isFuture: i > 0,
+      })
+    }
+    // Count submissions per month
+    const subMonths = new Set(submissions.map(s => {
+      const d = new Date(s.created_at)
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    }))
+    return months.map(m => ({ ...m, active: subMonths.has(m.key) || m.isCurrent }))
+  }
+
+  function renderEarnings(mobile) {
+    const dealType = invite?.deal_type
+    if (dealType !== 'ad_spend') return null
+
+    const rate = (invite?.ad_spend_percentage || commissionRate || 10) / 100
+    const totalSpend = adsTotals.spend
+    const earned = Math.round(totalSpend * rate)
+
+    // Current month data
+    const now = new Date()
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    const currentMonthData = adsMonthly.find(m => m.month === currentMonthKey)
+    const currentSpend = currentMonthData?.spend || totalSpend
+    const currentEarned = Math.round(currentSpend * rate)
+
+    // Projection
+    const dayOfMonth = now.getDate()
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+    const projection = dayOfMonth > 0 ? Math.round((currentSpend / dayOfMonth) * daysInMonth * rate) : 0
+
+    // Milestone
+    const milestone = Math.ceil((currentEarned + 1) / 500) * 500
+    const progress = milestone > 0 ? Math.min((currentEarned / milestone) * 100, 100) : 0
+    const remaining = milestone - currentEarned
+
+    // Next payment date
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    const nextPayDate = nextMonth.toLocaleString('en', { month: 'long', day: 'numeric' })
+
+    const monthName = now.toLocaleString('en', { month: 'long', year: 'numeric' })
+
+    const checkSvg = <svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5L4.5 8.5L11 1.5" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>
+
+    if (mobile) {
+      return (
+        <div className="cd-m-earnings">
+          <div className="cd-m-earnings-head">
+            <div className="cd-m-earnings-eyebrow">Ad Spend Commission</div>
+            <div className="cd-m-earnings-title">Your Earnings</div>
+          </div>
+          <div className="cd-m-earnings-hero">
+            <div className="cd-m-earnings-sublabel">{monthName} — In Progress</div>
+            <div className="cd-m-earnings-amount">
+              <span className="cd-m-earnings-currency">$</span>
+              <span className="cd-m-earnings-val">{currentEarned.toLocaleString()}</span>
+            </div>
+            <div className="cd-m-earnings-context">from ${currentSpend.toLocaleString()} in ad spend</div>
+          </div>
+          <div className="cd-m-earnings-proj">
+            <div className="cd-m-earnings-proj-label">Month-end projection</div>
+            <div className="cd-m-earnings-proj-val">${projection.toLocaleString()}</div>
+          </div>
+          <div className="cd-m-progress">
+            <div className="cd-m-progress-header">
+              <span className="cd-m-progress-label">Progress to ${milestone}</span>
+              <span className="cd-m-progress-val">${currentEarned} of ${milestone}</span>
+            </div>
+            <div className="cd-m-progress-track"><div className="cd-m-progress-fill" style={{ width: `${progress}%` }} /></div>
+          </div>
+          <div className="cd-m-payment">
+            <div className="cd-m-payment-left">Next payment — {nextPayDate}</div>
+            <div className="cd-m-payment-amount">~${projection.toLocaleString()}</div>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="cd-earnings">
+        <div className="cd-earnings-head">
+          <div>
+            <div className="cd-earnings-eyebrow">Ad Spend Commission</div>
+            <div className="cd-earnings-title">Your Earnings</div>
+          </div>
+          {getScorePill(totalSpend, false)}
+        </div>
+        <div className="cd-earnings-hero">
+          <div>
+            <div className="cd-earnings-sublabel">{monthName} — In Progress</div>
+            <div className="cd-earnings-amount">
+              <span className="cd-earnings-currency">$</span>
+              <span className="cd-earnings-val">{currentEarned.toLocaleString()}</span>
+            </div>
+            <div className="cd-earnings-context">from ${currentSpend.toLocaleString()} in ad spend on your content</div>
+          </div>
+          <div className="cd-earnings-right">
+            <div className="cd-earnings-proj-label">Month-end projection</div>
+            <div className="cd-earnings-proj-val">${projection.toLocaleString()}</div>
+            <div className="cd-earnings-proj-note">Based on current spend velocity</div>
+          </div>
+        </div>
+        <div className="cd-progress-wrap">
+          <div className="cd-progress-header">
+            <span className="cd-progress-label">Progress to ${milestone} milestone</span>
+            <span className="cd-progress-val">${currentEarned.toLocaleString()} of ${milestone.toLocaleString()}</span>
+          </div>
+          <div className="cd-progress-track"><div className="cd-progress-fill" style={{ width: `${progress}%` }} /></div>
+          <div className="cd-progress-note">${remaining.toLocaleString()} away{projection >= milestone ? ` — on track to hit this in ${now.toLocaleString('en', { month: 'long' })}.` : '.'}</div>
+        </div>
+        {adsMonthly.length > 0 && (
+          <div className="cd-breakdown">
+            <div className="cd-breakdown-label">Monthly History</div>
+            <div>
+              {adsMonthly.map((m, i) => {
+                const mEarned = Math.round(m.spend * rate)
+                const maxSpend = Math.max(...adsMonthly.map(x => x.spend))
+                const barPct = maxSpend > 0 ? (m.spend / maxSpend) * 100 : 0
+                const isCurrent = m.month === currentMonthKey
+                const mDate = new Date(m.month + '-01')
+                const mLabel = mDate.toLocaleString('en', { month: 'long', year: 'numeric' })
+                return (
+                  <div key={i} className={`cd-breakdown-row${isCurrent ? ' cd-breakdown-current' : ''}`}>
+                    <div>
+                      <span className="cd-breakdown-month">{mLabel}</span>
+                      {isCurrent && <span className="cd-current-badge">Current</span>}
+                    </div>
+                    <div className="cd-breakdown-right">
+                      <span className="cd-breakdown-spend">${m.spend.toLocaleString(undefined, { maximumFractionDigits: 0 })} spend</span>
+                      <div className="cd-breakdown-bar-wrap"><div className="cd-breakdown-bar" style={{ width: `${barPct}%` }} /></div>
+                      <span className="cd-breakdown-earned">${mEarned.toLocaleString()}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+        <div className="cd-payment-strip">
+          <div>
+            <div className="cd-payment-left">Next payment</div>
+            <div className="cd-payment-date">Paid {nextPayDate} via e-transfer</div>
+          </div>
+          <div className="cd-payment-amount">~${projection.toLocaleString()}</div>
+        </div>
+      </div>
+    )
+  }
+
+  function renderMomentum(mobile) {
     if (adsLoading) {
       return <div style={{ fontSize: 12, color: '#aaa', padding: '20px 0' }}>Loading ads…</div>
     }
@@ -575,49 +892,172 @@ export default function CreatorDashboard() {
       )
     }
 
-    return ads.map((ad, i) => {
-      // Clean up ad name: take first product, title-case it
-      const cleanName = (ad.name || '')
-        .split(',')[0]
-        .trim()
-        .replace(/\b\w/g, c => c.toUpperCase())
-        .replace(/\s+(Washed|In|With)\s+/g, (m, w) => ` — ${w.charAt(0).toUpperCase() + w.slice(1)} `)
-        .trim()
+    const totalSpend = adsTotals.spend
+    const totalImps = adsTotals.impressions
+    const activeCount = ads.filter(a => a.status === 'ACTIVE').length
 
-      const isActive = ad.status === 'ACTIVE'
-      const p = mobile ? 'cd-m' : 'cd'
+    // Delta vs last month
+    const now = new Date()
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const lastMonthKey = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`
+    const currentMonth = adsMonthly.find(m => m.month === currentMonthKey)
+    const lastMonth = adsMonthly.find(m => m.month === lastMonthKey)
+    const spendDelta = lastMonth?.spend > 0 ? Math.round(((currentMonth?.spend || 0) - lastMonth.spend) / lastMonth.spend * 100) : null
+    const impsDelta = lastMonth?.impressions > 0 ? Math.round(((currentMonth?.impressions || 0) - lastMonth.impressions) / lastMonth.impressions * 100) : null
 
+    const percentile = getPercentile(totalSpend)
+    const streakMonths = getStreakMonths()
+    const streakCount = streakMonths.filter(m => m.active && !m.isFuture).length
+
+    const checkSvg = <svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5L4.5 8.5L11 1.5" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>
+
+    if (mobile) {
       return (
-        <div key={i} className={`${p}-ad`}>
-          <div className={`${p}-ad-preview`}>
-            {ad.previewHtml ? (
-              <iframe srcDoc={ad.previewHtml} sandbox="allow-scripts allow-same-origin" scrolling="no" />
-            ) : (
-              <div className={`${p}-ad-preview-txt`}>Preview unavailable</div>
-            )}
+        <div className="cd-m-momentum">
+          <div className="cd-m-momentum-head">
+            <div className="cd-m-momentum-eyebrow">Paid Media</div>
+            <div className="cd-m-momentum-title">Live Ads</div>
           </div>
-          {mobile ? (
-            <div className="cd-m-ad-meta">
-              <div className="cd-m-ad-name">{cleanName}</div>
-              <div className="cd-m-ad-stats">
-                <span className={`cd-m-ad-status ${isActive ? 'cd-m-ad-status-active' : 'cd-m-ad-status-paused'}`}>{isActive ? 'Active' : 'Paused'}</span>
-                <div><div className="cd-m-ad-stat-l">Spent</div><div className="cd-m-ad-stat-v">{formatSpend(ad.spend)}</div></div>
-                <div><div className="cd-m-ad-stat-l">Reach</div><div className="cd-m-ad-stat-v">{formatImpressions(ad.impressions)}</div></div>
-              </div>
+          <div className="cd-m-momentum-stats">
+            <div className="cd-m-momentum-stat">
+              <div className="cd-m-momentum-stat-label">Spent</div>
+              <div className="cd-m-momentum-stat-val">{formatSpend(totalSpend)}</div>
+              {spendDelta !== null && <div className={`cd-m-momentum-delta${spendDelta < 0 ? ' cd-m-momentum-delta-neg' : ''}`}>{spendDelta >= 0 ? '↑' : '↓'} {spendDelta >= 0 ? '+' : ''}{spendDelta}%</div>}
             </div>
-          ) : (
-            <div className="cd-ad-footer">
-              <div className="cd-ad-name">{cleanName}</div>
-              <div className="cd-ad-stats">
-                <span className={`cd-ad-status ${isActive ? 'cd-ad-status-active' : 'cd-ad-status-paused'}`}>{isActive ? 'Active' : 'Paused'}</span>
-                <div><div className="cd-ad-stat-l">Total Spent</div><div className="cd-ad-stat-v">{formatSpend(ad.spend)}</div></div>
-                <div><div className="cd-ad-stat-l">Impressions</div><div className="cd-ad-stat-v">{formatImpressions(ad.impressions)}</div></div>
-              </div>
+            <div className="cd-m-momentum-stat">
+              <div className="cd-m-momentum-stat-label">Impressions</div>
+              <div className="cd-m-momentum-stat-val">{formatImpressions(totalImps)}</div>
+              {impsDelta !== null && <div className={`cd-m-momentum-delta${impsDelta < 0 ? ' cd-m-momentum-delta-neg' : ''}`}>{impsDelta >= 0 ? '↑' : '↓'} {impsDelta >= 0 ? '+' : ''}{impsDelta}%</div>}
             </div>
-          )}
+            <div className="cd-m-momentum-stat">
+              <div className="cd-m-momentum-stat-label">Active</div>
+              <div className="cd-m-momentum-stat-val">{activeCount}</div>
+            </div>
+          </div>
+          <div className="cd-m-percentile">
+            <div>
+              <div className="cd-m-percentile-headline">Your content is in the {percentile.label}.</div>
+              <div className="cd-m-percentile-sub">Nama is scaling spend on your videos.</div>
+            </div>
+            <div>
+              <span className="cd-m-percentile-number">Top {percentile.rank}</span><span className="cd-m-percentile-pct">%</span>
+            </div>
+          </div>
+          <div className="cd-m-streak">
+            <div className="cd-m-streak-label">Active Months — {streakCount} month streak</div>
+            <div className="cd-m-streak-months">
+              {streakMonths.map((m, i) => (
+                <div key={i} className={`cd-m-streak-month${m.active && !m.isFuture ? ' active' : ''}`}>
+                  <div className={`cd-m-streak-dot${!m.active || m.isFuture ? ' empty' : ''}${m.isCurrent ? ' current' : ''}`}>
+                    {m.active && !m.isFuture && checkSvg}
+                  </div>
+                  <div className="cd-m-streak-month-label">{m.label}</div>
+                </div>
+              ))}
+            </div>
+            <div className="cd-m-streak-note">Keep submitting content each month. Longer streaks = higher spend priority.</div>
+          </div>
+          <div className="cd-m-ads-section">
+            <div className="cd-m-ads-label">Running Now</div>
+            {ads.map((ad, i) => {
+              const name = cleanAdName(ad.name)
+              const isActive = ad.status === 'ACTIVE'
+              return (
+                <div key={i} className="cd-m-ad-card">
+                  <div className="cd-m-ad-thumb">
+                    {ad.thumbnailUrl ? <img src={ad.thumbnailUrl} alt={name} /> : <div style={{ width: '100%', height: '100%', background: '#222' }} />}
+                    <div className="cd-m-ad-thumb-overlay">
+                      <div className="cd-m-ad-thumb-name">{name}</div>
+                      <div className={`cd-m-ad-thumb-status${!isActive ? ' cd-m-ad-thumb-status-paused' : ''}`}>● {isActive ? 'Active' : 'Paused'}</div>
+                    </div>
+                  </div>
+                  <div className="cd-m-ad-stats-strip">
+                    <div className="cd-m-ad-stat"><div className="cd-m-ad-stat-l">Spent</div><div className="cd-m-ad-stat-v">{formatSpend(ad.spend)}</div></div>
+                    <div className="cd-m-ad-stat"><div className="cd-m-ad-stat-l">Impressions</div><div className="cd-m-ad-stat-v">{formatImpressions(ad.impressions)}</div></div>
+                    <div className="cd-m-ad-stat"><div className="cd-m-ad-stat-l">Performance</div><div style={{ marginTop: 4 }}>{getScorePill(ad.spend, true)}</div></div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )
-    })
+    }
+
+    return (
+      <div className="cd-momentum">
+        <div className="cd-momentum-head">
+          <div>
+            <div className="cd-momentum-eyebrow">Paid Media</div>
+            <div className="cd-momentum-title">Live Ads</div>
+          </div>
+        </div>
+        <div className="cd-momentum-top">
+          <div className="cd-momentum-stat">
+            <div className="cd-momentum-stat-label">Total Spent on Your Content</div>
+            <div className="cd-momentum-stat-val">{formatSpend(totalSpend)}</div>
+            {spendDelta !== null && <div className={`cd-momentum-delta${spendDelta < 0 ? ' cd-momentum-delta-neg' : ''}`}>{spendDelta >= 0 ? '↑' : '↓'} {spendDelta >= 0 ? '+' : ''}{spendDelta}% vs last month</div>}
+          </div>
+          <div className="cd-momentum-stat">
+            <div className="cd-momentum-stat-label">Impressions</div>
+            <div className="cd-momentum-stat-val">{formatImpressions(totalImps)}</div>
+            {impsDelta !== null && <div className={`cd-momentum-delta${impsDelta < 0 ? ' cd-momentum-delta-neg' : ''}`}>{impsDelta >= 0 ? '↑' : '↓'} {impsDelta >= 0 ? '+' : ''}{impsDelta}% vs last month</div>}
+          </div>
+          <div className="cd-momentum-stat">
+            <div className="cd-momentum-stat-label">Ads Active</div>
+            <div className="cd-momentum-stat-val">{activeCount}</div>
+          </div>
+        </div>
+        <div className="cd-percentile">
+          <div>
+            <div className="cd-percentile-eyebrow">Creator Ranking</div>
+            <div className="cd-percentile-headline">Your content is in the<br />{percentile.label}.</div>
+            <div className="cd-percentile-sub">Nama is scaling spend on your videos.</div>
+          </div>
+          <div>
+            <span className="cd-percentile-number">Top {percentile.rank}</span><span className="cd-percentile-pct">%</span>
+          </div>
+        </div>
+        <div className="cd-streak">
+          <div className="cd-streak-label">Active Months — {streakCount} month streak</div>
+          <div className="cd-streak-months">
+            {streakMonths.map((m, i) => (
+              <div key={i} className={`cd-streak-month${m.active && !m.isFuture ? ' active' : ''}`}>
+                <div className={`cd-streak-dot${!m.active || m.isFuture ? ' empty' : ''}${m.isCurrent ? ' current' : ''}`}>
+                  {m.active && !m.isFuture && checkSvg}
+                </div>
+                <div className="cd-streak-month-label">{m.label}</div>
+              </div>
+            ))}
+          </div>
+          <div className="cd-streak-note">Keep submitting content each month to maintain your streak. Longer streaks = higher spend priority.</div>
+        </div>
+        <div className="cd-ads-section">
+          <div className="cd-ads-section-label">Running Now</div>
+          {ads.map((ad, i) => {
+            const name = cleanAdName(ad.name)
+            const isActive = ad.status === 'ACTIVE'
+            return (
+              <div key={i} className="cd-ad-card">
+                <div className="cd-ad-thumb">
+                  {ad.thumbnailUrl ? <img src={ad.thumbnailUrl} alt={name} /> : <div style={{ width: '100%', height: '100%', background: '#222' }} />}
+                  <div className="cd-ad-thumb-overlay">
+                    <div className="cd-ad-thumb-name">{name}</div>
+                    <div className={`cd-ad-thumb-status${!isActive ? ' cd-ad-thumb-status-paused' : ''}`}>● {isActive ? 'Active' : 'Paused'}</div>
+                  </div>
+                </div>
+                <div className="cd-ad-stats-strip">
+                  <div className="cd-ad-stat"><div className="cd-ad-stat-l">Total Spent</div><div className="cd-ad-stat-v">${parseFloat(ad.spend).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div></div>
+                  <div className="cd-ad-stat"><div className="cd-ad-stat-l">Impressions</div><div className="cd-ad-stat-v">{formatImpressions(ad.impressions)}</div></div>
+                  <div className="cd-ad-stat"><div className="cd-ad-stat-l">Performance</div><div style={{ marginTop: 4 }}>{getScorePill(ad.spend, false)}</div></div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
   }
 
   function renderSubmitContent(mobile) {
@@ -681,10 +1121,19 @@ export default function CreatorDashboard() {
 
   // --- DESKTOP RENDER ---
   function renderDesktopCard() {
+    // Ads tab renders its own card structure (earnings + momentum)
+    if (activeTab === 'ads') {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {renderEarnings(false)}
+          {renderMomentum(false)}
+        </div>
+      )
+    }
+
     const config = {
       wardrobe: { eyebrow: 'Your Collection', title: 'Wardrobe', sub: `${orders.length} piece${orders.length !== 1 ? 's' : ''}` },
       request: { eyebrow: 'Monthly Allowance', title: 'Request Styles' },
-      ads: { eyebrow: 'Paid Media', title: 'Live Ads', badge: adsRunning > 0 },
       submit: { eyebrow: 'Monthly Delivery', title: 'Submit Content' },
     }
     const c = config[activeTab]
@@ -696,13 +1145,11 @@ export default function CreatorDashboard() {
             <div className="cd-card-title">{c.title}</div>
             {c.sub && <div className="cd-card-sub">{c.sub}</div>}
           </div>
-          {c.badge && <div className="cd-badge"><span className="cd-dot" /> {adsRunning} Running</div>}
         </div>
         {activeTab === 'wardrobe' && orders.length === 0 ? renderWardrobe(false) : (
           <div className="cd-card-body">
             {activeTab === 'wardrobe' && renderWardrobe(false)}
             {activeTab === 'request' && renderRequestStyles(false)}
-            {activeTab === 'ads' && renderAds(false)}
             {activeTab === 'submit' && renderSubmitContent(false)}
           </div>
         )}
@@ -860,12 +1307,11 @@ export default function CreatorDashboard() {
             </div>
 
             {/* Live Ads */}
-            <div className="cd-m-section" style={activeTab !== 'ads' ? { display: 'none' } : undefined}>
-              <div className="cd-m-section-head">
-                <div className="cd-m-section-eyebrow">Paid Media</div>
-                <div className="cd-m-section-title">Live Ads</div>
+            <div style={activeTab !== 'ads' ? { display: 'none' } : undefined}>
+              <div className="cd-m-section-body" style={{ padding: '16px 0' }}>
+                {renderEarnings(true)}
+                {renderMomentum(true)}
               </div>
-              <div className="cd-m-section-body">{renderAds(true)}</div>
             </div>
 
             {/* Submit Content */}
