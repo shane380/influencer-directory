@@ -51,7 +51,7 @@ const CSS = `
 .cd-stat-val { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 400; color: #111; }
 
 /* AFFILIATE */
-.cd-aff-wrap { padding: 24px 32px; border-bottom: 1px solid #e8e8e8; }
+.cd-aff-wrap { padding: 24px 32px; border-top: 1px solid #e8e8e8; }
 .cd-aff-block { border: 1px solid #e8e8e8; padding: 16px 18px; border-radius: 0; }
 .cd-aff-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .cd-aff-label { font-size: 9px; letter-spacing: 0.32em; text-transform: uppercase; color: #aaa; }
@@ -1733,6 +1733,20 @@ export default function CreatorDashboard() {
                 </div>
               </div>
 
+              <div className="cd-sidenav">
+                {TABS.map((tab, i) => (
+                  <button
+                    key={tab}
+                    className={`cd-nav-item${activeTab === tab ? ' active' : ''}`}
+                    style={i === TABS.length - 1 ? { borderBottom: 'none' } : undefined}
+                    onClick={() => setActiveTab(tab)}
+                  >
+                    <span className="cd-nav-label">{TAB_LABELS[tab]}</span>
+                    <span className="cd-nav-arrow">→</span>
+                  </button>
+                ))}
+              </div>
+
               {affiliateCode && (
                 <div className="cd-aff-wrap">
                   <div className="cd-aff-block">
@@ -1752,20 +1766,6 @@ export default function CreatorDashboard() {
                   </div>
                 </div>
               )}
-
-              <div className="cd-sidenav">
-                {TABS.map((tab, i) => (
-                  <button
-                    key={tab}
-                    className={`cd-nav-item${activeTab === tab ? ' active' : ''}`}
-                    style={i === TABS.length - 1 ? { borderBottom: 'none' } : undefined}
-                    onClick={() => setActiveTab(tab)}
-                  >
-                    <span className="cd-nav-label">{TAB_LABELS[tab]}</span>
-                    <span className="cd-nav-arrow">→</span>
-                  </button>
-                ))}
-              </div>
             </div>
 
             <div className="cd-content">
