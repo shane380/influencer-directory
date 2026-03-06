@@ -375,11 +375,11 @@ const CSS = `
 /*        MOBILE         */
 /* ===================== */
 .cd-m-wrap { background: #f7f7f7; min-height: 100vh; }
-.cd-m-topbar { padding: 0 20px; height: 52px; background: #fff; border-bottom: 1px solid #e8e8e8; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+.cd-m-topbar { padding: 0 20px; height: 56px; background: #fff; border-bottom: 1px solid #e8e8e8; display: flex; align-items: center; justify-content: center; position: sticky; top: 0; z-index: 100; }
 .cd-m-logo-lockup { display: flex; flex-direction: column; align-items: center; }
-.cd-m-logo { height: 24px; display: block; width: fit-content; }
+.cd-m-logo { height: 28px; display: block; width: fit-content; }
 .cd-m-logo-sub { font-size: 7.5px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; margin-top: 2px; }
-.cd-m-avatar { width: 36px; height: 36px; min-width: 36px; border-radius: 50%; border: 1px solid #e8e8e8; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #555; overflow: hidden; margin-right: 4px; flex-shrink: 0; }
+.cd-m-avatar { width: 36px; height: 36px; min-width: 36px; border-radius: 50%; border: 1px solid #e8e8e8; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #555; overflow: hidden; flex-shrink: 0; position: absolute; right: 20px; }
 .cd-m-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 .cd-m-hero { padding: 28px 20px 24px; border-bottom: 1px solid #e8e8e8; background: #fff; display: none; }
