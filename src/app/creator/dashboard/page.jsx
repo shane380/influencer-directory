@@ -348,7 +348,9 @@ const CSS = `
 
 /* ORDERS CARD */
 .cd-orders { background: #fff; border: 1px solid #e8e8e8; }
-.cd-orders-head { padding: 32px 36px 0; margin-bottom: 28px; }
+.cd-orders-head { padding: 32px 36px 0; margin-bottom: 28px; display: flex; align-items: flex-start; justify-content: space-between; }
+.cd-exchange-btn { font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: #999; padding: 5px 14px; border: 1px solid #e8e8e8; background: none; text-decoration: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; transition: all 0.15s; white-space: nowrap; }
+.cd-exchange-btn:hover { border-color: #111; color: #111; }
 .cd-orders-title { font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 300; color: #111; line-height: 1; }
 .cd-orders-eyebrow { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
 .cd-orders-eyebrow::after { content: ''; width: 32px; height: 1px; background: #e8e8e8; }
@@ -2216,8 +2218,11 @@ export default function CreatorDashboard() {
           {orders.length > 0 && (
             <div className="cd-orders">
               <div className="cd-orders-head">
-                <div className="cd-orders-eyebrow">Shipment History</div>
-                <div className="cd-orders-title">Orders</div>
+                <div>
+                  <div className="cd-orders-eyebrow">Shipment History</div>
+                  <div className="cd-orders-title">Orders</div>
+                </div>
+                <a href="https://namaclo.returnlogic.com/" target="_blank" rel="noopener noreferrer" className="cd-exchange-btn">Start an Exchange →</a>
               </div>
               {renderOrderHistory(false)}
             </div>
