@@ -438,7 +438,7 @@ export default function InvitePage() {
             <div className="ni-m-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
             <div className="ni-m-option-name">Monthly Retainer</div>
             <div className="ni-m-option-rule" />
-            <div className="ni-m-option-detail">Fixed payment on the 1st · {videos} videos per month · No performance pressure</div>
+            <div className="ni-m-option-detail">{commissionRate > 0 && <>{commissionRate}% commission on sales · </>}Fixed payment on the 1st · {videos} videos per month · No performance pressure</div>
           </div>
           <div className="ni-m-option-hint">More details on the next page</div>
         </div>
@@ -452,7 +452,7 @@ export default function InvitePage() {
           <div className="ni-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
           <div className="ni-option-name">Monthly Retainer</div>
           <div className="ni-option-rule" />
-          <div className="ni-option-detail">Fixed payment on the 1st<br />{videos} videos per month<br />No performance pressure</div>
+          <div className="ni-option-detail">{commissionRate > 0 && <>{commissionRate}% commission on sales<br /></>}Fixed payment on the 1st<br />{videos} videos per month<br />No performance pressure</div>
         </div>
         <div className="ni-option-hint">More details on the next page</div>
       </div>
@@ -470,7 +470,7 @@ export default function InvitePage() {
             <div className="ni-m-option-rate">{adSpendPct}<sup>%</sup></div>
             <div className="ni-m-option-name">% of Ad Spend</div>
             <div className="ni-m-option-rule" />
-            <div className="ni-m-option-detail">{adSpendPct}% of monthly spend · {adSpendMin ? <><strong>${adSpendMin.toLocaleString()} min in month 1</strong> · </> : ''}Uncapped</div>
+            <div className="ni-m-option-detail">{commissionRate > 0 && <>{commissionRate}% commission on sales · </>}{adSpendPct}% of monthly spend · {adSpendMin ? <><strong>${adSpendMin.toLocaleString()} min in month 1</strong> · </> : ''}Uncapped</div>
           </div>
           <div className="ni-m-option-hint">More details on the next page</div>
         </div>
@@ -484,7 +484,7 @@ export default function InvitePage() {
           <div className="ni-option-rate">{adSpendPct}<sup>%</sup></div>
           <div className="ni-option-name">% of Ad Spend</div>
           <div className="ni-option-rule" />
-          <div className="ni-option-detail">{adSpendPct}% of monthly ad spend<br />{adSpendMin ? <><strong>${adSpendMin.toLocaleString()} minimum in month 1</strong><br /></> : ''}Uncapped earning potential</div>
+          <div className="ni-option-detail">{commissionRate > 0 && <>{commissionRate}% commission on sales<br /></>}{adSpendPct}% of monthly ad spend<br />{adSpendMin ? <><strong>${adSpendMin.toLocaleString()} minimum in month 1</strong><br /></> : ''}Uncapped earning potential</div>
         </div>
         <div className="ni-option-hint">More details on the next page</div>
       </div>
