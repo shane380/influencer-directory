@@ -527,7 +527,7 @@ const CSS = `
 .cd-m-submit:disabled { background: #ccc; cursor: not-allowed; }
 
 /* MOBILE BOTTOM NAV */
-.cd-m-bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid #e8e8e8; display: flex; padding: 10px 0 20px; z-index: 50; }
+.cd-m-bottom-nav { position: sticky; top: 52px; left: 0; right: 0; background: #fff; border-bottom: 1px solid #e8e8e8; display: flex; padding: 10px 0; z-index: 90; }
 .cd-m-nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; background: none; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
 .cd-m-nav-label { font-size: 8.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #aaa; }
 .cd-m-nav-item.active .cd-m-nav-label { color: #111; }
@@ -2363,6 +2363,15 @@ export default function CreatorDashboard() {
             </div>
           </div>
 
+          <div className="cd-m-bottom-nav">
+            {TABS.map(tab => (
+              <button key={tab} className={`cd-m-nav-item${activeTab === tab ? ' active' : ''}`} onClick={() => setActiveTab(tab)}>
+                <div className="cd-m-nav-tick" />
+                <div className="cd-m-nav-label">{TAB_LABELS_SHORT[tab]}</div>
+              </button>
+            ))}
+          </div>
+
           <div className="cd-m-hero">
             <div className="cd-m-eyebrow">Creator Portal</div>
             {photoUrl ? (
@@ -2469,14 +2478,6 @@ export default function CreatorDashboard() {
             </div>
           </div>
 
-          <div className="cd-m-bottom-nav">
-            {TABS.map(tab => (
-              <button key={tab} className={`cd-m-nav-item${activeTab === tab ? ' active' : ''}`} onClick={() => setActiveTab(tab)}>
-                <div className="cd-m-nav-tick" />
-                <div className="cd-m-nav-label">{TAB_LABELS_SHORT[tab]}</div>
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
