@@ -23,6 +23,7 @@ interface Payment {
   approved_at: string | null;
   paid_by: string | null;
   paid_at: string | null;
+  deal_id: string | null;
   calculation_details: any;
   created_at: string;
   influencer: {
@@ -30,6 +31,12 @@ interface Payment {
     name: string;
     instagram_handle: string;
     profile_photo_url: string | null;
+  } | null;
+  deal: {
+    id: string;
+    total_deal_value: number;
+    payment_status: string;
+    campaign: { name: string } | null;
   } | null;
 }
 
@@ -323,6 +330,13 @@ export default function PaymentsPage() {
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider border ${tc.color}`}>
                         {tc.label}
                       </span>
+
+                      {/* Campaign name for paid collab */}
+                      {p.payment_type === "paid_collab" && p.deal?.campaign?.name && (
+                        <span className="text-xs text-gray-500 truncate max-w-[150px]" title={p.deal.campaign.name}>
+                          {p.deal.campaign.name}
+                        </span>
+                      )}
 
                       {/* Expand button for affiliate rows with details */}
                       {p.payment_type === "affiliate_commission" && p.calculation_details?.orders?.length > 0 && (

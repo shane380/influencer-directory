@@ -42,10 +42,25 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Enrich paid_collab rows with deal/campaign data
+  const dealIds = [...new Set((payments || []).map((p: any) => p.deal_id).filter(Boolean))];
+  let dealMap: Record<string, any> = {};
+  if (dealIds.length > 0) {
+    const { data: deals } = await supabase
+      .from("campaign_deals")
+      .select("id, total_deal_value, payment_status, campaign:campaigns!campaign_deals_campaign_id_fkey(name)")
+      .in("id", dealIds);
+
+    for (const d of deals || []) {
+      dealMap[d.id] = d;
+    }
+  }
+
   for (const p of payments || []) {
     enriched.push({
       ...p,
       influencer: influencerMap[p.influencer_id] || null,
+      deal: p.deal_id ? dealMap[p.deal_id] || null : null,
     });
   }
 

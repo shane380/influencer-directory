@@ -187,6 +187,87 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // --- Paid Collabs ---
+  // Fetch confirmed campaign deals for this month (based on campaign start_date)
+  const { data: deals } = await supabase
+    .from("campaign_deals")
+    .select("id, influencer_id, total_deal_value, notes, campaign:campaigns!campaign_deals_campaign_id_fkey(id, name, start_date)")
+    .eq("deal_status", "confirmed");
+
+  for (const deal of deals || []) {
+    const campaign = (deal as any).campaign;
+    if (!campaign?.start_date) continue;
+
+    // Match campaign start_date month to requested month
+    const campaignMonth = campaign.start_date.substring(0, 7); // "2026-03"
+    if (campaignMonth !== month) continue;
+
+    const influencerId = deal.influencer_id;
+    const dealId = deal.id;
+
+    // Check if a payment row already exists for this deal+month
+    const { data: existingDeal } = await (supabase.from as any)("creator_payments")
+      .select("id")
+      .eq("influencer_id", influencerId)
+      .eq("month", month)
+      .eq("payment_type", "paid_collab")
+      .eq("deal_id", dealId);
+
+    if (existingDeal && existingDeal.length > 0) {
+      skipped++;
+      continue;
+    }
+
+    // Try to get payment method from creators table (if they're a creator)
+    let paymentMethod = null;
+    let paymentDetail = null;
+
+    const { data: creatorLink } = await (supabase.from as any)("creator_invites")
+      .select("id")
+      .eq("influencer_id", influencerId)
+      .limit(1);
+
+    if (creatorLink && creatorLink.length > 0) {
+      const { data: creatorData } = await (supabase.from as any)("creators")
+        .select("payment_method, paypal_email, bank_account_number")
+        .eq("invite_id", creatorLink[0].id)
+        .single();
+
+      if (creatorData) {
+        paymentMethod = creatorData.payment_method || null;
+        if (paymentMethod === "paypal") {
+          paymentDetail = creatorData.paypal_email || null;
+        } else if (paymentMethod === "bank") {
+          const acct = creatorData.bank_account_number || "";
+          paymentDetail = acct ? `···${acct.slice(-4)}` : null;
+        }
+      }
+    }
+
+    const amount = deal.total_deal_value || 0;
+    const note = `${campaign.name}${deal.notes ? ` — ${deal.notes}` : ""}`;
+
+    const { error } = await (supabase.from as any)("creator_payments").insert({
+      influencer_id: influencerId,
+      month,
+      payment_type: "paid_collab",
+      deal_id: dealId,
+      amount_owed: amount,
+      payment_method: paymentMethod,
+      payment_detail: paymentDetail,
+      notes: note,
+    });
+
+    if (error) {
+      console.error(`Paid collab insert error for deal ${dealId}:`, error);
+      errors++;
+      details.push(`Error: paid_collab deal ${dealId}: ${error.message}`);
+    } else {
+      created++;
+      details.push(`Created: paid_collab - ${campaign.name} ($${amount})`);
+    }
+  }
+
   return NextResponse.json({
     summary: { created, skipped, errors },
     details,
