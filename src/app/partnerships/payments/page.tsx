@@ -85,7 +85,12 @@ export default function PaymentsPage() {
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setCurrentUser({ email: user.email, isAdmin: true });
+      if (user) setCurrentUser({
+        displayName: user.user_metadata?.full_name || user.email || "Admin",
+        email: user.email || "",
+        profilePhotoUrl: user.user_metadata?.avatar_url || null,
+        isAdmin: true,
+      });
     });
   }, []);
 
@@ -212,7 +217,7 @@ export default function PaymentsPage() {
           router.push("/login");
         }}
       />
-      <main className="flex-1 p-8 overflow-auto">
+      <main className="flex-1 p-8 overflow-auto ml-48">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
