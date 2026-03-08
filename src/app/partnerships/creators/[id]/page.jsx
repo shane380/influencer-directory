@@ -225,6 +225,16 @@ export default function AdminCreatorProfile() {
                 )}
               </div>
               <div className="ml-auto flex items-center gap-2">
+                {invite?.slug && (
+                  <a
+                    href={`${process.env.NEXT_PUBLIC_APP_URL || 'https://creators.namaclo.com'}/invite/${invite.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 border rounded text-xs text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    View Profile
+                  </a>
+                )}
                 {invite && (
                   <button
                     onClick={() => setShowEditTerms(true)}

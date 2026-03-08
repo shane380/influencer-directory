@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { createInvite } from "@/lib/invites";
 import { Sidebar } from "@/components/sidebar";
-import { X, Search, Copy, Check, Settings } from "lucide-react";
+import { X, Search, Copy, Check, Settings, ExternalLink } from "lucide-react";
 import { EditTermsModal } from "@/components/edit-terms-modal";
 
 interface Creator {
@@ -24,6 +24,7 @@ interface Creator {
   } | null;
   pending_requests: number;
   last_submission: string | null;
+  invite_slug: string | null;
 }
 
 interface InfluencerResult {
@@ -107,13 +108,16 @@ export default function CreatorsListPage() {
       const enriched = await Promise.all(
         creatorsData.map(async (c: any) => {
           let influencer = null;
+          let invite_slug: string | null = null;
 
           if (c.invite_id) {
             const { data: invite } = await supabase
               .from("creator_invites" as any)
-              .select("influencer_id")
+              .select("influencer_id, slug")
               .eq("id", c.invite_id)
               .single() as any;
+
+            invite_slug = invite?.slug || null;
 
             if (invite?.influencer_id) {
               const { data: inf } = await supabase
@@ -143,6 +147,7 @@ export default function CreatorsListPage() {
             influencer,
             pending_requests: count || 0,
             last_submission: lastSub?.[0]?.created_at || null,
+            invite_slug,
           } as Creator;
         })
       );
@@ -446,22 +451,36 @@ export default function CreatorsListPage() {
                           : "—"}
                       </td>
                       <td className="px-4 py-3">
-                        {creator.invite_id && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openEditTerms(creator.id, creator.invite_id);
-                            }}
-                            className="text-gray-400 hover:text-gray-600 transition-colors"
-                            title="Edit Terms"
-                          >
-                            {editTermsLoading === creator.id ? (
-                              <span className="text-xs">...</span>
-                            ) : (
-                              <Settings className="h-4 w-4" />
-                            )}
-                          </button>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {creator.invite_slug && (
+                            <a
+                              href={`${process.env.NEXT_PUBLIC_APP_URL || "https://creators.namaclo.com"}/invite/${creator.invite_slug}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-gray-400 hover:text-gray-600 transition-colors"
+                              title="View Creator Profile"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          )}
+                          {creator.invite_id && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditTerms(creator.id, creator.invite_id);
+                              }}
+                              className="text-gray-400 hover:text-gray-600 transition-colors"
+                              title="Edit Terms"
+                            >
+                              {editTermsLoading === creator.id ? (
+                                <span className="text-xs">...</span>
+                              ) : (
+                                <Settings className="h-4 w-4" />
+                              )}
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
