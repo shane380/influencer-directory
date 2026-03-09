@@ -624,7 +624,6 @@ export default function CreatorDashboard() {
   const supabase = createClient()
 
   const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(null)
   const [creator, setCreator] = useState(null)
   const [invite, setInvite] = useState(null)
   const [influencer, setInfluencer] = useState(null)
@@ -696,6 +695,7 @@ export default function CreatorDashboard() {
   const [paymentForm, setPaymentForm] = useState({ paypalEmail: '', bankName: '', bankInstitution: '', bankAccount: '', bankRouting: '' })
   const [paymentSaving, setPaymentSaving] = useState(false)
   const [paymentSaved, setPaymentSaved] = useState(false)
+  const [wardrobeExpanded, setWardrobeExpanded] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -862,7 +862,6 @@ export default function CreatorDashboard() {
       Promise.all(bgTasks).catch(() => {})
       } catch (err) {
         console.error('Creator dashboard load error:', err)
-        setLoadError(err?.message || String(err))
         setLoading(false)
       }
     }
@@ -1141,18 +1140,6 @@ export default function CreatorDashboard() {
     return n.toLocaleString()
   }
 
-  if (loadError) {
-    return (
-      <div className="cd-wrap">
-        <style dangerouslySetInnerHTML={{ __html: CSS }} />
-        <div style={{ padding: 40, textAlign: 'center' }}>
-          <div style={{ fontSize: 14, color: '#c00', marginBottom: 8 }}>Something went wrong loading the dashboard.</div>
-          <div style={{ fontSize: 12, color: '#888', fontFamily: 'monospace' }}>{loadError}</div>
-        </div>
-      </div>
-    )
-  }
-
   if (loading) {
     return (
       <div className="cd-wrap">
@@ -1214,8 +1201,6 @@ export default function CreatorDashboard() {
       setFeedbackDone(prev => ({ ...prev, [key]: true }))
     } catch {}
   }
-
-  const [wardrobeExpanded, setWardrobeExpanded] = useState(false)
 
   function renderWardrobeGrid(mobile) {
     const allItems = getAllLineItems()
