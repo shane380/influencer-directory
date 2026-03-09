@@ -460,15 +460,35 @@ export default function InvitePage() {
   // Agree text
   function getAgreeText() {
     const commitmentText = minimumCommitment ? `${minimumCommitment}-month minimum` : 'month-to-month'
-    const affiliateAddon = hasAffiliateAddon ? `, plus ${commissionRate}% affiliate commission on sales generated through my unique link and discount code` : ''
-    if (selectedDeal === 'retainer') {
-      return `I agree to provide ${videos} UGC videos per month in exchange for a $${retainerAmount?.toLocaleString()} monthly retainer${affiliateAddon}, with one round of revisions per video included. This partnership is ${commitmentText}, payable on the last day of each month.`
+    const paymentLine = 'Payment is made on the last day of each month via e-transfer or PayPal.'
+    const usageLine = 'I retain ownership of my original content; Nama is licensed to use it for paid media and organic channels during the partnership and for 6 months after it ends.'
+
+    // Determine which components apply based on selectedDeal and flags
+    const isRetainer = selectedDeal === 'retainer'
+    const isAdSpend = selectedDeal === 'ad_spend'
+    const isAffiliate = selectedDeal === 'affiliate' || (!isRetainer && !isAdSpend)
+    const hasAffiliate = hasAffiliateAddon
+
+    const retainerComponent = `I agree to provide ${videos} UGC videos per month in exchange for a $${retainerAmount?.toLocaleString()}/month retainer, with one round of minor revisions per video included. This partnership is ${commitmentText} with 2 weeks notice to end.`
+    const adSpendComponent = `I will earn ${adSpendPct}% of Nama's monthly ad spend on my content.`
+    const affiliateComponent = `I will earn ${commissionRate}% commission on all completed sales attributed to my unique link or discount code. Returned or refunded orders are excluded.`
+
+    const parts = []
+
+    if (isRetainer && hasAffiliate) {
+      parts.push(retainerComponent, `Additionally, ${affiliateComponent.charAt(0).toLowerCase() + affiliateComponent.slice(1)}`)
+    } else if (isRetainer) {
+      parts.push(retainerComponent)
+    } else if (isAdSpend && hasAffiliate) {
+      parts.push("I agree to participate in Nama's whitelisting program and affiliate program.", adSpendComponent, affiliateComponent)
+    } else if (isAdSpend) {
+      parts.push("I agree to participate in Nama's whitelisting program.", adSpendComponent)
+    } else if (isAffiliate) {
+      parts.push('I agree to promote Nama using my unique affiliate link and discount code.', affiliateComponent)
     }
-    if (selectedDeal === 'ad_spend') {
-      const minText = adSpendMin ? `, with a guaranteed minimum of $${adSpendMin.toLocaleString()} in month one` : ''
-      return `I agree to provide ${videos} UGC videos per month in exchange for ${adSpendPct}% of monthly ad spend${minText}${affiliateAddon}, with one round of revisions per video included. This partnership is ${commitmentText}, payable on the last day of each month.`
-    }
-    return `I agree to provide ${videos} UGC videos per month in exchange for ${commissionRate}% affiliate commission on sales generated through my unique link and discount code, with one round of revisions per video included. This partnership is ${commitmentText}, payable on the last day of each month.`
+
+    parts.push(paymentLine, usageLine)
+    return parts.join(' ')
   }
 
   // --- RENDER HELPERS ---
