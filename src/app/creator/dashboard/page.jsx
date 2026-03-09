@@ -624,6 +624,7 @@ export default function CreatorDashboard() {
   const supabase = createClient()
 
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
   const [creator, setCreator] = useState(null)
   const [invite, setInvite] = useState(null)
   const [influencer, setInfluencer] = useState(null)
@@ -698,6 +699,7 @@ export default function CreatorDashboard() {
 
   useEffect(() => {
     async function load() {
+      try {
       // Check if admin is viewing a specific creator's profile
       const urlCreatorId = new URLSearchParams(window.location.search).get('creator_id')
 
@@ -858,6 +860,11 @@ export default function CreatorDashboard() {
 
       // Fire all background tasks (don't await — they update state independently)
       Promise.all(bgTasks).catch(() => {})
+      } catch (err) {
+        console.error('Creator dashboard load error:', err)
+        setLoadError(err?.message || String(err))
+        setLoading(false)
+      }
     }
     load()
   }, [])
@@ -1132,6 +1139,18 @@ export default function CreatorDashboard() {
     if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
     if (n >= 1000) return `${(n / 1000).toFixed(1)}K`
     return n.toLocaleString()
+  }
+
+  if (loadError) {
+    return (
+      <div className="cd-wrap">
+        <style dangerouslySetInnerHTML={{ __html: CSS }} />
+        <div style={{ padding: 40, textAlign: 'center' }}>
+          <div style={{ fontSize: 14, color: '#c00', marginBottom: 8 }}>Something went wrong loading the dashboard.</div>
+          <div style={{ fontSize: 12, color: '#888', fontFamily: 'monospace' }}>{loadError}</div>
+        </div>
+      </div>
+    )
   }
 
   if (loading) {
