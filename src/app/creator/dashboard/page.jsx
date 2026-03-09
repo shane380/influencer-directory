@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
@@ -619,7 +619,15 @@ const TABS = ['ads', 'campaigns', 'wardrobe', 'request', 'submit', 'settings']
 const TAB_LABELS = { wardrobe: 'Wardrobe & Orders', request: 'Request New Styles', ads: 'Ads', campaigns: 'Campaigns', submit: 'Submit Content', settings: 'Payment Info' }
 const TAB_LABELS_SHORT = { wardrobe: 'Wardrobe', request: 'Request', ads: 'Ads', campaigns: 'Campaigns', submit: 'Submit Content', settings: 'Payment' }
 
-export default function CreatorDashboard() {
+export default function CreatorDashboardPage() {
+  return (
+    <Suspense fallback={<div className="cd-wrap"><style dangerouslySetInnerHTML={{ __html: CSS }} /><div className="cd-loading">Loading...</div></div>}>
+      <CreatorDashboard />
+    </Suspense>
+  )
+}
+
+function CreatorDashboard() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
