@@ -116,8 +116,12 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const errorData = await response.json();
       console.error("Shopify API error:", errorData);
+      const errors = errorData.errors;
+      const errorMsg = typeof errors === 'string'
+        ? errors
+        : errors ? JSON.stringify(errors) : "Failed to create draft order in Shopify";
       return NextResponse.json(
-        { error: errorData.errors || "Failed to create draft order in Shopify" },
+        { error: errorMsg },
         { status: response.status }
       );
     }
