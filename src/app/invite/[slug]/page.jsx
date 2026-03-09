@@ -629,6 +629,10 @@ export default function InvitePage() {
                 <div className="ni-faq-a">Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. Structural re-shoots or concept changes are by mutual agreement.</div>
               </div>
               <div className="ni-faq-item">
+                <div className="ni-faq-q">What if Nama needs a full re-shoot?</div>
+                <div className="ni-faq-a">Minor edits are included. If a full re-shoot or concept change is needed, we&apos;ll discuss it together and agree on terms before proceeding.</div>
+              </div>
+              <div className="ni-faq-item">
                 <div className="ni-faq-q">Is this month-to-month or a fixed contract?</div>
                 <div className="ni-faq-a">{minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'}</div>
               </div>
@@ -705,6 +709,10 @@ export default function InvitePage() {
               <div className="ni-faq-item">
                 <div className="ni-faq-q">How many revisions are included?</div>
                 <div className="ni-faq-a">Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. Structural re-shoots or concept changes are by mutual agreement.</div>
+              </div>
+              <div className="ni-faq-item">
+                <div className="ni-faq-q">What if Nama needs a full re-shoot?</div>
+                <div className="ni-faq-a">Minor edits are included. If a full re-shoot or concept change is needed, we&apos;ll discuss it together and agree on terms before proceeding.</div>
               </div>
               <div className="ni-faq-item">
                 <div className="ni-faq-q">Is this month-to-month or a fixed contract?</div>
@@ -881,6 +889,10 @@ export default function InvitePage() {
                 <div className="ni-m-faq-a">Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. Structural re-shoots or concept changes are by mutual agreement.</div>
               </div>
               <div className="ni-m-faq-item">
+                <div className="ni-m-faq-q">What if Nama needs a full re-shoot?</div>
+                <div className="ni-m-faq-a">Minor edits are included. If a full re-shoot or concept change is needed, we&apos;ll discuss it together and agree on terms before proceeding.</div>
+              </div>
+              <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">Is this month-to-month or a fixed contract?</div>
                 <div className="ni-m-faq-a">{minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'}</div>
               </div>
@@ -943,6 +955,10 @@ export default function InvitePage() {
               <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">How many revisions are included?</div>
                 <div className="ni-m-faq-a">Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. Structural re-shoots or concept changes are by mutual agreement.</div>
+              </div>
+              <div className="ni-m-faq-item">
+                <div className="ni-m-faq-q">What if Nama needs a full re-shoot?</div>
+                <div className="ni-m-faq-a">Minor edits are included. If a full re-shoot or concept change is needed, we&apos;ll discuss it together and agree on terms before proceeding.</div>
               </div>
               <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">Is this month-to-month or a fixed contract?</div>
