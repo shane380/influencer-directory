@@ -607,7 +607,7 @@ export default function InvitePage() {
                 )}
               </div>
             </div>
-            <div className="ni-footnote">Content is licensed to Nama for paid media and organic use during the partnership, and for 6 months after it ends.</div>
+            <div className="ni-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months after it ends.</div>
             <div className="ni-sec-label">Partnership Perks</div>
             {renderDesktopPerks()}
             <div className="ni-highlight">
@@ -638,7 +638,7 @@ export default function InvitePage() {
               </div>
               <div className="ni-faq-item">
                 <div className="ni-faq-q">How do I submit my content?</div>
-                <div className="ni-faq-a">Through your creator dashboard. You&apos;ll get access immediately after signing up.</div>
+                <div className="ni-faq-a">Through your Nama Partners dashboard. You&apos;ll get access immediately after signing up.</div>
               </div>
             </div>
             <div className="ni-agree-row">
@@ -679,7 +679,7 @@ export default function InvitePage() {
                 )}
               </div>
             </div>
-            <div className="ni-footnote">Content is licensed to Nama for paid media and organic use during the partnership, and for 6 months after it ends.</div>
+            <div className="ni-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months after it ends.</div>
             <div className="ni-sec-label">Partnership Perks</div>
             {renderDesktopPerks()}
             <div className="ni-highlight">
@@ -713,6 +713,10 @@ export default function InvitePage() {
               <div className="ni-faq-item">
                 <div className="ni-faq-q">What if Nama needs a full re-shoot?</div>
                 <div className="ni-faq-a">Minor edits are included. If a full re-shoot or concept change is needed, we&apos;ll discuss it together and agree on terms before proceeding.</div>
+              </div>
+              <div className="ni-faq-item">
+                <div className="ni-faq-q">How do I submit my content?</div>
+                <div className="ni-faq-a">Through your Nama Partners dashboard. You&apos;ll get access immediately after signing up.</div>
               </div>
               <div className="ni-faq-item">
                 <div className="ni-faq-q">Is this month-to-month or a fixed contract?</div>
@@ -755,12 +759,31 @@ export default function InvitePage() {
               )}
             </div>
           </div>
-          <div className="ni-footnote">Content is licensed to Nama for paid media and organic use during the partnership, and for 6 months after it ends.</div>
+          <div className="ni-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months after it ends.</div>
           <div className="ni-sec-label">Partnership Perks</div>
           {renderDesktopPerks()}
           <div className="ni-highlight">
             <div><div className="ni-highlight-tag">Affiliate Commission</div><div className="ni-highlight-val">{commissionRate}<sup>%</sup></div></div>
             <div className="ni-highlight-desc">On every sale through your link. No cap, paid monthly.</div>
+          </div>
+          <div className="ni-sec-label">How It Works</div>
+          <div className="ni-faq">
+            <div className="ni-faq-item">
+              <div className="ni-faq-q">How does the tracking work?</div>
+              <div className="ni-faq-a">Every sale made using your unique link or discount code is tracked automatically. You can see your orders and earnings in your Nama Partners dashboard.</div>
+            </div>
+            <div className="ni-faq-item">
+              <div className="ni-faq-q">When do I get paid?</div>
+              <div className="ni-faq-a">Commission is calculated at the end of each month and paid on the last day of the month via e-transfer or PayPal.</div>
+            </div>
+            <div className="ni-faq-item">
+              <div className="ni-faq-q">What counts as a sale?</div>
+              <div className="ni-faq-a">Any completed order placed using your discount code or affiliate link. Returned or refunded orders are excluded from your commission.</div>
+            </div>
+            <div className="ni-faq-item">
+              <div className="ni-faq-q">Is there a minimum to get paid?</div>
+              <div className="ni-faq-a">No minimum — any commission earned that month gets paid out.</div>
+            </div>
           </div>
           <div className="ni-agree-row">
             <input type="checkbox" className="ni-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
@@ -867,7 +890,7 @@ export default function InvitePage() {
             )}
             <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
             <div className="ni-m-term-row"><span className="ni-m-term-key">Contract</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
-            <div className="ni-m-footnote">Content is licensed to Nama for paid media and organic use during the partnership, and for 6 months after it ends.</div>
+            <div className="ni-m-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months after it ends.</div>
             <div className="ni-m-sec-label">Perks</div>
             {renderMobilePerks()}
             <div className="ni-m-highlight">
@@ -898,7 +921,7 @@ export default function InvitePage() {
               </div>
               <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">How do I submit my content?</div>
-                <div className="ni-m-faq-a">Through your creator dashboard. You&apos;ll get access immediately after signing up.</div>
+                <div className="ni-m-faq-a">Through your Nama Partners dashboard. You&apos;ll get access immediately after signing up.</div>
               </div>
             </div>
             <div className="ni-m-agree-row">
@@ -921,7 +944,7 @@ export default function InvitePage() {
             )}
             <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
             <div className="ni-m-term-row"><span className="ni-m-term-key">Contract</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
-            <div className="ni-m-footnote">Content is licensed to Nama for paid media and organic use during the partnership, and for 6 months after it ends.</div>
+            <div className="ni-m-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months after it ends.</div>
             <div className="ni-m-sec-label">Perks</div>
             <div style={{ marginBottom: 20 }}>
               {PERKS.map((p, i) => (
@@ -961,6 +984,10 @@ export default function InvitePage() {
                 <div className="ni-m-faq-a">Minor edits are included. If a full re-shoot or concept change is needed, we&apos;ll discuss it together and agree on terms before proceeding.</div>
               </div>
               <div className="ni-m-faq-item">
+                <div className="ni-m-faq-q">How do I submit my content?</div>
+                <div className="ni-m-faq-a">Through your Nama Partners dashboard. You&apos;ll get access immediately after signing up.</div>
+              </div>
+              <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">Is this month-to-month or a fixed contract?</div>
                 <div className="ni-m-faq-a">{minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'}</div>
               </div>
@@ -986,12 +1013,31 @@ export default function InvitePage() {
           <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% per sale</div><div className="ni-m-term-secondary">Via your unique link &amp; discount code</div></div></div>
           <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
           <div className="ni-m-term-row"><span className="ni-m-term-key">Contract</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
-          <div className="ni-m-footnote">Content is licensed to Nama for paid media and organic use during the partnership, and for 6 months after it ends.</div>
+          <div className="ni-m-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months after it ends.</div>
           <div className="ni-m-sec-label">Perks</div>
           {renderMobilePerks()}
           <div className="ni-m-highlight">
             <div><div className="ni-m-highlight-tag">Affiliate Commission</div><div className="ni-m-highlight-val">{commissionRate}<sup>%</sup></div></div>
             <div className="ni-m-highlight-desc">On every sale through your link. No cap.</div>
+          </div>
+          <div className="ni-m-sec-label">How It Works</div>
+          <div className="ni-m-faq">
+            <div className="ni-m-faq-item">
+              <div className="ni-m-faq-q">How does the tracking work?</div>
+              <div className="ni-m-faq-a">Every sale made using your unique link or discount code is tracked automatically. You can see your orders and earnings in your Nama Partners dashboard.</div>
+            </div>
+            <div className="ni-m-faq-item">
+              <div className="ni-m-faq-q">When do I get paid?</div>
+              <div className="ni-m-faq-a">Commission is calculated at the end of each month and paid on the last day of the month via e-transfer or PayPal.</div>
+            </div>
+            <div className="ni-m-faq-item">
+              <div className="ni-m-faq-q">What counts as a sale?</div>
+              <div className="ni-m-faq-a">Any completed order placed using your discount code or affiliate link. Returned or refunded orders are excluded from your commission.</div>
+            </div>
+            <div className="ni-m-faq-item">
+              <div className="ni-m-faq-q">Is there a minimum to get paid?</div>
+              <div className="ni-m-faq-a">No minimum — any commission earned that month gets paid out.</div>
+            </div>
           </div>
           <div className="ni-m-agree-row">
             <input type="checkbox" className="ni-m-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
