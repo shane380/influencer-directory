@@ -607,7 +607,7 @@ export default function InvitePage() {
                 )}
               </div>
             </div>
-            <div className="ni-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for as long as we&apos;re actively working together. If the partnership ends, usage rights end with it.</div>
+            <div className="ni-footnote">Content is licensed to Nama for paid media and organic use during the partnership, and for 6 months after it ends.</div>
             <div className="ni-sec-label">Partnership Perks</div>
             {renderDesktopPerks()}
             <div className="ni-highlight">
@@ -675,7 +675,7 @@ export default function InvitePage() {
                 )}
               </div>
             </div>
-            <div className="ni-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for as long as we&apos;re actively working together. If the partnership ends, usage rights end with it.</div>
+            <div className="ni-footnote">Content is licensed to Nama for paid media and organic use during the partnership, and for 6 months after it ends.</div>
             <div className="ni-sec-label">Partnership Perks</div>
             {renderDesktopPerks()}
             <div className="ni-highlight">
@@ -747,7 +747,7 @@ export default function InvitePage() {
               )}
             </div>
           </div>
-          <div className="ni-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for as long as we&apos;re actively working together. If the partnership ends, usage rights end with it.</div>
+          <div className="ni-footnote">Content is licensed to Nama for paid media and organic use during the partnership, and for 6 months after it ends.</div>
           <div className="ni-sec-label">Partnership Perks</div>
           {renderDesktopPerks()}
           <div className="ni-highlight">
@@ -859,7 +859,7 @@ export default function InvitePage() {
             )}
             <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
             <div className="ni-m-term-row"><span className="ni-m-term-key">Contract</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
-            <div className="ni-m-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for as long as we&apos;re actively working together. If the partnership ends, usage rights end with it.</div>
+            <div className="ni-m-footnote">Content is licensed to Nama for paid media and organic use during the partnership, and for 6 months after it ends.</div>
             <div className="ni-m-sec-label">Perks</div>
             {renderMobilePerks()}
             <div className="ni-m-highlight">
@@ -909,7 +909,7 @@ export default function InvitePage() {
             )}
             <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
             <div className="ni-m-term-row"><span className="ni-m-term-key">Contract</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
-            <div className="ni-m-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for as long as we&apos;re actively working together. If the partnership ends, usage rights end with it.</div>
+            <div className="ni-m-footnote">Content is licensed to Nama for paid media and organic use during the partnership, and for 6 months after it ends.</div>
             <div className="ni-m-sec-label">Perks</div>
             <div style={{ marginBottom: 20 }}>
               {PERKS.map((p, i) => (
@@ -970,7 +970,7 @@ export default function InvitePage() {
           <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% per sale</div><div className="ni-m-term-secondary">Via your unique link &amp; discount code</div></div></div>
           <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
           <div className="ni-m-term-row"><span className="ni-m-term-key">Contract</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
-          <div className="ni-m-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for as long as we&apos;re actively working together. If the partnership ends, usage rights end with it.</div>
+          <div className="ni-m-footnote">Content is licensed to Nama for paid media and organic use during the partnership, and for 6 months after it ends.</div>
           <div className="ni-m-sec-label">Perks</div>
           {renderMobilePerks()}
           <div className="ni-m-highlight">
