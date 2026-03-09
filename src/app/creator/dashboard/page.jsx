@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState, useCallback, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useEffect, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 const CSS = `
@@ -619,19 +619,15 @@ const TABS = ['ads', 'campaigns', 'wardrobe', 'request', 'submit', 'settings']
 const TAB_LABELS = { wardrobe: 'Wardrobe & Orders', request: 'Request New Styles', ads: 'Ads', campaigns: 'Campaigns', submit: 'Submit Content', settings: 'Payment Info' }
 const TAB_LABELS_SHORT = { wardrobe: 'Wardrobe', request: 'Request', ads: 'Ads', campaigns: 'Campaigns', submit: 'Submit Content', settings: 'Payment' }
 
-export default function CreatorDashboardPage() {
-  return (
-    <Suspense fallback={<div className="cd-wrap"><style dangerouslySetInnerHTML={{ __html: CSS }} /><div className="cd-loading">Loading...</div></div>}>
-      <CreatorDashboard />
-    </Suspense>
-  )
-}
-
-function CreatorDashboard() {
+export default function CreatorDashboard() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const supabase = createClient()
-  const adminViewCreatorId = searchParams.get('creator_id')
+  const [adminViewCreatorId] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search).get('creator_id')
+    }
+    return null
+  })
 
   const [loading, setLoading] = useState(true)
   const [creator, setCreator] = useState(null)
