@@ -63,6 +63,7 @@ export default function CreatorsListPage() {
   const [secondDealType, setSecondDealType] = useState<"affiliate" | "ad_spend" | "retainer">("ad_spend");
   const [secondAddAffiliate, setSecondAddAffiliate] = useState(false);
   const [isExistingCreator, setIsExistingCreator] = useState(false);
+  const [minimumCommitment, setMinimumCommitment] = useState<number | null>(null);
   const [submittingInvite, setSubmittingInvite] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -206,6 +207,7 @@ export default function CreatorsListPage() {
     setSecondDealType("ad_spend");
     setSecondAddAffiliate(false);
     setIsExistingCreator(false);
+    setMinimumCommitment(null);
     setGeneratedUrl(null);
     setCopied(false);
   }
@@ -264,6 +266,7 @@ export default function CreatorsListPage() {
         adSpendMinimum: fields.adSpendMinimum,
         offerChoice,
         isExistingCreator,
+        minimumCommitment,
       });
       setGeneratedUrl(url);
     } catch (err: any) {
@@ -654,6 +657,16 @@ export default function CreatorsListPage() {
                     />
                     <span className="text-sm text-gray-700">Existing creator</span>
                   </label>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Minimum commitment (months)</label>
+                    <input
+                      type="number"
+                      value={minimumCommitment ?? ""}
+                      onChange={(e) => setMinimumCommitment(e.target.value ? Number(e.target.value) : null)}
+                      placeholder="Leave blank for month-to-month"
+                      className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
+                    />
+                  </div>
 
                   {/* Deal Structure */}
                   <div className="border-t pt-4">

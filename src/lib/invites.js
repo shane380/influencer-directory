@@ -18,6 +18,7 @@ export async function createInvite({
   adSpendMinimum = null,
   offerChoice = false,
   isExistingCreator = false,
+  minimumCommitment = null,
 }) {
   const supabase = createClient()
 
@@ -47,6 +48,7 @@ export async function createInvite({
   if (adSpendMinimum != null) upsertData.ad_spend_minimum = adSpendMinimum
   upsertData.offer_choice = offerChoice
   upsertData.is_existing_creator = isExistingCreator
+  if (minimumCommitment != null) upsertData.minimum_commitment = minimumCommitment
 
   const { data, error } = await supabase
     .from('creator_invites')

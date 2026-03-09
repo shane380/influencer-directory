@@ -377,6 +377,7 @@ export default function InvitePage() {
   const adSpendPct = invite.ad_spend_percentage
   const adSpendMin = invite.ad_spend_minimum
   const commissionRate = invite.commission_rate || 10
+  const minimumCommitment = invite.minimum_commitment || null
 
   // Determine available deals for choose step
   const availableDeals = []
@@ -458,15 +459,16 @@ export default function InvitePage() {
 
   // Agree text
   function getAgreeText() {
+    const commitmentText = minimumCommitment ? `${minimumCommitment}-month minimum` : 'month-to-month'
     const affiliateAddon = hasAffiliateAddon ? `, plus ${commissionRate}% affiliate commission on sales generated through my unique link and discount code` : ''
     if (selectedDeal === 'retainer') {
-      return `I agree to provide ${videos} UGC videos per month in exchange for a $${retainerAmount?.toLocaleString()} monthly retainer, payable on the 1st of each month${affiliateAddon}.`
+      return `I agree to provide ${videos} UGC videos per month in exchange for a $${retainerAmount?.toLocaleString()} monthly retainer${affiliateAddon}, with one round of revisions per video included. This partnership is ${commitmentText}, payable on the last day of each month.`
     }
     if (selectedDeal === 'ad_spend') {
       const minText = adSpendMin ? `, with a guaranteed minimum of $${adSpendMin.toLocaleString()} in month one` : ''
-      return `I agree to provide ${videos} UGC videos per month in exchange for ${adSpendPct}% of monthly ad spend${minText}${affiliateAddon}.`
+      return `I agree to provide ${videos} UGC videos per month in exchange for ${adSpendPct}% of monthly ad spend${minText}${affiliateAddon}, with one round of revisions per video included. This partnership is ${commitmentText}, payable on the last day of each month.`
     }
-    return `I agree to provide ${videos} UGC videos per month in exchange for ${commissionRate}% affiliate commission on sales generated through my unique link and discount code.`
+    return `I agree to provide ${videos} UGC videos per month in exchange for ${commissionRate}% affiliate commission on sales generated through my unique link and discount code, with one round of revisions per video included. This partnership is ${commitmentText}, payable on the last day of each month.`
   }
 
   // --- RENDER HELPERS ---
@@ -595,6 +597,16 @@ export default function InvitePage() {
               <span className="ni-term-key">Content</span>
               <div className="ni-term-val"><div className="ni-term-primary">{videos} videos / month</div><div className="ni-term-secondary">{contentType}</div></div>
             </div>
+            <div className="ni-term-row">
+              <span className="ni-term-key">Contract</span>
+              <div className="ni-term-val">
+                {minimumCommitment ? (
+                  <><div className="ni-term-primary">{minimumCommitment}-month minimum</div><div className="ni-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>
+                ) : (
+                  <><div className="ni-term-primary">Month-to-month</div><div className="ni-term-secondary">2 weeks notice to end</div></>
+                )}
+              </div>
+            </div>
             <div className="ni-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for as long as we&apos;re actively working together. If the partnership ends, usage rights end with it.</div>
             <div className="ni-sec-label">Partnership Perks</div>
             {renderDesktopPerks()}
@@ -606,15 +618,19 @@ export default function InvitePage() {
             <div className="ni-faq">
               <div className="ni-faq-item">
                 <div className="ni-faq-q">When do I get paid?</div>
-                <div className="ni-faq-a">Payment is sent on the 1st of each month via e-transfer or PayPal — whichever you prefer.</div>
+                <div className="ni-faq-a">Payment is sent on the last day of each month via e-transfer or PayPal — whichever you prefer.</div>
               </div>
               <div className="ni-faq-item">
                 <div className="ni-faq-q">What if I can&apos;t deliver all videos one month?</div>
                 <div className="ni-faq-a">Life happens. Just give us a heads up and we&apos;ll work it out. Consistent communication is all we ask.</div>
               </div>
               <div className="ni-faq-item">
+                <div className="ni-faq-q">How many revisions are included?</div>
+                <div className="ni-faq-a">Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. Structural re-shoots or concept changes are by mutual agreement.</div>
+              </div>
+              <div className="ni-faq-item">
                 <div className="ni-faq-q">Is this month-to-month or a fixed contract?</div>
-                <div className="ni-faq-a">Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.</div>
+                <div className="ni-faq-a">{minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'}</div>
               </div>
               <div className="ni-faq-item">
                 <div className="ni-faq-q">How do I submit my content?</div>
@@ -649,6 +665,16 @@ export default function InvitePage() {
               <span className="ni-term-key">Content</span>
               <div className="ni-term-val"><div className="ni-term-primary">{videos} videos / month</div><div className="ni-term-secondary">{contentType}</div></div>
             </div>
+            <div className="ni-term-row">
+              <span className="ni-term-key">Contract</span>
+              <div className="ni-term-val">
+                {minimumCommitment ? (
+                  <><div className="ni-term-primary">{minimumCommitment}-month minimum</div><div className="ni-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>
+                ) : (
+                  <><div className="ni-term-primary">Month-to-month</div><div className="ni-term-secondary">2 weeks notice to end</div></>
+                )}
+              </div>
+            </div>
             <div className="ni-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for as long as we&apos;re actively working together. If the partnership ends, usage rights end with it.</div>
             <div className="ni-sec-label">Partnership Perks</div>
             {renderDesktopPerks()}
@@ -677,6 +703,14 @@ export default function InvitePage() {
                 <div className="ni-faq-a">Earnings are calculated on the last day of each month and paid within 5 business days via e-transfer or PayPal.</div>
               </div>
               <div className="ni-faq-item">
+                <div className="ni-faq-q">How many revisions are included?</div>
+                <div className="ni-faq-a">Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. Structural re-shoots or concept changes are by mutual agreement.</div>
+              </div>
+              <div className="ni-faq-item">
+                <div className="ni-faq-q">Is this month-to-month or a fixed contract?</div>
+                <div className="ni-faq-a">{minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'}</div>
+              </div>
+              <div className="ni-faq-item">
                 <div className="ni-faq-q">What if my content doesn&apos;t get much spend in month 1?</div>
                 <div className="ni-faq-a">That&apos;s what the minimum guarantee is for. You&apos;re covered regardless of how much we spend while we find what works.</div>
               </div>
@@ -702,6 +736,16 @@ export default function InvitePage() {
           <div className="ni-term-row">
             <span className="ni-term-key">Content</span>
             <div className="ni-term-val"><div className="ni-term-primary">{videos} videos / month</div><div className="ni-term-secondary">{contentType}</div></div>
+          </div>
+          <div className="ni-term-row">
+            <span className="ni-term-key">Contract</span>
+            <div className="ni-term-val">
+              {minimumCommitment ? (
+                <><div className="ni-term-primary">{minimumCommitment}-month minimum</div><div className="ni-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>
+              ) : (
+                <><div className="ni-term-primary">Month-to-month</div><div className="ni-term-secondary">2 weeks notice to end</div></>
+              )}
+            </div>
           </div>
           <div className="ni-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for as long as we&apos;re actively working together. If the partnership ends, usage rights end with it.</div>
           <div className="ni-sec-label">Partnership Perks</div>
@@ -814,6 +858,7 @@ export default function InvitePage() {
               <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% on all sales</div><div className="ni-m-term-secondary">Via your unique link &amp; discount code</div></div></div>
             )}
             <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
+            <div className="ni-m-term-row"><span className="ni-m-term-key">Contract</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
             <div className="ni-m-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for as long as we&apos;re actively working together. If the partnership ends, usage rights end with it.</div>
             <div className="ni-m-sec-label">Perks</div>
             {renderMobilePerks()}
@@ -825,15 +870,19 @@ export default function InvitePage() {
             <div className="ni-m-faq">
               <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">When do I get paid?</div>
-                <div className="ni-m-faq-a">Payment is sent on the 1st of each month via e-transfer or PayPal — whichever you prefer.</div>
+                <div className="ni-m-faq-a">Payment is sent on the last day of each month via e-transfer or PayPal — whichever you prefer.</div>
               </div>
               <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">What if I can&apos;t deliver all videos one month?</div>
                 <div className="ni-m-faq-a">Life happens. Just give us a heads up and we&apos;ll work it out. Consistent communication is all we ask.</div>
               </div>
               <div className="ni-m-faq-item">
+                <div className="ni-m-faq-q">How many revisions are included?</div>
+                <div className="ni-m-faq-a">Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. Structural re-shoots or concept changes are by mutual agreement.</div>
+              </div>
+              <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">Is this month-to-month or a fixed contract?</div>
-                <div className="ni-m-faq-a">Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.</div>
+                <div className="ni-m-faq-a">{minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'}</div>
               </div>
               <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">How do I submit my content?</div>
@@ -859,6 +908,7 @@ export default function InvitePage() {
               <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% on all sales</div><div className="ni-m-term-secondary">Via your unique link &amp; discount code</div></div></div>
             )}
             <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
+            <div className="ni-m-term-row"><span className="ni-m-term-key">Contract</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
             <div className="ni-m-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for as long as we&apos;re actively working together. If the partnership ends, usage rights end with it.</div>
             <div className="ni-m-sec-label">Perks</div>
             <div style={{ marginBottom: 20 }}>
@@ -891,6 +941,14 @@ export default function InvitePage() {
                 <div className="ni-m-faq-a">Earnings are calculated on the last day of each month and paid within 5 business days via e-transfer or PayPal.</div>
               </div>
               <div className="ni-m-faq-item">
+                <div className="ni-m-faq-q">How many revisions are included?</div>
+                <div className="ni-m-faq-a">Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. Structural re-shoots or concept changes are by mutual agreement.</div>
+              </div>
+              <div className="ni-m-faq-item">
+                <div className="ni-m-faq-q">Is this month-to-month or a fixed contract?</div>
+                <div className="ni-m-faq-a">{minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'}</div>
+              </div>
+              <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">What if my content doesn&apos;t get much spend in month 1?</div>
                 <div className="ni-m-faq-a">That&apos;s what the minimum guarantee is for. You&apos;re covered regardless of how much we spend while we find what works.</div>
               </div>
@@ -911,6 +969,7 @@ export default function InvitePage() {
           <div className="ni-m-sec-label">Partnership Terms</div>
           <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% per sale</div><div className="ni-m-term-secondary">Via your unique link &amp; discount code</div></div></div>
           <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
+          <div className="ni-m-term-row"><span className="ni-m-term-key">Contract</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
           <div className="ni-m-footnote">Content created as part of this partnership is licensed to Nama for use across paid media for as long as we&apos;re actively working together. If the partnership ends, usage rights end with it.</div>
           <div className="ni-m-sec-label">Perks</div>
           {renderMobilePerks()}
