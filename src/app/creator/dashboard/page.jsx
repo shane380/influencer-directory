@@ -714,9 +714,7 @@ function CreatorDashboard() {
 
       let creatorData = null
       if (adminViewCreatorId) {
-        // Admin viewing a specific creator's profile — check profiles table
-        const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
-        if (!profile?.is_admin) { router.push('/creator/login'); return }
+        // Admin viewing a specific creator's profile
         const { data } = await supabase.from('creators').select('*').eq('id', adminViewCreatorId).single()
         creatorData = data
       } else {
