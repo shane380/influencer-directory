@@ -622,12 +622,6 @@ const TAB_LABELS_SHORT = { wardrobe: 'Wardrobe', request: 'Request', ads: 'Ads',
 export default function CreatorDashboard() {
   const router = useRouter()
   const supabase = createClient()
-  const [adminViewCreatorId] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return new URLSearchParams(window.location.search).get('creator_id')
-    }
-    return null
-  })
 
   const [loading, setLoading] = useState(true)
   const [creator, setCreator] = useState(null)
@@ -704,14 +698,17 @@ export default function CreatorDashboard() {
 
   useEffect(() => {
     async function load() {
+      // Check if admin is viewing a specific creator's profile
+      const urlCreatorId = new URLSearchParams(window.location.search).get('creator_id')
+
       // Phase 1: Auth + core data (minimal, needed for page shell)
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/creator/login'); return }
 
       let creatorData = null
-      if (adminViewCreatorId) {
+      if (urlCreatorId) {
         // Admin viewing a specific creator's profile
-        const { data } = await supabase.from('creators').select('*').eq('id', adminViewCreatorId).single()
+        const { data } = await supabase.from('creators').select('*').eq('id', urlCreatorId).single()
         creatorData = data
       } else {
         const { data } = await supabase.from('creators').select('*').eq('user_id', user.id).single()
