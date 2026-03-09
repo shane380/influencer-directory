@@ -56,7 +56,7 @@ const CSS = `
 .ni-term-key { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #666; padding-top: 4px; }
 .ni-term-val { text-align: right; }
 .ni-term-primary { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 400; color: #111; }
-.ni-term-secondary { font-size: 11px; color: #aaaaaa; font-weight: 300; margin-top: 2px; }
+.ni-term-secondary { font-size: 11px; color: #888888; font-weight: 300; margin-top: 2px; }
 .ni-footnote { font-size: 12px; color: #aaa; font-style: italic; line-height: 1.8; margin: 18px 0 32px; padding-left: 14px; border-left: 1.5px solid #e8e8e8; }
 
 /* PERKS */
@@ -83,13 +83,13 @@ const CSS = `
 .ni-faq-item:first-child { padding-top: 0; }
 .ni-faq-item:last-child { border-bottom: none; }
 .ni-faq-q { font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 400; color: #111; line-height: 1.3; margin-bottom: 8px; }
-.ni-faq-a { font-size: 12.5px; color: #aaaaaa; font-weight: 300; line-height: 1.8; }
+.ni-faq-a { font-size: 12.5px; color: #888888; font-weight: 300; line-height: 1.8; }
 .ni-m-faq { margin-bottom: 24px; }
 .ni-m-faq-item { padding: 16px 0; border-bottom: 1px solid #f2f2f2; }
 .ni-m-faq-item:first-child { padding-top: 0; }
 .ni-m-faq-item:last-child { border-bottom: none; }
 .ni-m-faq-q { font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 400; color: #111; line-height: 1.3; margin-bottom: 6px; }
-.ni-m-faq-a { font-size: 12px; color: #aaaaaa; font-weight: 300; line-height: 1.8; }
+.ni-m-faq-a { font-size: 12px; color: #888888; font-weight: 300; line-height: 1.8; }
 
 /* AGREE */
 .ni-agree-row { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 24px; }
