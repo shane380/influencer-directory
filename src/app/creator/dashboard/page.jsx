@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 const CSS = `
@@ -621,7 +621,9 @@ const TAB_LABELS_SHORT = { wardrobe: 'Wardrobe', request: 'Request', ads: 'Ads',
 
 export default function CreatorDashboard() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
+  const adminViewCreatorId = searchParams.get('creator_id')
 
   const [loading, setLoading] = useState(true)
   const [creator, setCreator] = useState(null)
@@ -702,7 +704,17 @@ export default function CreatorDashboard() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/creator/login'); return }
 
-      const { data: creatorData } = await supabase.from('creators').select('*').eq('user_id', user.id).single()
+      let creatorData = null
+      if (adminViewCreatorId) {
+        // Admin viewing a specific creator's profile
+        const isAdmin = user.user_metadata?.role === 'admin'
+        if (!isAdmin) { router.push('/creator/login'); return }
+        const { data } = await supabase.from('creators').select('*').eq('id', adminViewCreatorId).single()
+        creatorData = data
+      } else {
+        const { data } = await supabase.from('creators').select('*').eq('user_id', user.id).single()
+        creatorData = data
+      }
       if (!creatorData) { router.push('/creator/login'); return }
       setCreator(creatorData)
 
