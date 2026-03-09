@@ -482,7 +482,7 @@ export default function InvitePage() {
             <div className="ni-m-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
             <div className="ni-m-option-name">Monthly Retainer</div>
             <div className="ni-m-option-rule" />
-            <div className="ni-m-option-detail">{commissionRate > 0 && <>{commissionRate}% commission on sales · </>}Fixed payment on the 1st · {videos} videos per month · No performance pressure</div>
+            <div className="ni-m-option-detail">{commissionRate > 0 && <>{commissionRate}% commission on sales · </>}Fixed payment on the 1st · {videos} videos per month</div>
           </div>
           <div className="ni-m-option-hint">More details on the next page</div>
         </div>
@@ -496,7 +496,7 @@ export default function InvitePage() {
           <div className="ni-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
           <div className="ni-option-name">Monthly Retainer</div>
           <div className="ni-option-rule" />
-          <div className="ni-option-detail">{commissionRate > 0 && <>{commissionRate}% commission on sales<br /></>}Fixed payment on the 1st<br />{videos} videos per month<br />No performance pressure</div>
+          <div className="ni-option-detail">{commissionRate > 0 && <>{commissionRate}% commission on sales<br /></>}Fixed payment on the 1st<br />{videos} videos per month</div>
         </div>
         <div className="ni-option-hint">More details on the next page</div>
       </div>
