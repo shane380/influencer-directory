@@ -39,6 +39,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/api/cron') ||
     pathname.startsWith('/api/shopify/auth') ||
     pathname.startsWith('/invite') ||
+    pathname.startsWith('/terms') ||
     pathname.startsWith('/api/creators/signup') ||
     pathname.startsWith('/api/meta/creator-ads') ||
     pathname.startsWith('/creator/login')
