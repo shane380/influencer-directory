@@ -235,75 +235,93 @@ export async function GET(request: NextRequest) {
       status: string;
     }[] = [];
 
-    // Use Shopify's server-side title filter to avoid downloading all products
-    const searchWords = searchTerm.toLowerCase().split(/\s+/).filter(word => word.length > 0);
-    const titleQuery = encodeURIComponent(searchTerm);
-    let nextPageUrl: string | null = `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/products.json?limit=50&title=${titleQuery}`;
-    let pagesSearched = 0;
-
-    while (nextPageUrl && matchingProducts.length < 50 && pagesSearched < 3) {
-      pagesSearched++;
-
-      const response: Response = await fetch(nextPageUrl, {
-        method: "GET",
-        headers: {
-          "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Shopify API error:", errorText);
-        return NextResponse.json(
-          { error: "Failed to fetch products from Shopify" },
-          { status: response.status }
-        );
-      }
-
-      const data: ShopifyProductsResponse = await response.json();
-
-      for (const product of data.products) {
-        if (product.status === 'archived') continue;
-        const titleLower = product.title.toLowerCase();
-
-        for (const variant of product.variants) {
-          const skuLower = variant.sku?.toLowerCase() || "";
-          const variantTitleLower = variant.title?.toLowerCase() || "";
-          const skuNormalized = skuLower.replace(/-/g, ' ');
-          const searchableText = `${titleLower} ${variantTitleLower} ${skuLower} ${skuNormalized}`;
-
-          const allWordsMatch = searchWords.every(word => searchableText.includes(word));
-
-          if (allWordsMatch) {
-            matchingProducts.push({
-              product_id: product.id,
-              variant_id: variant.id,
-              inventory_item_id: variant.inventory_item_id,
-              title: product.title,
-              variant_title: variant.title !== "Default Title" ? variant.title : null,
-              sku: variant.sku,
-              price: variant.price,
-              inventory: variant.inventory_quantity,
-              inventory_by_location: [],
-              image: product.images[0]?.src || null,
-              status: product.status,
-            });
-
-            if (matchingProducts.length >= 50) break;
+    // Use Shopify GraphQL for fast server-side substring search
+    const graphqlUrl = `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/graphql.json`;
+    const graphqlQuery = `
+      {
+        products(first: 50, query: "title:*${searchTerm.replace(/"/g, '\\"')}* status:active OR status:draft") {
+          edges {
+            node {
+              id
+              title
+              status
+              featuredImage { url }
+              variants(first: 100) {
+                edges {
+                  node {
+                    id
+                    title
+                    sku
+                    price
+                    inventoryQuantity
+                    inventoryItem { id }
+                  }
+                }
+              }
+            }
           }
         }
-        if (matchingProducts.length >= 50) break;
       }
+    `;
 
-      // Check for next page
-      const linkHeader: string | null = response.headers.get("Link");
-      if (linkHeader) {
-        const nextMatch: RegExpMatchArray | null = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
-        nextPageUrl = nextMatch ? nextMatch[1] : null;
-      } else {
-        nextPageUrl = null;
+    const gqlResponse = await fetch(graphqlUrl, {
+      method: "POST",
+      headers: {
+        "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ query: graphqlQuery }),
+    });
+
+    if (!gqlResponse.ok) {
+      const errorText = await gqlResponse.text();
+      console.error("Shopify GraphQL error:", errorText);
+      return NextResponse.json(
+        { error: "Failed to fetch products from Shopify" },
+        { status: gqlResponse.status }
+      );
+    }
+
+    const gqlData = await gqlResponse.json();
+    const gqlProducts = gqlData?.data?.products?.edges || [];
+
+    // Parse numeric ID from Shopify GID format (gid://shopify/Product/123)
+    const parseGid = (gid: string) => parseInt(gid.split('/').pop() || '0', 10);
+
+    const searchWords = searchTerm.toLowerCase().split(/\s+/).filter(word => word.length > 0);
+
+    for (const { node: product } of gqlProducts) {
+      if (product.status === 'ARCHIVED') continue;
+      const titleLower = product.title.toLowerCase();
+      const productId = parseGid(product.id);
+
+      for (const { node: variant } of product.variants.edges) {
+        const skuLower = variant.sku?.toLowerCase() || "";
+        const variantTitleLower = variant.title?.toLowerCase() || "";
+        const skuNormalized = skuLower.replace(/-/g, ' ');
+        const searchableText = `${titleLower} ${variantTitleLower} ${skuLower} ${skuNormalized}`;
+
+        const allWordsMatch = searchWords.every((word: string) => searchableText.includes(word));
+
+        if (allWordsMatch) {
+          matchingProducts.push({
+            product_id: productId,
+            variant_id: parseGid(variant.id),
+            inventory_item_id: parseGid(variant.inventoryItem.id),
+            title: product.title,
+            variant_title: variant.title !== "Default Title" ? variant.title : null,
+            sku: variant.sku,
+            price: variant.price,
+            inventory: variant.inventoryQuantity,
+            inventory_by_location: [],
+            image: product.featuredImage?.url || null,
+            status: product.status.toLowerCase(),
+          });
+
+          if (matchingProducts.length >= 50) break;
+        }
       }
+      if (matchingProducts.length >= 50) break;
     }
 
     // Fetch inventory levels per location for all matching products
