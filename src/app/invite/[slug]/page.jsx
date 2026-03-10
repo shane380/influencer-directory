@@ -47,7 +47,7 @@ const CSS = `
 .ni-option-name { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #888; margin-bottom: 10px; font-weight: 400; }
 .ni-option-rule { height: 1px; background: #f0f0f0; margin-bottom: 12px; }
 .ni-option-detail { font-size: 11.5px; color: #666; font-weight: 300; line-height: 1.75; }
-.ni-option-detail strong { color: #555; font-weight: 500; }
+.ni-option-detail strong { color: #777; font-weight: 500; }
 .ni-option-hint { font-size: 11px; font-style: italic; color: #999; text-align: center; margin-top: 8px; }
 
 /* TERM ROWS */
@@ -158,7 +158,7 @@ const CSS = `
 .ni-m-option-name { font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #999; margin-bottom: 10px; }
 .ni-m-option-rule { height: 1px; background: #f0f0f0; margin-bottom: 10px; }
 .ni-m-option-detail { font-size: 11.5px; color: #666; font-weight: 300; line-height: 1.7; }
-.ni-m-option-detail strong { color: #555; font-weight: 500; }
+.ni-m-option-detail strong { color: #777; font-weight: 500; }
 .ni-m-option-hint { font-size: 11px; font-style: italic; color: #999; text-align: center; margin-top: 8px; }
 
 .ni-m-term-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #f2f2f2; }
