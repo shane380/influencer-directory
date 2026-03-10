@@ -475,7 +475,7 @@ export default function InvitePage() {
   function getAgreeText() {
     const commitmentText = minimumCommitment ? `${minimumCommitment}-month minimum` : 'month-to-month'
     const paymentLine = 'Payment is made on the last day of each month via e-transfer or PayPal.'
-    const usageLine = 'I retain ownership of my original content; Nama is licensed to use it for paid media and organic channels during the partnership and for 6 months after it ends.'
+    const usageLine = 'I retain ownership of my original content; Nama is licensed to use it for paid media and organic channels during the partnership and for 6 months following the conclusion of the partnership.'
 
     // Determine which components apply based on selectedDeal and flags
     const isRetainer = selectedDeal === 'retainer'
@@ -644,7 +644,7 @@ export default function InvitePage() {
                 )}
               </div>
             </div>
-            <div className="ni-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months after it ends.</div>
+            <div className="ni-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months following the conclusion of the partnership.</div>
             <div className="ni-sec-label">Partnership Perks</div>
             {renderDesktopPerks()}
             <div className="ni-highlight">
@@ -725,7 +725,7 @@ export default function InvitePage() {
                 )}
               </div>
             </div>
-            <div className="ni-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months after it ends.</div>
+            <div className="ni-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months following the conclusion of the partnership.</div>
             <div className="ni-sec-label">Partnership Perks</div>
             {renderDesktopPerks()}
             <div className="ni-highlight">
@@ -814,7 +814,7 @@ export default function InvitePage() {
               </div>
             </div>
           </>)}
-          <div className="ni-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months after it ends.</div>
+          <div className="ni-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months following the conclusion of the partnership.</div>
           <div className="ni-sec-label">Partnership Perks</div>
           {renderDesktopPerks()}
           <div className="ni-highlight">
@@ -948,7 +948,7 @@ export default function InvitePage() {
             <div className="ni-m-term-sub">Deliverables</div>
             <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
             <div className="ni-m-term-row"><span className="ni-m-term-key">Contract</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
-            <div className="ni-m-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months after it ends.</div>
+            <div className="ni-m-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months following the conclusion of the partnership.</div>
             <div className="ni-m-sec-label">Perks</div>
             {renderMobilePerks()}
             <div className="ni-m-highlight">
@@ -1008,7 +1008,7 @@ export default function InvitePage() {
             <div className="ni-m-term-sub">Deliverables</div>
             <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
             <div className="ni-m-term-row"><span className="ni-m-term-key">Contract</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
-            <div className="ni-m-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months after it ends.</div>
+            <div className="ni-m-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months following the conclusion of the partnership.</div>
             <div className="ni-m-sec-label">Perks</div>
             <div style={{ marginBottom: 20 }}>
               {PERKS.map((p, i) => (
@@ -1083,7 +1083,7 @@ export default function InvitePage() {
             <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
             <div className="ni-m-term-row"><span className="ni-m-term-key">Contract</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
           </>)}
-          <div className="ni-m-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months after it ends.</div>
+          <div className="ni-m-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months following the conclusion of the partnership.</div>
           <div className="ni-m-sec-label">Perks</div>
           {renderMobilePerks()}
           <div className="ni-m-highlight">
