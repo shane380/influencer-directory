@@ -251,7 +251,11 @@ export default function CreatorsListPage() {
       commissionRate = dealAffiliate;
     }
 
-    return { retainerAmount, adSpendPercentage, adSpendMinimum, commissionRate };
+    const hasRetainer = retainerAmount != null && retainerAmount > 0;
+    const hasAdSpend = adSpendPercentage != null && adSpendPercentage > 0;
+    const hasAffiliate = commissionRate > 0;
+
+    return { retainerAmount, adSpendPercentage, adSpendMinimum, commissionRate, hasRetainer, hasAdSpend, hasAffiliate };
   }
 
   async function handleGenerateInvite() {
@@ -275,6 +279,9 @@ export default function CreatorsListPage() {
         offerChoice: dealType === "none" ? false : offerChoice,
         isExistingCreator,
         minimumCommitment: dealType === "none" ? null : minimumCommitment,
+        hasRetainer: fields.hasRetainer,
+        hasAdSpend: fields.hasAdSpend,
+        hasAffiliate: fields.hasAffiliate,
       });
       setGeneratedUrl(url);
     } catch (err: any) {

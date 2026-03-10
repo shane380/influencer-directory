@@ -19,6 +19,9 @@ export async function createInvite({
   offerChoice = false,
   isExistingCreator = false,
   minimumCommitment = null,
+  hasRetainer = false,
+  hasAdSpend = false,
+  hasAffiliate = false,
 }) {
   const supabase = createClient()
 
@@ -49,6 +52,9 @@ export async function createInvite({
   upsertData.offer_choice = offerChoice
   upsertData.is_existing_creator = isExistingCreator
   if (minimumCommitment != null) upsertData.minimum_commitment = minimumCommitment
+  upsertData.has_retainer = hasRetainer
+  upsertData.has_ad_spend = hasAdSpend
+  upsertData.has_affiliate = hasAffiliate
 
   // Remove any expired/revoked invite with the same slug so we can create fresh
   await supabase
