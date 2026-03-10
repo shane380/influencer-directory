@@ -438,11 +438,11 @@ const CSS = `
 /*        MOBILE         */
 /* ===================== */
 .cd-m-wrap { background: #f7f7f7; min-height: 100vh; }
-.cd-m-topbar { padding: 0 20px; height: 64px; background: #fff; border-bottom: 1px solid #e8e8e8; display: flex; align-items: center; justify-content: center; position: sticky; top: 0; z-index: 100; }
+.cd-m-topbar { padding: 0 20px; height: 64px; background: #fff; border-bottom: 1px solid #e8e8e8; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
 .cd-m-logo-lockup { display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .cd-m-logo { height: 29px; display: block; width: fit-content; }
 .cd-m-logo-sub { font-size: 8px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; margin-top: 2px; }
-.cd-m-topbar-account { display: flex; align-items: center; justify-content: center; position: absolute; right: 20px; background: none; border: none; cursor: pointer; padding: 4px; }
+.cd-m-topbar-account { display: flex; align-items: center; justify-content: center; background: none; border: none; cursor: pointer; padding: 4px; }
 
 .cd-m-hero { padding: 16px 20px; border-bottom: 1px solid #e8e8e8; background: #fff; display: flex; flex-direction: row; align-items: center; gap: 14px; }
 .cd-m-eyebrow { display: none; }
@@ -2950,42 +2950,40 @@ export default function CreatorDashboard() {
       <div className="cd-mobile">
         <div className="cd-m-wrap">
           <div className="cd-m-topbar">
+            <button className="cd-m-topbar-account" onClick={() => setActiveTab('settings')}>
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke={activeTab === 'settings' ? '#111' : '#999'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" /></svg>
+            </button>
             <div className="cd-m-logo-lockup">
               <img src="/nama-logo.svg" alt="Nama" className="cd-m-logo" />
               <div className="cd-m-logo-sub">Partners</div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ position: 'relative' }}>
-                <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }} onClick={() => setNotifOpen(!notifOpen)}>
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#999" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
-                  {submissions.filter(s => s.status === 'approved' || s.status === 'revision_requested' || s.status === 'rejected').length > 0 && (
-                    <span style={{ position: 'absolute', top: 0, right: 0, width: 8, height: 8, borderRadius: '50%', background: '#e74c3c' }} />
-                  )}
-                </button>
-                {notifOpen && (
-                  <div style={{ position: 'absolute', top: '100%', right: 0, width: 240, background: 'white', border: '1px solid #e8e8e8', borderRadius: 10, boxShadow: '0 4px 20px rgba(0,0,0,0.08)', zIndex: 50, maxHeight: 260, overflowY: 'auto', marginTop: 4 }}>
-                    {(() => {
-                      const reviewed = submissions.filter(s => s.status === 'approved' || s.status === 'revision_requested' || s.status === 'rejected')
-                      if (reviewed.length === 0) return <div style={{ padding: 16, textAlign: 'center', fontSize: 11, color: '#ccc' }}>No notifications</div>
-                      return reviewed.slice(0, 5).map(sub => {
-                        const [yr, mo] = (sub.month || '').split('-')
-                        const monthLabel = yr && mo ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString('en', { month: 'short', year: 'numeric' }) : sub.month
-                        const statusLabel = sub.status === 'approved' ? 'Content Approved' : sub.status === 'revision_requested' ? 'Revision Requested' : 'Content Rejected'
-                        return (
-                          <button key={sub.id} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f5f5f5', background: 'none', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }} onClick={() => { setNotifOpen(false); setActiveTab('submit') }}>
-                            <div style={{ fontSize: 11, fontWeight: 600, color: '#333' }}>{statusLabel}</div>
-                            <div style={{ fontSize: 10, color: '#999' }}>{monthLabel} submission</div>
-                            {sub.admin_feedback && <div style={{ fontSize: 10, color: '#666', marginTop: 3, fontStyle: 'italic' }}>&ldquo;{sub.admin_feedback}&rdquo;</div>}
-                          </button>
-                        )
-                      })
-                    })()}
-                  </div>
+            <div style={{ position: 'relative' }}>
+              <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }} onClick={() => setNotifOpen(!notifOpen)}>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#999" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+                {submissions.filter(s => s.status === 'approved' || s.status === 'revision_requested' || s.status === 'rejected').length > 0 && (
+                  <span style={{ position: 'absolute', top: 0, right: 0, width: 8, height: 8, borderRadius: '50%', background: '#e74c3c' }} />
                 )}
-              </div>
-              <button className="cd-m-topbar-account" onClick={() => setActiveTab('settings')}>
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke={activeTab === 'settings' ? '#111' : '#999'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" /></svg>
               </button>
+              {notifOpen && (
+                <div style={{ position: 'absolute', top: '100%', right: 0, width: 240, background: 'white', border: '1px solid #e8e8e8', borderRadius: 10, boxShadow: '0 4px 20px rgba(0,0,0,0.08)', zIndex: 50, maxHeight: 260, overflowY: 'auto', marginTop: 4 }}>
+                  {(() => {
+                    const reviewed = submissions.filter(s => s.status === 'approved' || s.status === 'revision_requested' || s.status === 'rejected')
+                    if (reviewed.length === 0) return <div style={{ padding: 16, textAlign: 'center', fontSize: 11, color: '#ccc' }}>No notifications</div>
+                    return reviewed.slice(0, 5).map(sub => {
+                      const [yr, mo] = (sub.month || '').split('-')
+                      const monthLabel = yr && mo ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString('en', { month: 'short', year: 'numeric' }) : sub.month
+                      const statusLabel = sub.status === 'approved' ? 'Content Approved' : sub.status === 'revision_requested' ? 'Revision Requested' : 'Content Rejected'
+                      return (
+                        <button key={sub.id} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f5f5f5', background: 'none', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }} onClick={() => { setNotifOpen(false); setActiveTab('submit') }}>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: '#333' }}>{statusLabel}</div>
+                          <div style={{ fontSize: 10, color: '#999' }}>{monthLabel} submission</div>
+                          {sub.admin_feedback && <div style={{ fontSize: 10, color: '#666', marginTop: 3, fontStyle: 'italic' }}>&ldquo;{sub.admin_feedback}&rdquo;</div>}
+                        </button>
+                      )
+                    })
+                  })()}
+                </div>
+              )}
             </div>
           </div>
 
