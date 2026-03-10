@@ -19,6 +19,16 @@ const CSS = `
 
 /* PAGE LAYOUT */
 .ni-page { background: white; max-width: 960px; margin: 0 auto; min-height: 100vh; display: grid; grid-template-columns: 380px 1fr; }
+.ni-page.ni-done-page { grid-template-columns: 1fr; }
+.ni-page.ni-done-page .ni-panel-left { display: none; }
+.ni-page.ni-done-page .ni-panel-right { display: none; }
+.ni-done-center { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-height: 100vh; padding: 56px 48px; }
+.ni-done-center .ni-logo-lockup { align-items: center; margin-bottom: 48px; }
+.ni-done-center .ni-eyebrow { color: #666; font-size: 9px; letter-spacing: 0.42em; text-transform: uppercase; margin-bottom: 18px; }
+.ni-done-center .ni-headline { font-family: 'Playfair Display', serif; font-size: 52px; font-weight: 300; color: #111; line-height: 1.02; margin-bottom: 22px; }
+.ni-done-center .ni-headline em { font-style: italic; color: #888; display: block; }
+.ni-done-center .ni-intro { font-size: 13px; color: #888; line-height: 1.9; font-weight: 300; margin-bottom: 36px; }
+.ni-done-center .ni-btn { max-width: 340px; width: 100%; }
 .ni-panel-left { padding: 56px 48px; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; justify-content: space-between; position: sticky; top: 0; height: 100vh; background: white; }
 .ni-panel-right { padding: 56px 52px; overflow-y: auto; }
 
@@ -154,6 +164,13 @@ const CSS = `
 .ni-m-headline em { font-style: italic; color: #999; display: block; }
 .ni-m-intro { font-size: 13px; color: #999; font-weight: 300; line-height: 1.8; margin-top: 14px; }
 .ni-m-body { padding: 28px 24px 56px; }
+.ni-m-done-center { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-height: 100vh; padding: 48px 24px; }
+.ni-m-done-center .ni-m-logo-lockup { align-items: center; margin-bottom: 40px; }
+.ni-m-done-center .ni-m-eyebrow { font-size: 8px; letter-spacing: 0.4em; text-transform: uppercase; color: #666; margin-bottom: 14px; }
+.ni-m-done-center .ni-m-headline { font-family: 'Playfair Display', serif; font-size: 36px; font-weight: 300; color: #111; line-height: 1.05; margin-bottom: 18px; }
+.ni-m-done-center .ni-m-headline em { font-style: italic; color: #888; display: block; }
+.ni-m-done-center .ni-m-intro { font-size: 13px; color: #888; line-height: 1.9; font-weight: 300; margin-bottom: 32px; }
+.ni-m-done-center .ni-m-btn { max-width: 300px; width: 100%; }
 .ni-m-sec-label { font-size: 9px; letter-spacing: 0.38em; text-transform: uppercase; color: #555; margin-bottom: 18px; display: flex; align-items: center; gap: 10px; }
 .ni-m-sec-label::after { content: ''; flex: 1; height: 1px; background: #ebebeb; }
 
@@ -1281,7 +1298,7 @@ export default function InvitePage() {
 
       {/* Desktop */}
       <div className="ni-desktop">
-        <div className="ni-page">
+        <div className={`ni-page${step === 'done' ? ' ni-done-page' : ''}`}>
           <div className="ni-panel-left">
             <div className="ni-logo-lockup"><img src="/nama-logo.svg" alt="Nama" className="ni-logo" /><div className="ni-logo-sub">Partners</div></div>
             <div>
@@ -1294,17 +1311,38 @@ export default function InvitePage() {
           <div className="ni-panel-right">
             {renderDesktopContent()}
           </div>
+          {step === 'done' && (
+            <div className="ni-done-center">
+              <div className="ni-logo-lockup"><img src="/nama-logo.svg" alt="Nama" className="ni-logo" /><div className="ni-logo-sub">Partners</div></div>
+              <div className="ni-eyebrow">{left.eyebrow}</div>
+              <div className="ni-headline">{left.headline}</div>
+              <p className="ni-intro">{left.intro}</p>
+              <button className="ni-btn" onClick={() => router.push('/creator/dashboard')}>Go to My Dashboard →</button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Mobile */}
       <div className="ni-mobile">
         <div className="ni-m-wrap">
-          <div className="ni-m-inner">
-            <div className="ni-m-topbar"><div className="ni-m-logo-lockup"><img src="/nama-logo.svg" alt="Nama" className="ni-m-logo" /><div className="ni-m-logo-sub">Partners</div></div></div>
-            <div className="ni-m-hero">{getMobileHero()}</div>
-            <div className="ni-m-body">{renderMobileContent()}</div>
-          </div>
+          {step === 'done' ? (
+            <div className="ni-m-inner">
+              <div className="ni-m-done-center">
+                <div className="ni-m-logo-lockup"><img src="/nama-logo.svg" alt="Nama" className="ni-m-logo" /><div className="ni-m-logo-sub">Partners</div></div>
+                <div className="ni-m-eyebrow">You&apos;re In</div>
+                <div className="ni-m-headline">Welcome to<br />the <em>Nama<br />family.</em></div>
+                <p className="ni-m-intro">Your partnership is live. Everything you need is in your dashboard.</p>
+                <button className="ni-m-btn" onClick={() => router.push('/creator/dashboard')}>Go to My Dashboard →</button>
+              </div>
+            </div>
+          ) : (
+            <div className="ni-m-inner">
+              <div className="ni-m-topbar"><div className="ni-m-logo-lockup"><img src="/nama-logo.svg" alt="Nama" className="ni-m-logo" /><div className="ni-m-logo-sub">Partners</div></div></div>
+              <div className="ni-m-hero">{getMobileHero()}</div>
+              <div className="ni-m-body">{renderMobileContent()}</div>
+            </div>
+          )}
         </div>
       </div>
     </div>
