@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
     user_id: userId,
     creator_name: creatorName,
     email,
-    commission_rate: commissionRate || 10,
+    commission_rate: commissionRate ?? 0,
     affiliate_code: affiliateCode,
   });
 

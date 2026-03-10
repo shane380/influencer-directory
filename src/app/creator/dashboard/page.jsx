@@ -1190,7 +1190,8 @@ export default function CreatorDashboard() {
   const handle = influencer?.instagram_handle ? `@${influencer.instagram_handle}` : ''
   const photoUrl = influencer?.profile_photo_url
   const initials = creatorName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-  const commissionRate = invite?.commission_rate || creator?.commission_rate || 0
+  const hasAffiliate = invite?.has_affiliate === true
+  const commissionRate = hasAffiliate ? (invite?.commission_rate || creator?.commission_rate || 0) : 0
   const videosPerMonth = invite?.videos_per_month || '—'
   const affiliateCode = creator?.affiliate_code || ''
   const adsRunning = ads.filter(a => a.status === 'ACTIVE').length
@@ -2924,7 +2925,7 @@ export default function CreatorDashboard() {
 
             <div className="cd-content">
               <div className="cd-stats-bar">
-                {commissionRate > 0 && (
+                {hasAffiliate && commissionRate > 0 && (
                   <div className="cd-stats-bar-item">
                     <div className="cd-stats-bar-label">Commission</div>
                     <div className="cd-stats-bar-val">{commissionRate}%</div>
@@ -3011,7 +3012,7 @@ export default function CreatorDashboard() {
           </div>
 
           <div className="cd-m-stats">
-            {commissionRate > 0 && (
+            {hasAffiliate && commissionRate > 0 && (
               <div className="cd-m-stat"><div className="cd-m-stat-l">Commission</div><div className="cd-m-stat-v">{commissionRate}%</div></div>
             )}
             <div className="cd-m-stat"><div className="cd-m-stat-l">Videos</div><div className="cd-m-stat-v">{videosPerMonth}</div></div>
