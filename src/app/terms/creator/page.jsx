@@ -81,7 +81,22 @@ export default function CreatorTermsPage() {
       </div>
 
       <div className="ct-section">
-        <div className="ct-section-title">5. Affiliate Codes &amp; Discount Links</div>
+        <div className="ct-section-title">5. Whitelisting &amp; Content Usage</div>
+        <div className="ct-body">
+          <p>If your partnership includes whitelisting:</p>
+          <ul>
+            <li>You agree to maintain advertising account access and permissions for the duration of the partnership</li>
+            <li>All advertising spend on whitelisted content is covered by Nama</li>
+            <li>You grant Nama the right to post content to Nama&apos;s own organic channels (Instagram, TikTok, email, website) at any time, without prior approval</li>
+            <li>Revoking ad account access is not an alternative to the standard termination process — you must provide the notice period specified in your Partnership Terms</li>
+            <li>Upon termination, Nama will remove ad account access and whitelisting permissions within seven (7) days</li>
+            <li>Nama&apos;s right to use submitted content on its own organic channels, website, and marketing materials survives termination indefinitely, per the content ownership terms above</li>
+          </ul>
+        </div>
+      </div>
+
+      <div className="ct-section">
+        <div className="ct-section-title">6. Affiliate Codes &amp; Discount Links</div>
         <div className="ct-body">
           <p>If your partnership includes an affiliate component:</p>
           <ul>
@@ -95,7 +110,7 @@ export default function CreatorTermsPage() {
       </div>
 
       <div className="ct-section">
-        <div className="ct-section-title">6. Payment Terms</div>
+        <div className="ct-section-title">7. Payment Terms</div>
         <div className="ct-body">
           <p>All payments are made by the 5th of the following month via your selected payment method (PayPal or bank transfer). You are responsible for providing accurate payment information and for any taxes owed on payments received. Nama does not withhold taxes on creator payments.</p>
           <p>Minimum payout thresholds, if applicable, are specified in your Partnership Terms.</p>
@@ -103,7 +118,7 @@ export default function CreatorTermsPage() {
       </div>
 
       <div className="ct-section">
-        <div className="ct-section-title">7. Confidentiality</div>
+        <div className="ct-section-title">8. Confidentiality</div>
         <div className="ct-body">
           <p>The financial terms of your partnership (including retainer amounts, commission rates, and ad spend percentages) are confidential. You agree not to disclose these terms publicly or to other creators without Nama&apos;s written consent.</p>
           <p>This does not restrict you from discussing your general experience as a Nama partner or from making required advertising disclosures.</p>
@@ -111,7 +126,7 @@ export default function CreatorTermsPage() {
       </div>
 
       <div className="ct-section">
-        <div className="ct-section-title">8. Termination</div>
+        <div className="ct-section-title">9. Termination</div>
         <div className="ct-body">
           <p>Either party may end the partnership in accordance with the notice period specified in your Partnership Terms. Upon termination:</p>
           <ul>
@@ -125,28 +140,28 @@ export default function CreatorTermsPage() {
       </div>
 
       <div className="ct-section">
-        <div className="ct-section-title">9. Limitation of Liability</div>
+        <div className="ct-section-title">10. Limitation of Liability</div>
         <div className="ct-body">
           <p>To the fullest extent permitted by law, Nama&apos;s total liability to you in connection with the partnership program shall not exceed the total payments made to you in the three (3) months preceding the claim. Nama is not liable for indirect, incidental, or consequential damages.</p>
         </div>
       </div>
 
       <div className="ct-section">
-        <div className="ct-section-title">10. Modifications</div>
+        <div className="ct-section-title">11. Modifications</div>
         <div className="ct-body">
           <p>Nama may update these Creator Terms of Use from time to time. Material changes will be communicated via email or through the Nama Partners dashboard. Continued participation in the program after changes take effect constitutes acceptance.</p>
         </div>
       </div>
 
       <div className="ct-section">
-        <div className="ct-section-title">11. Governing Law</div>
+        <div className="ct-section-title">12. Governing Law</div>
         <div className="ct-body">
           <p>These terms are governed by the laws of the Province of Ontario, Canada. Any disputes will be resolved in the courts of Ontario.</p>
         </div>
       </div>
 
       <div className="ct-section">
-        <div className="ct-section-title">12. Contact</div>
+        <div className="ct-section-title">13. Contact</div>
         <div className="ct-body">
           <p>For questions about these terms, contact your dedicated Nama partner contact or email <a href="mailto:partners@namaclo.com">partners@namaclo.com</a>.</p>
         </div>

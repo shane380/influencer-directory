@@ -173,6 +173,15 @@ export default function PartnershipTermsPage() {
         </div>
       </div>
 
+      {/* Whitelisting & Content Usage */}
+      <div className="pt-section">
+        <div className="pt-section-label">Whitelisting &amp; Content Usage</div>
+        <div className="pt-body">
+          <p>You grant Nama permission to run whitelisted advertisements through your social media account(s) during the partnership. All advertising spend is covered by Nama. You also grant Nama the right to post content to Nama&apos;s own organic channels (Instagram, TikTok, email, website) at any time, without prior approval.</p>
+          <p>Upon termination of the partnership, whitelisting and ad account access will be removed. Nama retains the perpetual right to use submitted content on its own organic channels, website, and marketing materials.</p>
+        </div>
+      </div>
+
       <div className="pt-footer">
         <a href={`/invite/${slug}`} className="pt-back">&larr; Back to offer</a>
       </div>
