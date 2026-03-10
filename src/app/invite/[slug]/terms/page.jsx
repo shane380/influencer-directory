@@ -80,21 +80,20 @@ export default function PartnershipTermsPage() {
     : ''
 
   // Determine which deal components to show
-  const selectedDeal = dealParam || (invite.has_retainer ? 'retainer' : invite.has_ad_spend ? 'ad_spend' : 'affiliate')
   const isOfferChoice = invite.offer_choice
+  // For offer_choice invites, default to 'retainer' (Option A) if no deal param
+  const selectedDeal = dealParam || (isOfferChoice ? 'retainer' : (invite.has_retainer ? 'retainer' : invite.has_ad_spend ? 'ad_spend' : 'affiliate'))
 
-  // For offer_choice invites, only show the selected deal type
-  // For non-offer-choice invites, show all flags set on the invite
+  // For offer_choice invites, trust the selectedDeal param — both options are always available
+  // For non-offer-choice invites, show sections based on has_* flags
   const showRetainerSection = isOfferChoice
-    ? selectedDeal === 'retainer' && invite.has_retainer
+    ? selectedDeal === 'retainer'
     : invite.has_retainer && retainerAmount
   const showAdSpendSection = isOfferChoice
-    ? selectedDeal === 'ad_spend' && invite.has_ad_spend
+    ? selectedDeal === 'ad_spend'
     : invite.has_ad_spend && adSpendPct > 0
-  // Affiliate shows as addon when paired with retainer/ad_spend, or as primary if no other deal
-  const showAffiliate = isOfferChoice
-    ? invite.has_affiliate
-    : invite.has_affiliate || (!invite.has_retainer && !invite.has_ad_spend)
+  // Affiliate shows if flagged, or as primary when no retainer/ad_spend
+  const showAffiliate = invite.has_affiliate || invite.commission_rate > 0 || (!showRetainerSection && !showAdSpendSection)
   const showAdSpendMinSection = showAdSpendSection && adSpendMin > 0
 
   // Partnership type label
