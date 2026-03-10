@@ -396,6 +396,7 @@ const CSS = `
 .cd-wardrobe-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cd-wardrobe-img-placeholder { width: 100%; height: 100%; background: #f5f5f5; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #ccc; letter-spacing: 0.1em; text-transform: uppercase; }
 .cd-wardrobe-info { padding: 14px 16px 18px; }
+.cd-wardrobe-pills { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
 .cd-wardrobe-name { font-size: 13px; color: #111; margin-bottom: 3px; line-height: 1.3; }
 .cd-wardrobe-variant { font-size: 11px; color: #aaa; font-weight: 300; margin-bottom: 10px; }
 .cd-wardrobe-status { display: inline-flex; align-items: center; gap: 5px; font-size: 8.5px; letter-spacing: 0.14em; text-transform: uppercase; padding: 3px 10px; border-radius: 100px; border: 1px solid; }
@@ -403,7 +404,7 @@ const CSS = `
 .cd-status-shipped { color: #2e7d32; border-color: #d4edda; background: #f0faf0; }
 .cd-status-transit { color: #1565c0; border-color: #bbdefb; background: #e3f2fd; }
 .cd-status-processing { color: #e65100; border-color: #ffe0b2; background: #fff3e0; }
-.cd-feedback-toggle { position: absolute; bottom: 10px; right: 10px; background: rgba(255,255,255,0.92); border: 1px solid #e8e8e8; padding: 4px 10px; border-radius: 100px; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: #555; cursor: pointer; backdrop-filter: blur(4px); font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; z-index: 1; }
+.cd-feedback-toggle { background: #fff; border: 1px solid #e8e8e8; padding: 4px 10px; border-radius: 100px; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: #555; cursor: pointer; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; white-space: nowrap; }
 .cd-feedback-panel { border-top: 1px solid #e8e8e8; padding: 20px 16px; background: #f5f5f5; }
 .cd-feedback-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin-bottom: 6px; display: block; }
 .cd-feedback-reactions { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
@@ -602,7 +603,7 @@ const CSS = `
 .cd-m-wardrobe-info { padding: 10px 12px 14px; }
 .cd-m-wardrobe-name { font-size: 12px; color: #111; margin-bottom: 2px; line-height: 1.3; }
 .cd-m-wardrobe-variant { font-size: 10px; color: #aaa; font-weight: 300; margin-bottom: 8px; }
-.cd-m-feedback-toggle { position: absolute; bottom: 8px; right: 8px; background: rgba(255,255,255,0.92); border: 1px solid #e8e8e8; padding: 3px 8px; border-radius: 100px; font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase; color: #555; cursor: pointer; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; z-index: 1; }
+.cd-m-feedback-toggle { background: #fff; border: 1px solid #e8e8e8; padding: 3px 8px; border-radius: 100px; font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase; color: #555; cursor: pointer; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; white-space: nowrap; }
 .cd-m-feedback-panel { border-top: 1px solid #e8e8e8; padding: 14px 12px; background: #f5f5f5; }
 .cd-m-feedback-reactions { display: flex; gap: 5px; margin-bottom: 12px; flex-wrap: wrap; }
 .cd-m-feedback-reaction { padding: 3px 10px; border: 1px solid #e8e8e8; background: #fff; font-size: 10px; color: #555; cursor: pointer; border-radius: 100px; transition: all 0.15s; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
@@ -1293,16 +1294,18 @@ export default function CreatorDashboard() {
                   <div className={`${p}wardrobe-img-placeholder`}>No image</div>
                 )}
               </div>
-              <button
-                className={mobile ? 'cd-m-feedback-toggle' : 'cd-feedback-toggle'}
-                onClick={() => setFeedbackOpen(prev => ({ ...prev, [item.key]: !prev[item.key] }))}
-              >
-                {isDone ? '✓ Done' : isOpen ? '− Close' : '+ Feedback'}
-              </button>
               <div className={`${p}wardrobe-info`}>
                 <div className={`${p}wardrobe-name`}>{item.productName}</div>
                 {item.variantTitle && <div className={`${p}wardrobe-variant`}>{item.variantTitle}</div>}
-                <div className={`cd-wardrobe-status cd-status-${s.cls}`}>● {s.label}</div>
+                <div className="cd-wardrobe-pills">
+                  <div className={`cd-wardrobe-status cd-status-${s.cls}`}>● {s.label}</div>
+                  <button
+                    className={mobile ? 'cd-m-feedback-toggle' : 'cd-feedback-toggle'}
+                    onClick={() => setFeedbackOpen(prev => ({ ...prev, [item.key]: !prev[item.key] }))}
+                  >
+                    {isDone ? '✓ Done' : isOpen ? '− Close' : '+ Feedback'}
+                  </button>
+                </div>
               </div>
               {isOpen && (
                 isDone ? (
