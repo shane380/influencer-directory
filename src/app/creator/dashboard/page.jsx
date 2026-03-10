@@ -106,17 +106,18 @@ const CSS = `
 .cd-nav-item.active .cd-nav-arrow { color: #111; }
 
 /* NOTIFICATIONS */
-.cd-notif-section { border-top: 1px solid #e8e8e8; padding: 16px 24px; }
-.cd-notif-title { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: #aaa; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
-.cd-notif-dot { width: 6px; height: 6px; border-radius: 50%; background: #e74c3c; }
-.cd-notif-item { padding: 10px 12px; border-radius: 8px; margin-bottom: 6px; cursor: pointer; transition: background 0.12s; }
-.cd-notif-item:hover { background: #f5f5f5; }
-.cd-notif-item.cd-notif-approved { border-left: 3px solid #2ecc71; }
-.cd-notif-item.cd-notif-revision { border-left: 3px solid #f39c12; }
-.cd-notif-item.cd-notif-rejected { border-left: 3px solid #e74c3c; }
-.cd-notif-status { font-size: 11px; font-weight: 600; color: #333; margin-bottom: 2px; }
-.cd-notif-meta { font-size: 10px; color: #999; }
-.cd-notif-feedback { font-size: 10px; color: #666; margin-top: 4px; font-style: italic; }
+.cd-notif-btn { display: flex; align-items: center; justify-content: space-between; padding: 14px 32px; border-top: 1px solid #e8e8e8; cursor: pointer; transition: background 0.12s; background: none; width: 100%; text-align: left; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; position: relative; }
+.cd-notif-btn:hover { background: #f5f5f5; }
+.cd-notif-btn-label { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: #aaa; display: flex; align-items: center; gap: 8px; }
+.cd-notif-badge { min-width: 16px; height: 16px; border-radius: 8px; background: #e74c3c; color: white; font-size: 9px; font-weight: 600; display: flex; align-items: center; justify-content: center; padding: 0 4px; }
+.cd-notif-dropdown { position: absolute; bottom: 100%; left: 16px; right: 16px; background: white; border: 1px solid #e8e8e8; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); z-index: 50; max-height: 260px; overflow-y: auto; margin-bottom: 4px; }
+.cd-notif-empty { padding: 16px; text-align: center; font-size: 11px; color: #ccc; }
+.cd-notif-item { display: block; width: 100%; text-align: left; padding: 10px 14px; cursor: pointer; transition: background 0.12s; border-bottom: 1px solid #f5f5f5; background: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+.cd-notif-item:last-child { border-bottom: none; }
+.cd-notif-item:hover { background: #f9f9f9; }
+.cd-notif-item-title { font-size: 11px; font-weight: 600; color: #333; margin-bottom: 1px; }
+.cd-notif-item-meta { font-size: 10px; color: #999; }
+.cd-notif-item-feedback { font-size: 10px; color: #666; margin-top: 3px; font-style: italic; }
 
 /* CONTENT */
 .cd-content { padding: 40px 48px 80px; display: flex; flex-direction: column; gap: 20px; }
@@ -670,6 +671,7 @@ export default function CreatorDashboard() {
   const [contentSubmitting, setContentSubmitting] = useState(false)
   const [contentProgress, setContentProgress] = useState(0)
   const [contentSuccess, setContentSuccess] = useState(null) // null | { folderUrl }
+  const [notifOpen, setNotifOpen] = useState(false)
   const [submissions, setSubmissions] = useState([])
 
   const [copied, setCopied] = useState(false)
@@ -2865,23 +2867,35 @@ export default function CreatorDashboard() {
 
               {(() => {
                 const reviewed = submissions.filter(s => s.status === 'approved' || s.status === 'revision_requested' || s.status === 'rejected')
-                if (reviewed.length === 0) return null
                 return (
-                  <div className="cd-notif-section">
-                    <div className="cd-notif-title"><span className="cd-notif-dot" /> Updates</div>
-                    {reviewed.slice(0, 5).map(sub => {
-                      const [yr, mo] = (sub.month || '').split('-')
-                      const monthLabel = yr && mo ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString('en', { month: 'short', year: 'numeric' }) : sub.month
-                      const statusLabel = sub.status === 'approved' ? 'Content Approved' : sub.status === 'revision_requested' ? 'Revision Requested' : 'Content Rejected'
-                      const cls = sub.status === 'approved' ? 'cd-notif-approved' : sub.status === 'revision_requested' ? 'cd-notif-revision' : 'cd-notif-rejected'
-                      return (
-                        <div key={sub.id} className={`cd-notif-item ${cls}`} onClick={() => setActiveTab('submit')}>
-                          <div className="cd-notif-status">{statusLabel}</div>
-                          <div className="cd-notif-meta">{monthLabel} submission</div>
-                          {sub.admin_feedback && <div className="cd-notif-feedback">&ldquo;{sub.admin_feedback}&rdquo;</div>}
-                        </div>
-                      )
-                    })}
+                  <div style={{ position: 'relative' }}>
+                    <button className="cd-notif-btn" onClick={() => setNotifOpen(!notifOpen)}>
+                      <span className="cd-notif-btn-label">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+                        Notifications
+                      </span>
+                      {reviewed.length > 0 && <span className="cd-notif-badge">{reviewed.length}</span>}
+                    </button>
+                    {notifOpen && (
+                      <div className="cd-notif-dropdown">
+                        {reviewed.length === 0 ? (
+                          <div className="cd-notif-empty">No notifications</div>
+                        ) : (
+                          reviewed.slice(0, 5).map(sub => {
+                            const [yr, mo] = (sub.month || '').split('-')
+                            const monthLabel = yr && mo ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString('en', { month: 'short', year: 'numeric' }) : sub.month
+                            const statusLabel = sub.status === 'approved' ? 'Content Approved' : sub.status === 'revision_requested' ? 'Revision Requested' : 'Content Rejected'
+                            return (
+                              <button key={sub.id} className="cd-notif-item" onClick={() => { setNotifOpen(false); setActiveTab('submit') }}>
+                                <div className="cd-notif-item-title">{statusLabel}</div>
+                                <div className="cd-notif-item-meta">{monthLabel} submission</div>
+                                {sub.admin_feedback && <div className="cd-notif-item-feedback">&ldquo;{sub.admin_feedback}&rdquo;</div>}
+                              </button>
+                            )
+                          })
+                        )}
+                      </div>
+                    )}
                   </div>
                 )
               })()}
@@ -2939,9 +2953,39 @@ export default function CreatorDashboard() {
               <img src="/nama-logo.svg" alt="Nama" className="cd-m-logo" />
               <div className="cd-m-logo-sub">Partners</div>
             </div>
-            <button className="cd-m-topbar-account" onClick={() => setActiveTab('settings')}>
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke={activeTab === 'settings' ? '#111' : '#999'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" /></svg>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ position: 'relative' }}>
+                <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }} onClick={() => setNotifOpen(!notifOpen)}>
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#999" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+                  {submissions.filter(s => s.status === 'approved' || s.status === 'revision_requested' || s.status === 'rejected').length > 0 && (
+                    <span style={{ position: 'absolute', top: 0, right: 0, width: 8, height: 8, borderRadius: '50%', background: '#e74c3c' }} />
+                  )}
+                </button>
+                {notifOpen && (
+                  <div style={{ position: 'absolute', top: '100%', right: 0, width: 240, background: 'white', border: '1px solid #e8e8e8', borderRadius: 10, boxShadow: '0 4px 20px rgba(0,0,0,0.08)', zIndex: 50, maxHeight: 260, overflowY: 'auto', marginTop: 4 }}>
+                    {(() => {
+                      const reviewed = submissions.filter(s => s.status === 'approved' || s.status === 'revision_requested' || s.status === 'rejected')
+                      if (reviewed.length === 0) return <div style={{ padding: 16, textAlign: 'center', fontSize: 11, color: '#ccc' }}>No notifications</div>
+                      return reviewed.slice(0, 5).map(sub => {
+                        const [yr, mo] = (sub.month || '').split('-')
+                        const monthLabel = yr && mo ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString('en', { month: 'short', year: 'numeric' }) : sub.month
+                        const statusLabel = sub.status === 'approved' ? 'Content Approved' : sub.status === 'revision_requested' ? 'Revision Requested' : 'Content Rejected'
+                        return (
+                          <button key={sub.id} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f5f5f5', background: 'none', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }} onClick={() => { setNotifOpen(false); setActiveTab('submit') }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: '#333' }}>{statusLabel}</div>
+                            <div style={{ fontSize: 10, color: '#999' }}>{monthLabel} submission</div>
+                            {sub.admin_feedback && <div style={{ fontSize: 10, color: '#666', marginTop: 3, fontStyle: 'italic' }}>&ldquo;{sub.admin_feedback}&rdquo;</div>}
+                          </button>
+                        )
+                      })
+                    })()}
+                  </div>
+                )}
+              </div>
+              <button className="cd-m-topbar-account" onClick={() => setActiveTab('settings')}>
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke={activeTab === 'settings' ? '#111' : '#999'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" /></svg>
+              </button>
+            </div>
           </div>
 
           <div className="cd-m-bottom-nav">
@@ -2994,28 +3038,6 @@ export default function CreatorDashboard() {
               {renderCodeChangeSection()}
             </div>
           )}
-
-          {(() => {
-            const reviewed = submissions.filter(s => s.status === 'approved' || s.status === 'revision_requested' || s.status === 'rejected')
-            if (reviewed.length === 0) return null
-            return (
-              <div style={{ padding: '12px 16px 0' }}>
-                {reviewed.slice(0, 3).map(sub => {
-                  const [yr, mo] = (sub.month || '').split('-')
-                  const monthLabel = yr && mo ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString('en', { month: 'short', year: 'numeric' }) : sub.month
-                  const statusLabel = sub.status === 'approved' ? 'Content Approved' : sub.status === 'revision_requested' ? 'Revision Requested' : 'Content Rejected'
-                  const borderColor = sub.status === 'approved' ? '#2ecc71' : sub.status === 'revision_requested' ? '#f39c12' : '#e74c3c'
-                  return (
-                    <div key={sub.id} style={{ borderLeft: `3px solid ${borderColor}`, padding: '10px 12px', marginBottom: 8, borderRadius: 8, background: '#fafafa', cursor: 'pointer' }} onClick={() => setActiveTab('submit')}>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: '#333' }}>{statusLabel}</div>
-                      <div style={{ fontSize: 10, color: '#999' }}>{monthLabel} submission</div>
-                      {sub.admin_feedback && <div style={{ fontSize: 10, color: '#666', marginTop: 4, fontStyle: 'italic' }}>&ldquo;{sub.admin_feedback}&rdquo;</div>}
-                    </div>
-                  )
-                })}
-              </div>
-            )
-          })()}
 
           <div className="cd-m-sections">
             {/* Campaigns */}
