@@ -75,7 +75,7 @@ export default function CreatorTermsPage() {
       <div className="ct-section">
         <div className="ct-section-title">4. Content Ownership &amp; Usage Rights</div>
         <div className="ct-body">
-          <p>You retain full ownership of your original content. By participating in the Nama Partners program, you grant Nama a non-exclusive, royalty-free license to use, reproduce, modify, and distribute your content for paid media, organic channels, email marketing, and other promotional purposes during the partnership and for six (6) months following its conclusion.</p>
+          <p>All content deliverables produced under this partnership are owned by Nama upon submission. Nama has the perpetual right to use, edit, and distribute this content across all channels. You retain the right to display the content on your personal social media accounts and portfolio.</p>
           <p>Specific usage terms for your partnership are detailed in your Partnership Terms.</p>
         </div>
       </div>
@@ -117,7 +117,7 @@ export default function CreatorTermsPage() {
           <ul>
             <li>Outstanding payments for completed work will be paid on the next regular payment cycle</li>
             <li>Your affiliate code will be deactivated</li>
-            <li>Nama&apos;s content license continues for six (6) months following termination</li>
+            <li>Nama retains ownership of all content deliverables submitted during the partnership</li>
             <li>Your Nama Partners dashboard access will be deactivated</li>
           </ul>
           <p>Nama reserves the right to terminate a partnership immediately if a creator materially breaches these terms or their Partnership Terms.</p>

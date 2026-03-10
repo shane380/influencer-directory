@@ -169,7 +169,7 @@ export default function PartnershipTermsPage() {
       <div className="pt-section">
         <div className="pt-section-label">Content Ownership &amp; Usage Rights</div>
         <div className="pt-body">
-          <p>You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months following the conclusion of the partnership.</p>
+          <p>All content deliverables produced under this partnership are owned by Nama upon submission. Nama has the perpetual right to use, edit, and distribute this content across all channels. You retain the right to display the content on your personal social media accounts and portfolio.</p>
         </div>
       </div>
 
