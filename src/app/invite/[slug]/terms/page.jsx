@@ -92,8 +92,8 @@ export default function PartnershipTermsPage() {
   const showAdSpendSection = isOfferChoice
     ? selectedDeal === 'ad_spend'
     : invite.has_ad_spend && adSpendPct > 0
-  // Affiliate shows if flagged, or as primary when no retainer/ad_spend
-  const showAffiliate = invite.has_affiliate || invite.commission_rate > 0 || (!showRetainerSection && !showAdSpendSection)
+  // Affiliate only shows when explicitly flagged on the invite
+  const showAffiliate = invite.has_affiliate
   const showAdSpendMinSection = showAdSpendSection && adSpendMin > 0
 
   // Partnership type label
@@ -123,7 +123,7 @@ export default function PartnershipTermsPage() {
             <p>Nama will pay you a fixed retainer of ${(retainerAmount || 0).toLocaleString()} per month. Payment is made by the 5th of the following month via your selected payment method.</p>
           )}
           {showAdSpendSection && (
-            <p>You will earn {adSpendPct}% of monthly advertising spend attributed to your content.</p>
+            <p>You will earn {adSpendPct || 0}% of monthly advertising spend attributed to your content.</p>
           )}
           {showAffiliate && (
             <p>You will earn {commissionRate}% commission on all completed sales attributed to your unique link or discount code. Returned, refunded, or cancelled orders are excluded. Commissions from sales made through coupon aggregator sites, deal forums, or browser extensions are excluded.</p>
