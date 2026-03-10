@@ -297,7 +297,7 @@ export default function InvitePage() {
           // Derive deal type from boolean flags, fallback to deal_type for backwards compat
           const derivedDeal = data.has_retainer ? 'retainer' : data.has_ad_spend ? 'ad_spend' : data.deal_type || 'affiliate'
           if (data.offer_choice) {
-            setStep('choose')
+            setStep('terms')
             setSelectedDeal('retainer')
           } else {
             setStep('terms')
@@ -310,14 +310,12 @@ export default function InvitePage() {
     if (slug) load()
   }, [slug])
 
-  function goToTerms() {
+  function switchOption() {
     setAgreed(false)
-    setStep('terms')
-  }
-
-  function goToChoose() {
-    setAgreed(false)
-    setStep('choose')
+    setSelectedDeal(prev => prev === 'retainer' ? 'ad_spend' : 'retainer')
+    document.querySelector('.ni-panel-right')?.scrollTo({ top: 0, behavior: 'smooth' })
+    // Mobile: scroll to top of body
+    document.querySelector('.ni-m-body')?.scrollIntoView({ behavior: 'smooth' })
   }
 
   async function handleSignup() {
@@ -449,13 +447,6 @@ export default function InvitePage() {
 
   // Left panel content per step
   function getLeftContent() {
-    if (step === 'choose') {
-      return {
-        eyebrow: defaultEyebrow,
-        headline: <>Hi {firstName},<br /><em>let&apos;s make it<br />official.</em></>,
-        intro: 'Two ways to work with us — same perks, different structure. Pick what suits you.',
-      }
-    }
     if (step === 'terms') {
       if (selectedDeal === 'retainer') {
         return {
@@ -548,7 +539,7 @@ export default function InvitePage() {
     if (mobile) {
       return (
         <div>
-          <div className={`ni-m-option-card${sel ? ' selected' : ''}`} onClick={() => setSelectedDeal('retainer')}>
+          <div className={`ni-m-option-card${sel ? ' selected' : ''}`} onClick={() => { setSelectedDeal('retainer'); setAgreed(false) }}>
             <div className="ni-m-check">✓</div>
             <div className="ni-m-option-tag">Option A</div>
             <div className="ni-m-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
@@ -556,13 +547,12 @@ export default function InvitePage() {
             <div className="ni-m-option-rule" />
             <div className="ni-m-option-detail"><div className="ni-m-term-sub">Compensation</div><div className="ni-card-item">${retainerAmount?.toLocaleString()} / month</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}{videos && <><div className="ni-m-term-divider" /><div className="ni-m-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></>}</div>
           </div>
-          <div className="ni-m-option-hint">More details on the next page</div>
         </div>
       )
     }
     return (
       <div>
-        <div className={`ni-option-card${sel ? ' selected' : ''}`} onClick={() => setSelectedDeal('retainer')}>
+        <div className={`ni-option-card${sel ? ' selected' : ''}`} onClick={() => { setSelectedDeal('retainer'); setAgreed(false) }}>
           <div className="ni-check">✓</div>
           <div className="ni-option-tag">Option A</div>
           <div className="ni-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
@@ -570,7 +560,6 @@ export default function InvitePage() {
           <div className="ni-option-rule" />
           <div className="ni-option-detail"><div className="ni-term-sub">Compensation</div><div className="ni-card-item">${retainerAmount?.toLocaleString()} / month</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}{videos && <><div className="ni-term-divider" /><div className="ni-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></>}</div>
         </div>
-        <div className="ni-option-hint">More details on the next page</div>
       </div>
     )
   }
@@ -580,7 +569,7 @@ export default function InvitePage() {
     if (mobile) {
       return (
         <div>
-          <div className={`ni-m-option-card${sel ? ' selected' : ''}`} onClick={() => setSelectedDeal('ad_spend')}>
+          <div className={`ni-m-option-card${sel ? ' selected' : ''}`} onClick={() => { setSelectedDeal('ad_spend'); setAgreed(false) }}>
             <div className="ni-m-check">✓</div>
             <div className="ni-m-option-tag">Option B</div>
             <div className="ni-m-option-rate">{adSpendPct}<sup>%</sup></div>
@@ -588,13 +577,12 @@ export default function InvitePage() {
             <div className="ni-m-option-rule" />
             <div className="ni-m-option-detail"><div className="ni-m-term-sub">Compensation</div><div className="ni-card-item">{adSpendPct}% of monthly ad spend</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}{adSpendMin ? <div className="ni-card-item">${adSpendMin.toLocaleString()} minimum in month 1</div> : null}{videos && <><div className="ni-m-term-divider" /><div className="ni-m-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></>}</div>
           </div>
-          <div className="ni-m-option-hint">More details on the next page</div>
         </div>
       )
     }
     return (
       <div>
-        <div className={`ni-option-card${sel ? ' selected' : ''}`} onClick={() => setSelectedDeal('ad_spend')}>
+        <div className={`ni-option-card${sel ? ' selected' : ''}`} onClick={() => { setSelectedDeal('ad_spend'); setAgreed(false) }}>
           <div className="ni-check">✓</div>
           <div className="ni-option-tag">Option B</div>
           <div className="ni-option-rate">{adSpendPct}<sup>%</sup></div>
@@ -602,7 +590,6 @@ export default function InvitePage() {
           <div className="ni-option-rule" />
           <div className="ni-option-detail"><div className="ni-term-sub">Compensation</div><div className="ni-card-item">{adSpendPct}% of monthly ad spend</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}{adSpendMin ? <div className="ni-card-item">${adSpendMin.toLocaleString()} minimum in month 1</div> : null}{videos && <><div className="ni-term-divider" /><div className="ni-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></>}</div>
         </div>
-        <div className="ni-option-hint">More details on the next page</div>
       </div>
     )
   }
@@ -629,29 +616,19 @@ export default function InvitePage() {
 
   // --- DESKTOP CONTENT ---
   function renderDesktopContent() {
-    if (step === 'choose') {
-      return (
-        <>
-          <div className="ni-sec-label">Select Your Structure</div>
-          <div className="ni-option-cards">
-            {availableDeals.includes('retainer') && renderRetainerOptionCard(false)}
-            {availableDeals.includes('ad_spend') && renderAdSpendOptionCard(false)}
-          </div>
-          <div className="ni-sec-label">Included Either Way</div>
-          <div style={{ marginBottom: 36 }}>
-            {PERKS.map((p, i) => (
-              <div className="ni-perk-row" key={i}><span className="ni-perk-dot">✓</span>{p}</div>
-            ))}
-          </div>
-          <button className="ni-btn" onClick={goToTerms}>Continue with Selected →</button>
-        </>
-      )
-    }
-
     if (step === 'terms') {
       if (selectedDeal === 'retainer') {
         return (
           <>
+            {invite.offer_choice && (
+              <>
+                <div className="ni-sec-label">Select Your Structure</div>
+                <div className="ni-option-cards">
+                  {availableDeals.includes('retainer') && renderRetainerOptionCard(false)}
+                  {availableDeals.includes('ad_spend') && renderAdSpendOptionCard(false)}
+                </div>
+              </>
+            )}
             <div className="ni-sec-label">Partnership Terms</div>
             <div className="ni-term-sub">Compensation</div>
             <div className="ni-term-row">
@@ -723,7 +700,7 @@ export default function InvitePage() {
               <p className="ni-agree-text">{getAgreeText()}</p>
             </div>
             <button className="ni-btn" disabled={!agreed} onClick={() => setStep('signup')}>Accept &amp; Create Account →</button>
-            {invite.offer_choice && <button className="ni-btn-outline" onClick={goToChoose}>← View other option</button>}
+            {invite.offer_choice && <button className="ni-btn-outline" onClick={switchOption}>← Switch to {selectedDeal === 'retainer' ? '% Ad Spend' : 'Monthly Retainer'}</button>}
           </>
         )
       }
@@ -731,6 +708,15 @@ export default function InvitePage() {
       if (selectedDeal === 'ad_spend') {
         return (
           <>
+            {invite.offer_choice && (
+              <>
+                <div className="ni-sec-label">Select Your Structure</div>
+                <div className="ni-option-cards">
+                  {availableDeals.includes('retainer') && renderRetainerOptionCard(false)}
+                  {availableDeals.includes('ad_spend') && renderAdSpendOptionCard(false)}
+                </div>
+              </>
+            )}
             <div className="ni-sec-label">Partnership Terms</div>
             <div className="ni-term-sub">Compensation</div>
             <div className="ni-term-row">
@@ -820,7 +806,7 @@ export default function InvitePage() {
               <p className="ni-agree-text">{getAgreeText()}</p>
             </div>
             <button className="ni-btn" disabled={!agreed} onClick={() => setStep('signup')}>Accept &amp; Create Account →</button>
-            {invite.offer_choice && <button className="ni-btn-outline" onClick={goToChoose}>← View other option</button>}
+            {invite.offer_choice && <button className="ni-btn-outline" onClick={switchOption}>← Switch to {selectedDeal === 'retainer' ? '% Ad Spend' : 'Monthly Retainer'}</button>}
           </>
         )
       }
@@ -963,29 +949,19 @@ export default function InvitePage() {
 
   // --- MOBILE CONTENT ---
   function renderMobileContent() {
-    if (step === 'choose') {
-      return (
-        <>
-          <div className="ni-m-sec-label">Select Your Structure</div>
-          <div className="ni-m-option-cards">
-            {availableDeals.includes('retainer') && renderRetainerOptionCard(true)}
-            {availableDeals.includes('ad_spend') && renderAdSpendOptionCard(true)}
-          </div>
-          <div className="ni-m-sec-label">Included Either Way</div>
-          <div style={{ marginBottom: 28 }}>
-            {PERKS.map((p, i) => (
-              <div className="ni-m-perk-row" key={i}><span className="ni-m-perk-dot">✓</span>{p}</div>
-            ))}
-          </div>
-          <button className="ni-m-btn" onClick={goToTerms}>Continue with Selected →</button>
-        </>
-      )
-    }
-
     if (step === 'terms') {
       if (selectedDeal === 'retainer') {
         return (
           <>
+            {invite.offer_choice && (
+              <>
+                <div className="ni-m-sec-label">Select Your Structure</div>
+                <div className="ni-m-option-cards">
+                  {availableDeals.includes('retainer') && renderRetainerOptionCard(true)}
+                  {availableDeals.includes('ad_spend') && renderAdSpendOptionCard(true)}
+                </div>
+              </>
+            )}
             <div className="ni-m-sec-label">Partnership Terms</div>
             <div className="ni-m-term-sub">Compensation</div>
             <div className="ni-m-term-row"><span className="ni-m-term-key">Retainer</span><div className="ni-term-val"><div className="ni-m-term-primary">${retainerAmount?.toLocaleString()} / month</div><div className="ni-m-term-secondary">Paid by the 5th of the following month</div></div></div>
@@ -1036,7 +1012,7 @@ export default function InvitePage() {
               <p className="ni-m-agree-text">{getAgreeText()}</p>
             </div>
             <button className="ni-m-btn" disabled={!agreed} onClick={() => setStep('signup')}>Accept &amp; Create Account →</button>
-            {invite.offer_choice && <button className="ni-m-btn-outline" onClick={goToChoose}>← View other option</button>}
+            {invite.offer_choice && <button className="ni-m-btn-outline" onClick={switchOption}>← Switch to {selectedDeal === 'retainer' ? '% Ad Spend' : 'Monthly Retainer'}</button>}
           </>
         )
       }
@@ -1044,6 +1020,15 @@ export default function InvitePage() {
       if (selectedDeal === 'ad_spend') {
         return (
           <>
+            {invite.offer_choice && (
+              <>
+                <div className="ni-m-sec-label">Select Your Structure</div>
+                <div className="ni-m-option-cards">
+                  {availableDeals.includes('retainer') && renderRetainerOptionCard(true)}
+                  {availableDeals.includes('ad_spend') && renderAdSpendOptionCard(true)}
+                </div>
+              </>
+            )}
             <div className="ni-m-sec-label">Partnership Terms</div>
             <div className="ni-m-term-sub">Compensation</div>
             <div className="ni-m-term-row"><span className="ni-m-term-key">Ad Spend</span><div className="ni-term-val"><div className="ni-m-term-primary">{adSpendPct}% of ad spend</div><div className="ni-m-term-secondary">Paid by the 5th of the following month</div></div></div>
@@ -1116,7 +1101,7 @@ export default function InvitePage() {
               <p className="ni-m-agree-text">{getAgreeText()}</p>
             </div>
             <button className="ni-m-btn" disabled={!agreed} onClick={() => setStep('signup')}>Accept &amp; Create Account →</button>
-            {invite.offer_choice && <button className="ni-m-btn-outline" onClick={goToChoose}>← View other option</button>}
+            {invite.offer_choice && <button className="ni-m-btn-outline" onClick={switchOption}>← Switch to {selectedDeal === 'retainer' ? '% Ad Spend' : 'Monthly Retainer'}</button>}
           </>
         )
       }
@@ -1238,15 +1223,6 @@ export default function InvitePage() {
 
   // Mobile hero content
   function getMobileHero() {
-    if (step === 'choose') {
-      return (
-        <>
-          <div className="ni-m-eyebrow">{defaultEyebrow}</div>
-          <div className="ni-m-headline">Hi {firstName},<br /><em>let&apos;s make it<br />official.</em></div>
-          <p className="ni-m-intro">Two structures, same perks. Pick what works for you.</p>
-        </>
-      )
-    }
     if (step === 'terms') {
       if (selectedDeal === 'retainer') {
         return (
