@@ -99,23 +99,23 @@ const CSS = `
 .ni-min-note-text { font-size: 12px; color: #888; line-height: 1.7; font-weight: 300; }
 .ni-min-note-text strong { color: #333; font-weight: 500; }
 
-/* FAQ */
-.ni-faq-toggle { display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 0; }
-.ni-faq-toggle .ni-sec-label, .ni-faq-toggle .ni-m-sec-label { margin-bottom: 0; flex: 1; }
-.ni-faq-chevron { font-size: 14px; color: #bbb; transition: transform 0.2s; flex-shrink: 0; margin-left: 8px; }
-.ni-faq-chevron.open { transform: rotate(180deg); }
+/* FAQ ACCORDION */
 .ni-faq { margin-bottom: 28px; }
-.ni-faq-item { padding: 18px 0; border-bottom: 1px solid #f2f2f2; }
-.ni-faq-item:first-child { padding-top: 0; }
+.ni-faq-item { padding: 0; border-bottom: 1px solid #f0f0f0; }
 .ni-faq-item:last-child { border-bottom: none; }
-.ni-faq-q { font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 400; color: #111; line-height: 1.3; margin-bottom: 8px; }
-.ni-faq-a { font-size: 12.5px; color: #888888; font-weight: 300; line-height: 1.8; }
+.ni-faq-q { display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 18px 0; }
+.ni-faq-q-text { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #333; font-weight: 600; line-height: 1.4; padding-right: 12px; }
+.ni-faq-icon { font-size: 18px; color: #bbb; flex-shrink: 0; transition: transform 0.2s; font-weight: 300; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1; }
+.ni-faq-icon.open { transform: rotate(45deg); }
+.ni-faq-a { font-size: 12.5px; color: #888; font-weight: 300; line-height: 1.8; padding: 0 0 18px; }
 .ni-m-faq { margin-bottom: 24px; }
-.ni-m-faq-item { padding: 16px 0; border-bottom: 1px solid #f2f2f2; }
-.ni-m-faq-item:first-child { padding-top: 0; }
+.ni-m-faq-item { padding: 0; border-bottom: 1px solid #f0f0f0; }
 .ni-m-faq-item:last-child { border-bottom: none; }
-.ni-m-faq-q { font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 400; color: #111; line-height: 1.3; margin-bottom: 6px; }
-.ni-m-faq-a { font-size: 12px; color: #888888; font-weight: 300; line-height: 1.8; }
+.ni-m-faq-q { display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 16px 0; }
+.ni-m-faq-q-text { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #333; font-weight: 600; line-height: 1.4; padding-right: 12px; }
+.ni-m-faq-icon { font-size: 18px; color: #bbb; flex-shrink: 0; transition: transform 0.2s; font-weight: 300; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1; }
+.ni-m-faq-icon.open { transform: rotate(45deg); }
+.ni-m-faq-a { font-size: 12px; color: #888; font-weight: 300; line-height: 1.8; padding: 0 0 16px; }
 
 /* AGREE */
 .ni-agree-row { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 24px; }
@@ -277,7 +277,7 @@ export default function InvitePage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
   const [codeCopied, setCodeCopied] = useState(false)
-  const [faqOpen, setFaqOpen] = useState(false)
+  const [openFaqIndex, setOpenFaqIndex] = useState(null)
 
   // Payment step
   const [paymentMethod, setPaymentMethod] = useState(null)
@@ -317,7 +317,7 @@ export default function InvitePage() {
 
   function switchOption() {
     setAgreed(false)
-    setFaqOpen(false)
+    setOpenFaqIndex(null)
     setSelectedDeal(prev => prev === 'retainer' ? 'ad_spend' : 'retainer')
     document.querySelector('.ni-panel-right')?.scrollTo({ top: 0, behavior: 'smooth' })
     // Mobile: scroll to top of body
@@ -678,32 +678,24 @@ export default function InvitePage() {
               <div><div className="ni-highlight-tag">Monthly Retainer</div><div className="ni-highlight-val" style={{ fontSize: 48 }}>${retainerAmount?.toLocaleString()}</div></div>
               <div className="ni-highlight-desc">Fixed payment by the 5th of every month. No conditions, no variables.</div>
             </div>
-            <div className="ni-faq-toggle" onClick={() => setFaqOpen(!faqOpen)}>
-              <div className="ni-sec-label">How It Works</div>
-              <span className={`ni-faq-chevron${faqOpen ? ' open' : ''}`}>▾</span>
+            <div className="ni-sec-label">FAQ&apos;s</div>
+            <div className="ni-faq">
+              {[
+                ['When do I get paid?', 'Payment is sent by the 5th of the following month via your selected payment method.'],
+                ['How many revisions are included?', 'Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. Structural re-shoots or concept changes are by mutual agreement.'],
+                ['What if Nama needs a full re-shoot?', 'Minor edits are included. If a full re-shoot or concept change is needed, we\'ll discuss it together and agree on terms before proceeding.'],
+                ['Is this month-to-month or a fixed contract?', minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'],
+                ['How do I submit my content?', 'Through your Nama Partners dashboard. You\'ll get access immediately after signing up.'],
+              ].map(([q, a], i) => (
+                <div className="ni-faq-item" key={i}>
+                  <div className="ni-faq-q" onClick={() => setOpenFaqIndex(openFaqIndex === i ? null : i)}>
+                    <span className="ni-faq-q-text">{q}</span>
+                    <span className={`ni-faq-icon${openFaqIndex === i ? ' open' : ''}`}>+</span>
+                  </div>
+                  {openFaqIndex === i && <div className="ni-faq-a">{a}</div>}
+                </div>
+              ))}
             </div>
-            {faqOpen && <div className="ni-faq">
-              <div className="ni-faq-item">
-                <div className="ni-faq-q">When do I get paid?</div>
-                <div className="ni-faq-a">Payment is sent by the 5th of the following month via your selected payment method.</div>
-              </div>
-              <div className="ni-faq-item">
-                <div className="ni-faq-q">How many revisions are included?</div>
-                <div className="ni-faq-a">Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. Structural re-shoots or concept changes are by mutual agreement.</div>
-              </div>
-              <div className="ni-faq-item">
-                <div className="ni-faq-q">What if Nama needs a full re-shoot?</div>
-                <div className="ni-faq-a">Minor edits are included. If a full re-shoot or concept change is needed, we&apos;ll discuss it together and agree on terms before proceeding.</div>
-              </div>
-              <div className="ni-faq-item">
-                <div className="ni-faq-q">Is this month-to-month or a fixed contract?</div>
-                <div className="ni-faq-a">{minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'}</div>
-              </div>
-              <div className="ni-faq-item">
-                <div className="ni-faq-q">How do I submit my content?</div>
-                <div className="ni-faq-a">Through your Nama Partners dashboard. You&apos;ll get access immediately after signing up.</div>
-              </div>
-            </div>}
             <div className="ni-agree-row">
               <input type="checkbox" className="ni-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
               <p className="ni-agree-text">{getAgreeText()}</p>
@@ -775,44 +767,27 @@ export default function InvitePage() {
                 <div className="ni-min-note-text">To get you started, we&apos;re guaranteeing a minimum of <strong>${adSpendMin.toLocaleString()} in your first month</strong> regardless of how much we spend.</div>
               </div>
             )}
-            <div className="ni-faq-toggle" onClick={() => setFaqOpen(!faqOpen)}>
-              <div className="ni-sec-label">How It Works</div>
-              <span className={`ni-faq-chevron${faqOpen ? ' open' : ''}`}>▾</span>
+            <div className="ni-sec-label">FAQ&apos;s</div>
+            <div className="ni-faq">
+              {[
+                ['How much will Nama spend on my content?', 'Our system automatically allocates more budget to high-converting content. When your videos perform well, the algorithm picks up spend and scales it — we run flexible budgets specifically to let winning content grow without a cap.'],
+                ['How do I know what\'s being spent?', 'You\'ll see a live breakdown of ad spend and your earnings in your dashboard each month, updated in real time.'],
+                ['When do I get paid?', 'Earnings are calculated at the end of each month and paid by the 5th of the following month via your selected payment method.'],
+                ['How many revisions are included?', 'Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. Structural re-shoots or concept changes are by mutual agreement.'],
+                ['What if Nama needs a full re-shoot?', 'Minor edits are included. If a full re-shoot or concept change is needed, we\'ll discuss it together and agree on terms before proceeding.'],
+                ['How do I submit my content?', 'Through your Nama Partners dashboard. You\'ll get access immediately after signing up.'],
+                ['Is this month-to-month or a fixed contract?', minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'],
+                ['What if my content doesn\'t get much spend in month 1?', 'That\'s what the minimum guarantee is for. You\'re covered regardless of how much we spend while we find what works.'],
+              ].map(([q, a], i) => (
+                <div className="ni-faq-item" key={i}>
+                  <div className="ni-faq-q" onClick={() => setOpenFaqIndex(openFaqIndex === i ? null : i)}>
+                    <span className="ni-faq-q-text">{q}</span>
+                    <span className={`ni-faq-icon${openFaqIndex === i ? ' open' : ''}`}>+</span>
+                  </div>
+                  {openFaqIndex === i && <div className="ni-faq-a">{a}</div>}
+                </div>
+              ))}
             </div>
-            {faqOpen && <div className="ni-faq">
-              <div className="ni-faq-item">
-                <div className="ni-faq-q">How much will Nama spend on my content?</div>
-                <div className="ni-faq-a">Our system automatically allocates more budget to high-converting content. When your videos perform well, the algorithm picks up spend and scales it — we run flexible budgets specifically to let winning content grow without a cap.</div>
-              </div>
-              <div className="ni-faq-item">
-                <div className="ni-faq-q">How do I know what&apos;s being spent?</div>
-                <div className="ni-faq-a">You&apos;ll see a live breakdown of ad spend and your earnings in your dashboard each month, updated in real time.</div>
-              </div>
-              <div className="ni-faq-item">
-                <div className="ni-faq-q">When do I get paid?</div>
-                <div className="ni-faq-a">Earnings are calculated at the end of each month and paid by the 5th of the following month via your selected payment method.</div>
-              </div>
-              <div className="ni-faq-item">
-                <div className="ni-faq-q">How many revisions are included?</div>
-                <div className="ni-faq-a">Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. Structural re-shoots or concept changes are by mutual agreement.</div>
-              </div>
-              <div className="ni-faq-item">
-                <div className="ni-faq-q">What if Nama needs a full re-shoot?</div>
-                <div className="ni-faq-a">Minor edits are included. If a full re-shoot or concept change is needed, we&apos;ll discuss it together and agree on terms before proceeding.</div>
-              </div>
-              <div className="ni-faq-item">
-                <div className="ni-faq-q">How do I submit my content?</div>
-                <div className="ni-faq-a">Through your Nama Partners dashboard. You&apos;ll get access immediately after signing up.</div>
-              </div>
-              <div className="ni-faq-item">
-                <div className="ni-faq-q">Is this month-to-month or a fixed contract?</div>
-                <div className="ni-faq-a">{minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'}</div>
-              </div>
-              <div className="ni-faq-item">
-                <div className="ni-faq-q">What if my content doesn&apos;t get much spend in month 1?</div>
-                <div className="ni-faq-a">That&apos;s what the minimum guarantee is for. You&apos;re covered regardless of how much we spend while we find what works.</div>
-              </div>
-            </div>}
             <div className="ni-agree-row">
               <input type="checkbox" className="ni-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
               <p className="ni-agree-text">{getAgreeText()}</p>
@@ -867,28 +842,23 @@ export default function InvitePage() {
             <div><div className="ni-highlight-tag">Affiliate Commission</div><div className="ni-highlight-val">{commissionRate}<sup>%</sup></div></div>
             <div className="ni-highlight-desc">On every sale through your link. No cap, paid monthly.</div>
           </div>
-          <div className="ni-faq-toggle" onClick={() => setFaqOpen(!faqOpen)}>
-            <div className="ni-sec-label">How It Works</div>
-            <span className={`ni-faq-chevron${faqOpen ? ' open' : ''}`}>▾</span>
+          <div className="ni-sec-label">FAQ&apos;s</div>
+          <div className="ni-faq">
+            {[
+              ['How does the tracking work?', 'Every sale made using your unique link or discount code is tracked automatically. You can see your orders and earnings in your Nama Partners dashboard.'],
+              ['When do I get paid?', 'Commission is calculated at the end of each month and paid by the 5th of the following month via your selected payment method.'],
+              ['What counts as a sale?', 'Any completed order placed using your discount code or affiliate link. Returned or refunded orders are excluded from your commission.'],
+              ['Is there a minimum to get paid?', 'No minimum — any commission earned that month gets paid out.'],
+            ].map(([q, a], i) => (
+              <div className="ni-faq-item" key={i}>
+                <div className="ni-faq-q" onClick={() => setOpenFaqIndex(openFaqIndex === i ? null : i)}>
+                  <span className="ni-faq-q-text">{q}</span>
+                  <span className={`ni-faq-icon${openFaqIndex === i ? ' open' : ''}`}>+</span>
+                </div>
+                {openFaqIndex === i && <div className="ni-faq-a">{a}</div>}
+              </div>
+            ))}
           </div>
-          {faqOpen && <div className="ni-faq">
-            <div className="ni-faq-item">
-              <div className="ni-faq-q">How does the tracking work?</div>
-              <div className="ni-faq-a">Every sale made using your unique link or discount code is tracked automatically. You can see your orders and earnings in your Nama Partners dashboard.</div>
-            </div>
-            <div className="ni-faq-item">
-              <div className="ni-faq-q">When do I get paid?</div>
-              <div className="ni-faq-a">Commission is calculated at the end of each month and paid by the 5th of the following month via your selected payment method.</div>
-            </div>
-            <div className="ni-faq-item">
-              <div className="ni-faq-q">What counts as a sale?</div>
-              <div className="ni-faq-a">Any completed order placed using your discount code or affiliate link. Returned or refunded orders are excluded from your commission.</div>
-            </div>
-            <div className="ni-faq-item">
-              <div className="ni-faq-q">Is there a minimum to get paid?</div>
-              <div className="ni-faq-a">No minimum — any commission earned that month gets paid out.</div>
-            </div>
-          </div>}
           <div className="ni-agree-row">
             <input type="checkbox" className="ni-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
             <p className="ni-agree-text">{getAgreeText()}</p>
@@ -999,32 +969,24 @@ export default function InvitePage() {
               <div><div className="ni-m-highlight-tag">Monthly Retainer</div><div className="ni-m-highlight-val" style={{ fontSize: 44 }}>${retainerAmount?.toLocaleString()}</div></div>
               <div className="ni-m-highlight-desc">Fixed payment by the 5th of every month.</div>
             </div>
-            <div className="ni-faq-toggle" onClick={() => setFaqOpen(!faqOpen)}>
-              <div className="ni-m-sec-label">How It Works</div>
-              <span className={`ni-faq-chevron${faqOpen ? ' open' : ''}`}>▾</span>
+            <div className="ni-m-sec-label">FAQ&apos;s</div>
+            <div className="ni-m-faq">
+              {[
+                ['When do I get paid?', 'Payment is sent by the 5th of the following month via your selected payment method.'],
+                ['How many revisions are included?', 'Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. Structural re-shoots or concept changes are by mutual agreement.'],
+                ['What if Nama needs a full re-shoot?', 'Minor edits are included. If a full re-shoot or concept change is needed, we\'ll discuss it together and agree on terms before proceeding.'],
+                ['Is this month-to-month or a fixed contract?', minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'],
+                ['How do I submit my content?', 'Through your Nama Partners dashboard. You\'ll get access immediately after signing up.'],
+              ].map(([q, a], i) => (
+                <div className="ni-m-faq-item" key={i}>
+                  <div className="ni-m-faq-q" onClick={() => setOpenFaqIndex(openFaqIndex === i ? null : i)}>
+                    <span className="ni-m-faq-q-text">{q}</span>
+                    <span className={`ni-m-faq-icon${openFaqIndex === i ? ' open' : ''}`}>+</span>
+                  </div>
+                  {openFaqIndex === i && <div className="ni-m-faq-a">{a}</div>}
+                </div>
+              ))}
             </div>
-            {faqOpen && <div className="ni-m-faq">
-              <div className="ni-m-faq-item">
-                <div className="ni-m-faq-q">When do I get paid?</div>
-                <div className="ni-m-faq-a">Payment is sent by the 5th of the following month via your selected payment method.</div>
-              </div>
-              <div className="ni-m-faq-item">
-                <div className="ni-m-faq-q">How many revisions are included?</div>
-                <div className="ni-m-faq-a">Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. Structural re-shoots or concept changes are by mutual agreement.</div>
-              </div>
-              <div className="ni-m-faq-item">
-                <div className="ni-m-faq-q">What if Nama needs a full re-shoot?</div>
-                <div className="ni-m-faq-a">Minor edits are included. If a full re-shoot or concept change is needed, we&apos;ll discuss it together and agree on terms before proceeding.</div>
-              </div>
-              <div className="ni-m-faq-item">
-                <div className="ni-m-faq-q">Is this month-to-month or a fixed contract?</div>
-                <div className="ni-m-faq-a">{minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'}</div>
-              </div>
-              <div className="ni-m-faq-item">
-                <div className="ni-m-faq-q">How do I submit my content?</div>
-                <div className="ni-m-faq-a">Through your Nama Partners dashboard. You&apos;ll get access immediately after signing up.</div>
-              </div>
-            </div>}
             <div className="ni-m-agree-row">
               <input type="checkbox" className="ni-m-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
               <p className="ni-m-agree-text">{getAgreeText()}</p>
@@ -1079,44 +1041,27 @@ export default function InvitePage() {
                 <div className="ni-m-min-note-text">Guaranteed minimum of <strong>${adSpendMin.toLocaleString()} in your first month</strong> regardless of spend.</div>
               </div>
             )}
-            <div className="ni-faq-toggle" onClick={() => setFaqOpen(!faqOpen)}>
-              <div className="ni-m-sec-label">How It Works</div>
-              <span className={`ni-faq-chevron${faqOpen ? ' open' : ''}`}>▾</span>
+            <div className="ni-m-sec-label">FAQ&apos;s</div>
+            <div className="ni-m-faq">
+              {[
+                ['How much will Nama spend on my content?', 'Our system automatically allocates more budget to high-converting content. When your videos perform well, the algorithm picks up spend and scales it — we run flexible budgets specifically to let winning content grow without a cap.'],
+                ['How do I know what\'s being spent?', 'You\'ll see a live breakdown of ad spend and your earnings in your dashboard each month, updated in real time.'],
+                ['When do I get paid?', 'Earnings are calculated at the end of each month and paid by the 5th of the following month via your selected payment method.'],
+                ['How many revisions are included?', 'Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. Structural re-shoots or concept changes are by mutual agreement.'],
+                ['What if Nama needs a full re-shoot?', 'Minor edits are included. If a full re-shoot or concept change is needed, we\'ll discuss it together and agree on terms before proceeding.'],
+                ['How do I submit my content?', 'Through your Nama Partners dashboard. You\'ll get access immediately after signing up.'],
+                ['Is this month-to-month or a fixed contract?', minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'],
+                ['What if my content doesn\'t get much spend in month 1?', 'That\'s what the minimum guarantee is for. You\'re covered regardless of how much we spend while we find what works.'],
+              ].map(([q, a], i) => (
+                <div className="ni-m-faq-item" key={i}>
+                  <div className="ni-m-faq-q" onClick={() => setOpenFaqIndex(openFaqIndex === i ? null : i)}>
+                    <span className="ni-m-faq-q-text">{q}</span>
+                    <span className={`ni-m-faq-icon${openFaqIndex === i ? ' open' : ''}`}>+</span>
+                  </div>
+                  {openFaqIndex === i && <div className="ni-m-faq-a">{a}</div>}
+                </div>
+              ))}
             </div>
-            {faqOpen && <div className="ni-m-faq">
-              <div className="ni-m-faq-item">
-                <div className="ni-m-faq-q">How much will Nama spend on my content?</div>
-                <div className="ni-m-faq-a">Our system automatically allocates more budget to high-converting content. When your videos perform well, the algorithm picks up spend and scales it — we run flexible budgets specifically to let winning content grow without a cap.</div>
-              </div>
-              <div className="ni-m-faq-item">
-                <div className="ni-m-faq-q">How do I know what&apos;s being spent?</div>
-                <div className="ni-m-faq-a">You&apos;ll see a live breakdown of ad spend and your earnings in your dashboard each month, updated in real time.</div>
-              </div>
-              <div className="ni-m-faq-item">
-                <div className="ni-m-faq-q">When do I get paid?</div>
-                <div className="ni-m-faq-a">Earnings are calculated at the end of each month and paid by the 5th of the following month via your selected payment method.</div>
-              </div>
-              <div className="ni-m-faq-item">
-                <div className="ni-m-faq-q">How many revisions are included?</div>
-                <div className="ni-m-faq-a">Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. Structural re-shoots or concept changes are by mutual agreement.</div>
-              </div>
-              <div className="ni-m-faq-item">
-                <div className="ni-m-faq-q">What if Nama needs a full re-shoot?</div>
-                <div className="ni-m-faq-a">Minor edits are included. If a full re-shoot or concept change is needed, we&apos;ll discuss it together and agree on terms before proceeding.</div>
-              </div>
-              <div className="ni-m-faq-item">
-                <div className="ni-m-faq-q">How do I submit my content?</div>
-                <div className="ni-m-faq-a">Through your Nama Partners dashboard. You&apos;ll get access immediately after signing up.</div>
-              </div>
-              <div className="ni-m-faq-item">
-                <div className="ni-m-faq-q">Is this month-to-month or a fixed contract?</div>
-                <div className="ni-m-faq-a">{minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'}</div>
-              </div>
-              <div className="ni-m-faq-item">
-                <div className="ni-m-faq-q">What if my content doesn&apos;t get much spend in month 1?</div>
-                <div className="ni-m-faq-a">That&apos;s what the minimum guarantee is for. You&apos;re covered regardless of how much we spend while we find what works.</div>
-              </div>
-            </div>}
             <div className="ni-m-agree-row">
               <input type="checkbox" className="ni-m-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
               <p className="ni-m-agree-text">{getAgreeText()}</p>
@@ -1150,28 +1095,23 @@ export default function InvitePage() {
             <div><div className="ni-m-highlight-tag">Affiliate Commission</div><div className="ni-m-highlight-val">{commissionRate}<sup>%</sup></div></div>
             <div className="ni-m-highlight-desc">On every sale through your link. No cap.</div>
           </div>
-          <div className="ni-faq-toggle" onClick={() => setFaqOpen(!faqOpen)}>
-            <div className="ni-m-sec-label">How It Works</div>
-            <span className={`ni-faq-chevron${faqOpen ? ' open' : ''}`}>▾</span>
+          <div className="ni-m-sec-label">FAQ&apos;s</div>
+          <div className="ni-m-faq">
+            {[
+              ['How does the tracking work?', 'Every sale made using your unique link or discount code is tracked automatically. You can see your orders and earnings in your Nama Partners dashboard.'],
+              ['When do I get paid?', 'Commission is calculated at the end of each month and paid by the 5th of the following month via your selected payment method.'],
+              ['What counts as a sale?', 'Any completed order placed using your discount code or affiliate link. Returned or refunded orders are excluded from your commission.'],
+              ['Is there a minimum to get paid?', 'No minimum — any commission earned that month gets paid out.'],
+            ].map(([q, a], i) => (
+              <div className="ni-m-faq-item" key={i}>
+                <div className="ni-m-faq-q" onClick={() => setOpenFaqIndex(openFaqIndex === i ? null : i)}>
+                  <span className="ni-m-faq-q-text">{q}</span>
+                  <span className={`ni-m-faq-icon${openFaqIndex === i ? ' open' : ''}`}>+</span>
+                </div>
+                {openFaqIndex === i && <div className="ni-m-faq-a">{a}</div>}
+              </div>
+            ))}
           </div>
-          {faqOpen && <div className="ni-m-faq">
-            <div className="ni-m-faq-item">
-              <div className="ni-m-faq-q">How does the tracking work?</div>
-              <div className="ni-m-faq-a">Every sale made using your unique link or discount code is tracked automatically. You can see your orders and earnings in your Nama Partners dashboard.</div>
-            </div>
-            <div className="ni-m-faq-item">
-              <div className="ni-m-faq-q">When do I get paid?</div>
-              <div className="ni-m-faq-a">Commission is calculated at the end of each month and paid by the 5th of the following month via your selected payment method.</div>
-            </div>
-            <div className="ni-m-faq-item">
-              <div className="ni-m-faq-q">What counts as a sale?</div>
-              <div className="ni-m-faq-a">Any completed order placed using your discount code or affiliate link. Returned or refunded orders are excluded from your commission.</div>
-            </div>
-            <div className="ni-m-faq-item">
-              <div className="ni-m-faq-q">Is there a minimum to get paid?</div>
-              <div className="ni-m-faq-a">No minimum — any commission earned that month gets paid out.</div>
-            </div>
-          </div>}
           <div className="ni-m-agree-row">
             <input type="checkbox" className="ni-m-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
             <p className="ni-m-agree-text">{getAgreeText()}</p>
