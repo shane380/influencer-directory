@@ -26,7 +26,7 @@ const CSS = `
 .ni-done-center .ni-logo-lockup { align-items: center; margin-bottom: 48px; }
 .ni-done-content { text-align: center; width: 100%; max-width: 400px; }
 .ni-done-center .ni-headline { font-family: 'Playfair Display', serif; font-size: 56px; font-weight: 300; color: #111; line-height: 1; margin-bottom: 16px; }
-.ni-done-center .ni-intro { font-size: 13px; color: #aaa; line-height: 1.9; font-weight: 300; margin-bottom: 36px; }
+.ni-done-center .ni-intro { font-size: 13px; color: #777; line-height: 1.9; font-weight: 300; margin-bottom: 36px; }
 .ni-done-center .ni-btn { max-width: 400px; width: 100%; }
 .ni-panel-left { padding: 56px 48px; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; justify-content: space-between; position: sticky; top: 0; height: 100vh; background: white; }
 .ni-panel-right { padding: 56px 52px; overflow-y: auto; }
@@ -69,7 +69,7 @@ const CSS = `
 .ni-term-sub { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #333; font-weight: 600; margin: 24px 0 4px; }
 .ni-term-sub:first-child { margin-top: 0; }
 .ni-term-divider { height: 1px; background: #e8e8e8; margin: 4px 0; }
-.ni-footnote { font-size: 12px; color: #aaa; font-style: italic; line-height: 1.8; margin: 18px 0 32px; padding-left: 14px; border-left: 1.5px solid #e8e8e8; }
+.ni-footnote { font-size: 12px; color: #777; font-style: italic; line-height: 1.8; margin: 18px 0 32px; padding-left: 14px; border-left: 1.5px solid #e8e8e8; }
 
 /* PERKS */
 .ni-perk-row { display: flex; align-items: center; gap: 14px; padding: 11px 0; border-bottom: 1px solid #e8e8e8; font-family: 'Playfair Display', serif; font-size: 18px; color: #1a1a1a; line-height: 1.3; }
@@ -195,7 +195,7 @@ const CSS = `
 .ni-m-term-sub { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #333; font-weight: 600; margin: 24px 0 4px; }
 .ni-m-term-sub:first-child { margin-top: 0; }
 .ni-m-term-divider { height: 1px; background: #e8e8e8; margin: 4px 0; }
-.ni-m-footnote { font-size: 12px; color: #aaa; font-style: italic; line-height: 1.75; margin: 16px 0 26px; padding-left: 12px; border-left: 1.5px solid #e8e8e8; }
+.ni-m-footnote { font-size: 12px; color: #777; font-style: italic; line-height: 1.75; margin: 16px 0 26px; padding-left: 12px; border-left: 1.5px solid #e8e8e8; }
 .ni-m-perk-row { display: flex; align-items: center; gap: 14px; padding: 11px 0; border-bottom: 1px solid #e8e8e8; font-family: 'Playfair Display', serif; font-size: 18px; color: #1a1a1a; line-height: 1.3; }
 .ni-m-perk-row:last-child { border-bottom: none; }
 .ni-m-perk-dot { width: 18px; height: 18px; border-radius: 50%; background: #1a1a1a; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: white; font-size: 9px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
