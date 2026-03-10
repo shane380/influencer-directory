@@ -100,6 +100,10 @@ const CSS = `
 .ni-min-note-text strong { color: #333; font-weight: 500; }
 
 /* FAQ */
+.ni-faq-toggle { display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 0; }
+.ni-faq-toggle .ni-sec-label, .ni-faq-toggle .ni-m-sec-label { margin-bottom: 0; flex: 1; }
+.ni-faq-chevron { font-size: 14px; color: #bbb; transition: transform 0.2s; flex-shrink: 0; margin-left: 8px; }
+.ni-faq-chevron.open { transform: rotate(180deg); }
 .ni-faq { margin-bottom: 28px; }
 .ni-faq-item { padding: 18px 0; border-bottom: 1px solid #f2f2f2; }
 .ni-faq-item:first-child { padding-top: 0; }
@@ -273,6 +277,7 @@ export default function InvitePage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
   const [codeCopied, setCodeCopied] = useState(false)
+  const [faqOpen, setFaqOpen] = useState(false)
 
   // Payment step
   const [paymentMethod, setPaymentMethod] = useState(null)
@@ -312,6 +317,7 @@ export default function InvitePage() {
 
   function switchOption() {
     setAgreed(false)
+    setFaqOpen(false)
     setSelectedDeal(prev => prev === 'retainer' ? 'ad_spend' : 'retainer')
     document.querySelector('.ni-panel-right')?.scrollTo({ top: 0, behavior: 'smooth' })
     // Mobile: scroll to top of body
@@ -672,8 +678,11 @@ export default function InvitePage() {
               <div><div className="ni-highlight-tag">Monthly Retainer</div><div className="ni-highlight-val" style={{ fontSize: 48 }}>${retainerAmount?.toLocaleString()}</div></div>
               <div className="ni-highlight-desc">Fixed payment by the 5th of every month. No conditions, no variables.</div>
             </div>
-            <div className="ni-sec-label">How It Works</div>
-            <div className="ni-faq">
+            <div className="ni-faq-toggle" onClick={() => setFaqOpen(!faqOpen)}>
+              <div className="ni-sec-label">How It Works</div>
+              <span className={`ni-faq-chevron${faqOpen ? ' open' : ''}`}>▾</span>
+            </div>
+            {faqOpen && <div className="ni-faq">
               <div className="ni-faq-item">
                 <div className="ni-faq-q">When do I get paid?</div>
                 <div className="ni-faq-a">Payment is sent by the 5th of the following month via your selected payment method.</div>
@@ -694,7 +703,7 @@ export default function InvitePage() {
                 <div className="ni-faq-q">How do I submit my content?</div>
                 <div className="ni-faq-a">Through your Nama Partners dashboard. You&apos;ll get access immediately after signing up.</div>
               </div>
-            </div>
+            </div>}
             <div className="ni-agree-row">
               <input type="checkbox" className="ni-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
               <p className="ni-agree-text">{getAgreeText()}</p>
@@ -766,8 +775,11 @@ export default function InvitePage() {
                 <div className="ni-min-note-text">To get you started, we&apos;re guaranteeing a minimum of <strong>${adSpendMin.toLocaleString()} in your first month</strong> regardless of how much we spend.</div>
               </div>
             )}
-            <div className="ni-sec-label">How It Works</div>
-            <div className="ni-faq">
+            <div className="ni-faq-toggle" onClick={() => setFaqOpen(!faqOpen)}>
+              <div className="ni-sec-label">How It Works</div>
+              <span className={`ni-faq-chevron${faqOpen ? ' open' : ''}`}>▾</span>
+            </div>
+            {faqOpen && <div className="ni-faq">
               <div className="ni-faq-item">
                 <div className="ni-faq-q">How much will Nama spend on my content?</div>
                 <div className="ni-faq-a">Our system automatically allocates more budget to high-converting content. When your videos perform well, the algorithm picks up spend and scales it — we run flexible budgets specifically to let winning content grow without a cap.</div>
@@ -800,7 +812,7 @@ export default function InvitePage() {
                 <div className="ni-faq-q">What if my content doesn&apos;t get much spend in month 1?</div>
                 <div className="ni-faq-a">That&apos;s what the minimum guarantee is for. You&apos;re covered regardless of how much we spend while we find what works.</div>
               </div>
-            </div>
+            </div>}
             <div className="ni-agree-row">
               <input type="checkbox" className="ni-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
               <p className="ni-agree-text">{getAgreeText()}</p>
@@ -855,8 +867,11 @@ export default function InvitePage() {
             <div><div className="ni-highlight-tag">Affiliate Commission</div><div className="ni-highlight-val">{commissionRate}<sup>%</sup></div></div>
             <div className="ni-highlight-desc">On every sale through your link. No cap, paid monthly.</div>
           </div>
-          <div className="ni-sec-label">How It Works</div>
-          <div className="ni-faq">
+          <div className="ni-faq-toggle" onClick={() => setFaqOpen(!faqOpen)}>
+            <div className="ni-sec-label">How It Works</div>
+            <span className={`ni-faq-chevron${faqOpen ? ' open' : ''}`}>▾</span>
+          </div>
+          {faqOpen && <div className="ni-faq">
             <div className="ni-faq-item">
               <div className="ni-faq-q">How does the tracking work?</div>
               <div className="ni-faq-a">Every sale made using your unique link or discount code is tracked automatically. You can see your orders and earnings in your Nama Partners dashboard.</div>
@@ -873,7 +888,7 @@ export default function InvitePage() {
               <div className="ni-faq-q">Is there a minimum to get paid?</div>
               <div className="ni-faq-a">No minimum — any commission earned that month gets paid out.</div>
             </div>
-          </div>
+          </div>}
           <div className="ni-agree-row">
             <input type="checkbox" className="ni-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
             <p className="ni-agree-text">{getAgreeText()}</p>
@@ -984,8 +999,11 @@ export default function InvitePage() {
               <div><div className="ni-m-highlight-tag">Monthly Retainer</div><div className="ni-m-highlight-val" style={{ fontSize: 44 }}>${retainerAmount?.toLocaleString()}</div></div>
               <div className="ni-m-highlight-desc">Fixed payment by the 5th of every month.</div>
             </div>
-            <div className="ni-m-sec-label">How It Works</div>
-            <div className="ni-m-faq">
+            <div className="ni-faq-toggle" onClick={() => setFaqOpen(!faqOpen)}>
+              <div className="ni-m-sec-label">How It Works</div>
+              <span className={`ni-faq-chevron${faqOpen ? ' open' : ''}`}>▾</span>
+            </div>
+            {faqOpen && <div className="ni-m-faq">
               <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">When do I get paid?</div>
                 <div className="ni-m-faq-a">Payment is sent by the 5th of the following month via your selected payment method.</div>
@@ -1006,7 +1024,7 @@ export default function InvitePage() {
                 <div className="ni-m-faq-q">How do I submit my content?</div>
                 <div className="ni-m-faq-a">Through your Nama Partners dashboard. You&apos;ll get access immediately after signing up.</div>
               </div>
-            </div>
+            </div>}
             <div className="ni-m-agree-row">
               <input type="checkbox" className="ni-m-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
               <p className="ni-m-agree-text">{getAgreeText()}</p>
@@ -1061,8 +1079,11 @@ export default function InvitePage() {
                 <div className="ni-m-min-note-text">Guaranteed minimum of <strong>${adSpendMin.toLocaleString()} in your first month</strong> regardless of spend.</div>
               </div>
             )}
-            <div className="ni-m-sec-label">How It Works</div>
-            <div className="ni-m-faq">
+            <div className="ni-faq-toggle" onClick={() => setFaqOpen(!faqOpen)}>
+              <div className="ni-m-sec-label">How It Works</div>
+              <span className={`ni-faq-chevron${faqOpen ? ' open' : ''}`}>▾</span>
+            </div>
+            {faqOpen && <div className="ni-m-faq">
               <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">How much will Nama spend on my content?</div>
                 <div className="ni-m-faq-a">Our system automatically allocates more budget to high-converting content. When your videos perform well, the algorithm picks up spend and scales it — we run flexible budgets specifically to let winning content grow without a cap.</div>
@@ -1095,7 +1116,7 @@ export default function InvitePage() {
                 <div className="ni-m-faq-q">What if my content doesn&apos;t get much spend in month 1?</div>
                 <div className="ni-m-faq-a">That&apos;s what the minimum guarantee is for. You&apos;re covered regardless of how much we spend while we find what works.</div>
               </div>
-            </div>
+            </div>}
             <div className="ni-m-agree-row">
               <input type="checkbox" className="ni-m-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
               <p className="ni-m-agree-text">{getAgreeText()}</p>
@@ -1129,8 +1150,11 @@ export default function InvitePage() {
             <div><div className="ni-m-highlight-tag">Affiliate Commission</div><div className="ni-m-highlight-val">{commissionRate}<sup>%</sup></div></div>
             <div className="ni-m-highlight-desc">On every sale through your link. No cap.</div>
           </div>
-          <div className="ni-m-sec-label">How It Works</div>
-          <div className="ni-m-faq">
+          <div className="ni-faq-toggle" onClick={() => setFaqOpen(!faqOpen)}>
+            <div className="ni-m-sec-label">How It Works</div>
+            <span className={`ni-faq-chevron${faqOpen ? ' open' : ''}`}>▾</span>
+          </div>
+          {faqOpen && <div className="ni-m-faq">
             <div className="ni-m-faq-item">
               <div className="ni-m-faq-q">How does the tracking work?</div>
               <div className="ni-m-faq-a">Every sale made using your unique link or discount code is tracked automatically. You can see your orders and earnings in your Nama Partners dashboard.</div>
@@ -1147,7 +1171,7 @@ export default function InvitePage() {
               <div className="ni-m-faq-q">Is there a minimum to get paid?</div>
               <div className="ni-m-faq-a">No minimum — any commission earned that month gets paid out.</div>
             </div>
-          </div>
+          </div>}
           <div className="ni-m-agree-row">
             <input type="checkbox" className="ni-m-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
             <p className="ni-m-agree-text">{getAgreeText()}</p>
