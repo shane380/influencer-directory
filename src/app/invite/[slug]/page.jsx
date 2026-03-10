@@ -622,7 +622,6 @@ export default function InvitePage() {
                 )}
               </div>
             </div>
-            <div className="ni-footnote">All content deliverables produced under this partnership are owned by Nama upon submission. Nama has the perpetual right to use, edit, and distribute this content across all channels. You retain the right to display the content on your personal social media accounts and portfolio.</div>
             <div className="ni-sec-label">Partnership Perks</div>
             {renderDesktopPerks()}
             <div className="ni-highlight">
@@ -707,7 +706,6 @@ export default function InvitePage() {
                 )}
               </div>
             </div>
-            <div className="ni-footnote">All content deliverables produced under this partnership are owned by Nama upon submission. Nama has the perpetual right to use, edit, and distribute this content across all channels. You retain the right to display the content on your personal social media accounts and portfolio.</div>
             <div className="ni-sec-label">Partnership Perks</div>
             {renderDesktopPerks()}
             <div className="ni-highlight">
@@ -790,7 +788,6 @@ export default function InvitePage() {
               )}
             </div>
           </div>
-          <div className="ni-footnote">All content deliverables produced under this partnership are owned by Nama upon submission. Nama has the perpetual right to use, edit, and distribute this content across all channels. You retain the right to display the content on your personal social media accounts and portfolio.</div>
           <div className="ni-sec-label">Partnership Perks</div>
           {renderDesktopPerks()}
           <div className="ni-highlight">
@@ -919,7 +916,6 @@ export default function InvitePage() {
             <div className="ni-m-term-divider" />
             <div className="ni-m-term-sub">Contract</div>
             <div className="ni-m-term-row"><span className="ni-m-term-key">Term</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
-            <div className="ni-m-footnote">All content deliverables produced under this partnership are owned by Nama upon submission. Nama has the perpetual right to use, edit, and distribute this content across all channels. You retain the right to display the content on your personal social media accounts and portfolio.</div>
             <div className="ni-m-sec-label">Perks</div>
             {renderMobilePerks()}
             <div className="ni-m-highlight">
@@ -983,7 +979,6 @@ export default function InvitePage() {
             <div className="ni-m-term-divider" />
             <div className="ni-m-term-sub">Contract</div>
             <div className="ni-m-term-row"><span className="ni-m-term-key">Term</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
-            <div className="ni-m-footnote">All content deliverables produced under this partnership are owned by Nama upon submission. Nama has the perpetual right to use, edit, and distribute this content across all channels. You retain the right to display the content on your personal social media accounts and portfolio.</div>
             <div className="ni-m-sec-label">Perks</div>
             <div style={{ marginBottom: 20 }}>
               {PERKS.map((p, i) => (
@@ -1049,7 +1044,6 @@ export default function InvitePage() {
           <div className="ni-m-term-divider" />
           <div className="ni-m-term-sub">Contract</div>
           <div className="ni-m-term-row"><span className="ni-m-term-key">Term</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
-          <div className="ni-m-footnote">All content deliverables produced under this partnership are owned by Nama upon submission. Nama has the perpetual right to use, edit, and distribute this content across all channels. You retain the right to display the content on your personal social media accounts and portfolio.</div>
           <div className="ni-m-sec-label">Perks</div>
           {renderMobilePerks()}
           <div className="ni-m-highlight">
