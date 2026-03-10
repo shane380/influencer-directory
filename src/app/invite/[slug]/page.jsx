@@ -638,7 +638,6 @@ export default function InvitePage() {
               <p className="ni-agree-text">{agreeContent}</p>
             </div>
             <button className="ni-btn" disabled={!agreed} onClick={() => setStep('signup')}>Accept &amp; Create Account →</button>
-            {invite.offer_choice && <button className="ni-btn-outline" onClick={switchOption}>← Switch to {selectedDeal === 'retainer' ? '% Ad Spend' : 'Monthly Retainer'}</button>}
           </>
         )
       }
@@ -731,7 +730,6 @@ export default function InvitePage() {
               <p className="ni-agree-text">{agreeContent}</p>
             </div>
             <button className="ni-btn" disabled={!agreed} onClick={() => setStep('signup')}>Accept &amp; Create Account →</button>
-            {invite.offer_choice && <button className="ni-btn-outline" onClick={switchOption}>← Switch to {selectedDeal === 'retainer' ? '% Ad Spend' : 'Monthly Retainer'}</button>}
           </>
         )
       }
@@ -932,7 +930,6 @@ export default function InvitePage() {
               <p className="ni-m-agree-text">{agreeContent}</p>
             </div>
             <button className="ni-m-btn" disabled={!agreed} onClick={() => setStep('signup')}>Accept &amp; Create Account →</button>
-            {invite.offer_choice && <button className="ni-m-btn-outline" onClick={switchOption}>← Switch to {selectedDeal === 'retainer' ? '% Ad Spend' : 'Monthly Retainer'}</button>}
           </>
         )
       }
@@ -1008,7 +1005,6 @@ export default function InvitePage() {
               <p className="ni-m-agree-text">{agreeContent}</p>
             </div>
             <button className="ni-m-btn" disabled={!agreed} onClick={() => setStep('signup')}>Accept &amp; Create Account →</button>
-            {invite.offer_choice && <button className="ni-m-btn-outline" onClick={switchOption}>← Switch to {selectedDeal === 'retainer' ? '% Ad Spend' : 'Monthly Retainer'}</button>}
           </>
         )
       }
