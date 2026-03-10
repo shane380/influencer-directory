@@ -1021,21 +1021,15 @@ export default function CreatorDashboard() {
       let uploaded = 0
       const uploadedFiles = []
 
-      for (const file of contentFiles) {
+      for (let i = 0; i < contentFiles.length; i++) {
+        const file = contentFiles[i]
         // Step 1: Upload to Supabase Storage (supports large files from client)
         const storagePath = `submissions/${creator.id}/${Date.now()}-${file.name}`
         const { error: storageErr } = await supabase.storage
           .from('creator-uploads')
-          .upload(storagePath, file, {
-            cacheControl: '3600',
-            upsert: false,
-            onUploadProgress: (progress) => {
-              if (progress.totalBytes) {
-                setContentProgress(Math.round(((uploaded + progress.bytesUploaded) / totalSize) * 100))
-              }
-            },
-          })
-        if (storageErr) throw new Error(`Upload failed for ${file.name}: ${storageErr.message}`)
+          .upload(storagePath, file, { cacheControl: '3600', upsert: false })
+        if (storageErr) throw new Error(`Storage upload failed for ${file.name}: ${storageErr.message}`)
+        setContentProgress(Math.round(((i + 1) / contentFiles.length) * 50)) // 0-50% for uploads
 
         uploadedFiles.push({
           name: file.name,
@@ -1043,10 +1037,9 @@ export default function CreatorDashboard() {
           mime_type: file.type,
           size: file.size,
         })
-        uploaded += file.size
-        setContentProgress(Math.round((uploaded / totalSize) * 100))
       }
 
+      setContentProgress(60) // Files uploaded, now processing
       // Step 2: Tell server to move files from Storage to Google Drive and create submission
       const res = await fetch('/api/creator/submit-content', {
         method: 'POST',
