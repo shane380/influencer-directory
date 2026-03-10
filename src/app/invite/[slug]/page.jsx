@@ -426,7 +426,7 @@ export default function InvitePage() {
         return {
           eyebrow: invite.offer_choice ? 'Option A — Retainer' : 'Retainer Partnership',
           headline: <>Guaranteed,<br /><em>every single<br />month.</em></>,
-          intro: `$${retainerAmount?.toLocaleString()} paid on the 1st, every month, regardless of views or reach.`,
+          intro: `$${retainerAmount?.toLocaleString()} paid by the 5th of every month, regardless of views or reach.`,
         }
       }
       if (selectedDeal === 'ad_spend') {
@@ -454,7 +454,7 @@ export default function InvitePage() {
       return {
         eyebrow: 'Last Step',
         headline: <>How should<br /><em>we pay you?</em></>,
-        intro: "You'll receive your first payment on the 1st of next month.",
+        intro: "You'll receive your first payment by the 5th of next month.",
       }
     }
     // done
@@ -474,7 +474,7 @@ export default function InvitePage() {
   // Agree text
   function getAgreeText() {
     const commitmentText = minimumCommitment ? `${minimumCommitment}-month minimum` : 'month-to-month'
-    const paymentLine = 'Payment is made on the last day of each month via e-transfer or PayPal.'
+    const paymentLine = 'Payment is made by the 5th of the following month via e-transfer or PayPal.'
     const usageLine = 'I retain ownership of my original content; Nama is licensed to use it for paid media and organic channels during the partnership and for 6 months following the conclusion of the partnership.'
 
     // Determine which components apply based on selectedDeal and flags
@@ -518,7 +518,7 @@ export default function InvitePage() {
             <div className="ni-m-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
             <div className="ni-m-option-name">Monthly Retainer</div>
             <div className="ni-m-option-rule" />
-            <div className="ni-m-option-detail"><div className="ni-m-term-sub">Compensation</div><div className="ni-card-item">${retainerAmount?.toLocaleString()} / month</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}<div className="ni-card-item">Paid on the last day of the month</div><div className="ni-m-term-divider" /><div className="ni-m-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></div>
+            <div className="ni-m-option-detail"><div className="ni-m-term-sub">Compensation</div><div className="ni-card-item">${retainerAmount?.toLocaleString()} / month</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}<div className="ni-card-item">Paid by the 5th of the following month</div><div className="ni-m-term-divider" /><div className="ni-m-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></div>
           </div>
           <div className="ni-m-option-hint">More details on the next page</div>
         </div>
@@ -532,7 +532,7 @@ export default function InvitePage() {
           <div className="ni-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
           <div className="ni-option-name">Monthly Retainer</div>
           <div className="ni-option-rule" />
-          <div className="ni-option-detail"><div className="ni-term-sub">Compensation</div><div className="ni-card-item">${retainerAmount?.toLocaleString()} / month</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}<div className="ni-card-item">Paid on the last day of the month</div><div className="ni-term-divider" /><div className="ni-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></div>
+          <div className="ni-option-detail"><div className="ni-term-sub">Compensation</div><div className="ni-card-item">${retainerAmount?.toLocaleString()} / month</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}<div className="ni-card-item">Paid by the 5th of the following month</div><div className="ni-term-divider" /><div className="ni-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></div>
         </div>
         <div className="ni-option-hint">More details on the next page</div>
       </div>
@@ -550,7 +550,7 @@ export default function InvitePage() {
             <div className="ni-m-option-rate">{adSpendPct}<sup>%</sup></div>
             <div className="ni-m-option-name">% of Ad Spend</div>
             <div className="ni-m-option-rule" />
-            <div className="ni-m-option-detail"><div className="ni-m-term-sub">Compensation</div><div className="ni-card-item">{adSpendPct}% of monthly ad spend</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}{adSpendMin ? <div className="ni-card-item">${adSpendMin.toLocaleString()} minimum in month 1</div> : null}<div className="ni-card-item">Paid on the last day of the month</div><div className="ni-m-term-divider" /><div className="ni-m-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></div>
+            <div className="ni-m-option-detail"><div className="ni-m-term-sub">Compensation</div><div className="ni-card-item">{adSpendPct}% of monthly ad spend</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}{adSpendMin ? <div className="ni-card-item">${adSpendMin.toLocaleString()} minimum in month 1</div> : null}<div className="ni-card-item">Paid by the 5th of the following month</div><div className="ni-m-term-divider" /><div className="ni-m-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></div>
           </div>
           <div className="ni-m-option-hint">More details on the next page</div>
         </div>
@@ -564,7 +564,7 @@ export default function InvitePage() {
           <div className="ni-option-rate">{adSpendPct}<sup>%</sup></div>
           <div className="ni-option-name">% of Ad Spend</div>
           <div className="ni-option-rule" />
-          <div className="ni-option-detail"><div className="ni-term-sub">Compensation</div><div className="ni-card-item">{adSpendPct}% of monthly ad spend</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}{adSpendMin ? <div className="ni-card-item">${adSpendMin.toLocaleString()} minimum in month 1</div> : null}<div className="ni-card-item">Paid on the last day of the month</div><div className="ni-term-divider" /><div className="ni-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></div>
+          <div className="ni-option-detail"><div className="ni-term-sub">Compensation</div><div className="ni-card-item">{adSpendPct}% of monthly ad spend</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}{adSpendMin ? <div className="ni-card-item">${adSpendMin.toLocaleString()} minimum in month 1</div> : null}<div className="ni-card-item">Paid by the 5th of the following month</div><div className="ni-term-divider" /><div className="ni-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></div>
         </div>
         <div className="ni-option-hint">More details on the next page</div>
       </div>
@@ -620,7 +620,7 @@ export default function InvitePage() {
             <div className="ni-term-sub">Compensation</div>
             <div className="ni-term-row">
               <span className="ni-term-key">Retainer</span>
-              <div className="ni-term-val"><div className="ni-term-primary">${retainerAmount?.toLocaleString()} / month</div><div className="ni-term-secondary">Paid on the last day of the month</div></div>
+              <div className="ni-term-val"><div className="ni-term-primary">${retainerAmount?.toLocaleString()} / month</div><div className="ni-term-secondary">Paid by the 5th of the following month</div></div>
             </div>
             {hasAffiliateAddon && (
               <div className="ni-term-row">
@@ -649,13 +649,13 @@ export default function InvitePage() {
             {renderDesktopPerks()}
             <div className="ni-highlight">
               <div><div className="ni-highlight-tag">Monthly Retainer</div><div className="ni-highlight-val" style={{ fontSize: 48 }}>${retainerAmount?.toLocaleString()}</div></div>
-              <div className="ni-highlight-desc">Fixed payment every month on the 1st. No conditions, no variables.</div>
+              <div className="ni-highlight-desc">Fixed payment by the 5th of every month. No conditions, no variables.</div>
             </div>
             <div className="ni-sec-label">How It Works</div>
             <div className="ni-faq">
               <div className="ni-faq-item">
                 <div className="ni-faq-q">When do I get paid?</div>
-                <div className="ni-faq-a">Payment is sent on the last day of each month via e-transfer or PayPal — whichever you prefer.</div>
+                <div className="ni-faq-a">Payment is sent by the 5th of the following month via e-transfer or PayPal — whichever you prefer.</div>
               </div>
               <div className="ni-faq-item">
                 <div className="ni-faq-q">What if I can&apos;t deliver all videos one month?</div>
@@ -695,7 +695,7 @@ export default function InvitePage() {
             <div className="ni-term-sub">Compensation</div>
             <div className="ni-term-row">
               <span className="ni-term-key">Ad Spend</span>
-              <div className="ni-term-val"><div className="ni-term-primary">{adSpendPct}% of ad spend</div><div className="ni-term-secondary">Paid on the last day of the month</div></div>
+              <div className="ni-term-val"><div className="ni-term-primary">{adSpendPct}% of ad spend</div><div className="ni-term-secondary">Paid by the 5th of the following month</div></div>
             </div>
             {hasAffiliateAddon && (
               <div className="ni-term-row">
@@ -750,7 +750,7 @@ export default function InvitePage() {
               </div>
               <div className="ni-faq-item">
                 <div className="ni-faq-q">When do I get paid?</div>
-                <div className="ni-faq-a">Earnings are calculated on the last day of each month and paid within 5 business days via e-transfer or PayPal.</div>
+                <div className="ni-faq-a">Earnings are calculated at the end of each month and paid by the 5th of the following month via e-transfer or PayPal.</div>
               </div>
               <div className="ni-faq-item">
                 <div className="ni-faq-q">How many revisions are included?</div>
@@ -794,7 +794,7 @@ export default function InvitePage() {
           </div>
           <div className="ni-term-row">
             <span className="ni-term-key">Payment</span>
-            <div className="ni-term-val"><div className="ni-term-primary">Last day of each month</div><div className="ni-term-secondary">Via e-transfer or PayPal</div></div>
+            <div className="ni-term-val"><div className="ni-term-primary">By the 5th of the following month</div><div className="ni-term-secondary">Via e-transfer or PayPal</div></div>
           </div>
           {videos && (<>
             <div className="ni-term-divider" />
@@ -829,7 +829,7 @@ export default function InvitePage() {
             </div>
             <div className="ni-faq-item">
               <div className="ni-faq-q">When do I get paid?</div>
-              <div className="ni-faq-a">Commission is calculated at the end of each month and paid on the last day of the month via e-transfer or PayPal.</div>
+              <div className="ni-faq-a">Commission is calculated at the end of each month and paid by the 5th of the following month via e-transfer or PayPal.</div>
             </div>
             <div className="ni-faq-item">
               <div className="ni-faq-q">What counts as a sale?</div>
@@ -940,7 +940,7 @@ export default function InvitePage() {
           <>
             <div className="ni-m-sec-label">Partnership Terms</div>
             <div className="ni-m-term-sub">Compensation</div>
-            <div className="ni-m-term-row"><span className="ni-m-term-key">Retainer</span><div className="ni-term-val"><div className="ni-m-term-primary">${retainerAmount?.toLocaleString()} / month</div><div className="ni-m-term-secondary">Paid on the last day of the month</div></div></div>
+            <div className="ni-m-term-row"><span className="ni-m-term-key">Retainer</span><div className="ni-term-val"><div className="ni-m-term-primary">${retainerAmount?.toLocaleString()} / month</div><div className="ni-m-term-secondary">Paid by the 5th of the following month</div></div></div>
             {hasAffiliateAddon && (
               <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% on all sales</div><div className="ni-m-term-secondary">Via your unique link &amp; discount code</div></div></div>
             )}
@@ -953,13 +953,13 @@ export default function InvitePage() {
             {renderMobilePerks()}
             <div className="ni-m-highlight">
               <div><div className="ni-m-highlight-tag">Monthly Retainer</div><div className="ni-m-highlight-val" style={{ fontSize: 44 }}>${retainerAmount?.toLocaleString()}</div></div>
-              <div className="ni-m-highlight-desc">Fixed payment every month on the 1st.</div>
+              <div className="ni-m-highlight-desc">Fixed payment by the 5th of every month.</div>
             </div>
             <div className="ni-m-sec-label">How It Works</div>
             <div className="ni-m-faq">
               <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">When do I get paid?</div>
-                <div className="ni-m-faq-a">Payment is sent on the last day of each month via e-transfer or PayPal — whichever you prefer.</div>
+                <div className="ni-m-faq-a">Payment is sent by the 5th of the following month via e-transfer or PayPal — whichever you prefer.</div>
               </div>
               <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">What if I can&apos;t deliver all videos one month?</div>
@@ -997,7 +997,7 @@ export default function InvitePage() {
           <>
             <div className="ni-m-sec-label">Partnership Terms</div>
             <div className="ni-m-term-sub">Compensation</div>
-            <div className="ni-m-term-row"><span className="ni-m-term-key">Ad Spend</span><div className="ni-term-val"><div className="ni-m-term-primary">{adSpendPct}% of ad spend</div><div className="ni-m-term-secondary">Paid on the last day of the month</div></div></div>
+            <div className="ni-m-term-row"><span className="ni-m-term-key">Ad Spend</span><div className="ni-term-val"><div className="ni-m-term-primary">{adSpendPct}% of ad spend</div><div className="ni-m-term-secondary">Paid by the 5th of the following month</div></div></div>
             {hasAffiliateAddon && (
               <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% on all sales</div><div className="ni-m-term-secondary">Via your unique link &amp; discount code</div></div></div>
             )}
@@ -1037,7 +1037,7 @@ export default function InvitePage() {
               </div>
               <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">When do I get paid?</div>
-                <div className="ni-m-faq-a">Earnings are calculated on the last day of each month and paid within 5 business days via e-transfer or PayPal.</div>
+                <div className="ni-m-faq-a">Earnings are calculated at the end of each month and paid by the 5th of the following month via e-transfer or PayPal.</div>
               </div>
               <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">How many revisions are included?</div>
@@ -1076,7 +1076,7 @@ export default function InvitePage() {
           <div className="ni-m-sec-label">Partnership Terms</div>
           <div className="ni-m-term-sub">Compensation</div>
           <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% per sale</div><div className="ni-m-term-secondary">Via your unique link &amp; discount code</div></div></div>
-          <div className="ni-m-term-row"><span className="ni-m-term-key">Payment</span><div className="ni-term-val"><div className="ni-m-term-primary">Last day of each month</div><div className="ni-m-term-secondary">Via e-transfer or PayPal</div></div></div>
+          <div className="ni-m-term-row"><span className="ni-m-term-key">Payment</span><div className="ni-term-val"><div className="ni-m-term-primary">By the 5th of the following month</div><div className="ni-m-term-secondary">Via e-transfer or PayPal</div></div></div>
           {videos && (<>
             <div className="ni-m-term-divider" />
             <div className="ni-m-term-sub">Deliverables</div>
@@ -1098,7 +1098,7 @@ export default function InvitePage() {
             </div>
             <div className="ni-m-faq-item">
               <div className="ni-m-faq-q">When do I get paid?</div>
-              <div className="ni-m-faq-a">Commission is calculated at the end of each month and paid on the last day of the month via e-transfer or PayPal.</div>
+              <div className="ni-m-faq-a">Commission is calculated at the end of each month and paid by the 5th of the following month via e-transfer or PayPal.</div>
             </div>
             <div className="ni-m-faq-item">
               <div className="ni-m-faq-q">What counts as a sale?</div>
@@ -1230,7 +1230,7 @@ export default function InvitePage() {
         <>
           <div className="ni-m-eyebrow">Last Step</div>
           <div className="ni-m-headline">How should<br /><em>we pay you?</em></div>
-          <p className="ni-m-intro">You&apos;ll receive your first payment on the 1st of next month.</p>
+          <p className="ni-m-intro">You&apos;ll receive your first payment by the 5th of next month.</p>
         </>
       )
     }
