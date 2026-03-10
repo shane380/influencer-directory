@@ -72,7 +72,7 @@ const CSS = `
 .ni-footnote { font-size: 12px; color: #aaa; font-style: italic; line-height: 1.8; margin: 18px 0 32px; padding-left: 14px; border-left: 1.5px solid #e8e8e8; }
 
 /* PERKS */
-.ni-perk-row { display: flex; align-items: center; gap: 14px; padding: 11px 0; border-bottom: 1px solid #e8e8e8; font-size: 12px; color: #777; line-height: 1.3; font-weight: 300; }
+.ni-perk-row { display: flex; align-items: center; gap: 14px; padding: 11px 0; border-bottom: 1px solid #e8e8e8; font-family: 'Playfair Display', serif; font-size: 18px; color: #1a1a1a; line-height: 1.3; }
 .ni-perk-row:last-child { border-bottom: none; }
 .ni-perk-dot { width: 18px; height: 18px; border-radius: 50%; background: #1a1a1a; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: white; font-size: 9px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
 
@@ -196,7 +196,7 @@ const CSS = `
 .ni-m-term-sub:first-child { margin-top: 0; }
 .ni-m-term-divider { height: 1px; background: #e8e8e8; margin: 4px 0; }
 .ni-m-footnote { font-size: 12px; color: #aaa; font-style: italic; line-height: 1.75; margin: 16px 0 26px; padding-left: 12px; border-left: 1.5px solid #e8e8e8; }
-.ni-m-perk-row { display: flex; align-items: center; gap: 14px; padding: 11px 0; border-bottom: 1px solid #e8e8e8; font-size: 12px; color: #777; line-height: 1.3; font-weight: 300; }
+.ni-m-perk-row { display: flex; align-items: center; gap: 14px; padding: 11px 0; border-bottom: 1px solid #e8e8e8; font-family: 'Playfair Display', serif; font-size: 18px; color: #1a1a1a; line-height: 1.3; }
 .ni-m-perk-row:last-child { border-bottom: none; }
 .ni-m-perk-dot { width: 18px; height: 18px; border-radius: 50%; background: #1a1a1a; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: white; font-size: 9px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
 .ni-m-highlight { background: #111; border-radius: 12px; padding: 22px 22px; display: flex; align-items: center; justify-content: space-between; margin: 22px 0; }
