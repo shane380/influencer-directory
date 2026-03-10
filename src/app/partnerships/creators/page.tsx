@@ -336,7 +336,7 @@ export default function CreatorsListPage() {
       <main className="flex-1 ml-48 px-8 pt-12 pb-8">
         <div className="max-w-5xl">
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-semibold text-gray-900">Creators</h1>
+            <h1 className="text-2xl font-semibold text-gray-900">Partners</h1>
             <button
               onClick={() => setShowInviteModal(true)}
               className="px-4 py-2 bg-gray-900 text-white text-sm rounded-md hover:bg-gray-800 transition-colors"
