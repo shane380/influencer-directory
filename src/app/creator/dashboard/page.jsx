@@ -2957,8 +2957,8 @@ export default function CreatorDashboard() {
               <img src="/nama-logo.svg" alt="Nama" className="cd-m-logo" />
               <div className="cd-m-logo-sub">Partners</div>
             </div>
-            <div style={{ position: 'relative' }}>
-              <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }} onClick={() => setNotifOpen(!notifOpen)}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }} onClick={() => setNotifOpen(!notifOpen)}>
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#999" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
                 {submissions.filter(s => s.status === 'approved' || s.status === 'revision_requested' || s.status === 'rejected').length > 0 && (
                   <span style={{ position: 'absolute', top: 0, right: 0, width: 8, height: 8, borderRadius: '50%', background: '#e74c3c' }} />
@@ -3060,8 +3060,16 @@ export default function CreatorDashboard() {
               {orders.length > 0 && (
                 <div className="cd-m-section">
                   <div className="cd-m-section-head">
-                    <div className="cd-m-section-eyebrow">Shipment History</div>
-                    <div className="cd-m-section-title">Orders</div>
+                    <div>
+                      <div className="cd-m-section-eyebrow">Shipment History</div>
+                      <div className="cd-m-section-title">Orders</div>
+                    </div>
+                  </div>
+                  <div style={{ padding: '0 20px 12px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
+                    <a href="https://namaclo.returnlogic.com/" target="_blank" rel="noopener noreferrer" className="cd-exchange-btn">Start an Exchange →</a>
+                    {influencer?.email && (
+                      <div style={{ fontSize: '10px', color: '#aaa' }}>Use the email your order was placed with: {influencer.email}</div>
+                    )}
                   </div>
                   <div className="cd-m-section-body">{renderOrderHistory(true)}</div>
                 </div>
