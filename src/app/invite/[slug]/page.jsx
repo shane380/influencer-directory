@@ -40,9 +40,9 @@ const CSS = `
 .ni-intro { font-size: 13px; color: #888; line-height: 1.9; font-weight: 300; max-width: 260px; }
 .ni-left-footer { font-size: 10px; color: #ccc; letter-spacing: 0.15em; text-transform: uppercase; }
 
-/* SECTION LABEL */
-.ni-sec-label { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #888; margin-bottom: 22px; display: flex; align-items: center; gap: 12px; }
-.ni-sec-label::after { content: ''; flex: 1; height: 1px; background: #d0d0d0; }
+/* SECTION LABEL — parent headers */
+.ni-sec-label { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: #aaa; margin-bottom: 28px; display: flex; align-items: center; gap: 12px; }
+.ni-sec-label::after { content: ''; flex: 1; height: 1px; background: #e0e0e0; }
 
 /* OPTION CARDS */
 .ni-option-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 36px; }
@@ -59,23 +59,22 @@ const CSS = `
 .ni-option-summary { font-size: 11.5px; color: #aaa; font-weight: 300; margin-top: 12px; }
 
 /* TERM ROWS */
-.ni-term-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid #d0d0d0; }
+.ni-term-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 22px 0; border-bottom: 1px solid #e8e8e8; }
 .ni-term-row:last-child { border-bottom: none; }
 .ni-term-row:has(+ .ni-term-divider), .ni-term-row:has(+ .ni-footnote) { border-bottom: none; }
-.ni-term-key { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #333; font-weight: 600; padding-top: 4px; }
+.ni-term-key { font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase; color: #888; font-weight: 400; padding-top: 4px; }
 .ni-term-val { text-align: right; }
-.ni-term-primary { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 400; color: #111; }
-.ni-term-secondary { font-size: 11px; color: #888888; font-weight: 300; margin-top: 2px; }
-.ni-term-sub { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #888; margin: 20px 0 4px; display: flex; align-items: center; gap: 12px; }
-.ni-term-sub::after { content: ''; flex: 1; height: 1px; background: #d0d0d0; }
+.ni-term-primary { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 400; color: #1a1a1a; }
+.ni-term-secondary { font-size: 11.5px; color: #aaa; font-weight: 300; margin-top: 2px; }
+.ni-term-sub { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #333; font-weight: 600; margin: 24px 0 4px; }
 .ni-term-sub:first-child { margin-top: 0; }
-.ni-term-divider { height: 1px; background: #d0d0d0; margin: 4px 0; }
+.ni-term-divider { height: 1px; background: #e8e8e8; margin: 4px 0; }
 .ni-footnote { font-size: 12px; color: #aaa; font-style: italic; line-height: 1.8; margin: 18px 0 32px; padding-left: 14px; border-left: 1.5px solid #e8e8e8; }
 
 /* PERKS */
-.ni-perk-row { display: flex; align-items: center; gap: 14px; padding: 11px 0; border-bottom: 1px solid #f5f5f5; font-family: 'Playfair Display', serif; font-size: 16px; color: #111; line-height: 1.3; }
+.ni-perk-row { display: flex; align-items: center; gap: 14px; padding: 11px 0; border-bottom: 1px solid #e8e8e8; font-size: 12px; color: #777; line-height: 1.3; font-weight: 300; }
 .ni-perk-row:last-child { border-bottom: none; }
-.ni-perk-dot { width: 18px; height: 18px; border-radius: 50%; background: #111; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: white; font-size: 9px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+.ni-perk-dot { width: 18px; height: 18px; border-radius: 50%; background: #1a1a1a; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: white; font-size: 9px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
 
 /* HIGHLIGHT BLOCK */
 .ni-highlight { background: #111; border-radius: 14px; padding: 26px 28px; display: flex; align-items: center; justify-content: space-between; margin: 28px 0; }
@@ -85,36 +84,36 @@ const CSS = `
 .ni-highlight-desc { font-size: 12px; color: rgba(255,255,255,0.6); line-height: 1.8; font-weight: 300; max-width: 140px; text-align: right; }
 
 /* MIN NOTE */
-.ni-min-note { background: #fafafa; border: 1px solid #ebebeb; border-radius: 10px; padding: 14px 18px; margin-bottom: 24px; display: flex; gap: 12px; align-items: flex-start; }
+.ni-min-note { background: #fafafa; border: 1px solid #e8e8e8; border-radius: 10px; padding: 14px 18px; margin-bottom: 24px; display: flex; gap: 12px; align-items: flex-start; }
 .ni-min-note-icon { font-size: 12px; color: #999; flex-shrink: 0; margin-top: 2px; }
 .ni-min-note-text { font-size: 12px; color: #888; line-height: 1.7; font-weight: 300; }
 .ni-min-note-text strong { color: #333; font-weight: 500; }
 
 /* FAQ ACCORDION */
 .ni-faq { margin-bottom: 28px; }
-.ni-faq-item { padding: 0; border-bottom: 1px solid #f0f0f0; }
+.ni-faq-item { padding: 0; border-bottom: 1px solid #e8e8e8; }
 .ni-faq-item:last-child { border-bottom: none; }
 .ni-faq-q { display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 18px 0; }
-.ni-faq-q-text { font-size: 10px; letter-spacing: 0.18em; text-transform: none; color: #333; font-weight: 600; line-height: 1.6; padding-right: 12px; }
-.ni-faq-icon { font-size: 18px; color: #bbb; flex-shrink: 0; transition: transform 0.2s; font-weight: 300; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1; }
+.ni-faq-q-text { font-size: 11px; letter-spacing: 0; text-transform: none; color: #333; font-weight: 600; line-height: 1.6; padding-right: 12px; }
+.ni-faq-icon { font-size: 14px; color: #bbb; flex-shrink: 0; transition: transform 0.2s; font-weight: 300; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1; }
 .ni-faq-icon.open { transform: rotate(45deg); }
-.ni-faq-a { font-size: 11px; color: #444; font-weight: 300; line-height: 1.8; padding: 0 0 18px; }
+.ni-faq-a { font-size: 12px; color: #777; font-weight: 300; line-height: 1.7; padding: 0 0 18px; }
 .ni-m-faq { margin-bottom: 24px; }
-.ni-m-faq-item { padding: 0; border-bottom: 1px solid #f0f0f0; }
+.ni-m-faq-item { padding: 0; border-bottom: 1px solid #e8e8e8; }
 .ni-m-faq-item:last-child { border-bottom: none; }
 .ni-m-faq-q { display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 16px 0; }
-.ni-m-faq-q-text { font-size: 9.5px; letter-spacing: 0.16em; text-transform: none; color: #333; font-weight: 600; line-height: 1.6; padding-right: 12px; }
-.ni-m-faq-icon { font-size: 18px; color: #bbb; flex-shrink: 0; transition: transform 0.2s; font-weight: 300; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1; }
+.ni-m-faq-q-text { font-size: 11px; letter-spacing: 0; text-transform: none; color: #333; font-weight: 600; line-height: 1.6; padding-right: 12px; }
+.ni-m-faq-icon { font-size: 14px; color: #bbb; flex-shrink: 0; transition: transform 0.2s; font-weight: 300; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1; }
 .ni-m-faq-icon.open { transform: rotate(45deg); }
-.ni-m-faq-a { font-size: 11px; color: #444; font-weight: 300; line-height: 1.8; padding: 0 0 16px; }
+.ni-m-faq-a { font-size: 12px; color: #777; font-weight: 300; line-height: 1.7; padding: 0 0 16px; }
 
 /* AGREE */
 .ni-agree-row { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 24px; }
 .ni-agree-box { width: 18px !important; height: 18px !important; min-width: 18px; border-radius: 4px !important; border: 1.5px solid #ccc !important; flex-shrink: 0; margin-top: 2px; background: white !important; appearance: none !important; -webkit-appearance: none !important; cursor: pointer; position: relative; transition: all 0.15s; padding: 0 !important; }
 .ni-agree-box:checked { background: #111 !important; border-color: #111 !important; }
 .ni-agree-box:checked::after { content: "\\2713"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 10px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1; }
-.ni-agree-text { font-size: 11px; color: #444; line-height: 1.75; font-weight: 300; }
-.ni-agree-text a { color: #111; text-decoration: underline; text-underline-offset: 2px; }
+.ni-agree-text { font-size: 12px; color: #777; line-height: 1.75; font-weight: 300; }
+.ni-agree-text a { color: #1a1a1a; text-decoration: underline; text-underline-offset: 2px; }
 .ni-agree-text a:hover { color: #000; }
 
 /* BUTTONS */
@@ -139,8 +138,8 @@ const CSS = `
 .ni-code-label { font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase; color: #ccc; margin-bottom: 6px; }
 .ni-code-val { font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 500; color: #111; letter-spacing: 0.1em; }
 .ni-code-copy { padding: 8px 18px; border-radius: 100px; border: 1.5px solid #e0e0e0; background: white; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #999; cursor: pointer; }
-.ni-next-steps { border-top: 1px solid #ebebeb; padding-top: 22px; margin-bottom: 28px; }
-.ni-next-step { display: flex; gap: 16px; padding: 11px 0; border-bottom: 1px solid #f5f5f5; }
+.ni-next-steps { border-top: 1px solid #e8e8e8; padding-top: 22px; margin-bottom: 28px; }
+.ni-next-step { display: flex; gap: 16px; padding: 11px 0; border-bottom: 1px solid #e8e8e8; }
 .ni-next-step:last-child { border-bottom: none; }
 .ni-step-num { font-family: 'Playfair Display', serif; font-size: 18px; color: #ddd; flex-shrink: 0; line-height: 1.3; }
 .ni-step-text { font-size: 13px; color: #888; font-weight: 300; line-height: 1.65; }
@@ -152,11 +151,11 @@ const CSS = `
 .ni-m-wrap { background: #f0f0f0; min-height: 100vh; display: flex; justify-content: center; padding: 0; }
 .ni-m-inner { max-width: 390px; width: 100%; min-height: 100vh; background: white; }
 @media (max-width: 390px) { .ni-m-inner { max-width: 100%; } }
-.ni-m-topbar { padding: 20px 24px; border-bottom: 1px solid #ebebeb; }
+.ni-m-topbar { padding: 20px 24px; border-bottom: 1px solid #e8e8e8; }
 .ni-m-logo-lockup { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .ni-m-logo { height: 26px; display: block; width: fit-content; }
 .ni-m-logo-sub { font-size: 8px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; }
-.ni-m-hero { padding: 32px 24px 28px; border-bottom: 1px solid #ebebeb; }
+.ni-m-hero { padding: 32px 24px 28px; border-bottom: 1px solid #e8e8e8; }
 .ni-m-eyebrow { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #666; margin-bottom: 14px; }
 .ni-m-headline { font-family: 'Playfair Display', serif; font-size: 44px; font-weight: 300; color: #111; line-height: 1.02; }
 .ni-m-headline em { font-style: italic; color: #999; display: block; }
@@ -170,8 +169,8 @@ const CSS = `
 .ni-m-done-center .ni-m-headline em { font-style: italic; color: #888; display: block; }
 .ni-m-done-center .ni-m-intro { font-size: 13px; color: #888; line-height: 1.9; font-weight: 300; margin-bottom: 32px; }
 .ni-m-done-center .ni-m-btn { max-width: 340px; width: 100%; }
-.ni-m-sec-label { font-size: 9px; letter-spacing: 0.38em; text-transform: uppercase; color: #555; margin-bottom: 18px; display: flex; align-items: center; gap: 10px; }
-.ni-m-sec-label::after { content: ''; flex: 1; height: 1px; background: #d0d0d0; }
+.ni-m-sec-label { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: #aaa; margin-bottom: 28px; display: flex; align-items: center; gap: 10px; }
+.ni-m-sec-label::after { content: ''; flex: 1; height: 1px; background: #e0e0e0; }
 
 /* Mobile option cards */
 .ni-m-option-cards { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
@@ -187,34 +186,33 @@ const CSS = `
 .ni-m-option-name { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #888; margin-bottom: 0; }
 .ni-m-option-summary { font-size: 11.5px; color: #aaa; font-weight: 300; margin-top: 12px; }
 
-.ni-m-term-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #d0d0d0; }
+.ni-m-term-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 22px 0; border-bottom: 1px solid #e8e8e8; }
 .ni-m-term-row:last-child { border-bottom: none; }
 .ni-m-term-row:has(+ .ni-m-term-divider), .ni-m-term-row:has(+ .ni-m-footnote) { border-bottom: none; }
-.ni-m-term-key { font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; color: #333; font-weight: 600; padding-top: 4px; }
-.ni-m-term-primary { font-family: 'Playfair Display', serif; font-size: 20px; color: #111; text-align: right; }
-.ni-m-term-secondary { font-size: 11px; color: #888; font-weight: 300; margin-top: 2px; text-align: right; }
-.ni-m-term-sub { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #888; margin: 18px 0 4px; display: flex; align-items: center; gap: 10px; }
-.ni-m-term-sub::after { content: ''; flex: 1; height: 1px; background: #d0d0d0; }
+.ni-m-term-key { font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase; color: #888; font-weight: 400; padding-top: 4px; }
+.ni-m-term-primary { font-family: 'Playfair Display', serif; font-size: 24px; color: #1a1a1a; text-align: right; }
+.ni-m-term-secondary { font-size: 11.5px; color: #aaa; font-weight: 300; margin-top: 2px; text-align: right; }
+.ni-m-term-sub { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #333; font-weight: 600; margin: 24px 0 4px; }
 .ni-m-term-sub:first-child { margin-top: 0; }
-.ni-m-term-divider { height: 1px; background: #d0d0d0; margin: 4px 0; }
+.ni-m-term-divider { height: 1px; background: #e8e8e8; margin: 4px 0; }
 .ni-m-footnote { font-size: 12px; color: #aaa; font-style: italic; line-height: 1.75; margin: 16px 0 26px; padding-left: 12px; border-left: 1.5px solid #e8e8e8; }
-.ni-m-perk-row { display: flex; align-items: center; gap: 14px; padding: 11px 0; border-bottom: 1px solid #f5f5f5; font-family: 'Playfair Display', serif; font-size: 16px; color: #111; }
+.ni-m-perk-row { display: flex; align-items: center; gap: 14px; padding: 11px 0; border-bottom: 1px solid #e8e8e8; font-size: 12px; color: #777; line-height: 1.3; font-weight: 300; }
 .ni-m-perk-row:last-child { border-bottom: none; }
-.ni-m-perk-dot { width: 18px; height: 18px; border-radius: 50%; background: #111; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: white; font-size: 9px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+.ni-m-perk-dot { width: 18px; height: 18px; border-radius: 50%; background: #1a1a1a; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: white; font-size: 9px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
 .ni-m-highlight { background: #111; border-radius: 12px; padding: 22px 22px; display: flex; align-items: center; justify-content: space-between; margin: 22px 0; }
 .ni-m-highlight-tag { font-size: 8px; letter-spacing: 0.28em; text-transform: uppercase; color: rgba(255,255,255,0.28); margin-bottom: 4px; }
 .ni-m-highlight-val { font-family: 'Playfair Display', serif; font-size: 50px; font-weight: 300; color: white; line-height: 1; }
 .ni-m-highlight-val sup { font-size: 19px; vertical-align: super; opacity: 0.4; }
 .ni-m-highlight-desc { font-size: 11.5px; color: rgba(255,255,255,0.6); line-height: 1.75; font-weight: 300; max-width: 120px; text-align: right; }
-.ni-m-min-note { background: #fafafa; border: 1px solid #ebebeb; border-radius: 10px; padding: 13px 16px; margin-bottom: 22px; display: flex; gap: 10px; }
+.ni-m-min-note { background: #fafafa; border: 1px solid #e8e8e8; border-radius: 10px; padding: 13px 16px; margin-bottom: 22px; display: flex; gap: 10px; }
 .ni-m-min-note-text { font-size: 12px; color: #888; line-height: 1.7; font-weight: 300; }
 .ni-m-min-note-text strong { color: #333; font-weight: 500; }
 .ni-m-agree-row { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 20px; }
 .ni-m-agree-box { width: 18px !important; height: 18px !important; min-width: 18px; border-radius: 4px !important; border: 1.5px solid #ccc !important; flex-shrink: 0; margin-top: 2px; background: white !important; appearance: none !important; -webkit-appearance: none !important; cursor: pointer; position: relative; transition: all 0.15s; padding: 0 !important; }
 .ni-m-agree-box:checked { background: #111 !important; border-color: #111 !important; }
 .ni-m-agree-box:checked::after { content: "\\2713"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 10px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1; }
-.ni-m-agree-text { font-size: 11px; color: #444; line-height: 1.75; font-weight: 300; }
-.ni-m-agree-text a { color: #111; text-decoration: underline; text-underline-offset: 2px; }
+.ni-m-agree-text { font-size: 12px; color: #777; line-height: 1.75; font-weight: 300; }
+.ni-m-agree-text a { color: #1a1a1a; text-decoration: underline; text-underline-offset: 2px; }
 .ni-m-agree-text a:hover { color: #000; }
 .ni-m-btn { width: 100%; padding: 16px; background: #111; color: white; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: 500; letter-spacing: 0.25em; text-transform: uppercase; cursor: pointer; border-radius: 6px; }
 .ni-m-btn:disabled { background: #ccc; cursor: not-allowed; }
@@ -231,8 +229,8 @@ const CSS = `
 .ni-m-code-label { font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; color: #ccc; margin-bottom: 4px; }
 .ni-m-code-val { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 500; color: #111; letter-spacing: 0.08em; }
 .ni-m-code-copy { padding: 7px 14px; border-radius: 100px; border: 1.5px solid #e0e0e0; background: white; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #999; cursor: pointer; }
-.ni-m-next-steps { border-top: 1px solid #ebebeb; padding-top: 20px; margin-bottom: 24px; }
-.ni-m-next-step { display: flex; gap: 14px; padding: 11px 0; border-bottom: 1px solid #f5f5f5; }
+.ni-m-next-steps { border-top: 1px solid #e8e8e8; padding-top: 20px; margin-bottom: 24px; }
+.ni-m-next-step { display: flex; gap: 14px; padding: 11px 0; border-bottom: 1px solid #e8e8e8; }
 .ni-m-next-step:last-child { border-bottom: none; }
 .ni-m-step-num { font-family: 'Playfair Display', serif; font-size: 18px; color: #ddd; flex-shrink: 0; }
 .ni-m-step-text { font-size: 13px; color: #888; font-weight: 300; line-height: 1.6; }
@@ -611,17 +609,19 @@ export default function InvitePage() {
                 <span className="ni-term-key">Content</span>
                 <div className="ni-term-val"><div className="ni-term-primary">{videos} videos / month</div>{contentType && <div className="ni-term-secondary">{contentType}</div>}</div>
               </div>
-              <div className="ni-term-row">
-                <span className="ni-term-key">Contract</span>
-                <div className="ni-term-val">
-                  {minimumCommitment ? (
-                    <><div className="ni-term-primary">{minimumCommitment}-month minimum</div><div className="ni-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>
-                  ) : (
-                    <><div className="ni-term-primary">Month-to-month</div><div className="ni-term-secondary">2 weeks notice to end</div></>
-                  )}
-                </div>
-              </div>
             </>)}
+            <div className="ni-term-divider" />
+            <div className="ni-term-sub">Contract</div>
+            <div className="ni-term-row">
+              <span className="ni-term-key">Term</span>
+              <div className="ni-term-val">
+                {minimumCommitment ? (
+                  <><div className="ni-term-primary">{minimumCommitment}-month minimum</div><div className="ni-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>
+                ) : (
+                  <><div className="ni-term-primary">Month-to-month</div><div className="ni-term-secondary">2 weeks notice to end</div></>
+                )}
+              </div>
+            </div>
             <div className="ni-footnote">All content deliverables produced under this partnership are owned by Nama upon submission. Nama has the perpetual right to use, edit, and distribute this content across all channels. You retain the right to display the content on your personal social media accounts and portfolio.</div>
             <div className="ni-sec-label">Partnership Perks</div>
             {renderDesktopPerks()}
@@ -694,17 +694,19 @@ export default function InvitePage() {
                 <span className="ni-term-key">Content</span>
                 <div className="ni-term-val"><div className="ni-term-primary">{videos} videos / month</div>{contentType && <div className="ni-term-secondary">{contentType}</div>}</div>
               </div>
-              <div className="ni-term-row">
-                <span className="ni-term-key">Contract</span>
-                <div className="ni-term-val">
-                  {minimumCommitment ? (
-                    <><div className="ni-term-primary">{minimumCommitment}-month minimum</div><div className="ni-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>
-                  ) : (
-                    <><div className="ni-term-primary">Month-to-month</div><div className="ni-term-secondary">2 weeks notice to end</div></>
-                  )}
-                </div>
-              </div>
             </>)}
+            <div className="ni-term-divider" />
+            <div className="ni-term-sub">Contract</div>
+            <div className="ni-term-row">
+              <span className="ni-term-key">Term</span>
+              <div className="ni-term-val">
+                {minimumCommitment ? (
+                  <><div className="ni-term-primary">{minimumCommitment}-month minimum</div><div className="ni-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>
+                ) : (
+                  <><div className="ni-term-primary">Month-to-month</div><div className="ni-term-secondary">2 weeks notice to end</div></>
+                )}
+              </div>
+            </div>
             <div className="ni-footnote">All content deliverables produced under this partnership are owned by Nama upon submission. Nama has the perpetual right to use, edit, and distribute this content across all channels. You retain the right to display the content on your personal social media accounts and portfolio.</div>
             <div className="ni-sec-label">Partnership Perks</div>
             {renderDesktopPerks()}
@@ -775,17 +777,19 @@ export default function InvitePage() {
               <span className="ni-term-key">Content</span>
               <div className="ni-term-val"><div className="ni-term-primary">{videos} videos / month</div>{contentType && <div className="ni-term-secondary">{contentType}</div>}</div>
             </div>
-            <div className="ni-term-row">
-              <span className="ni-term-key">Contract</span>
-              <div className="ni-term-val">
-                {minimumCommitment ? (
-                  <><div className="ni-term-primary">{minimumCommitment}-month minimum</div><div className="ni-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>
-                ) : (
-                  <><div className="ni-term-primary">Month-to-month</div><div className="ni-term-secondary">2 weeks notice to end</div></>
-                )}
-              </div>
-            </div>
           </>)}
+          <div className="ni-term-divider" />
+          <div className="ni-term-sub">Contract</div>
+          <div className="ni-term-row">
+            <span className="ni-term-key">Term</span>
+            <div className="ni-term-val">
+              {minimumCommitment ? (
+                <><div className="ni-term-primary">{minimumCommitment}-month minimum</div><div className="ni-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>
+              ) : (
+                <><div className="ni-term-primary">Month-to-month</div><div className="ni-term-secondary">2 weeks notice to end</div></>
+              )}
+            </div>
+          </div>
           <div className="ni-footnote">All content deliverables produced under this partnership are owned by Nama upon submission. Nama has the perpetual right to use, edit, and distribute this content across all channels. You retain the right to display the content on your personal social media accounts and portfolio.</div>
           <div className="ni-sec-label">Partnership Perks</div>
           {renderDesktopPerks()}
@@ -911,8 +915,10 @@ export default function InvitePage() {
               <div className="ni-m-term-divider" />
               <div className="ni-m-term-sub">Deliverables</div>
               <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div>{contentType && <div className="ni-m-term-secondary">{contentType}</div>}</div></div>
-              <div className="ni-m-term-row"><span className="ni-m-term-key">Contract</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
             </>)}
+            <div className="ni-m-term-divider" />
+            <div className="ni-m-term-sub">Contract</div>
+            <div className="ni-m-term-row"><span className="ni-m-term-key">Term</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
             <div className="ni-m-footnote">All content deliverables produced under this partnership are owned by Nama upon submission. Nama has the perpetual right to use, edit, and distribute this content across all channels. You retain the right to display the content on your personal social media accounts and portfolio.</div>
             <div className="ni-m-sec-label">Perks</div>
             {renderMobilePerks()}
@@ -973,8 +979,10 @@ export default function InvitePage() {
               <div className="ni-m-term-divider" />
               <div className="ni-m-term-sub">Deliverables</div>
               <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div>{contentType && <div className="ni-m-term-secondary">{contentType}</div>}</div></div>
-              <div className="ni-m-term-row"><span className="ni-m-term-key">Contract</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
             </>)}
+            <div className="ni-m-term-divider" />
+            <div className="ni-m-term-sub">Contract</div>
+            <div className="ni-m-term-row"><span className="ni-m-term-key">Term</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
             <div className="ni-m-footnote">All content deliverables produced under this partnership are owned by Nama upon submission. Nama has the perpetual right to use, edit, and distribute this content across all channels. You retain the right to display the content on your personal social media accounts and portfolio.</div>
             <div className="ni-m-sec-label">Perks</div>
             <div style={{ marginBottom: 20 }}>
@@ -1037,8 +1045,10 @@ export default function InvitePage() {
             <div className="ni-m-term-divider" />
             <div className="ni-m-term-sub">Deliverables</div>
             <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div>{contentType && <div className="ni-m-term-secondary">{contentType}</div>}</div></div>
-            <div className="ni-m-term-row"><span className="ni-m-term-key">Contract</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
           </>)}
+          <div className="ni-m-term-divider" />
+          <div className="ni-m-term-sub">Contract</div>
+          <div className="ni-m-term-row"><span className="ni-m-term-key">Term</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
           <div className="ni-m-footnote">All content deliverables produced under this partnership are owned by Nama upon submission. Nama has the perpetual right to use, edit, and distribute this content across all channels. You retain the right to display the content on your personal social media accounts and portfolio.</div>
           <div className="ni-m-sec-label">Perks</div>
           {renderMobilePerks()}
