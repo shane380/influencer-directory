@@ -315,7 +315,7 @@ export default function CampaignsPage() {
     return (
       <div className="flex h-screen bg-white">
         <Sidebar activeTab="partners" onTabChange={(tab) => { if (tab !== "partners") router.push(`/?tab=${tab}`); }} currentUser={currentUser} onLogout={async () => { await supabase.auth.signOut(); router.push("/login"); }} />
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex-1 ml-48 overflow-y-auto p-8">
           <button onClick={() => setSelectedCampaign(null)} className="text-sm text-gray-500 hover:text-gray-800 mb-4 flex items-center gap-1">
             ← Back to Campaigns
           </button>
@@ -459,7 +459,7 @@ export default function CampaignsPage() {
   return (
     <div className="flex h-screen bg-white">
       <Sidebar activeTab="partners" onTabChange={(tab) => { if (tab !== "partners") router.push(`/?tab=${tab}`); }} currentUser={currentUser} onLogout={async () => { await supabase.auth.signOut(); router.push("/login"); }} />
-      <div className="flex-1 overflow-y-auto p-8">
+      <div className="flex-1 ml-48 overflow-y-auto p-8">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-semibold">Creator Campaigns</h1>
