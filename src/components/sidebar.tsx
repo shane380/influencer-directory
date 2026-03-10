@@ -16,6 +16,7 @@ import {
   User,
   HelpCircle,
   LogOut,
+  Bell,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -43,6 +44,17 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
   const [loadingCampaigns, setLoadingCampaigns] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [pendingCodeRequests, setPendingCodeRequests] = useState(0);
+  const [notifications, setNotifications] = useState<Array<{
+    id: string;
+    creator_name: string;
+    creator_id: string;
+    influencer_id: string | null;
+    month: string;
+    file_count: number;
+    created_at: string;
+  }>>([]);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const pathname = usePathname();
@@ -117,11 +129,29 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
     fetchPendingRequests();
   }, []);
 
-  // Close user menu when clicking outside
+  // Fetch pending content submissions as notifications
+  useEffect(() => {
+    async function fetchNotifications() {
+      try {
+        const res = await fetch("/api/admin/notifications");
+        const data = await res.json();
+        setNotifications(data.notifications || []);
+      } catch {}
+    }
+    fetchNotifications();
+    // Poll every 60 seconds
+    const interval = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setUserMenuOpen(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setNotifOpen(false);
       }
     };
 
@@ -166,6 +196,17 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
     e.stopPropagation();
     router.push(`/campaigns/month/${monthKey}`);
   };
+
+  function getTimeAgo(dateStr: string) {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
+  }
 
   return (
     <div className="w-48 h-screen bg-white border-r flex flex-col fixed left-0 top-0">
@@ -254,6 +295,56 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
           })}
         </ul>
       </nav>
+
+      {/* Notifications */}
+      <div className="border-t relative" ref={notifRef}>
+        <button
+          onClick={() => setNotifOpen(!notifOpen)}
+          className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-gray-50 transition-colors"
+        >
+          <span className="flex items-center gap-2 text-sm text-gray-600">
+            <Bell className="h-4 w-4" />
+            Notifications
+          </span>
+          {notifications.length > 0 && (
+            <span className="min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-medium flex items-center justify-center px-1">
+              {notifications.length}
+            </span>
+          )}
+        </button>
+        {notifOpen && (
+          <div className="absolute bottom-full left-0 right-0 mb-1 mx-1.5 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 max-h-64 overflow-y-auto" style={{ minWidth: 220 }}>
+            {notifications.length === 0 ? (
+              <div className="px-3 py-3 text-xs text-gray-400 text-center">No new notifications</div>
+            ) : (
+              notifications.map((n) => {
+                const [yr, mo] = (n.month || "").split("-");
+                const monthLabel = yr && mo
+                  ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString("en", { month: "short" })
+                  : "";
+                const timeAgo = getTimeAgo(n.created_at);
+                return (
+                  <button
+                    key={n.id}
+                    onClick={() => {
+                      setNotifOpen(false);
+                      if (n.creator_id) {
+                        router.push(`/partnerships/creators/${n.creator_id}`);
+                      }
+                    }}
+                    className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-b-0"
+                  >
+                    <div className="text-xs text-gray-800 font-medium">{n.creator_name}</div>
+                    <div className="text-[11px] text-gray-500">
+                      Submitted {n.file_count} file{n.file_count !== 1 ? "s" : ""} for {monthLabel} · {timeAgo}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
 
       {/* User section at bottom */}
       {currentUser && (
