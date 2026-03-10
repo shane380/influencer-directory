@@ -632,8 +632,14 @@ export default function InvitePage() {
             </div>
             {hasAffiliateAddon && (
               <div className="ni-term-row">
-                <span className="ni-term-key">Commission</span>
-                <div className="ni-term-val"><div className="ni-term-primary">{commissionRate}% on all sales</div><div className="ni-term-secondary">Via your unique link &amp; discount code</div></div>
+                <span className="ni-term-key">Affiliate</span>
+                <div className="ni-term-val"><div className="ni-term-primary">{commissionRate}% commission</div><div className="ni-term-secondary">On your referred sales</div></div>
+              </div>
+            )}
+            {invite.has_ad_spend && adSpendPct > 0 && (
+              <div className="ni-term-row">
+                <span className="ni-term-key">Ad Spend</span>
+                <div className="ni-term-val"><div className="ni-term-primary">{adSpendPct}% of spend</div><div className="ni-term-secondary">On monthly spend attributed to your content</div></div>
               </div>
             )}
             {videos && (<>
@@ -705,8 +711,8 @@ export default function InvitePage() {
             </div>
             {hasAffiliateAddon && (
               <div className="ni-term-row">
-                <span className="ni-term-key">Commission</span>
-                <div className="ni-term-val"><div className="ni-term-primary">{commissionRate}% on all sales</div><div className="ni-term-secondary">Via your unique link &amp; discount code</div></div>
+                <span className="ni-term-key">Affiliate</span>
+                <div className="ni-term-val"><div className="ni-term-primary">{commissionRate}% commission</div><div className="ni-term-secondary">On your referred sales</div></div>
               </div>
             )}
             {adSpendMin > 0 && (
@@ -804,6 +810,12 @@ export default function InvitePage() {
             <span className="ni-term-key">Payment</span>
             <div className="ni-term-val"><div className="ni-term-primary">By the 5th of the following month</div><div className="ni-term-secondary">Via your selected payment method</div></div>
           </div>
+          {invite.has_ad_spend && adSpendPct > 0 && (
+            <div className="ni-term-row">
+              <span className="ni-term-key">Ad Spend</span>
+              <div className="ni-term-val"><div className="ni-term-primary">{adSpendPct}% of spend</div><div className="ni-term-secondary">On monthly spend attributed to your content</div></div>
+            </div>
+          )}
           {videos && (<>
             <div className="ni-term-divider" />
             <div className="ni-term-sub">Deliverables</div>
@@ -950,7 +962,10 @@ export default function InvitePage() {
             <div className="ni-m-term-sub">Compensation</div>
             <div className="ni-m-term-row"><span className="ni-m-term-key">Retainer</span><div className="ni-term-val"><div className="ni-m-term-primary">${retainerAmount?.toLocaleString()} / month</div><div className="ni-m-term-secondary">Paid by the 5th of the following month</div></div></div>
             {hasAffiliateAddon && (
-              <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% on all sales</div><div className="ni-m-term-secondary">Via your unique link &amp; discount code</div></div></div>
+              <div className="ni-m-term-row"><span className="ni-m-term-key">Affiliate</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% commission</div><div className="ni-m-term-secondary">On your referred sales</div></div></div>
+            )}
+            {invite.has_ad_spend && adSpendPct > 0 && (
+              <div className="ni-m-term-row"><span className="ni-m-term-key">Ad Spend</span><div className="ni-term-val"><div className="ni-m-term-primary">{adSpendPct}% of spend</div><div className="ni-m-term-secondary">On monthly spend attributed to your content</div></div></div>
             )}
             {videos && (<>
               <div className="ni-m-term-divider" />
@@ -1005,7 +1020,7 @@ export default function InvitePage() {
             <div className="ni-m-term-sub">Compensation</div>
             <div className="ni-m-term-row"><span className="ni-m-term-key">Ad Spend</span><div className="ni-term-val"><div className="ni-m-term-primary">{adSpendPct}% of ad spend</div><div className="ni-m-term-secondary">Paid by the 5th of the following month</div></div></div>
             {hasAffiliateAddon && (
-              <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% on all sales</div><div className="ni-m-term-secondary">Via your unique link &amp; discount code</div></div></div>
+              <div className="ni-m-term-row"><span className="ni-m-term-key">Affiliate</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% commission</div><div className="ni-m-term-secondary">On your referred sales</div></div></div>
             )}
             {adSpendMin > 0 && (
               <div className="ni-m-term-row"><span className="ni-m-term-key">Minimum</span><div className="ni-term-val"><div className="ni-m-term-primary">${adSpendMin.toLocaleString()} in month 1</div><div className="ni-m-term-secondary">Guaranteed regardless of spend</div></div></div>
@@ -1085,6 +1100,9 @@ export default function InvitePage() {
           <div className="ni-m-term-sub">Compensation</div>
           <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% per sale</div><div className="ni-m-term-secondary">Via your unique link &amp; discount code</div></div></div>
           <div className="ni-m-term-row"><span className="ni-m-term-key">Payment</span><div className="ni-term-val"><div className="ni-m-term-primary">By the 5th of the following month</div><div className="ni-m-term-secondary">Via your selected payment method</div></div></div>
+          {invite.has_ad_spend && adSpendPct > 0 && (
+            <div className="ni-m-term-row"><span className="ni-m-term-key">Ad Spend</span><div className="ni-term-val"><div className="ni-m-term-primary">{adSpendPct}% of spend</div><div className="ni-m-term-secondary">On monthly spend attributed to your content</div></div></div>
+          )}
           {videos && (<>
             <div className="ni-m-term-divider" />
             <div className="ni-m-term-sub">Deliverables</div>
