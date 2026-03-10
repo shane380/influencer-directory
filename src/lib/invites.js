@@ -50,6 +50,13 @@ export async function createInvite({
   upsertData.is_existing_creator = isExistingCreator
   if (minimumCommitment != null) upsertData.minimum_commitment = minimumCommitment
 
+  // Remove any expired/revoked invite with the same slug so we can create fresh
+  await supabase
+    .from('creator_invites')
+    .delete()
+    .eq('slug', resolvedSlug)
+    .in('status', ['expired', 'revoked'])
+
   const { data, error } = await supabase
     .from('creator_invites')
     .upsert(upsertData, { onConflict: 'slug' })
