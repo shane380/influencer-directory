@@ -123,6 +123,8 @@ const CSS = `
 .ni-agree-box:checked { background: #111 !important; border-color: #111 !important; }
 .ni-agree-box:checked::after { content: "\\2713"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 10px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1; }
 .ni-agree-text { font-size: 12.5px; color: #888; line-height: 1.75; font-weight: 300; }
+.ni-agree-text a { color: #333; text-decoration: underline; text-underline-offset: 2px; }
+.ni-agree-text a:hover { color: #111; }
 
 /* BUTTONS */
 .ni-btn { width: 100%; padding: 16px; background: #111; color: white; border: none !important; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: 500; letter-spacing: 0.25em; text-transform: uppercase; cursor: pointer; border-radius: 6px; transition: background 0.2s; }
@@ -228,6 +230,8 @@ const CSS = `
 .ni-m-agree-box:checked { background: #111 !important; border-color: #111 !important; }
 .ni-m-agree-box:checked::after { content: "\\2713"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 10px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1; }
 .ni-m-agree-text { font-size: 12.5px; color: #888; line-height: 1.75; font-weight: 300; }
+.ni-m-agree-text a { color: #333; text-decoration: underline; text-underline-offset: 2px; }
+.ni-m-agree-text a:hover { color: #111; }
 .ni-m-btn { width: 100%; padding: 16px; background: #111; color: white; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: 500; letter-spacing: 0.25em; text-transform: uppercase; cursor: pointer; border-radius: 6px; }
 .ni-m-btn:disabled { background: #ccc; cursor: not-allowed; }
 .ni-m-btn-outline { width: 100%; padding: 14px; background: transparent; color: #aaa; border: 1.5px solid #e8e8e8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: 400; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; border-radius: 6px; margin-top: 10px; }
@@ -504,39 +508,7 @@ export default function InvitePage() {
 
   const hasAffiliateAddon = (invite?.has_affiliate || commissionRate > 0) && (selectedDeal === 'retainer' || selectedDeal === 'ad_spend')
 
-  // Agree text
-  function getAgreeText() {
-    const commitmentText = minimumCommitment ? `${minimumCommitment}-month minimum` : 'month-to-month'
-    const paymentLine = 'Payment is made by the 5th of the following month via your selected payment method.'
-    const usageLine = 'I retain ownership of my original content; Nama is licensed to use it for paid media and organic channels during the partnership and for 6 months following the conclusion of the partnership.'
-
-    // Determine which components apply based on selectedDeal and flags
-    const isRetainer = selectedDeal === 'retainer'
-    const isAdSpend = selectedDeal === 'ad_spend'
-    const isAffiliate = selectedDeal === 'affiliate' || (!isRetainer && !isAdSpend)
-    const hasAffiliate = hasAffiliateAddon
-
-    const retainerComponent = `I agree to provide ${videos} UGC videos per month in exchange for a $${retainerAmount?.toLocaleString()}/month retainer, with one round of minor revisions per video included. This partnership is ${commitmentText} with 2 weeks notice to end.`
-    const adSpendComponent = `I will earn ${adSpendPct}% of Nama's monthly ad spend on my content.`
-    const affiliateComponent = `I will earn ${commissionRate}% commission on all completed sales attributed to my unique link or discount code. Returned or refunded orders are excluded.`
-
-    const parts = []
-
-    if (isRetainer && hasAffiliate) {
-      parts.push(retainerComponent, `Additionally, ${affiliateComponent.charAt(0).toLowerCase() + affiliateComponent.slice(1)}`)
-    } else if (isRetainer) {
-      parts.push(retainerComponent)
-    } else if (isAdSpend && hasAffiliate) {
-      parts.push("I agree to participate in Nama's whitelisting program and affiliate program.", adSpendComponent, affiliateComponent)
-    } else if (isAdSpend) {
-      parts.push("I agree to participate in Nama's whitelisting program.", adSpendComponent)
-    } else if (isAffiliate) {
-      parts.push('I agree to promote Nama using my unique affiliate link and discount code.', affiliateComponent)
-    }
-
-    parts.push(paymentLine, usageLine)
-    return parts.join(' ')
-  }
+  const agreeContent = <>I have read and agree to the <a href={`/invite/${slug}/terms`} target="_blank" rel="noopener noreferrer">Partnership Terms</a> and <a href="/terms/creator" target="_blank" rel="noopener noreferrer">Creator Terms of Use</a></>
 
   // --- RENDER HELPERS ---
 
@@ -698,7 +670,7 @@ export default function InvitePage() {
             </div>
             <div className="ni-agree-row">
               <input type="checkbox" className="ni-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
-              <p className="ni-agree-text">{getAgreeText()}</p>
+              <p className="ni-agree-text">{agreeContent}</p>
             </div>
             <button className="ni-btn" disabled={!agreed} onClick={() => setStep('signup')}>Accept &amp; Create Account →</button>
             {invite.offer_choice && <button className="ni-btn-outline" onClick={switchOption}>← Switch to {selectedDeal === 'retainer' ? '% Ad Spend' : 'Monthly Retainer'}</button>}
@@ -790,7 +762,7 @@ export default function InvitePage() {
             </div>
             <div className="ni-agree-row">
               <input type="checkbox" className="ni-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
-              <p className="ni-agree-text">{getAgreeText()}</p>
+              <p className="ni-agree-text">{agreeContent}</p>
             </div>
             <button className="ni-btn" disabled={!agreed} onClick={() => setStep('signup')}>Accept &amp; Create Account →</button>
             {invite.offer_choice && <button className="ni-btn-outline" onClick={switchOption}>← Switch to {selectedDeal === 'retainer' ? '% Ad Spend' : 'Monthly Retainer'}</button>}
@@ -861,7 +833,7 @@ export default function InvitePage() {
           </div>
           <div className="ni-agree-row">
             <input type="checkbox" className="ni-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
-            <p className="ni-agree-text">{getAgreeText()}</p>
+            <p className="ni-agree-text">{agreeContent}</p>
           </div>
           <button className="ni-btn" disabled={!agreed} onClick={() => setStep('signup')}>Accept &amp; Create Account →</button>
         </>
@@ -989,7 +961,7 @@ export default function InvitePage() {
             </div>
             <div className="ni-m-agree-row">
               <input type="checkbox" className="ni-m-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
-              <p className="ni-m-agree-text">{getAgreeText()}</p>
+              <p className="ni-m-agree-text">{agreeContent}</p>
             </div>
             <button className="ni-m-btn" disabled={!agreed} onClick={() => setStep('signup')}>Accept &amp; Create Account →</button>
             {invite.offer_choice && <button className="ni-m-btn-outline" onClick={switchOption}>← Switch to {selectedDeal === 'retainer' ? '% Ad Spend' : 'Monthly Retainer'}</button>}
@@ -1064,7 +1036,7 @@ export default function InvitePage() {
             </div>
             <div className="ni-m-agree-row">
               <input type="checkbox" className="ni-m-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
-              <p className="ni-m-agree-text">{getAgreeText()}</p>
+              <p className="ni-m-agree-text">{agreeContent}</p>
             </div>
             <button className="ni-m-btn" disabled={!agreed} onClick={() => setStep('signup')}>Accept &amp; Create Account →</button>
             {invite.offer_choice && <button className="ni-m-btn-outline" onClick={switchOption}>← Switch to {selectedDeal === 'retainer' ? '% Ad Spend' : 'Monthly Retainer'}</button>}
@@ -1114,7 +1086,7 @@ export default function InvitePage() {
           </div>
           <div className="ni-m-agree-row">
             <input type="checkbox" className="ni-m-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
-            <p className="ni-m-agree-text">{getAgreeText()}</p>
+            <p className="ni-m-agree-text">{agreeContent}</p>
           </div>
           <button className="ni-m-btn" disabled={!agreed} onClick={() => setStep('signup')}>Accept &amp; Create Account →</button>
         </>
