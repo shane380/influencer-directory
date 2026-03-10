@@ -526,7 +526,7 @@ export default function InvitePage() {
             <div className="ni-m-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
             <div className="ni-m-option-name">Monthly Retainer</div>
             <div className="ni-m-option-rule" />
-            <div className="ni-m-option-detail"><div className="ni-m-term-sub">Compensation</div><div className="ni-card-item">${retainerAmount?.toLocaleString()} / month</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}<div className="ni-card-item">Paid by the 5th of the following month</div>{videos && <><div className="ni-m-term-divider" /><div className="ni-m-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></>}</div>
+            <div className="ni-m-option-detail"><div className="ni-m-term-sub">Compensation</div><div className="ni-card-item">${retainerAmount?.toLocaleString()} / month</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}{videos && <><div className="ni-m-term-divider" /><div className="ni-m-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></>}</div>
           </div>
           <div className="ni-m-option-hint">More details on the next page</div>
         </div>
@@ -540,7 +540,7 @@ export default function InvitePage() {
           <div className="ni-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
           <div className="ni-option-name">Monthly Retainer</div>
           <div className="ni-option-rule" />
-          <div className="ni-option-detail"><div className="ni-term-sub">Compensation</div><div className="ni-card-item">${retainerAmount?.toLocaleString()} / month</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}<div className="ni-card-item">Paid by the 5th of the following month</div>{videos && <><div className="ni-term-divider" /><div className="ni-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></>}</div>
+          <div className="ni-option-detail"><div className="ni-term-sub">Compensation</div><div className="ni-card-item">${retainerAmount?.toLocaleString()} / month</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}{videos && <><div className="ni-term-divider" /><div className="ni-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></>}</div>
         </div>
         <div className="ni-option-hint">More details on the next page</div>
       </div>
@@ -558,7 +558,7 @@ export default function InvitePage() {
             <div className="ni-m-option-rate">{adSpendPct}<sup>%</sup></div>
             <div className="ni-m-option-name">% of Ad Spend</div>
             <div className="ni-m-option-rule" />
-            <div className="ni-m-option-detail"><div className="ni-m-term-sub">Compensation</div><div className="ni-card-item">{adSpendPct}% of monthly ad spend</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}{adSpendMin ? <div className="ni-card-item">${adSpendMin.toLocaleString()} minimum in month 1</div> : null}<div className="ni-card-item">Paid by the 5th of the following month</div>{videos && <><div className="ni-m-term-divider" /><div className="ni-m-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></>}</div>
+            <div className="ni-m-option-detail"><div className="ni-m-term-sub">Compensation</div><div className="ni-card-item">{adSpendPct}% of monthly ad spend</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}{adSpendMin ? <div className="ni-card-item">${adSpendMin.toLocaleString()} minimum in month 1</div> : null}{videos && <><div className="ni-m-term-divider" /><div className="ni-m-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></>}</div>
           </div>
           <div className="ni-m-option-hint">More details on the next page</div>
         </div>
@@ -572,7 +572,7 @@ export default function InvitePage() {
           <div className="ni-option-rate">{adSpendPct}<sup>%</sup></div>
           <div className="ni-option-name">% of Ad Spend</div>
           <div className="ni-option-rule" />
-          <div className="ni-option-detail"><div className="ni-term-sub">Compensation</div><div className="ni-card-item">{adSpendPct}% of monthly ad spend</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}{adSpendMin ? <div className="ni-card-item">${adSpendMin.toLocaleString()} minimum in month 1</div> : null}<div className="ni-card-item">Paid by the 5th of the following month</div>{videos && <><div className="ni-term-divider" /><div className="ni-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></>}</div>
+          <div className="ni-option-detail"><div className="ni-term-sub">Compensation</div><div className="ni-card-item">{adSpendPct}% of monthly ad spend</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}{adSpendMin ? <div className="ni-card-item">${adSpendMin.toLocaleString()} minimum in month 1</div> : null}{videos && <><div className="ni-term-divider" /><div className="ni-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></>}</div>
         </div>
         <div className="ni-option-hint">More details on the next page</div>
       </div>
