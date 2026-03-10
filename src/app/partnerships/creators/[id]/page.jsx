@@ -250,24 +250,65 @@ export default function AdminCreatorProfile() {
                 </span>
               </div>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div>
-                <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Affiliate Code</div>
-                <code className="bg-gray-100 px-2 py-1 rounded text-xs">{creator.affiliate_code}</code>
-              </div>
-              <div>
-                <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Commission</div>
-                <div className="text-gray-900">{creator.commission_rate}%</div>
-              </div>
-              <div>
-                <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Videos / Month</div>
-                <div className="text-gray-900">{invite?.videos_per_month || '—'}</div>
-              </div>
-              <div>
-                <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Usage Rights</div>
-                <div className="text-gray-900">{invite?.usage_rights || '—'}</div>
-              </div>
-            </div>
+            {(() => {
+              const stats = []
+              // Affiliate code — always show if creator has one
+              if (creator.affiliate_code) {
+                stats.push(
+                  <div key="code">
+                    <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Affiliate Code</div>
+                    <code className="bg-gray-100 px-2 py-1 rounded text-xs">{creator.affiliate_code}</code>
+                  </div>
+                )
+              }
+              // Commission — show for affiliate or ad_spend deals
+              if (invite?.has_affiliate && creator.commission_rate) {
+                stats.push(
+                  <div key="commission">
+                    <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Commission</div>
+                    <div className="text-gray-900">{creator.commission_rate}%</div>
+                  </div>
+                )
+              } else if (invite?.has_ad_spend && invite?.ad_spend_percentage) {
+                stats.push(
+                  <div key="adspend">
+                    <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Ad Spend %</div>
+                    <div className="text-gray-900">{invite.ad_spend_percentage}%</div>
+                  </div>
+                )
+              }
+              // Videos / Month — show for retainer or ad_spend deals, only if value exists
+              if ((invite?.has_retainer || invite?.has_ad_spend) && invite?.videos_per_month) {
+                stats.push(
+                  <div key="videos">
+                    <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Videos / Month</div>
+                    <div className="text-gray-900">{invite.videos_per_month}</div>
+                  </div>
+                )
+              }
+              // Ads Running — always show
+              stats.push(
+                <div key="ads">
+                  <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Ads Running</div>
+                  <div className="text-gray-900">{ads.length}</div>
+                </div>
+              )
+              // Usage Rights — show if value exists
+              if (invite?.usage_rights) {
+                stats.push(
+                  <div key="usage">
+                    <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Usage Rights</div>
+                    <div className="text-gray-900">{invite.usage_rights}</div>
+                  </div>
+                )
+              }
+              const colClass = stats.length <= 2 ? 'md:grid-cols-2' : stats.length === 3 ? 'md:grid-cols-3' : 'md:grid-cols-4'
+              return (
+                <div className={`grid grid-cols-2 ${colClass} gap-4 text-sm`}>
+                  {stats}
+                </div>
+              )
+            })()}
           </div>
 
           {/* Sample Requests */}
