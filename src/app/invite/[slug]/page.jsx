@@ -46,25 +46,17 @@ const CSS = `
 
 /* OPTION CARDS */
 .ni-option-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 36px; }
-.ni-option-card { border: 1.5px solid #e8e8e8; border-radius: 14px; padding: 24px 30px; cursor: pointer; transition: all 0.2s; position: relative; background: white; }
+.ni-option-card { border: 1px solid #e0e0e0; border-radius: 8px; padding: 28px 24px 24px; cursor: pointer; transition: all 0.2s; position: relative; background: white; }
 .ni-option-card:hover { border-color: #ccc; }
-.ni-option-card.selected { border-color: #111; }
+.ni-option-card.selected { border: 1.5px solid #1a1a1a; }
 .ni-option-card.selected .ni-check { opacity: 1; }
-.ni-check { position: absolute; top: 14px; right: 14px; width: 20px; height: 20px; border-radius: 50%; background: #111; color: white; font-size: 9px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; }
-.ni-option-tag { font-size: 8.5px; letter-spacing: 0.28em; text-transform: uppercase; color: #555; margin-bottom: 12px; }
-.ni-option-rate { font-family: 'Playfair Display', serif; font-size: 40px; font-weight: 300; color: #111; line-height: 1; margin-bottom: 6px; }
-.ni-option-rate sub { font-size: 14px; font-style: italic; color: #999; vertical-align: baseline; }
-.ni-option-rate sup { font-size: 16px; vertical-align: super; color: #888; }
-.ni-option-name { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #888; margin-bottom: 10px; font-weight: 400; }
-.ni-option-rule { height: 1px; background: #d0d0d0; margin-bottom: 12px; }
-.ni-option-detail { font-size: 11px; color: #888; font-weight: 300; line-height: 1.75; }
-.ni-option-detail strong { color: #888; font-weight: 300; }
-.ni-option-detail .ni-card-item { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid #d0d0d0; }
-.ni-option-detail .ni-card-item:last-child { padding-bottom: 0; margin-bottom: 0; border-bottom: none; }
-.ni-option-detail .ni-card-item:has(+ .ni-term-divider) { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
-.ni-option-detail .ni-term-sub { margin-bottom: 8px; }
-.ni-option-detail .ni-term-divider { margin-top: 12px; margin-bottom: 0; }
-.ni-option-hint { font-size: 11px; font-style: italic; color: #999; text-align: center; margin-top: 8px; }
+.ni-check { position: absolute; top: 14px; right: 14px; width: 20px; height: 20px; border-radius: 50%; background: #1a1a1a; color: white; font-size: 9px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; }
+.ni-option-tag { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #888; margin-bottom: 12px; }
+.ni-option-rate { font-family: 'Playfair Display', serif; font-size: 36px; font-weight: 300; color: #1a1a1a; line-height: 1; margin-bottom: 6px; }
+.ni-option-rate sub { font-size: 15px; font-style: italic; color: #888; vertical-align: baseline; }
+.ni-option-rate sup { font-size: 15px; font-style: italic; vertical-align: super; color: #888; }
+.ni-option-name { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #888; margin-bottom: 0; font-weight: 400; }
+.ni-option-summary { font-size: 11.5px; color: #aaa; font-weight: 300; margin-top: 12px; }
 
 /* TERM ROWS */
 .ni-term-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid #d0d0d0; }
@@ -183,25 +175,17 @@ const CSS = `
 
 /* Mobile option cards */
 .ni-m-option-cards { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
-.ni-m-option-card { border: 1.5px solid #e8e8e8; border-radius: 12px; padding: 20px 26px; cursor: pointer; transition: border-color 0.2s; position: relative; }
+.ni-m-option-card { border: 1px solid #e0e0e0; border-radius: 8px; padding: 24px 20px 20px; cursor: pointer; transition: border-color 0.2s; position: relative; }
 .ni-m-option-card:hover { border-color: #ccc; }
-.ni-m-option-card.selected { border-color: #111; }
+.ni-m-option-card.selected { border: 1.5px solid #1a1a1a; }
 .ni-m-option-card.selected .ni-m-check { opacity: 1; }
-.ni-m-check { position: absolute; top: 14px; right: 14px; width: 20px; height: 20px; border-radius: 50%; background: #111; color: white; font-size: 9px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; }
-.ni-m-option-tag { font-size: 8.5px; letter-spacing: 0.26em; text-transform: uppercase; color: #555; margin-bottom: 10px; }
-.ni-m-option-rate { font-family: 'Playfair Display', serif; font-size: 36px; font-weight: 300; color: #111; line-height: 1; margin-bottom: 4px; }
-.ni-m-option-rate sub { font-size: 13px; font-style: italic; color: #999; vertical-align: baseline; }
-.ni-m-option-rate sup { font-size: 15px; vertical-align: super; color: #999; }
-.ni-m-option-name { font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #999; margin-bottom: 10px; }
-.ni-m-option-rule { height: 1px; background: #d0d0d0; margin-bottom: 10px; }
-.ni-m-option-detail { font-size: 11px; color: #888; font-weight: 300; line-height: 1.7; }
-.ni-m-option-detail strong { color: #888; font-weight: 300; }
-.ni-m-option-detail .ni-card-item { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid #d0d0d0; }
-.ni-m-option-detail .ni-card-item:last-child { padding-bottom: 0; margin-bottom: 0; border-bottom: none; }
-.ni-m-option-detail .ni-card-item:has(+ .ni-m-term-divider) { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
-.ni-m-option-detail .ni-m-term-sub { margin-bottom: 8px; }
-.ni-m-option-detail .ni-m-term-divider { margin-top: 12px; margin-bottom: 0; }
-.ni-m-option-hint { font-size: 11px; font-style: italic; color: #999; text-align: center; margin-top: 8px; }
+.ni-m-check { position: absolute; top: 14px; right: 14px; width: 20px; height: 20px; border-radius: 50%; background: #1a1a1a; color: white; font-size: 9px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; }
+.ni-m-option-tag { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #888; margin-bottom: 10px; }
+.ni-m-option-rate { font-family: 'Playfair Display', serif; font-size: 34px; font-weight: 300; color: #1a1a1a; line-height: 1; margin-bottom: 4px; }
+.ni-m-option-rate sub { font-size: 14px; font-style: italic; color: #888; vertical-align: baseline; }
+.ni-m-option-rate sup { font-size: 14px; font-style: italic; vertical-align: super; color: #888; }
+.ni-m-option-name { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #888; margin-bottom: 0; }
+.ni-m-option-summary { font-size: 11.5px; color: #aaa; font-weight: 300; margin-top: 12px; }
 
 .ni-m-term-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #d0d0d0; }
 .ni-m-term-row:last-child { border-bottom: none; }
@@ -511,6 +495,7 @@ export default function InvitePage() {
 
   function renderRetainerOptionCard(mobile) {
     const sel = selectedDeal === 'retainer'
+    const summary = commissionRate > 0 ? `+ ${commissionRate}% affiliate commission` : null
     if (mobile) {
       return (
         <div>
@@ -519,8 +504,7 @@ export default function InvitePage() {
             <div className="ni-m-option-tag">Option A</div>
             <div className="ni-m-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
             <div className="ni-m-option-name">Monthly Retainer</div>
-            <div className="ni-m-option-rule" />
-            <div className="ni-m-option-detail"><div className="ni-m-term-sub">Compensation</div><div className="ni-card-item">${retainerAmount?.toLocaleString()} / month</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}{videos && <><div className="ni-m-term-divider" /><div className="ni-m-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></>}</div>
+            {summary && <div className="ni-m-option-summary">{summary}</div>}
           </div>
         </div>
       )
@@ -532,8 +516,7 @@ export default function InvitePage() {
           <div className="ni-option-tag">Option A</div>
           <div className="ni-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
           <div className="ni-option-name">Monthly Retainer</div>
-          <div className="ni-option-rule" />
-          <div className="ni-option-detail"><div className="ni-term-sub">Compensation</div><div className="ni-card-item">${retainerAmount?.toLocaleString()} / month</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}{videos && <><div className="ni-term-divider" /><div className="ni-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></>}</div>
+          {summary && <div className="ni-option-summary">{summary}</div>}
         </div>
       </div>
     )
@@ -541,6 +524,7 @@ export default function InvitePage() {
 
   function renderAdSpendOptionCard(mobile) {
     const sel = selectedDeal === 'ad_spend'
+    const summary = commissionRate > 0 ? `+ ${commissionRate}% affiliate commission` : null
     if (mobile) {
       return (
         <div>
@@ -549,8 +533,7 @@ export default function InvitePage() {
             <div className="ni-m-option-tag">Option B</div>
             <div className="ni-m-option-rate">{adSpendPct}<sup>%</sup></div>
             <div className="ni-m-option-name">% of Ad Spend</div>
-            <div className="ni-m-option-rule" />
-            <div className="ni-m-option-detail"><div className="ni-m-term-sub">Compensation</div><div className="ni-card-item">{adSpendPct}% of monthly ad spend</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}{adSpendMin ? <div className="ni-card-item">${adSpendMin.toLocaleString()} minimum in month 1</div> : null}{videos && <><div className="ni-m-term-divider" /><div className="ni-m-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></>}</div>
+            {summary && <div className="ni-m-option-summary">{summary}</div>}
           </div>
         </div>
       )
@@ -562,8 +545,7 @@ export default function InvitePage() {
           <div className="ni-option-tag">Option B</div>
           <div className="ni-option-rate">{adSpendPct}<sup>%</sup></div>
           <div className="ni-option-name">% of Ad Spend</div>
-          <div className="ni-option-rule" />
-          <div className="ni-option-detail"><div className="ni-term-sub">Compensation</div><div className="ni-card-item">{adSpendPct}% of monthly ad spend</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}{adSpendMin ? <div className="ni-card-item">${adSpendMin.toLocaleString()} minimum in month 1</div> : null}{videos && <><div className="ni-term-divider" /><div className="ni-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></>}</div>
+          {summary && <div className="ni-option-summary">{summary}</div>}
         </div>
       </div>
     )
