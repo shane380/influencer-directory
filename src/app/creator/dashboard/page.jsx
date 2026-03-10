@@ -1894,6 +1894,8 @@ export default function CreatorDashboard() {
   }
 
   function renderMomentum(mobile) {
+    const showSpendData = !!invite?.has_ad_spend
+
     if (adsLoading) {
       if (mobile) {
         return (
@@ -1902,11 +1904,13 @@ export default function CreatorDashboard() {
               <div className="cd-m-momentum-eyebrow">Paid Media</div>
               <div className="cd-m-momentum-title">Live Ads</div>
             </div>
-            <div className="cd-m-momentum-stats">
-              <div className="cd-m-momentum-stat"><div className="cd-m-momentum-stat-label">Spent</div><div className="cd-skel cd-skel-stat" /></div>
-              <div className="cd-m-momentum-stat"><div className="cd-m-momentum-stat-label">Impressions</div><div className="cd-skel cd-skel-stat" /></div>
-              <div className="cd-m-momentum-stat"><div className="cd-m-momentum-stat-label">Active</div><div className="cd-skel cd-skel-stat" /></div>
-            </div>
+            {showSpendData && (
+              <div className="cd-m-momentum-stats">
+                <div className="cd-m-momentum-stat"><div className="cd-m-momentum-stat-label">Spent</div><div className="cd-skel cd-skel-stat" /></div>
+                <div className="cd-m-momentum-stat"><div className="cd-m-momentum-stat-label">Impressions</div><div className="cd-skel cd-skel-stat" /></div>
+                <div className="cd-m-momentum-stat"><div className="cd-m-momentum-stat-label">Active</div><div className="cd-skel cd-skel-stat" /></div>
+              </div>
+            )}
             <div style={{ padding: 20 }}>
               <div className="cd-skel" style={{ width: '100%', height: 200, borderRadius: 0 }}>
                 <div className="cd-skel-ad"><div className="cd-skel-spinner" /></div>
@@ -1923,11 +1927,13 @@ export default function CreatorDashboard() {
               <div className="cd-momentum-title">Live Ads</div>
             </div>
           </div>
-          <div className="cd-momentum-top">
-            <div className="cd-momentum-stat"><div className="cd-momentum-stat-label">Total Spend</div><div className="cd-skel cd-skel-stat" style={{ marginTop: 4 }} /></div>
-            <div className="cd-momentum-stat"><div className="cd-momentum-stat-label">Total Impressions</div><div className="cd-skel cd-skel-stat" style={{ marginTop: 4 }} /></div>
-            <div className="cd-momentum-stat"><div className="cd-momentum-stat-label">Active Ads</div><div className="cd-skel cd-skel-stat" style={{ marginTop: 4 }} /></div>
-          </div>
+          {showSpendData && (
+            <div className="cd-momentum-top">
+              <div className="cd-momentum-stat"><div className="cd-momentum-stat-label">Total Spend</div><div className="cd-skel cd-skel-stat" style={{ marginTop: 4 }} /></div>
+              <div className="cd-momentum-stat"><div className="cd-momentum-stat-label">Total Impressions</div><div className="cd-skel cd-skel-stat" style={{ marginTop: 4 }} /></div>
+              <div className="cd-momentum-stat"><div className="cd-momentum-stat-label">Active Ads</div><div className="cd-skel cd-skel-stat" style={{ marginTop: 4 }} /></div>
+            </div>
+          )}
           <div className="cd-ads-section">
             <div className="cd-ads-section-label">Your Ads</div>
             <div className="cd-ads-row">
@@ -1976,46 +1982,52 @@ export default function CreatorDashboard() {
             <div className="cd-m-momentum-eyebrow">Paid Media</div>
             <div className="cd-m-momentum-title">Live Ads</div>
           </div>
-          <div className="cd-m-momentum-stats">
-            <div className="cd-m-momentum-stat">
-              <div className="cd-m-momentum-stat-label">Spent</div>
-              <div className="cd-m-momentum-stat-val">{formatSpend(totalSpend)}</div>
-              {spendDelta !== null && <div className={`cd-m-momentum-delta${spendDelta < 0 ? ' cd-m-momentum-delta-neg' : ''}`}>{spendDelta >= 0 ? '↑' : '↓'} {spendDelta >= 0 ? '+' : ''}{spendDelta}%</div>}
+          {showSpendData && (
+            <div className="cd-m-momentum-stats">
+              <div className="cd-m-momentum-stat">
+                <div className="cd-m-momentum-stat-label">Spent</div>
+                <div className="cd-m-momentum-stat-val">{formatSpend(totalSpend)}</div>
+                {spendDelta !== null && <div className={`cd-m-momentum-delta${spendDelta < 0 ? ' cd-m-momentum-delta-neg' : ''}`}>{spendDelta >= 0 ? '↑' : '↓'} {spendDelta >= 0 ? '+' : ''}{spendDelta}%</div>}
+              </div>
+              <div className="cd-m-momentum-stat">
+                <div className="cd-m-momentum-stat-label">Impressions</div>
+                <div className="cd-m-momentum-stat-val">{formatImpressions(totalImps)}</div>
+                {impsDelta !== null && <div className={`cd-m-momentum-delta${impsDelta < 0 ? ' cd-m-momentum-delta-neg' : ''}`}>{impsDelta >= 0 ? '↑' : '↓'} {impsDelta >= 0 ? '+' : ''}{impsDelta}%</div>}
+              </div>
+              <div className="cd-m-momentum-stat">
+                <div className="cd-m-momentum-stat-label">Active</div>
+                <div className="cd-m-momentum-stat-val">{activeCount}</div>
+              </div>
             </div>
-            <div className="cd-m-momentum-stat">
-              <div className="cd-m-momentum-stat-label">Impressions</div>
-              <div className="cd-m-momentum-stat-val">{formatImpressions(totalImps)}</div>
-              {impsDelta !== null && <div className={`cd-m-momentum-delta${impsDelta < 0 ? ' cd-m-momentum-delta-neg' : ''}`}>{impsDelta >= 0 ? '↑' : '↓'} {impsDelta >= 0 ? '+' : ''}{impsDelta}%</div>}
+          )}
+          {showSpendData && (
+            <div className="cd-m-percentile">
+              <div>
+                <div className="cd-m-percentile-headline">Your content is in the {percentile.label}.</div>
+                <div className="cd-m-percentile-sub">Nama is scaling spend on your videos.</div>
+              </div>
+              <div>
+                <span className="cd-m-percentile-number">Top {percentile.rank}</span><span className="cd-m-percentile-pct">%</span>
+                <div className="cd-m-percentile-sub" style={{ textAlign: 'left', marginTop: '3px' }}>of Nama creators</div>
+              </div>
             </div>
-            <div className="cd-m-momentum-stat">
-              <div className="cd-m-momentum-stat-label">Active</div>
-              <div className="cd-m-momentum-stat-val">{activeCount}</div>
-            </div>
-          </div>
-          <div className="cd-m-percentile">
-            <div>
-              <div className="cd-m-percentile-headline">Your content is in the {percentile.label}.</div>
-              <div className="cd-m-percentile-sub">Nama is scaling spend on your videos.</div>
-            </div>
-            <div>
-              <span className="cd-m-percentile-number">Top {percentile.rank}</span><span className="cd-m-percentile-pct">%</span>
-              <div className="cd-m-percentile-sub" style={{ textAlign: 'left', marginTop: '3px' }}>of Nama creators</div>
-            </div>
-          </div>
-          <div className="cd-m-streak">
-            <div className="cd-m-streak-label">Active Months — {streakCount} month streak</div>
-            <div className="cd-m-streak-months">
-              {streakMonths.map((m, i) => (
-                <div key={i} className={`cd-m-streak-month${m.active && !m.isFuture ? ' active' : ''}`}>
-                  <div className={`cd-m-streak-dot${!m.active || m.isFuture ? ' empty' : ''}${m.isCurrent ? ' current' : ''}`}>
-                    {m.active && !m.isFuture && checkSvg}
+          )}
+          {showSpendData && (
+            <div className="cd-m-streak">
+              <div className="cd-m-streak-label">Active Months — {streakCount} month streak</div>
+              <div className="cd-m-streak-months">
+                {streakMonths.map((m, i) => (
+                  <div key={i} className={`cd-m-streak-month${m.active && !m.isFuture ? ' active' : ''}`}>
+                    <div className={`cd-m-streak-dot${!m.active || m.isFuture ? ' empty' : ''}${m.isCurrent ? ' current' : ''}`}>
+                      {m.active && !m.isFuture && checkSvg}
+                    </div>
+                    <div className="cd-m-streak-month-label">{m.label}</div>
                   </div>
-                  <div className="cd-m-streak-month-label">{m.label}</div>
-                </div>
-              ))}
+                ))}
+              </div>
+              <div className="cd-m-streak-note">Keep submitting content each month. Longer streaks = higher spend priority.</div>
             </div>
-            <div className="cd-m-streak-note">Keep submitting content each month. Longer streaks = higher spend priority.</div>
-          </div>
+          )}
           <div className="cd-m-ads-section">
             <div className="cd-m-ads-label">Running Now</div>
             <div className="cd-m-ads-row">
@@ -2035,11 +2047,13 @@ export default function CreatorDashboard() {
                         </div>
                       </div>
                     )}
-                    <div className="cd-m-ad-stats-strip">
-                      <div className="cd-m-ad-stat"><div className="cd-m-ad-stat-l">Spent</div><div className="cd-m-ad-stat-v">{formatSpend(ad.spend)}</div></div>
-                      <div className="cd-m-ad-stat"><div className="cd-m-ad-stat-l">Impressions</div><div className="cd-m-ad-stat-v">{formatImpressions(ad.impressions)}</div></div>
-                      <div className="cd-m-ad-stat"><div className="cd-m-ad-stat-l">Performance</div><div style={{ marginTop: 4 }}>{getScorePill(ad.spend, true)}</div></div>
-                    </div>
+                    {showSpendData && (
+                      <div className="cd-m-ad-stats-strip">
+                        <div className="cd-m-ad-stat"><div className="cd-m-ad-stat-l">Spent</div><div className="cd-m-ad-stat-v">{formatSpend(ad.spend)}</div></div>
+                        <div className="cd-m-ad-stat"><div className="cd-m-ad-stat-l">Impressions</div><div className="cd-m-ad-stat-v">{formatImpressions(ad.impressions)}</div></div>
+                        <div className="cd-m-ad-stat"><div className="cd-m-ad-stat-l">Performance</div><div style={{ marginTop: 4 }}>{getScorePill(ad.spend, true)}</div></div>
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -2057,47 +2071,53 @@ export default function CreatorDashboard() {
             <div className="cd-momentum-title">Live Ads</div>
           </div>
         </div>
-        <div className="cd-momentum-top">
-          <div className="cd-momentum-stat">
-            <div className="cd-momentum-stat-label">Total Spent on Your Content</div>
-            <div className="cd-momentum-stat-val">{formatSpend(totalSpend)}</div>
-            {spendDelta !== null && <div className={`cd-momentum-delta${spendDelta < 0 ? ' cd-momentum-delta-neg' : ''}`}>{spendDelta >= 0 ? '↑' : '↓'} {spendDelta >= 0 ? '+' : ''}{spendDelta}% vs last month</div>}
+        {showSpendData && (
+          <div className="cd-momentum-top">
+            <div className="cd-momentum-stat">
+              <div className="cd-momentum-stat-label">Total Spent on Your Content</div>
+              <div className="cd-momentum-stat-val">{formatSpend(totalSpend)}</div>
+              {spendDelta !== null && <div className={`cd-momentum-delta${spendDelta < 0 ? ' cd-momentum-delta-neg' : ''}`}>{spendDelta >= 0 ? '↑' : '↓'} {spendDelta >= 0 ? '+' : ''}{spendDelta}% vs last month</div>}
+            </div>
+            <div className="cd-momentum-stat">
+              <div className="cd-momentum-stat-label">Impressions</div>
+              <div className="cd-momentum-stat-val">{formatImpressions(totalImps)}</div>
+              {impsDelta !== null && <div className={`cd-momentum-delta${impsDelta < 0 ? ' cd-momentum-delta-neg' : ''}`}>{impsDelta >= 0 ? '↑' : '↓'} {impsDelta >= 0 ? '+' : ''}{impsDelta}% vs last month</div>}
+            </div>
+            <div className="cd-momentum-stat">
+              <div className="cd-momentum-stat-label">Ads Active</div>
+              <div className="cd-momentum-stat-val">{activeCount}</div>
+            </div>
           </div>
-          <div className="cd-momentum-stat">
-            <div className="cd-momentum-stat-label">Impressions</div>
-            <div className="cd-momentum-stat-val">{formatImpressions(totalImps)}</div>
-            {impsDelta !== null && <div className={`cd-momentum-delta${impsDelta < 0 ? ' cd-momentum-delta-neg' : ''}`}>{impsDelta >= 0 ? '↑' : '↓'} {impsDelta >= 0 ? '+' : ''}{impsDelta}% vs last month</div>}
+        )}
+        {showSpendData && (
+          <div className="cd-percentile">
+            <div>
+              <div className="cd-percentile-eyebrow">Creator Ranking</div>
+              <div className="cd-percentile-headline">Your content is in the<br />{percentile.label}.</div>
+              <div className="cd-percentile-sub">Nama is scaling spend on your videos.</div>
+            </div>
+            <div>
+              <span className="cd-percentile-number">Top {percentile.rank}</span><span className="cd-percentile-pct">%</span>
+              <div className="cd-percentile-sub" style={{ textAlign: 'right', marginTop: '4px' }}>of Nama creators</div>
+            </div>
           </div>
-          <div className="cd-momentum-stat">
-            <div className="cd-momentum-stat-label">Ads Active</div>
-            <div className="cd-momentum-stat-val">{activeCount}</div>
-          </div>
-        </div>
-        <div className="cd-percentile">
-          <div>
-            <div className="cd-percentile-eyebrow">Creator Ranking</div>
-            <div className="cd-percentile-headline">Your content is in the<br />{percentile.label}.</div>
-            <div className="cd-percentile-sub">Nama is scaling spend on your videos.</div>
-          </div>
-          <div>
-            <span className="cd-percentile-number">Top {percentile.rank}</span><span className="cd-percentile-pct">%</span>
-            <div className="cd-percentile-sub" style={{ textAlign: 'right', marginTop: '4px' }}>of Nama creators</div>
-          </div>
-        </div>
-        <div className="cd-streak">
-          <div className="cd-streak-label">Active Months — {streakCount} month streak</div>
-          <div className="cd-streak-months">
-            {streakMonths.map((m, i) => (
-              <div key={i} className={`cd-streak-month${m.active && !m.isFuture ? ' active' : ''}`}>
-                <div className={`cd-streak-dot${!m.active || m.isFuture ? ' empty' : ''}${m.isCurrent ? ' current' : ''}`}>
-                  {m.active && !m.isFuture && checkSvg}
+        )}
+        {showSpendData && (
+          <div className="cd-streak">
+            <div className="cd-streak-label">Active Months — {streakCount} month streak</div>
+            <div className="cd-streak-months">
+              {streakMonths.map((m, i) => (
+                <div key={i} className={`cd-streak-month${m.active && !m.isFuture ? ' active' : ''}`}>
+                  <div className={`cd-streak-dot${!m.active || m.isFuture ? ' empty' : ''}${m.isCurrent ? ' current' : ''}`}>
+                    {m.active && !m.isFuture && checkSvg}
+                  </div>
+                  <div className="cd-streak-month-label">{m.label}</div>
                 </div>
-                <div className="cd-streak-month-label">{m.label}</div>
-              </div>
-            ))}
+              ))}
+            </div>
+            <div className="cd-streak-note">Keep submitting content each month to maintain your streak. Longer streaks = higher spend priority.</div>
           </div>
-          <div className="cd-streak-note">Keep submitting content each month to maintain your streak. Longer streaks = higher spend priority.</div>
-        </div>
+        )}
         <div className="cd-ads-section">
           <div className="cd-ads-section-label">Running Now</div>
           <div className="cd-ads-row">
@@ -2117,11 +2137,13 @@ export default function CreatorDashboard() {
                       </div>
                     </div>
                   )}
-                  <div className="cd-ad-stats-strip">
-                    <div className="cd-ad-stat"><div className="cd-ad-stat-l">Total Spent</div><div className="cd-ad-stat-v">${parseFloat(ad.spend).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div></div>
-                    <div className="cd-ad-stat"><div className="cd-ad-stat-l">Impressions</div><div className="cd-ad-stat-v">{formatImpressions(ad.impressions)}</div></div>
-                    <div className="cd-ad-stat"><div className="cd-ad-stat-l">Performance</div><div style={{ marginTop: 4 }}>{getScorePill(ad.spend, false)}</div></div>
-                  </div>
+                  {showSpendData && (
+                    <div className="cd-ad-stats-strip">
+                      <div className="cd-ad-stat"><div className="cd-ad-stat-l">Total Spent</div><div className="cd-ad-stat-v">${parseFloat(ad.spend).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div></div>
+                      <div className="cd-ad-stat"><div className="cd-ad-stat-l">Impressions</div><div className="cd-ad-stat-v">{formatImpressions(ad.impressions)}</div></div>
+                      <div className="cd-ad-stat"><div className="cd-ad-stat-l">Performance</div><div style={{ marginTop: 4 }}>{getScorePill(ad.spend, false)}</div></div>
+                    </div>
+                  )}
                 </div>
               )
             })}
