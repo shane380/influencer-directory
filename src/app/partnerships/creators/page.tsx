@@ -51,6 +51,7 @@ export default function CreatorsListPage() {
     creatorName: "",
     email: "",
     videosPerMonth: "3-5",
+    contentType: "",
     usageRights: "90 days per campaign, renewable",
   });
   const [dealType, setDealType] = useState<"affiliate" | "ad_spend" | "retainer">("retainer");
@@ -195,6 +196,7 @@ export default function CreatorsListPage() {
       creatorName: "",
       email: "",
       videosPerMonth: "3-5",
+      contentType: "",
       usageRights: "90 days per campaign, renewable",
     });
     setDealType("retainer");
@@ -257,6 +259,7 @@ export default function CreatorsListPage() {
         creatorEmail: inviteForm.email || null,
         commissionRate: fields.commissionRate,
         videosPerMonth: inviteForm.videosPerMonth,
+        contentType: inviteForm.contentType || null,
         usageRights: inviteForm.usageRights,
         influencerId: selectedInfluencer?.id || null,
         dealStructure: ds,
@@ -651,6 +654,16 @@ export default function CreatorsListPage() {
                       />
                     </div>
                   )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Content type</label>
+                    <input
+                      type="text"
+                      value={inviteForm.contentType}
+                      onChange={(e) => setInviteForm((f) => ({ ...f, contentType: e.target.value }))}
+                      placeholder="e.g. Talking-style UGC, Lifestyle, GRWM"
+                      className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
+                    />
+                  </div>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"

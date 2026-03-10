@@ -6,7 +6,7 @@ export async function createInvite({
   slug = null,
   commissionRate = 10,
   videosPerMonth = '3–5',
-  contentType = 'Talking-style UGC',
+  contentType = null,
   usageRights = '90 days per campaign, renewable',
   notes = null,
   expiryDays = null,

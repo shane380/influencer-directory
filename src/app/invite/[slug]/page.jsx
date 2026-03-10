@@ -383,7 +383,7 @@ export default function InvitePage() {
 
   const firstName = invite.creator_name?.split(' ')[0] || ''
   const videos = invite.videos_per_month || null
-  const contentType = invite.content_type || 'Talking-style UGC'
+  const contentType = invite.content_type || null
   const affiliateCode = (invite.creator_name || '')
     .toUpperCase()
     .replace(/\s+/g, '')
@@ -637,7 +637,7 @@ export default function InvitePage() {
               <div className="ni-term-sub">Deliverables</div>
               <div className="ni-term-row">
                 <span className="ni-term-key">Content</span>
-                <div className="ni-term-val"><div className="ni-term-primary">{videos} videos / month</div><div className="ni-term-secondary">{contentType}</div></div>
+                <div className="ni-term-val"><div className="ni-term-primary">{videos} videos / month</div>{contentType && <div className="ni-term-secondary">{contentType}</div>}</div>
               </div>
               <div className="ni-term-row">
                 <span className="ni-term-key">Contract</span>
@@ -720,7 +720,7 @@ export default function InvitePage() {
               <div className="ni-term-sub">Deliverables</div>
               <div className="ni-term-row">
                 <span className="ni-term-key">Content</span>
-                <div className="ni-term-val"><div className="ni-term-primary">{videos} videos / month</div><div className="ni-term-secondary">{contentType}</div></div>
+                <div className="ni-term-val"><div className="ni-term-primary">{videos} videos / month</div>{contentType && <div className="ni-term-secondary">{contentType}</div>}</div>
               </div>
               <div className="ni-term-row">
                 <span className="ni-term-key">Contract</span>
@@ -809,7 +809,7 @@ export default function InvitePage() {
             <div className="ni-term-sub">Deliverables</div>
             <div className="ni-term-row">
               <span className="ni-term-key">Content</span>
-              <div className="ni-term-val"><div className="ni-term-primary">{videos} videos / month</div><div className="ni-term-secondary">{contentType}</div></div>
+              <div className="ni-term-val"><div className="ni-term-primary">{videos} videos / month</div>{contentType && <div className="ni-term-secondary">{contentType}</div>}</div>
             </div>
             <div className="ni-term-row">
               <span className="ni-term-key">Contract</span>
@@ -955,7 +955,7 @@ export default function InvitePage() {
             {videos && (<>
               <div className="ni-m-term-divider" />
               <div className="ni-m-term-sub">Deliverables</div>
-              <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
+              <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div>{contentType && <div className="ni-m-term-secondary">{contentType}</div>}</div></div>
               <div className="ni-m-term-row"><span className="ni-m-term-key">Contract</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
             </>)}
             <div className="ni-m-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months following the conclusion of the partnership.</div>
@@ -1017,7 +1017,7 @@ export default function InvitePage() {
             {videos && (<>
               <div className="ni-m-term-divider" />
               <div className="ni-m-term-sub">Deliverables</div>
-              <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
+              <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div>{contentType && <div className="ni-m-term-secondary">{contentType}</div>}</div></div>
               <div className="ni-m-term-row"><span className="ni-m-term-key">Contract</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
             </>)}
             <div className="ni-m-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months following the conclusion of the partnership.</div>
@@ -1092,7 +1092,7 @@ export default function InvitePage() {
           {videos && (<>
             <div className="ni-m-term-divider" />
             <div className="ni-m-term-sub">Deliverables</div>
-            <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
+            <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div>{contentType && <div className="ni-m-term-secondary">{contentType}</div>}</div></div>
             <div className="ni-m-term-row"><span className="ni-m-term-key">Contract</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
           </>)}
           <div className="ni-m-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months following the conclusion of the partnership.</div>
