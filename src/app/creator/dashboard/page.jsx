@@ -172,6 +172,13 @@ const CSS = `
 .cd-sub-drive-link { font-size: 10px; color: #888; text-decoration: none; }
 .cd-sub-drive-link:hover { text-decoration: underline; }
 
+/* RESUBMIT */
+.cd-resubmit-btn { display: inline-block; margin-top: 10px; padding: 8px 20px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: #111; background: #fff; border: 1px solid #111; cursor: pointer; transition: all 0.15s; }
+.cd-resubmit-btn:hover { background: #111; color: #fff; }
+.cd-resubmit-banner { background: #fefce8; border: 1px solid #e5d78e; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; color: #333; }
+.cd-resubmit-cancel { background: none; border: 1px solid #ccc; padding: 4px 14px; font-size: 12px; color: #666; cursor: pointer; }
+.cd-resubmit-cancel:hover { border-color: #999; color: #333; }
+
 /* LIGHTBOX */
 .cd-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 9999; cursor: pointer; }
 .cd-lightbox img, .cd-lightbox video { max-width: 90vw; max-height: 90vh; object-fit: contain; cursor: default; }
@@ -712,6 +719,7 @@ export default function CreatorDashboard() {
   const [showPastCampaigns, setShowPastCampaigns] = useState(false)
   const [lightboxFile, setLightboxFile] = useState(null) // { drive_file_id, name, mime_type }
   const [campaignContentTarget, setCampaignContentTarget] = useState(null) // assignment ID to tag content with
+  const [resubmitTarget, setResubmitTarget] = useState(null) // submission ID being resubmitted
 
   // Payment settings
   const [paymentEditing, setPaymentEditing] = useState(false)
@@ -1077,6 +1085,7 @@ export default function CreatorDashboard() {
           campaign_assignment_id: campaignContentTarget || null,
           files: uploadedFiles,
           influencer_id: influencer.id,
+          submission_id: resubmitTarget || null,
         }),
       })
       if (!res.ok) {
@@ -1089,6 +1098,7 @@ export default function CreatorDashboard() {
       setContentFiles([])
       setContentNotes('')
       setCampaignContentTarget(null)
+      setResubmitTarget(null)
       const { data } = await supabase.from('creator_content_submissions').select('*').eq('creator_id', creator.id).order('created_at', { ascending: false })
       setSubmissions(data || [])
       try {
@@ -2462,7 +2472,24 @@ export default function CreatorDashboard() {
 
     return (
       <>
-        <div className="cd-upload-sub">Upload your videos or photos below. We&apos;ll review within 48 hours.</div>
+        {resubmitTarget ? (
+          <div className="cd-resubmit-banner">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <strong>Resubmitting content</strong>
+                <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>Upload your revised files below. This will replace the previous submission.</div>
+              </div>
+              <button
+                className="cd-resubmit-cancel"
+                onClick={() => { setResubmitTarget(null); setContentFiles([]); setContentNotes(''); }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="cd-upload-sub">Upload your videos or photos below. We&apos;ll review within 48 hours.</div>
+        )}
 
         {(() => {
           const confirmedAssignments = campaignAssignments.filter(a => a.status === 'confirmed' && a.campaign)
@@ -2489,7 +2516,7 @@ export default function CreatorDashboard() {
         })()}
 
         <label className={mobile ? 'cd-m-field-label' : 'cd-field-label'}>Month</label>
-        <select className={mobile ? 'cd-m-field-input' : 'cd-field-input'} value={contentMonth} onChange={e => setContentMonth(e.target.value)} style={{ marginBottom: 16 }}>
+        <select className={mobile ? 'cd-m-field-input' : 'cd-field-input'} value={contentMonth} onChange={e => setContentMonth(e.target.value)} disabled={!!resubmitTarget} style={{ marginBottom: 16 }}>
           {monthOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
 
@@ -2560,7 +2587,7 @@ export default function CreatorDashboard() {
           disabled={!contentFiles.length || contentSubmitting}
           style={{ marginTop: 16 }}
         >
-          {contentSubmitting ? 'Uploading…' : 'Submit Content →'}
+          {contentSubmitting ? 'Uploading…' : resubmitTarget ? 'Resubmit Content →' : 'Submit Content →'}
         </button>
 
         {submissions.length > 0 && (
@@ -2607,6 +2634,22 @@ export default function CreatorDashboard() {
                     <div style={{ fontSize: 11, color: sub.status === 'revision_requested' ? '#a68307' : sub.status === 'rejected' ? '#c62828' : '#2e7d32', marginTop: 3 }}>
                       Feedback: {sub.admin_feedback}
                     </div>
+                  )}
+                  {sub.status === 'revision_requested' && (
+                    <button
+                      className="cd-resubmit-btn"
+                      onClick={() => {
+                        setResubmitTarget(sub.id)
+                        setContentMonth(sub.month)
+                        setCampaignContentTarget(sub.campaign_assignment_id || null)
+                        setContentFiles([])
+                        setContentNotes('')
+                        setContentSuccess(null)
+                        window.scrollTo({ top: 0, behavior: 'smooth' })
+                      }}
+                    >
+                      Resubmit Content →
+                    </button>
                   )}
                 </div>
               )

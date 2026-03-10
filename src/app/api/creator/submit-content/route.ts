@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { month, notes, campaign_assignment_id, files, influencer_id } = body;
+  const { month, notes, campaign_assignment_id, files, influencer_id, submission_id } = body;
 
   if (!month || !files || files.length === 0) {
     return NextResponse.json(
@@ -134,40 +134,81 @@ export async function POST(request: NextRequest) {
 
     const folderUrl = folderId ? getFolderUrl(folderId) : null;
 
-    const insertData: Record<string, unknown> = {
-      creator_id: creator.id,
-      influencer_id: influencer?.id || null,
-      month,
-      drive_folder_id: folderId || null,
-      drive_folder_url: folderUrl,
-      files: uploadedFiles,
-      notes: notes || null,
-      status: "pending",
-    };
-    if (campaign_assignment_id) {
-      insertData.campaign_assignment_id = campaign_assignment_id;
-    }
+    let submission: Record<string, unknown> | null = null;
 
-    const { data: submission, error } = await supabase
-      .from("creator_content_submissions")
-      .insert(insertData)
-      .select()
-      .single();
+    if (submission_id) {
+      // Resubmission: update existing submission with new files, reset status
+      const { data: existing } = await supabase
+        .from("creator_content_submissions")
+        .select("files")
+        .eq("id", submission_id)
+        .eq("creator_id", creator.id)
+        .single();
 
-    if (error) {
-      console.error("Submission insert failed:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+      if (!existing) {
+        return NextResponse.json({ error: "Submission not found" }, { status: 404 });
+      }
 
-    // If linked to a campaign assignment, update its status
-    if (campaign_assignment_id && submission) {
-      await supabase
-        .from("campaign_assignments")
+      const { data, error } = await supabase
+        .from("creator_content_submissions")
         .update({
-          status: "content_submitted",
-          content_submission_id: submission.id,
+          files: uploadedFiles,
+          notes: notes || null,
+          status: "pending",
+          admin_feedback: null,
+          reviewed_by: null,
+          reviewed_at: null,
+          submitted_at: new Date().toISOString(),
+          drive_folder_id: folderId || null,
+          drive_folder_url: folderUrl,
         })
-        .eq("id", campaign_assignment_id);
+        .eq("id", submission_id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Resubmission update failed:", error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      submission = data;
+    } else {
+      // New submission
+      const insertData: Record<string, unknown> = {
+        creator_id: creator.id,
+        influencer_id: influencer?.id || null,
+        month,
+        drive_folder_id: folderId || null,
+        drive_folder_url: folderUrl,
+        files: uploadedFiles,
+        notes: notes || null,
+        status: "pending",
+      };
+      if (campaign_assignment_id) {
+        insertData.campaign_assignment_id = campaign_assignment_id;
+      }
+
+      const { data, error } = await supabase
+        .from("creator_content_submissions")
+        .insert(insertData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Submission insert failed:", error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      submission = data;
+
+      // If linked to a campaign assignment, update its status
+      if (campaign_assignment_id && submission) {
+        await supabase
+          .from("campaign_assignments")
+          .update({
+            status: "content_submitted",
+            content_submission_id: submission.id,
+          })
+          .eq("id", campaign_assignment_id);
+      }
     }
 
     return NextResponse.json({ submission });
