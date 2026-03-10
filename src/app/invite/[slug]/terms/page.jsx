@@ -80,19 +80,22 @@ export default function PartnershipTermsPage() {
     : ''
 
   // Determine which deal components to show
-  // If offer_choice, the deal param narrows to the selected option
-  // Otherwise, show whatever flags are set on the invite
   const selectedDeal = dealParam || (invite.has_retainer ? 'retainer' : invite.has_ad_spend ? 'ad_spend' : 'affiliate')
-  const showRetainer = selectedDeal === 'retainer' && invite.has_retainer && retainerAmount
-  const showAdSpend = selectedDeal === 'ad_spend' && invite.has_ad_spend && adSpendPct > 0
-  const showAffiliate = invite.has_affiliate || (!invite.has_retainer && !invite.has_ad_spend)
-  const showAdSpendMin = showAdSpend && adSpendMin > 0
-
-  // For non-offer-choice invites, show all flags
   const isOfferChoice = invite.offer_choice
-  const showRetainerSection = isOfferChoice ? showRetainer : (invite.has_retainer && retainerAmount)
-  const showAdSpendSection = isOfferChoice ? showAdSpend : (invite.has_ad_spend && adSpendPct > 0)
-  const showAdSpendMinSection = isOfferChoice ? showAdSpendMin : (adSpendMin > 0)
+
+  // For offer_choice invites, only show the selected deal type
+  // For non-offer-choice invites, show all flags set on the invite
+  const showRetainerSection = isOfferChoice
+    ? selectedDeal === 'retainer' && invite.has_retainer
+    : invite.has_retainer && retainerAmount
+  const showAdSpendSection = isOfferChoice
+    ? selectedDeal === 'ad_spend' && invite.has_ad_spend
+    : invite.has_ad_spend && adSpendPct > 0
+  // Affiliate shows as addon when paired with retainer/ad_spend, or as primary if no other deal
+  const showAffiliate = isOfferChoice
+    ? invite.has_affiliate
+    : invite.has_affiliate || (!invite.has_retainer && !invite.has_ad_spend)
+  const showAdSpendMinSection = showAdSpendSection && adSpendMin > 0
 
   // Partnership type label
   const dealLabel = showRetainerSection ? 'Retainer Partnership' : showAdSpendSection ? 'Ad Spend Partnership' : 'Affiliate Partnership'
@@ -118,7 +121,7 @@ export default function PartnershipTermsPage() {
         <div className="pt-section-label">Compensation</div>
         <div className="pt-body">
           {showRetainerSection && (
-            <p>Nama will pay you a fixed retainer of ${retainerAmount.toLocaleString()} per month. Payment is made by the 5th of the following month via your selected payment method.</p>
+            <p>Nama will pay you a fixed retainer of ${(retainerAmount || 0).toLocaleString()} per month. Payment is made by the 5th of the following month via your selected payment method.</p>
           )}
           {showAdSpendSection && (
             <p>You will earn {adSpendPct}% of monthly advertising spend attributed to your content.</p>
