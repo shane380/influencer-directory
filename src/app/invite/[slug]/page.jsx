@@ -409,7 +409,7 @@ export default function InvitePage() {
     if (step === 'choose') {
       return {
         eyebrow: defaultEyebrow,
-        headline: <>Hi {firstName},<br /><em>choose your<br />partnership.</em></>,
+        headline: <>Hi {firstName},<br /><em>let&apos;s make it<br />official.</em></>,
         intro: 'Two ways to work with us — same perks, different structure. Pick what suits you.',
       }
     }
@@ -1180,7 +1180,7 @@ export default function InvitePage() {
       return (
         <>
           <div className="ni-m-eyebrow">{defaultEyebrow}</div>
-          <div className="ni-m-headline">Hi {firstName},<br /><em>choose your<br />partnership.</em></div>
+          <div className="ni-m-headline">Hi {firstName},<br /><em>let&apos;s make it<br />official.</em></div>
           <p className="ni-m-intro">Two structures, same perks. Pick what works for you.</p>
         </>
       )
