@@ -151,10 +151,10 @@ export default function AdminCreatorProfile() {
     setActionLoading(prev => ({ ...prev, [reqId]: null }))
   }
 
-  async function updateSubmissionStatus(subId, status, reviewerNotes = null) {
+  async function updateSubmissionStatus(subId, status, feedback = null) {
     setActionLoading(prev => ({ ...prev, [subId]: 'updating' }))
     const update = { status, reviewed_at: new Date().toISOString() }
-    if (reviewerNotes !== null) update.reviewer_notes = reviewerNotes
+    if (feedback !== null) update.admin_feedback = feedback
     await supabase
       .from('creator_content_submissions')
       .update(update)
@@ -323,44 +323,75 @@ export default function AdminCreatorProfile() {
               <p className="text-gray-500 text-sm">No content submitted yet.</p>
             ) : (
               <div className="space-y-3">
-                {submissions.map(sub => (
-                  <div key={sub.id} className="border rounded-lg p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="text-xs text-gray-500">{sub.month}</div>
-                      <span className={statusBadge(sub.status)}>{sub.status.replace('_', ' ')}</span>
-                    </div>
-                    <a href={sub.video_url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline break-all">
-                      {sub.video_url}
-                    </a>
-                    {sub.notes && <p className="text-xs text-gray-500 mt-1">{sub.notes}</p>}
-                    {sub.reviewer_notes && (
-                      <p className="text-xs text-amber-700 mt-1 bg-amber-50 px-2 py-1 rounded">Feedback: {sub.reviewer_notes}</p>
-                    )}
-                    <div className="flex gap-2 mt-3">
-                      {sub.status !== 'approved' && (
-                        <button
-                          onClick={() => updateSubmissionStatus(sub.id, 'approved')}
-                          disabled={actionLoading[sub.id]}
-                          className="px-3 py-1.5 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50"
-                        >
-                          Approve
-                        </button>
+                {submissions.map(sub => {
+                  const files = Array.isArray(sub.files) ? sub.files : []
+                  const [yr, mo] = (sub.month || '').split('-')
+                  const monthLabel = yr && mo ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString('en', { month: 'long', year: 'numeric' }) : sub.month
+                  return (
+                    <div key={sub.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{monthLabel}</div>
+                          <div className="text-xs text-gray-400">{files.length} file{files.length !== 1 ? 's' : ''} · Submitted {new Date(sub.created_at).toLocaleDateString('en', { month: 'short', day: 'numeric' })}</div>
+                        </div>
+                        <span className={statusBadge(sub.status)}>{(sub.status || '').replace(/_/g, ' ')}</span>
+                      </div>
+                      {files.length > 0 && (
+                        <div className="flex gap-2 flex-wrap mb-3">
+                          {files.map((file, fi) => {
+                            const isImage = file.mime_type?.startsWith('image/')
+                            const isVideo = file.mime_type?.startsWith('video/')
+                            const previewUrl = file.drive_file_id ? `/api/drive/preview/${file.drive_file_id}` : null
+                            return (
+                              <div key={fi} className="relative group">
+                                {isImage && previewUrl ? (
+                                  <img src={previewUrl} alt={file.name} className="w-24 h-24 object-cover rounded border border-gray-200" />
+                                ) : isVideo && previewUrl ? (
+                                  <video src={previewUrl} preload="metadata" className="w-24 h-24 object-cover rounded border border-gray-200" />
+                                ) : (
+                                  <div className="w-24 h-24 rounded border border-gray-200 bg-gray-50 flex items-center justify-center text-xs text-gray-400">
+                                    {file.name?.split('.').pop()?.toUpperCase() || 'FILE'}
+                                  </div>
+                                )}
+                                <div className="text-[10px] text-gray-400 truncate max-w-[96px] mt-1">{file.name}</div>
+                                {file.drive_url && (
+                                  <a href={file.drive_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-500 hover:underline">Open</a>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
                       )}
-                      {sub.status !== 'revision_requested' && (
-                        <button
-                          onClick={() => {
-                            const notes = prompt('Revision notes:')
-                            if (notes) updateSubmissionStatus(sub.id, 'revision_requested', notes)
-                          }}
-                          disabled={actionLoading[sub.id]}
-                          className="px-3 py-1.5 bg-white border border-amber-300 text-amber-700 text-xs rounded hover:bg-amber-50 disabled:opacity-50"
-                        >
-                          Request Revision
-                        </button>
+                      {sub.notes && <p className="text-xs text-gray-500 mb-2 italic">&ldquo;{sub.notes}&rdquo;</p>}
+                      {sub.admin_feedback && (
+                        <p className="text-xs text-amber-700 mb-2 bg-amber-50 px-2 py-1 rounded">Feedback: {sub.admin_feedback}</p>
                       )}
+                      <div className="flex gap-2 mt-2">
+                        {sub.status !== 'approved' && (
+                          <button
+                            onClick={() => updateSubmissionStatus(sub.id, 'approved')}
+                            disabled={actionLoading[sub.id]}
+                            className="px-3 py-1.5 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50"
+                          >
+                            Approve
+                          </button>
+                        )}
+                        {sub.status !== 'revision_requested' && (
+                          <button
+                            onClick={() => {
+                              const notes = prompt('Revision notes:')
+                              if (notes) updateSubmissionStatus(sub.id, 'revision_requested', notes)
+                            }}
+                            disabled={actionLoading[sub.id]}
+                            className="px-3 py-1.5 bg-white border border-amber-300 text-amber-700 text-xs rounded hover:bg-amber-50 disabled:opacity-50"
+                          >
+                            Request Revision
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
