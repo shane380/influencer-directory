@@ -44,7 +44,7 @@ const CSS = `
 
 /* SECTION LABEL */
 .ni-sec-label { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #888; margin-bottom: 22px; display: flex; align-items: center; gap: 12px; }
-.ni-sec-label::after { content: ''; flex: 1; height: 1px; background: #ebebeb; }
+.ni-sec-label::after { content: ''; flex: 1; height: 1px; background: #d0d0d0; }
 
 /* OPTION CARDS */
 .ni-option-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 36px; }
@@ -58,25 +58,26 @@ const CSS = `
 .ni-option-rate sub { font-size: 14px; font-style: italic; color: #999; vertical-align: baseline; }
 .ni-option-rate sup { font-size: 16px; vertical-align: super; color: #888; }
 .ni-option-name { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #888; margin-bottom: 10px; font-weight: 400; }
-.ni-option-rule { height: 1px; background: #f0f0f0; margin-bottom: 12px; }
-.ni-option-detail { font-size: 13px; color: #333; font-weight: 300; line-height: 1.75; }
-.ni-option-detail strong { color: #333; font-weight: 300; }
-.ni-option-detail .ni-card-item { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid #f0f0f0; }
+.ni-option-rule { height: 1px; background: #d0d0d0; margin-bottom: 12px; }
+.ni-option-detail { font-size: 11px; color: #888; font-weight: 300; line-height: 1.75; }
+.ni-option-detail strong { color: #888; font-weight: 300; }
+.ni-option-detail .ni-card-item { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid #d0d0d0; }
 .ni-option-detail .ni-card-item:last-child { padding-bottom: 0; margin-bottom: 0; border-bottom: none; }
 .ni-option-detail .ni-card-item:has(+ .ni-term-divider) { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
-.ni-option-detail .ni-term-sub { margin-bottom: 12px; }
+.ni-option-detail .ni-term-sub { margin-bottom: 8px; }
 .ni-option-detail .ni-term-divider { margin-top: 12px; margin-bottom: 0; }
 .ni-option-hint { font-size: 11px; font-style: italic; color: #999; text-align: center; margin-top: 8px; }
 
 /* TERM ROWS */
-.ni-term-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid #f2f2f2; }
+.ni-term-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid #d0d0d0; }
 .ni-term-row:last-child { border-bottom: none; }
 .ni-term-row:has(+ .ni-term-divider), .ni-term-row:has(+ .ni-footnote) { border-bottom: none; }
 .ni-term-key { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #333; font-weight: 600; padding-top: 4px; }
 .ni-term-val { text-align: right; }
 .ni-term-primary { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 400; color: #111; }
 .ni-term-secondary { font-size: 11px; color: #888888; font-weight: 300; margin-top: 2px; }
-.ni-term-sub { font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; color: #aaa; margin: 20px 0 4px; }
+.ni-term-sub { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #888; margin: 20px 0 4px; display: flex; align-items: center; gap: 12px; }
+.ni-term-sub::after { content: ''; flex: 1; height: 1px; background: #d0d0d0; }
 .ni-term-sub:first-child { margin-top: 0; }
 .ni-term-divider { height: 1px; background: #d0d0d0; margin: 4px 0; }
 .ni-footnote { font-size: 12px; color: #aaa; font-style: italic; line-height: 1.8; margin: 18px 0 32px; padding-left: 14px; border-left: 1.5px solid #e8e8e8; }
@@ -180,7 +181,7 @@ const CSS = `
 .ni-m-done-center .ni-m-intro { font-size: 13px; color: #888; line-height: 1.9; font-weight: 300; margin-bottom: 32px; }
 .ni-m-done-center .ni-m-btn { max-width: 340px; width: 100%; }
 .ni-m-sec-label { font-size: 9px; letter-spacing: 0.38em; text-transform: uppercase; color: #555; margin-bottom: 18px; display: flex; align-items: center; gap: 10px; }
-.ni-m-sec-label::after { content: ''; flex: 1; height: 1px; background: #ebebeb; }
+.ni-m-sec-label::after { content: ''; flex: 1; height: 1px; background: #d0d0d0; }
 
 /* Mobile option cards */
 .ni-m-option-cards { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
@@ -194,23 +195,24 @@ const CSS = `
 .ni-m-option-rate sub { font-size: 13px; font-style: italic; color: #999; vertical-align: baseline; }
 .ni-m-option-rate sup { font-size: 15px; vertical-align: super; color: #999; }
 .ni-m-option-name { font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #999; margin-bottom: 10px; }
-.ni-m-option-rule { height: 1px; background: #f0f0f0; margin-bottom: 10px; }
-.ni-m-option-detail { font-size: 13px; color: #333; font-weight: 300; line-height: 1.7; }
-.ni-m-option-detail strong { color: #333; font-weight: 300; }
-.ni-m-option-detail .ni-card-item { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid #f0f0f0; }
+.ni-m-option-rule { height: 1px; background: #d0d0d0; margin-bottom: 10px; }
+.ni-m-option-detail { font-size: 11px; color: #888; font-weight: 300; line-height: 1.7; }
+.ni-m-option-detail strong { color: #888; font-weight: 300; }
+.ni-m-option-detail .ni-card-item { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid #d0d0d0; }
 .ni-m-option-detail .ni-card-item:last-child { padding-bottom: 0; margin-bottom: 0; border-bottom: none; }
 .ni-m-option-detail .ni-card-item:has(+ .ni-m-term-divider) { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
-.ni-m-option-detail .ni-m-term-sub { margin-bottom: 12px; }
+.ni-m-option-detail .ni-m-term-sub { margin-bottom: 8px; }
 .ni-m-option-detail .ni-m-term-divider { margin-top: 12px; margin-bottom: 0; }
 .ni-m-option-hint { font-size: 11px; font-style: italic; color: #999; text-align: center; margin-top: 8px; }
 
-.ni-m-term-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #f2f2f2; }
+.ni-m-term-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #d0d0d0; }
 .ni-m-term-row:last-child { border-bottom: none; }
 .ni-m-term-row:has(+ .ni-m-term-divider), .ni-m-term-row:has(+ .ni-m-footnote) { border-bottom: none; }
 .ni-m-term-key { font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; color: #333; font-weight: 600; padding-top: 4px; }
 .ni-m-term-primary { font-family: 'Playfair Display', serif; font-size: 20px; color: #111; text-align: right; }
 .ni-m-term-secondary { font-size: 11px; color: #888; font-weight: 300; margin-top: 2px; text-align: right; }
-.ni-m-term-sub { font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; color: #aaa; margin: 18px 0 4px; }
+.ni-m-term-sub { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #888; margin: 18px 0 4px; display: flex; align-items: center; gap: 10px; }
+.ni-m-term-sub::after { content: ''; flex: 1; height: 1px; background: #d0d0d0; }
 .ni-m-term-sub:first-child { margin-top: 0; }
 .ni-m-term-divider { height: 1px; background: #d0d0d0; margin: 4px 0; }
 .ni-m-footnote { font-size: 12px; color: #aaa; font-style: italic; line-height: 1.75; margin: 16px 0 26px; padding-left: 12px; border-left: 1.5px solid #e8e8e8; }
