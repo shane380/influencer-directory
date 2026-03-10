@@ -41,7 +41,8 @@ const CSS = `
 .ni-left-footer { font-size: 10px; color: #ccc; letter-spacing: 0.15em; text-transform: uppercase; }
 
 /* SECTION LABEL — parent headers */
-.ni-sec-label { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: #aaa; margin-bottom: 28px; display: flex; align-items: center; gap: 12px; }
+.ni-sec-label { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: #aaa; margin-top: 36px; margin-bottom: 28px; display: flex; align-items: center; gap: 12px; }
+.ni-sec-label:first-child { margin-top: 0; }
 .ni-sec-label::after { content: ''; flex: 1; height: 1px; background: #e0e0e0; }
 
 /* OPTION CARDS */
@@ -169,7 +170,8 @@ const CSS = `
 .ni-m-done-center .ni-m-headline em { font-style: italic; color: #888; display: block; }
 .ni-m-done-center .ni-m-intro { font-size: 13px; color: #888; line-height: 1.9; font-weight: 300; margin-bottom: 32px; }
 .ni-m-done-center .ni-m-btn { max-width: 340px; width: 100%; }
-.ni-m-sec-label { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: #aaa; margin-bottom: 28px; display: flex; align-items: center; gap: 10px; }
+.ni-m-sec-label { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: #aaa; margin-top: 36px; margin-bottom: 28px; display: flex; align-items: center; gap: 10px; }
+.ni-m-sec-label:first-child { margin-top: 0; }
 .ni-m-sec-label::after { content: ''; flex: 1; height: 1px; background: #e0e0e0; }
 
 /* Mobile option cards */
