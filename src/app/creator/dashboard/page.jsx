@@ -444,6 +444,10 @@ const CSS = `
 .cd-m-logo-sub { font-size: 8px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; margin-top: 2px; }
 .cd-m-topbar-account { display: flex; align-items: center; justify-content: center; background: none; border: none; cursor: pointer; padding: 4px; }
 
+.cd-m-subtabs { display: flex; background: #fff; border-bottom: 1px solid #e8e8e8; position: sticky; top: 64px; z-index: 99; }
+.cd-m-subtab { flex: 1; background: none; border: none; border-bottom: 2px solid transparent; padding: 12px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #aaa; font-weight: 400; cursor: pointer; text-align: center; transition: all 0.15s; }
+.cd-m-subtab.active { border-bottom-color: #1a1a1a; color: #1a1a1a; font-weight: 600; }
+
 .cd-m-hero { padding: 16px 20px; border-bottom: 1px solid #e8e8e8; background: #fff; display: flex; flex-direction: row; align-items: center; gap: 14px; }
 .cd-m-eyebrow { display: none; }
 .cd-m-name { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 400; color: #111; line-height: 1.05; margin-bottom: 2px; }
@@ -711,6 +715,7 @@ export default function CreatorDashboard() {
   const [paymentSaving, setPaymentSaving] = useState(false)
   const [paymentSaved, setPaymentSaved] = useState(false)
   const [wardrobeExpanded, setWardrobeExpanded] = useState(false)
+  const [wardrobeSubTab, setWardrobeSubTab] = useState('wardrobe')
 
   useEffect(() => {
     async function load() {
@@ -3048,24 +3053,25 @@ export default function CreatorDashboard() {
               <div className="cd-m-section-body">{renderCampaigns(true)}</div>
             </div>
 
-            {/* Wardrobe + Request Styles */}
+            {/* Wardrobe + Orders + Requests (sub-tabbed) */}
             <div style={activeTab !== 'wardrobe' ? { display: 'none' } : undefined}>
-              <div className="cd-m-section">
-                <div className="cd-m-section-head">
-                  <div className="cd-m-section-eyebrow">Your Collection</div>
-                  <div className="cd-m-section-title">Wardrobe</div>
-                </div>
-                {renderWardrobeGrid(true)}
+              <div className="cd-m-subtabs">
+                {['wardrobe', 'orders', 'requests'].map(t => (
+                  <button key={t} className={`cd-m-subtab${wardrobeSubTab === t ? ' active' : ''}`} onClick={() => setWardrobeSubTab(t)}>
+                    {t === 'wardrobe' ? 'Wardrobe' : t === 'orders' ? 'Orders' : 'Requests'}
+                  </button>
+                ))}
               </div>
-              {orders.length > 0 && (
+
+              {wardrobeSubTab === 'wardrobe' && (
                 <div className="cd-m-section">
-                  <div className="cd-m-section-head">
-                    <div>
-                      <div className="cd-m-section-eyebrow">Shipment History</div>
-                      <div className="cd-m-section-title">Orders</div>
-                    </div>
-                  </div>
-                  <div style={{ padding: '0 20px 12px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
+                  {renderWardrobeGrid(true)}
+                </div>
+              )}
+
+              {wardrobeSubTab === 'orders' && (
+                <div className="cd-m-section">
+                  <div style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
                     <a href="https://namaclo.returnlogic.com/" target="_blank" rel="noopener noreferrer" className="cd-exchange-btn">Start an Exchange →</a>
                     {influencer?.email && (
                       <div style={{ fontSize: '10px', color: '#aaa' }}>Use the email your order was placed with: {influencer.email}</div>
@@ -3074,13 +3080,12 @@ export default function CreatorDashboard() {
                   <div className="cd-m-section-body">{renderOrderHistory(true)}</div>
                 </div>
               )}
-              <div className="cd-m-section">
-                <div className="cd-m-section-head">
-                  <div className="cd-m-section-eyebrow">Monthly Allowance</div>
-                  <div className="cd-m-section-title">Request New Styles</div>
+
+              {wardrobeSubTab === 'requests' && (
+                <div className="cd-m-section">
+                  <div className="cd-m-section-body">{renderRequestStyles(true)}</div>
                 </div>
-                <div className="cd-m-section-body">{renderRequestStyles(true)}</div>
-              </div>
+              )}
             </div>
 
             {/* Live Ads */}
