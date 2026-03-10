@@ -668,10 +668,6 @@ export default function InvitePage() {
                 <div className="ni-faq-a">Payment is sent by the 5th of the following month via your selected payment method.</div>
               </div>
               <div className="ni-faq-item">
-                <div className="ni-faq-q">What if I can&apos;t deliver all videos one month?</div>
-                <div className="ni-faq-a">Life happens. Just give us a heads up and we&apos;ll work it out. Consistent communication is all we ask.</div>
-              </div>
-              <div className="ni-faq-item">
                 <div className="ni-faq-q">How many revisions are included?</div>
                 <div className="ni-faq-a">Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. Structural re-shoots or concept changes are by mutual agreement.</div>
               </div>
@@ -974,10 +970,6 @@ export default function InvitePage() {
               <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">When do I get paid?</div>
                 <div className="ni-m-faq-a">Payment is sent by the 5th of the following month via your selected payment method.</div>
-              </div>
-              <div className="ni-m-faq-item">
-                <div className="ni-m-faq-q">What if I can&apos;t deliver all videos one month?</div>
-                <div className="ni-m-faq-a">Life happens. Just give us a heads up and we&apos;ll work it out. Consistent communication is all we ask.</div>
               </div>
               <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">How many revisions are included?</div>
