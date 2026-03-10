@@ -399,6 +399,7 @@ const CSS = `
 .cd-wardrobe-name { font-size: 13px; color: #111; margin-bottom: 3px; line-height: 1.3; }
 .cd-wardrobe-variant { font-size: 11px; color: #aaa; font-weight: 300; margin-bottom: 10px; }
 .cd-wardrobe-status { display: inline-flex; align-items: center; gap: 5px; font-size: 8.5px; letter-spacing: 0.14em; text-transform: uppercase; padding: 3px 10px; border-radius: 100px; border: 1px solid; }
+.cd-status-delivered { color: #1a1a1a; border-color: #d4d4d4; background: #f5f5f5; }
 .cd-status-shipped { color: #2e7d32; border-color: #d4edda; background: #f0faf0; }
 .cd-status-transit { color: #1565c0; border-color: #bbdefb; background: #e3f2fd; }
 .cd-status-processing { color: #e65100; border-color: #ffe0b2; background: #fff3e0; }
@@ -1208,7 +1209,10 @@ export default function CreatorDashboard() {
   // --- SHARED SECTION RENDERERS ---
 
 
-  function getStatusInfo(fulfillmentStatus) {
+  function getStatusInfo(fulfillmentStatus, deliveryStatus) {
+    if (deliveryStatus === 'delivered') return { label: 'Delivered', cls: 'delivered' }
+    if (deliveryStatus === 'in_transit') return { label: 'In Transit', cls: 'transit' }
+    if (deliveryStatus === 'out_for_delivery') return { label: 'Out for Delivery', cls: 'transit' }
     if (fulfillmentStatus === 'fulfilled') return { label: 'Shipped', cls: 'shipped' }
     if (fulfillmentStatus === 'in_transit' || fulfillmentStatus === 'partial') return { label: 'In Transit', cls: 'transit' }
     return { label: 'Processing', cls: 'processing' }
@@ -1228,6 +1232,7 @@ export default function CreatorDashboard() {
           quantity: item.quantity,
           imageUrl: item.image_url || null,
           fulfillmentStatus: order.fulfillment_status,
+          deliveryStatus: order.delivery_status,
         })
       }
     }
@@ -1274,7 +1279,7 @@ export default function CreatorDashboard() {
       <div>
         <div className={`${p}wardrobe-grid`}>
         {visibleItems.map(item => {
-          const s = status(item.fulfillmentStatus)
+          const s = status(item.fulfillmentStatus, item.deliveryStatus)
           const isOpen = feedbackOpen[item.key]
           const isDone = feedbackDone[item.key]
           const fb = feedbackData[item.key] || { reactions: '', wearContext: '', notes: '' }
@@ -1356,7 +1361,7 @@ export default function CreatorDashboard() {
       return (
         <div>
           {orders.map(order => {
-            const s = getStatusInfo(order.fulfillment_status)
+            const s = getStatusInfo(order.fulfillment_status, order.delivery_status)
             return (
               <div key={order.id} className="cd-m-order-row">
                 <div className="cd-m-order-num">
@@ -1385,7 +1390,7 @@ export default function CreatorDashboard() {
     return (
       <div className="cd-order-list">
         {orders.map(order => {
-          const s = getStatusInfo(order.fulfillment_status)
+          const s = getStatusInfo(order.fulfillment_status, order.delivery_status)
           return (
             <div key={order.id} className="cd-order-row">
               <div>
