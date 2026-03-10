@@ -325,7 +325,7 @@ export default function CreatorsListPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       <Sidebar
-        activeTab="creators"
+        activeTab="partners"
         onTabChange={() => {}}
         currentUser={currentUser}
         onLogout={async () => {

@@ -181,7 +181,7 @@ export default function AdminCreatorProfile() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex">
-        <Sidebar activeTab="creators" onTabChange={() => {}} currentUser={currentUser} onLogout={async () => { await supabase.auth.signOut(); router.push('/login') }} />
+        <Sidebar activeTab="partners" onTabChange={() => {}} currentUser={currentUser} onLogout={async () => { await supabase.auth.signOut(); router.push('/login') }} />
         <main className="flex-1 ml-48 px-8 pt-12 pb-8">
           <p className="text-gray-500 text-sm">Loading...</p>
         </main>
@@ -192,7 +192,7 @@ export default function AdminCreatorProfile() {
   if (!creator) {
     return (
       <div className="min-h-screen bg-gray-50 flex">
-        <Sidebar activeTab="creators" onTabChange={() => {}} currentUser={currentUser} onLogout={async () => { await supabase.auth.signOut(); router.push('/login') }} />
+        <Sidebar activeTab="partners" onTabChange={() => {}} currentUser={currentUser} onLogout={async () => { await supabase.auth.signOut(); router.push('/login') }} />
         <main className="flex-1 ml-48 px-8 pt-12 pb-8">
           <p className="text-gray-500 text-sm">Creator not found.</p>
         </main>
@@ -202,7 +202,7 @@ export default function AdminCreatorProfile() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      <Sidebar activeTab="creators" onTabChange={() => {}} currentUser={currentUser} onLogout={async () => { await supabase.auth.signOut(); router.push('/login') }} />
+      <Sidebar activeTab="partners" onTabChange={() => {}} currentUser={currentUser} onLogout={async () => { await supabase.auth.signOut(); router.push('/login') }} />
       <main className="flex-1 ml-48 px-8 pt-12 pb-8">
         <div className="max-w-4xl">
           {/* Back link */}

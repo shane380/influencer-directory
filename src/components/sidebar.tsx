@@ -40,6 +40,7 @@ interface GroupedCampaigns {
 
 export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: SidebarProps) {
   const [campaignsExpanded, setCampaignsExpanded] = useState(false);
+  const [partnersExpanded, setPartnersExpanded] = useState(false);
   const [groupedCampaigns, setGroupedCampaigns] = useState<GroupedCampaigns[]>([]);
   const [loadingCampaigns, setLoadingCampaigns] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -60,6 +61,13 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
   const pathname = usePathname();
 
   const supabase = createClient();
+
+  // Auto-expand Partners submenu when on a partners page
+  useEffect(() => {
+    if (pathname?.startsWith('/partnerships/creators') || pathname?.startsWith('/partnerships/campaigns')) {
+      setPartnersExpanded(true);
+    }
+  }, [pathname]);
 
   // Fetch campaigns for the sidebar
   useEffect(() => {
@@ -176,15 +184,15 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
     { id: "campaigns", label: "Campaigns", icon: Megaphone, expandable: true },
     { id: "paid_collabs", label: "Paid Collabs", icon: DollarSign },
     { id: "whitelisting", label: "Whitelisting", icon: Share2 },
-    { id: "creators", label: "Creators", icon: Heart },
+    { id: "partners", label: "Partners", icon: Heart, expandable: true },
     { id: "payments", label: "Payments", icon: CreditCard },
   ];
 
   const handleNavClick = (id: string) => {
     if (id === "campaigns") {
       setCampaignsExpanded(!campaignsExpanded);
-    } else if (id === "creators") {
-      router.push("/partnerships/creators");
+    } else if (id === "partners") {
+      setPartnersExpanded(!partnersExpanded);
     } else if (id === "payments") {
       router.push("/partnerships/payments");
     } else {
@@ -222,7 +230,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
             const Icon = item.icon;
             const isActive = activeTab === item.id ||
               (item.id === "campaigns" && pathname?.startsWith("/campaigns")) ||
-              (item.id === "creators" && pathname?.startsWith("/partnerships/creators")) ||
+              (item.id === "partners" && (pathname?.startsWith("/partnerships/creators") || pathname?.startsWith("/partnerships/campaigns"))) ||
               (item.id === "payments" && pathname?.startsWith("/partnerships/payments"));
 
             return (
@@ -245,13 +253,52 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                     )}
                   </span>
                   {item.expandable && (
-                    campaignsExpanded ? (
+                    (item.id === "campaigns" ? campaignsExpanded : item.id === "partners" ? partnersExpanded : false) ? (
                       <ChevronDown className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
                     ) : (
                       <ChevronRight className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
                     )
                   )}
                 </button>
+
+                {/* Partners submenu */}
+                {item.id === "partners" && partnersExpanded && (
+                  <ul
+                    className="mt-1 ml-3 pl-3 border-l border-gray-200 space-y-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <li>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push("/partnerships/creators");
+                        }}
+                        className={`w-full text-left px-2 py-1.5 text-sm rounded-md transition-colors ${
+                          pathname === "/partnerships/creators" || pathname?.startsWith("/partnerships/creators/")
+                            ? "text-gray-900 bg-gray-100 font-medium"
+                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                        }`}
+                      >
+                        Creators
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push("/partnerships/campaigns");
+                        }}
+                        className={`w-full text-left px-2 py-1.5 text-sm rounded-md transition-colors ${
+                          pathname === "/partnerships/campaigns"
+                            ? "text-gray-900 bg-gray-100 font-medium"
+                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                        }`}
+                      >
+                        Partner Campaigns
+                      </button>
+                    </li>
+                  </ul>
+                )}
 
                 {/* Campaigns submenu */}
                 {item.id === "campaigns" && campaignsExpanded && (
