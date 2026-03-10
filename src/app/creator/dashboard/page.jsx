@@ -1021,61 +1021,33 @@ export default function CreatorDashboard() {
       let uploaded = 0
       const uploadedFiles = []
 
-      // Upload each file via resumable upload (bypasses Vercel payload limit)
       for (const file of contentFiles) {
-        // Step 1: Get a resumable upload URL from Google Drive
-        const initRes = await fetch('/api/drive/init-upload', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            influencer_id: influencer.id,
-            file_name: file.name,
-            mime_type: file.type,
-          }),
-        })
-        if (!initRes.ok) {
-          const err = await initRes.json().catch(() => ({}))
-          throw new Error(err.error || `Failed to init upload for ${file.name}`)
-        }
-        const { upload_url } = await initRes.json()
-
-        // Step 2: Upload file directly to Google Drive (not through Vercel)
-        const uploadRes = await new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest()
-          xhr.upload.addEventListener('progress', e => {
-            if (e.lengthComputable) {
-              setContentProgress(Math.round(((uploaded + e.loaded) / totalSize) * 100))
-            }
+        // Step 1: Upload to Supabase Storage (supports large files from client)
+        const storagePath = `submissions/${creator.id}/${Date.now()}-${file.name}`
+        const { error: storageErr } = await supabase.storage
+          .from('creator-uploads')
+          .upload(storagePath, file, {
+            cacheControl: '3600',
+            upsert: false,
+            onUploadProgress: (progress) => {
+              if (progress.totalBytes) {
+                setContentProgress(Math.round(((uploaded + progress.bytesUploaded) / totalSize) * 100))
+              }
+            },
           })
-          xhr.addEventListener('load', () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              resolve(JSON.parse(xhr.responseText))
-            } else {
-              reject(new Error(`Upload failed for ${file.name} (${xhr.status})`))
-            }
-          })
-          xhr.addEventListener('error', () => reject(new Error(`Upload failed for ${file.name}`)))
-          xhr.open('PUT', upload_url)
-          xhr.setRequestHeader('Content-Type', file.type)
-          xhr.send(file)
-        })
-
-        const driveFileId = uploadRes.id
-        const webViewLink = `https://drive.google.com/file/d/${driveFileId}/view`
+        if (storageErr) throw new Error(`Upload failed for ${file.name}: ${storageErr.message}`)
 
         uploadedFiles.push({
           name: file.name,
-          drive_file_id: driveFileId,
-          drive_url: webViewLink,
+          storage_path: storagePath,
           mime_type: file.type,
           size: file.size,
-          uploaded_at: new Date().toISOString(),
         })
         uploaded += file.size
         setContentProgress(Math.round((uploaded / totalSize) * 100))
       }
 
-      // Step 3: Create submission record with uploaded file metadata
+      // Step 2: Tell server to move files from Storage to Google Drive and create submission
       const res = await fetch('/api/creator/submit-content', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1084,6 +1056,7 @@ export default function CreatorDashboard() {
           notes: contentNotes.trim() || null,
           campaign_assignment_id: campaignContentTarget || null,
           files: uploadedFiles,
+          influencer_id: influencer.id,
         }),
       })
       if (!res.ok) {
@@ -1098,7 +1071,6 @@ export default function CreatorDashboard() {
       setCampaignContentTarget(null)
       const { data } = await supabase.from('creator_content_submissions').select('*').eq('creator_id', creator.id).order('created_at', { ascending: false })
       setSubmissions(data || [])
-      // Refresh campaign assignments in case status changed
       try {
         const campRes = await fetch(`/api/creator/campaigns?creator_id=${creator.id}`)
         const campData = await campRes.json()

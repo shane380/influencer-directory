@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import {
+  createInfluencerFolder,
+  uploadFileToDrive,
+  getFolderUrl,
+} from "@/lib/google-drive";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   const supabaseAuth = await createServerClient();
@@ -27,20 +34,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Creator not found" }, { status: 404 });
   }
 
-  // Find linked influencer
-  const { data: invite } = await supabase
-    .from("creator_invites")
-    .select("influencer_id")
-    .eq("id", creator.invite_id)
-    .single();
-
-  let influencerId: string | null = null;
-  if (invite?.influencer_id) {
-    influencerId = invite.influencer_id;
-  }
-
   const body = await request.json();
-  const { month, notes, campaign_assignment_id, files } = body;
+  const { month, notes, campaign_assignment_id, files, influencer_id } = body;
 
   if (!month || !files || files.length === 0) {
     return NextResponse.json(
@@ -49,12 +44,103 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Resolve influencer
+  let infId = influencer_id || null;
+  if (!infId) {
+    const { data: invite } = await supabase
+      .from("creator_invites")
+      .select("influencer_id")
+      .eq("id", creator.invite_id)
+      .single();
+    infId = invite?.influencer_id || null;
+  }
+
+  let influencer: { id: string; name: string; instagram_handle: string; google_drive_folder_id: string | null } | null = null;
+  if (infId) {
+    const { data } = await supabase
+      .from("influencers")
+      .select("id, name, instagram_handle, google_drive_folder_id")
+      .eq("id", infId)
+      .single();
+    influencer = data;
+  }
+
   try {
+    // Ensure Google Drive folder exists
+    let folderId = influencer?.google_drive_folder_id || null;
+    if (!folderId && influencer) {
+      folderId = await createInfluencerFolder(
+        influencer.name,
+        influencer.instagram_handle
+      );
+      await supabase
+        .from("influencers")
+        .update({ google_drive_folder_id: folderId } as any)
+        .eq("id", influencer.id);
+    }
+
+    const uploadedFiles: Array<{
+      name: string;
+      drive_file_id: string;
+      drive_url: string;
+      mime_type: string;
+      size: number;
+      uploaded_at: string;
+    }> = [];
+
+    // Download each file from Supabase Storage and upload to Google Drive
+    for (const file of files) {
+      const { data: fileData, error: dlErr } = await supabase.storage
+        .from("creator-uploads")
+        .download(file.storage_path);
+
+      if (dlErr || !fileData) {
+        console.error("Storage download failed:", dlErr);
+        throw new Error(`Failed to retrieve ${file.name} from storage`);
+      }
+
+      const buffer = Buffer.from(await fileData.arrayBuffer());
+
+      if (folderId) {
+        const { fileId, webViewLink } = await uploadFileToDrive(
+          folderId,
+          file.name,
+          file.mime_type,
+          buffer
+        );
+        uploadedFiles.push({
+          name: file.name,
+          drive_file_id: fileId,
+          drive_url: webViewLink,
+          mime_type: file.mime_type,
+          size: file.size,
+          uploaded_at: new Date().toISOString(),
+        });
+      } else {
+        // No Drive folder — store metadata without Drive link
+        uploadedFiles.push({
+          name: file.name,
+          drive_file_id: "",
+          drive_url: "",
+          mime_type: file.mime_type,
+          size: file.size,
+          uploaded_at: new Date().toISOString(),
+        });
+      }
+
+      // Clean up storage file after successful Drive upload
+      await supabase.storage.from("creator-uploads").remove([file.storage_path]);
+    }
+
+    const folderUrl = folderId ? getFolderUrl(folderId) : null;
+
     const insertData: Record<string, unknown> = {
       creator_id: creator.id,
-      influencer_id: influencerId,
+      influencer_id: influencer?.id || null,
       month,
-      files,
+      drive_folder_id: folderId || null,
+      drive_folder_url: folderUrl,
+      files: uploadedFiles,
       notes: notes || null,
       status: "pending",
     };
@@ -75,20 +161,13 @@ export async function POST(request: NextRequest) {
 
     // If linked to a campaign assignment, update its status
     if (campaign_assignment_id && submission) {
-      const { data: assignment } = await supabase
+      await supabase
         .from("campaign_assignments")
         .update({
           status: "content_submitted",
           content_submission_id: submission.id,
         })
-        .eq("id", campaign_assignment_id)
-        .select("*, campaign:creator_campaigns(title)")
-        .single();
-
-      if (assignment) {
-        const campaignTitle = (assignment as any).campaign?.title || "Unknown";
-        console.log(`Content submitted for campaign "${campaignTitle}" by ${creator.creator_name}`);
-      }
+        .eq("id", campaign_assignment_id);
     }
 
     return NextResponse.json({ submission });
