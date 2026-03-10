@@ -1010,31 +1010,60 @@ export default function CreatorDashboard() {
 
   async function submitContent() {
     if (!contentFiles.length || !creator) return
+    if (!influencer?.id) {
+      alert('No linked influencer profile found. Please contact Nama support.')
+      return
+    }
     setContentSubmitting(true)
     setContentProgress(0)
     try {
-      const formData = new FormData()
-      formData.append('month', contentMonth)
-      if (contentNotes.trim()) formData.append('notes', contentNotes)
-      if (campaignContentTarget) formData.append('campaign_assignment_id', campaignContentTarget)
-      contentFiles.forEach(f => formData.append('files', f))
+      const totalSize = contentFiles.reduce((s, f) => s + f.size, 0)
+      let uploaded = 0
+      const uploadedFiles = []
 
-      const xhr = new XMLHttpRequest()
-      const result = await new Promise((resolve, reject) => {
-        xhr.upload.addEventListener('progress', e => {
-          if (e.lengthComputable) setContentProgress(Math.round((e.loaded / e.total) * 100))
+      // Upload each file individually to Google Drive
+      for (const file of contentFiles) {
+        const fd = new FormData()
+        fd.append('file', file)
+        fd.append('influencer_id', influencer.id)
+        fd.append('type', 'post')
+        fd.append('create_content', 'false') // Don't create content row, just upload to Drive
+
+        const res = await fetch('/api/drive/upload', { method: 'POST', body: fd })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err.error || `Upload failed for ${file.name}`)
+        }
+        const result = await res.json()
+        uploadedFiles.push({
+          name: file.name,
+          drive_file_id: result.fileId,
+          drive_url: result.webViewLink,
+          mime_type: file.type,
+          size: file.size,
+          uploaded_at: new Date().toISOString(),
         })
-        xhr.addEventListener('load', () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve(JSON.parse(xhr.responseText))
-          } else {
-            try { const err = JSON.parse(xhr.responseText); reject(new Error(err.error || 'Upload failed')) } catch { reject(new Error(xhr.responseText || 'Upload failed')) }
-          }
-        })
-        xhr.addEventListener('error', () => reject(new Error('Upload failed')))
-        xhr.open('POST', '/api/creator/submit-content')
-        xhr.send(formData)
+        uploaded += file.size
+        setContentProgress(Math.round((uploaded / totalSize) * 100))
+      }
+
+      // Create submission record with uploaded file metadata
+      const res = await fetch('/api/creator/submit-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          month: contentMonth,
+          notes: contentNotes.trim() || null,
+          campaign_assignment_id: campaignContentTarget || null,
+          files: uploadedFiles,
+          folder_url: uploadedFiles[0]?.drive_url ? new URL(uploadedFiles[0].drive_url).origin : null,
+        }),
       })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Failed to save submission')
+      }
+      const result = await res.json()
 
       setContentSuccess({ folderUrl: result.submission?.drive_folder_url })
       setContentFiles([])
