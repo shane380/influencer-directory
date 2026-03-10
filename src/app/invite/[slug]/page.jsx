@@ -22,7 +22,9 @@ const CSS = `
 .ni-panel-left { padding: 56px 48px; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; justify-content: space-between; position: sticky; top: 0; height: 100vh; background: white; }
 .ni-panel-right { padding: 56px 52px; overflow-y: auto; }
 
+.ni-logo-lockup { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .ni-logo { height: 31px; display: block; width: fit-content; }
+.ni-logo-sub { font-size: 9.5px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; }
 .ni-eyebrow { font-size: 9px; letter-spacing: 0.42em; text-transform: uppercase; color: #666; margin-bottom: 18px; }
 .ni-headline { font-family: 'Playfair Display', serif; font-size: 52px; font-weight: 300; color: #111; line-height: 1.02; margin-bottom: 22px; }
 .ni-headline em { font-style: italic; color: #888; display: block; }
@@ -143,7 +145,9 @@ const CSS = `
 .ni-m-inner { max-width: 390px; width: 100%; min-height: 100vh; background: white; }
 @media (max-width: 390px) { .ni-m-inner { max-width: 100%; } }
 .ni-m-topbar { padding: 20px 24px; border-bottom: 1px solid #ebebeb; }
+.ni-m-logo-lockup { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .ni-m-logo { height: 26px; display: block; width: fit-content; }
+.ni-m-logo-sub { font-size: 8px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; }
 .ni-m-hero { padding: 32px 24px 28px; border-bottom: 1px solid #ebebeb; }
 .ni-m-eyebrow { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #666; margin-bottom: 14px; }
 .ni-m-headline { font-family: 'Playfair Display', serif; font-size: 44px; font-weight: 300; color: #111; line-height: 1.02; }
@@ -1262,7 +1266,7 @@ export default function InvitePage() {
       <div className="ni-desktop">
         <div className="ni-page">
           <div className="ni-panel-left">
-            <img src="/nama-logo.svg" alt="Nama" className="ni-logo" />
+            <div className="ni-logo-lockup"><img src="/nama-logo.svg" alt="Nama" className="ni-logo" /><div className="ni-logo-sub">Partners</div></div>
             <div>
               <div className="ni-eyebrow">{left.eyebrow}</div>
               <div className="ni-headline">{left.headline}</div>
@@ -1280,7 +1284,7 @@ export default function InvitePage() {
       <div className="ni-mobile">
         <div className="ni-m-wrap">
           <div className="ni-m-inner">
-            <div className="ni-m-topbar"><img src="/nama-logo.svg" alt="Nama" className="ni-m-logo" /></div>
+            <div className="ni-m-topbar"><div className="ni-m-logo-lockup"><img src="/nama-logo.svg" alt="Nama" className="ni-m-logo" /><div className="ni-m-logo-sub">Partners</div></div></div>
             <div className="ni-m-hero">{getMobileHero()}</div>
             <div className="ni-m-body">{renderMobileContent()}</div>
           </div>
