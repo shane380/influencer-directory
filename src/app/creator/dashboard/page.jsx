@@ -390,7 +390,7 @@ const CSS = `
 .cd-wardrobe-eyebrow { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
 .cd-wardrobe-eyebrow::after { content: ''; width: 32px; height: 1px; background: #e8e8e8; }
 .cd-wardrobe-sub { font-size: 11px; color: #aaa; margin-top: 4px; }
-.cd-wardrobe-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: #e8e8e8; border-top: 1px solid #e8e8e8; }
+.cd-wardrobe-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: #e8e8e8; border-top: 1px solid #e8e8e8; }
 .cd-wardrobe-item { background: #fff; position: relative; }
 .cd-wardrobe-img { aspect-ratio: 3/4; overflow: hidden; position: relative; }
 .cd-wardrobe-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
