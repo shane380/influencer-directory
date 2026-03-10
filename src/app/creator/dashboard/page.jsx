@@ -444,6 +444,10 @@ const CSS = `
 .cd-m-logo-sub { font-size: 8px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; margin-top: 2px; }
 .cd-m-topbar-account { display: flex; align-items: center; justify-content: center; background: none; border: none; cursor: pointer; padding: 4px; }
 
+.cd-subtabs { display: flex; border-bottom: 1px solid #e8e8e8; margin-bottom: 20px; }
+.cd-subtab { background: none; border: none; border-bottom: 2px solid transparent; padding: 12px 24px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #aaa; font-weight: 400; cursor: pointer; text-align: center; transition: all 0.15s; }
+.cd-subtab.active { border-bottom-color: #1a1a1a; color: #1a1a1a; font-weight: 600; }
+
 .cd-m-subtabs { display: flex; background: #fff; border-bottom: 1px solid #e8e8e8; position: sticky; top: 64px; z-index: 99; }
 .cd-m-subtab { flex: 1; background: none; border: none; border-bottom: 2px solid transparent; padding: 12px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #aaa; font-weight: 400; cursor: pointer; text-align: center; transition: all 0.15s; }
 .cd-m-subtab.active { border-bottom-color: #1a1a1a; color: #1a1a1a; font-weight: 600; }
@@ -633,9 +637,9 @@ const CSS = `
 .cd-loading { display: flex; align-items: center; justify-content: center; min-height: 100vh; font-size: 12px; color: #aaa; letter-spacing: 0.15em; text-transform: uppercase; }
 `
 
-const TABS = ['ads', 'campaigns', 'wardrobe', 'request', 'submit', 'settings']
-const TAB_LABELS = { wardrobe: 'Wardrobe & Orders', request: 'Request New Styles', ads: 'Ads', campaigns: 'Campaigns', submit: 'Submit Content', settings: 'Payment Info' }
-const TAB_LABELS_SHORT = { wardrobe: 'Wardrobe', request: 'Request', ads: 'Ads', campaigns: 'Campaigns', submit: 'Submit Content', settings: 'Payment' }
+const TABS = ['ads', 'campaigns', 'wardrobe', 'submit', 'settings']
+const TAB_LABELS = { wardrobe: 'Wardrobe & Orders', ads: 'Ads', campaigns: 'Campaigns', submit: 'Submit Content', settings: 'Payment Info' }
+const TAB_LABELS_SHORT = { wardrobe: 'Wardrobe', ads: 'Ads', campaigns: 'Campaigns', submit: 'Submit Content', settings: 'Payment' }
 
 export default function CreatorDashboard() {
   const router = useRouter()
@@ -2757,22 +2761,33 @@ export default function CreatorDashboard() {
       )
     }
 
-    // Wardrobe tab renders wardrobe grid + orders card
+    // Wardrobe tab with sub-tabs: Wardrobe, Orders, Request Styles
     if (activeTab === 'wardrobe') {
       const totalItems = orders.reduce((sum, o) => sum + (o.line_items?.length || 0), 0)
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div className="cd-wardrobe">
-            <div className="cd-wardrobe-head">
-              <div>
-                <div className="cd-wardrobe-eyebrow">Your Collection</div>
-                <div className="cd-wardrobe-title">Wardrobe</div>
-                {totalItems > 0 && <div className="cd-wardrobe-sub">{totalItems} piece{totalItems !== 1 ? 's' : ''} from Nama</div>}
-              </div>
-            </div>
-            {renderWardrobeGrid(false)}
+        <div>
+          <div className="cd-subtabs">
+            {['wardrobe', 'orders', 'requests'].map(t => (
+              <button key={t} className={`cd-subtab${wardrobeSubTab === t ? ' active' : ''}`} onClick={() => setWardrobeSubTab(t)}>
+                {t === 'wardrobe' ? 'Wardrobe' : t === 'orders' ? 'Orders' : 'Request Styles'}
+              </button>
+            ))}
           </div>
-          {orders.length > 0 && (
+
+          {wardrobeSubTab === 'wardrobe' && (
+            <div className="cd-wardrobe">
+              <div className="cd-wardrobe-head">
+                <div>
+                  <div className="cd-wardrobe-eyebrow">Your Collection</div>
+                  <div className="cd-wardrobe-title">Wardrobe</div>
+                  {totalItems > 0 && <div className="cd-wardrobe-sub">{totalItems} piece{totalItems !== 1 ? 's' : ''} from Nama</div>}
+                </div>
+              </div>
+              {renderWardrobeGrid(false)}
+            </div>
+          )}
+
+          {wardrobeSubTab === 'orders' && orders.length > 0 && (
             <div className="cd-orders">
               <div className="cd-orders-head">
                 <div>
@@ -2787,6 +2802,20 @@ export default function CreatorDashboard() {
                 </div>
               </div>
               {renderOrderHistory(false)}
+            </div>
+          )}
+
+          {wardrobeSubTab === 'requests' && (
+            <div className="cd-card">
+              <div className="cd-card-head">
+                <div>
+                  <div className="cd-card-eyebrow">Monthly Allowance</div>
+                  <div className="cd-card-title">Request New Styles</div>
+                </div>
+              </div>
+              <div className="cd-card-body">
+                {renderRequestStyles(false)}
+              </div>
             </div>
           )}
         </div>
@@ -2809,22 +2838,16 @@ export default function CreatorDashboard() {
       )
     }
 
-    const config = {
-      request: { eyebrow: 'Monthly Allowance', title: 'Request New Styles' },
-      submit: { eyebrow: 'Monthly Delivery', title: 'Submit Content' },
-    }
-    const c = config[activeTab]
     return (
       <div className="cd-card">
         <div className="cd-card-head">
           <div>
-            <div className="cd-card-eyebrow">{c.eyebrow}</div>
-            <div className="cd-card-title">{c.title}</div>
+            <div className="cd-card-eyebrow">Monthly Delivery</div>
+            <div className="cd-card-title">Submit Content</div>
           </div>
         </div>
         <div className="cd-card-body">
-          {activeTab === 'request' && renderRequestStyles(false)}
-          {activeTab === 'submit' && renderSubmitContent(false)}
+          {renderSubmitContent(false)}
         </div>
       </div>
     )
