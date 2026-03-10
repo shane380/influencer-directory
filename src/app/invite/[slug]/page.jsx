@@ -440,21 +440,6 @@ export default function InvitePage() {
   // Left panel content per step
   function getLeftContent() {
     if (step === 'terms') {
-      if (selectedDeal === 'retainer') {
-        return {
-          eyebrow: invite.offer_choice ? 'Option A — Retainer' : 'Retainer Partnership',
-          headline: <>Guaranteed,<br /><em>every single<br />month.</em></>,
-          intro: `$${retainerAmount?.toLocaleString()} paid by the 5th of every month, regardless of views or reach.`,
-        }
-      }
-      if (selectedDeal === 'ad_spend') {
-        return {
-          eyebrow: invite.offer_choice ? 'Option B — Ad Spend' : 'Ad Spend Partnership',
-          headline: <>The more we<br /><em>scale, the more<br />you earn.</em></>,
-          intro: `Every dollar we spend on your content earns you ${adSpendPct}% back — with no ceiling.`,
-        }
-      }
-      // affiliate
       return {
         eyebrow: defaultEyebrow,
         headline: defaultHeadline,
@@ -1143,26 +1128,11 @@ export default function InvitePage() {
   // Mobile hero content
   function getMobileHero() {
     if (step === 'terms') {
-      if (selectedDeal === 'retainer') {
-        return (
-          <>
-            <div className="ni-m-eyebrow">{invite.offer_choice ? 'Option A — Retainer' : 'Retainer Partnership'}</div>
-            <div className="ni-m-headline">Guaranteed,<br /><em>every month.</em></div>
-          </>
-        )
-      }
-      if (selectedDeal === 'ad_spend') {
-        return (
-          <>
-            <div className="ni-m-eyebrow">{invite.offer_choice ? 'Option B — Ad Spend' : 'Ad Spend Partnership'}</div>
-            <div className="ni-m-headline">The more we<br /><em>scale, the<br />more you earn.</em></div>
-          </>
-        )
-      }
       return (
         <>
           <div className="ni-m-eyebrow">{defaultEyebrow}</div>
-          <div className="ni-m-headline">{<>Hi {firstName},<br /><em>let&apos;s make it<br />official.</em></>}</div>
+          <div className="ni-m-headline">Hi {firstName},<br /><em>let&apos;s make it<br />official.</em></div>
+          <p className="ni-m-intro">{defaultIntro}</p>
         </>
       )
     }
