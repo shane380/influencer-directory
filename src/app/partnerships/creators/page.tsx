@@ -639,15 +639,18 @@ export default function CreatorsListPage() {
                       className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Videos / Month</label>
-                    <input
-                      type="text"
-                      value={inviteForm.videosPerMonth}
-                      onChange={(e) => setInviteForm((f) => ({ ...f, videosPerMonth: e.target.value }))}
-                      className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
-                    />
-                  </div>
+                  {(dealType === "retainer" || dealType === "ad_spend" || (offerChoice && (secondDealType === "retainer" || secondDealType === "ad_spend"))) && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Videos / Month</label>
+                      <input
+                        type="text"
+                        value={inviteForm.videosPerMonth}
+                        onChange={(e) => setInviteForm((f) => ({ ...f, videosPerMonth: e.target.value }))}
+                        placeholder={dealType === "retainer" ? "e.g. 4" : "e.g. 5"}
+                        className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
+                      />
+                    </div>
+                  )}
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -676,7 +679,12 @@ export default function CreatorsListPage() {
                       onChange={(e) => {
                         const val = e.target.value as typeof dealType;
                         setDealType(val);
-                        if (val === "affiliate") setAddAffiliate(false);
+                        if (val === "affiliate") {
+                          setAddAffiliate(false);
+                          if (!offerChoice || (secondDealType !== "retainer" && secondDealType !== "ad_spend")) {
+                            setInviteForm(f => ({ ...f, videosPerMonth: "" }));
+                          }
+                        }
                         if (offerChoice && val === secondDealType) {
                           const opts = ["retainer", "ad_spend", "affiliate"].filter(t => t !== val) as typeof dealType[];
                           setSecondDealType(opts[0]);

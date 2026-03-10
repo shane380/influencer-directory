@@ -378,7 +378,7 @@ export default function InvitePage() {
   }
 
   const firstName = invite.creator_name?.split(' ')[0] || ''
-  const videos = invite.videos_per_month || '3–5'
+  const videos = invite.videos_per_month || null
   const contentType = invite.content_type || 'Talking-style UGC'
   const affiliateCode = (invite.creator_name || '')
     .toUpperCase()
@@ -518,7 +518,7 @@ export default function InvitePage() {
             <div className="ni-m-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
             <div className="ni-m-option-name">Monthly Retainer</div>
             <div className="ni-m-option-rule" />
-            <div className="ni-m-option-detail"><div className="ni-m-term-sub">Compensation</div><div className="ni-card-item">${retainerAmount?.toLocaleString()} / month</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}<div className="ni-card-item">Paid by the 5th of the following month</div><div className="ni-m-term-divider" /><div className="ni-m-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></div>
+            <div className="ni-m-option-detail"><div className="ni-m-term-sub">Compensation</div><div className="ni-card-item">${retainerAmount?.toLocaleString()} / month</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}<div className="ni-card-item">Paid by the 5th of the following month</div>{videos && <><div className="ni-m-term-divider" /><div className="ni-m-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></>}</div>
           </div>
           <div className="ni-m-option-hint">More details on the next page</div>
         </div>
@@ -532,7 +532,7 @@ export default function InvitePage() {
           <div className="ni-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
           <div className="ni-option-name">Monthly Retainer</div>
           <div className="ni-option-rule" />
-          <div className="ni-option-detail"><div className="ni-term-sub">Compensation</div><div className="ni-card-item">${retainerAmount?.toLocaleString()} / month</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}<div className="ni-card-item">Paid by the 5th of the following month</div><div className="ni-term-divider" /><div className="ni-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></div>
+          <div className="ni-option-detail"><div className="ni-term-sub">Compensation</div><div className="ni-card-item">${retainerAmount?.toLocaleString()} / month</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}<div className="ni-card-item">Paid by the 5th of the following month</div>{videos && <><div className="ni-term-divider" /><div className="ni-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></>}</div>
         </div>
         <div className="ni-option-hint">More details on the next page</div>
       </div>
@@ -550,7 +550,7 @@ export default function InvitePage() {
             <div className="ni-m-option-rate">{adSpendPct}<sup>%</sup></div>
             <div className="ni-m-option-name">% of Ad Spend</div>
             <div className="ni-m-option-rule" />
-            <div className="ni-m-option-detail"><div className="ni-m-term-sub">Compensation</div><div className="ni-card-item">{adSpendPct}% of monthly ad spend</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}{adSpendMin ? <div className="ni-card-item">${adSpendMin.toLocaleString()} minimum in month 1</div> : null}<div className="ni-card-item">Paid by the 5th of the following month</div><div className="ni-m-term-divider" /><div className="ni-m-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></div>
+            <div className="ni-m-option-detail"><div className="ni-m-term-sub">Compensation</div><div className="ni-card-item">{adSpendPct}% of monthly ad spend</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}{adSpendMin ? <div className="ni-card-item">${adSpendMin.toLocaleString()} minimum in month 1</div> : null}<div className="ni-card-item">Paid by the 5th of the following month</div>{videos && <><div className="ni-m-term-divider" /><div className="ni-m-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></>}</div>
           </div>
           <div className="ni-m-option-hint">More details on the next page</div>
         </div>
@@ -564,7 +564,7 @@ export default function InvitePage() {
           <div className="ni-option-rate">{adSpendPct}<sup>%</sup></div>
           <div className="ni-option-name">% of Ad Spend</div>
           <div className="ni-option-rule" />
-          <div className="ni-option-detail"><div className="ni-term-sub">Compensation</div><div className="ni-card-item">{adSpendPct}% of monthly ad spend</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}{adSpendMin ? <div className="ni-card-item">${adSpendMin.toLocaleString()} minimum in month 1</div> : null}<div className="ni-card-item">Paid by the 5th of the following month</div><div className="ni-term-divider" /><div className="ni-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></div>
+          <div className="ni-option-detail"><div className="ni-term-sub">Compensation</div><div className="ni-card-item">{adSpendPct}% of monthly ad spend</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}{adSpendMin ? <div className="ni-card-item">${adSpendMin.toLocaleString()} minimum in month 1</div> : null}<div className="ni-card-item">Paid by the 5th of the following month</div>{videos && <><div className="ni-term-divider" /><div className="ni-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></>}</div>
         </div>
         <div className="ni-option-hint">More details on the next page</div>
       </div>
@@ -628,22 +628,24 @@ export default function InvitePage() {
                 <div className="ni-term-val"><div className="ni-term-primary">{commissionRate}% on all sales</div><div className="ni-term-secondary">Via your unique link &amp; discount code</div></div>
               </div>
             )}
-            <div className="ni-term-divider" />
-            <div className="ni-term-sub">Deliverables</div>
-            <div className="ni-term-row">
-              <span className="ni-term-key">Content</span>
-              <div className="ni-term-val"><div className="ni-term-primary">{videos} videos / month</div><div className="ni-term-secondary">{contentType}</div></div>
-            </div>
-            <div className="ni-term-row">
-              <span className="ni-term-key">Contract</span>
-              <div className="ni-term-val">
-                {minimumCommitment ? (
-                  <><div className="ni-term-primary">{minimumCommitment}-month minimum</div><div className="ni-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>
-                ) : (
-                  <><div className="ni-term-primary">Month-to-month</div><div className="ni-term-secondary">2 weeks notice to end</div></>
-                )}
+            {videos && (<>
+              <div className="ni-term-divider" />
+              <div className="ni-term-sub">Deliverables</div>
+              <div className="ni-term-row">
+                <span className="ni-term-key">Content</span>
+                <div className="ni-term-val"><div className="ni-term-primary">{videos} videos / month</div><div className="ni-term-secondary">{contentType}</div></div>
               </div>
-            </div>
+              <div className="ni-term-row">
+                <span className="ni-term-key">Contract</span>
+                <div className="ni-term-val">
+                  {minimumCommitment ? (
+                    <><div className="ni-term-primary">{minimumCommitment}-month minimum</div><div className="ni-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>
+                  ) : (
+                    <><div className="ni-term-primary">Month-to-month</div><div className="ni-term-secondary">2 weeks notice to end</div></>
+                  )}
+                </div>
+              </div>
+            </>)}
             <div className="ni-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months following the conclusion of the partnership.</div>
             <div className="ni-sec-label">Partnership Perks</div>
             {renderDesktopPerks()}
@@ -709,22 +711,24 @@ export default function InvitePage() {
                 <div className="ni-term-val"><div className="ni-term-primary">${adSpendMin.toLocaleString()} in month 1</div><div className="ni-term-secondary">Guaranteed regardless of spend</div></div>
               </div>
             )}
-            <div className="ni-term-divider" />
-            <div className="ni-term-sub">Deliverables</div>
-            <div className="ni-term-row">
-              <span className="ni-term-key">Content</span>
-              <div className="ni-term-val"><div className="ni-term-primary">{videos} videos / month</div><div className="ni-term-secondary">{contentType}</div></div>
-            </div>
-            <div className="ni-term-row">
-              <span className="ni-term-key">Contract</span>
-              <div className="ni-term-val">
-                {minimumCommitment ? (
-                  <><div className="ni-term-primary">{minimumCommitment}-month minimum</div><div className="ni-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>
-                ) : (
-                  <><div className="ni-term-primary">Month-to-month</div><div className="ni-term-secondary">2 weeks notice to end</div></>
-                )}
+            {videos && (<>
+              <div className="ni-term-divider" />
+              <div className="ni-term-sub">Deliverables</div>
+              <div className="ni-term-row">
+                <span className="ni-term-key">Content</span>
+                <div className="ni-term-val"><div className="ni-term-primary">{videos} videos / month</div><div className="ni-term-secondary">{contentType}</div></div>
               </div>
-            </div>
+              <div className="ni-term-row">
+                <span className="ni-term-key">Contract</span>
+                <div className="ni-term-val">
+                  {minimumCommitment ? (
+                    <><div className="ni-term-primary">{minimumCommitment}-month minimum</div><div className="ni-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>
+                  ) : (
+                    <><div className="ni-term-primary">Month-to-month</div><div className="ni-term-secondary">2 weeks notice to end</div></>
+                  )}
+                </div>
+              </div>
+            </>)}
             <div className="ni-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months following the conclusion of the partnership.</div>
             <div className="ni-sec-label">Partnership Perks</div>
             {renderDesktopPerks()}
@@ -944,10 +948,12 @@ export default function InvitePage() {
             {hasAffiliateAddon && (
               <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% on all sales</div><div className="ni-m-term-secondary">Via your unique link &amp; discount code</div></div></div>
             )}
-            <div className="ni-m-term-divider" />
-            <div className="ni-m-term-sub">Deliverables</div>
-            <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
-            <div className="ni-m-term-row"><span className="ni-m-term-key">Contract</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
+            {videos && (<>
+              <div className="ni-m-term-divider" />
+              <div className="ni-m-term-sub">Deliverables</div>
+              <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
+              <div className="ni-m-term-row"><span className="ni-m-term-key">Contract</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
+            </>)}
             <div className="ni-m-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months following the conclusion of the partnership.</div>
             <div className="ni-m-sec-label">Perks</div>
             {renderMobilePerks()}
@@ -1004,10 +1010,12 @@ export default function InvitePage() {
             {adSpendMin > 0 && (
               <div className="ni-m-term-row"><span className="ni-m-term-key">Minimum</span><div className="ni-term-val"><div className="ni-m-term-primary">${adSpendMin.toLocaleString()} in month 1</div><div className="ni-m-term-secondary">Guaranteed regardless of spend</div></div></div>
             )}
-            <div className="ni-m-term-divider" />
-            <div className="ni-m-term-sub">Deliverables</div>
-            <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
-            <div className="ni-m-term-row"><span className="ni-m-term-key">Contract</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
+            {videos && (<>
+              <div className="ni-m-term-divider" />
+              <div className="ni-m-term-sub">Deliverables</div>
+              <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">{videos} videos / month</div><div className="ni-m-term-secondary">{contentType}</div></div></div>
+              <div className="ni-m-term-row"><span className="ni-m-term-key">Contract</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
+            </>)}
             <div className="ni-m-footnote">You retain full ownership of your original content. Nama is licensed to use it for paid media and organic channels during the partnership, and for 6 months following the conclusion of the partnership.</div>
             <div className="ni-m-sec-label">Perks</div>
             <div style={{ marginBottom: 20 }}>
