@@ -5,7 +5,6 @@ import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500&display=swap');
 .pt-page { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #111; max-width: 680px; margin: 0 auto; padding: 56px 32px 80px; min-height: 100vh; background: white; }
 @media (max-width: 768px) { .pt-page { padding: 40px 24px 64px; } }
 .pt-back { font-size: 12px; color: #999; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-bottom: 40px; }
