@@ -235,12 +235,13 @@ export async function GET(request: NextRequest) {
       status: string;
     }[] = [];
 
-    // Split search into words for multi-term matching
+    // Use Shopify's server-side title filter to avoid downloading all products
     const searchWords = searchTerm.toLowerCase().split(/\s+/).filter(word => word.length > 0);
-    let nextPageUrl: string | null = `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/products.json?limit=250`;
+    const titleQuery = encodeURIComponent(searchTerm);
+    let nextPageUrl: string | null = `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/products.json?limit=50&title=${titleQuery}`;
     let pagesSearched = 0;
 
-    while (nextPageUrl && matchingProducts.length < 50 && pagesSearched < 20) {
+    while (nextPageUrl && matchingProducts.length < 50 && pagesSearched < 3) {
       pagesSearched++;
 
       const response: Response = await fetch(nextPageUrl, {
@@ -262,19 +263,16 @@ export async function GET(request: NextRequest) {
 
       const data: ShopifyProductsResponse = await response.json();
 
-      // Filter as we go - ALL search words must match somewhere (title, variant title, or SKU)
       for (const product of data.products) {
+        if (product.status === 'archived') continue;
         const titleLower = product.title.toLowerCase();
 
         for (const variant of product.variants) {
           const skuLower = variant.sku?.toLowerCase() || "";
           const variantTitleLower = variant.title?.toLowerCase() || "";
-
-          // Combine all searchable text (replace hyphens with spaces for better matching)
           const skuNormalized = skuLower.replace(/-/g, ' ');
           const searchableText = `${titleLower} ${variantTitleLower} ${skuLower} ${skuNormalized}`;
 
-          // Check if ALL search words are found somewhere in the combined text
           const allWordsMatch = searchWords.every(word => searchableText.includes(word));
 
           if (allWordsMatch) {
@@ -287,19 +285,18 @@ export async function GET(request: NextRequest) {
               sku: variant.sku,
               price: variant.price,
               inventory: variant.inventory_quantity,
-              inventory_by_location: [], // Will be populated below
+              inventory_by_location: [],
               image: product.images[0]?.src || null,
               status: product.status,
             });
 
-            // Stop if we have enough matches
             if (matchingProducts.length >= 50) break;
           }
         }
         if (matchingProducts.length >= 50) break;
       }
 
-      // Check for next page in Link header
+      // Check for next page
       const linkHeader: string | null = response.headers.get("Link");
       if (linkHeader) {
         const nextMatch: RegExpMatchArray | null = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
