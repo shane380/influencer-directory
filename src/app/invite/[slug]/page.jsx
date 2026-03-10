@@ -56,7 +56,7 @@ const CSS = `
 .ni-option-rate sub { font-size: 15px; font-style: italic; color: #888; vertical-align: baseline; }
 .ni-option-rate sup { font-size: 15px; font-style: italic; vertical-align: super; color: #888; }
 .ni-option-name { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #888; margin-bottom: 0; font-weight: 400; }
-.ni-option-summary { font-size: 11.5px; color: #aaa; font-weight: 300; margin-top: 12px; }
+.ni-option-summary { font-size: 11.5px; color: #777; font-weight: 300; margin-top: 12px; }
 
 /* TERM ROWS */
 .ni-term-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 22px 0; border-bottom: 1px solid #e8e8e8; }
@@ -65,7 +65,7 @@ const CSS = `
 .ni-term-key { font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase; color: #888; font-weight: 400; padding-top: 4px; }
 .ni-term-val { text-align: right; }
 .ni-term-primary { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 400; color: #1a1a1a; }
-.ni-term-secondary { font-size: 11.5px; color: #aaa; font-weight: 300; margin-top: 2px; }
+.ni-term-secondary { font-size: 11.5px; color: #777; font-weight: 300; margin-top: 2px; }
 .ni-term-sub { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #333; font-weight: 600; margin: 24px 0 4px; }
 .ni-term-sub:first-child { margin-top: 0; }
 .ni-term-divider { height: 1px; background: #e8e8e8; margin: 4px 0; }
@@ -184,14 +184,14 @@ const CSS = `
 .ni-m-option-rate sub { font-size: 14px; font-style: italic; color: #888; vertical-align: baseline; }
 .ni-m-option-rate sup { font-size: 14px; font-style: italic; vertical-align: super; color: #888; }
 .ni-m-option-name { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #888; margin-bottom: 0; }
-.ni-m-option-summary { font-size: 11.5px; color: #aaa; font-weight: 300; margin-top: 12px; }
+.ni-m-option-summary { font-size: 11.5px; color: #777; font-weight: 300; margin-top: 12px; }
 
 .ni-m-term-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 22px 0; border-bottom: 1px solid #e8e8e8; }
 .ni-m-term-row:last-child { border-bottom: none; }
 .ni-m-term-row:has(+ .ni-m-term-divider), .ni-m-term-row:has(+ .ni-m-footnote) { border-bottom: none; }
 .ni-m-term-key { font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase; color: #888; font-weight: 400; padding-top: 4px; }
 .ni-m-term-primary { font-family: 'Playfair Display', serif; font-size: 24px; color: #1a1a1a; text-align: right; }
-.ni-m-term-secondary { font-size: 11.5px; color: #aaa; font-weight: 300; margin-top: 2px; text-align: right; }
+.ni-m-term-secondary { font-size: 11.5px; color: #777; font-weight: 300; margin-top: 2px; text-align: right; }
 .ni-m-term-sub { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #333; font-weight: 600; margin: 24px 0 4px; }
 .ni-m-term-sub:first-child { margin-top: 0; }
 .ni-m-term-divider { height: 1px; background: #e8e8e8; margin: 4px 0; }
