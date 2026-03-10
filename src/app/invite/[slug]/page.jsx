@@ -478,7 +478,7 @@ export default function InvitePage() {
   // Agree text
   function getAgreeText() {
     const commitmentText = minimumCommitment ? `${minimumCommitment}-month minimum` : 'month-to-month'
-    const paymentLine = 'Payment is made by the 5th of the following month via e-transfer or PayPal.'
+    const paymentLine = 'Payment is made by the 5th of the following month via your selected payment method.'
     const usageLine = 'I retain ownership of my original content; Nama is licensed to use it for paid media and organic channels during the partnership and for 6 months following the conclusion of the partnership.'
 
     // Determine which components apply based on selectedDeal and flags
@@ -661,7 +661,7 @@ export default function InvitePage() {
             <div className="ni-faq">
               <div className="ni-faq-item">
                 <div className="ni-faq-q">When do I get paid?</div>
-                <div className="ni-faq-a">Payment is sent by the 5th of the following month via e-transfer or PayPal — whichever you prefer.</div>
+                <div className="ni-faq-a">Payment is sent by the 5th of the following month via your selected payment method.</div>
               </div>
               <div className="ni-faq-item">
                 <div className="ni-faq-q">What if I can&apos;t deliver all videos one month?</div>
@@ -758,7 +758,7 @@ export default function InvitePage() {
               </div>
               <div className="ni-faq-item">
                 <div className="ni-faq-q">When do I get paid?</div>
-                <div className="ni-faq-a">Earnings are calculated at the end of each month and paid by the 5th of the following month via e-transfer or PayPal.</div>
+                <div className="ni-faq-a">Earnings are calculated at the end of each month and paid by the 5th of the following month via your selected payment method.</div>
               </div>
               <div className="ni-faq-item">
                 <div className="ni-faq-q">How many revisions are included?</div>
@@ -802,7 +802,7 @@ export default function InvitePage() {
           </div>
           <div className="ni-term-row">
             <span className="ni-term-key">Payment</span>
-            <div className="ni-term-val"><div className="ni-term-primary">By the 5th of the following month</div><div className="ni-term-secondary">Via e-transfer or PayPal</div></div>
+            <div className="ni-term-val"><div className="ni-term-primary">By the 5th of the following month</div><div className="ni-term-secondary">Via your selected payment method</div></div>
           </div>
           {videos && (<>
             <div className="ni-term-divider" />
@@ -837,7 +837,7 @@ export default function InvitePage() {
             </div>
             <div className="ni-faq-item">
               <div className="ni-faq-q">When do I get paid?</div>
-              <div className="ni-faq-a">Commission is calculated at the end of each month and paid by the 5th of the following month via e-transfer or PayPal.</div>
+              <div className="ni-faq-a">Commission is calculated at the end of each month and paid by the 5th of the following month via your selected payment method.</div>
             </div>
             <div className="ni-faq-item">
               <div className="ni-faq-q">What counts as a sale?</div>
@@ -969,7 +969,7 @@ export default function InvitePage() {
             <div className="ni-m-faq">
               <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">When do I get paid?</div>
-                <div className="ni-m-faq-a">Payment is sent by the 5th of the following month via e-transfer or PayPal — whichever you prefer.</div>
+                <div className="ni-m-faq-a">Payment is sent by the 5th of the following month via your selected payment method.</div>
               </div>
               <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">What if I can&apos;t deliver all videos one month?</div>
@@ -1049,7 +1049,7 @@ export default function InvitePage() {
               </div>
               <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">When do I get paid?</div>
-                <div className="ni-m-faq-a">Earnings are calculated at the end of each month and paid by the 5th of the following month via e-transfer or PayPal.</div>
+                <div className="ni-m-faq-a">Earnings are calculated at the end of each month and paid by the 5th of the following month via your selected payment method.</div>
               </div>
               <div className="ni-m-faq-item">
                 <div className="ni-m-faq-q">How many revisions are included?</div>
@@ -1088,7 +1088,7 @@ export default function InvitePage() {
           <div className="ni-m-sec-label">Partnership Terms</div>
           <div className="ni-m-term-sub">Compensation</div>
           <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% per sale</div><div className="ni-m-term-secondary">Via your unique link &amp; discount code</div></div></div>
-          <div className="ni-m-term-row"><span className="ni-m-term-key">Payment</span><div className="ni-term-val"><div className="ni-m-term-primary">By the 5th of the following month</div><div className="ni-m-term-secondary">Via e-transfer or PayPal</div></div></div>
+          <div className="ni-m-term-row"><span className="ni-m-term-key">Payment</span><div className="ni-term-val"><div className="ni-m-term-primary">By the 5th of the following month</div><div className="ni-m-term-secondary">Via your selected payment method</div></div></div>
           {videos && (<>
             <div className="ni-m-term-divider" />
             <div className="ni-m-term-sub">Deliverables</div>
@@ -1110,7 +1110,7 @@ export default function InvitePage() {
             </div>
             <div className="ni-m-faq-item">
               <div className="ni-m-faq-q">When do I get paid?</div>
-              <div className="ni-m-faq-a">Commission is calculated at the end of each month and paid by the 5th of the following month via e-transfer or PayPal.</div>
+              <div className="ni-m-faq-a">Commission is calculated at the end of each month and paid by the 5th of the following month via your selected payment method.</div>
             </div>
             <div className="ni-m-faq-item">
               <div className="ni-m-faq-q">What counts as a sale?</div>
