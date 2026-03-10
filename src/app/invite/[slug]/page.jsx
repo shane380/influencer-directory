@@ -475,9 +475,7 @@ export default function InvitePage() {
 
   const left = getLeftContent()
 
-  const hasAffiliateAddon = invite?.has_affiliate !== undefined
-    ? invite.has_affiliate && commissionRate > 0
-    : (selectedDeal === 'retainer' || selectedDeal === 'ad_spend') && commissionRate > 0
+  const hasAffiliateAddon = (invite?.has_affiliate || commissionRate > 0) && (selectedDeal === 'retainer' || selectedDeal === 'ad_spend')
 
   // Agree text
   function getAgreeText() {
