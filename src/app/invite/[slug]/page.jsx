@@ -24,11 +24,9 @@ const CSS = `
 .ni-page.ni-done-page .ni-panel-right { display: none; }
 .ni-done-center { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 56px 48px; }
 .ni-done-center .ni-logo-lockup { align-items: center; margin-bottom: 48px; }
-.ni-done-content { text-align: left; width: 100%; max-width: 400px; }
-.ni-done-center .ni-eyebrow { color: #666; font-size: 9px; letter-spacing: 0.42em; text-transform: uppercase; margin-bottom: 18px; }
-.ni-done-center .ni-headline { font-family: 'Playfair Display', serif; font-size: 52px; font-weight: 300; color: #111; line-height: 1.02; margin-bottom: 22px; }
-.ni-done-center .ni-headline em { font-style: italic; color: #888; display: block; }
-.ni-done-center .ni-intro { font-size: 13px; color: #888; line-height: 1.9; font-weight: 300; margin-bottom: 36px; }
+.ni-done-content { text-align: center; width: 100%; max-width: 400px; }
+.ni-done-center .ni-headline { font-family: 'Playfair Display', serif; font-size: 56px; font-weight: 300; color: #111; line-height: 1; margin-bottom: 16px; }
+.ni-done-center .ni-intro { font-size: 13px; color: #aaa; line-height: 1.9; font-weight: 300; margin-bottom: 36px; }
 .ni-done-center .ni-btn { max-width: 400px; width: 100%; }
 .ni-panel-left { padding: 56px 48px; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; justify-content: space-between; position: sticky; top: 0; height: 100vh; background: white; }
 .ni-panel-right { padding: 56px 52px; overflow-y: auto; }
@@ -498,12 +496,8 @@ export default function InvitePage() {
         intro: "You'll receive your first payment by the 5th of next month.",
       }
     }
-    // done
-    return {
-      eyebrow: "You're In",
-      headline: <>Welcome to<br />the <em>Nama<br />family.</em></>,
-      intro: 'Your partnership is live. Everything you need is in your dashboard.',
-    }
+    // done — content is hardcoded in the done layout
+    return { eyebrow: '', headline: '', intro: '' }
   }
 
   const left = getLeftContent()
@@ -1234,9 +1228,8 @@ export default function InvitePage() {
             <div className="ni-done-center">
               <div className="ni-logo-lockup"><img src="/nama-logo.svg" alt="Nama" className="ni-logo" /><div className="ni-logo-sub">Partners</div></div>
               <div className="ni-done-content">
-                <div className="ni-eyebrow">{left.eyebrow}</div>
-                <div className="ni-headline">{left.headline}</div>
-                <p className="ni-intro">{left.intro}</p>
+                <div className="ni-headline">Welcome.</div>
+                <p className="ni-intro">Your partnership is live. Everything you need is in your dashboard.</p>
               </div>
               <button className="ni-btn" onClick={() => router.push('/creator/dashboard')}>Go to My Dashboard →</button>
             </div>
@@ -1251,10 +1244,9 @@ export default function InvitePage() {
             <div className="ni-m-inner">
               <div className="ni-m-done-center">
                 <div className="ni-m-logo-lockup"><img src="/nama-logo.svg" alt="Nama" className="ni-m-logo" /><div className="ni-m-logo-sub">Partners</div></div>
-                <div className="ni-m-done-content">
-                  <div className="ni-m-eyebrow">You&apos;re In</div>
-                  <div className="ni-m-headline">Welcome to<br />the <em>Nama<br />family.</em></div>
-                  <p className="ni-m-intro">Your partnership is live. Everything you need is in your dashboard.</p>
+                <div className="ni-m-done-content" style={{ textAlign: 'center' }}>
+                  <div className="ni-m-headline" style={{ textAlign: 'center' }}>Welcome.</div>
+                  <p className="ni-m-intro" style={{ textAlign: 'center' }}>Your partnership is live. Everything you need is in your dashboard.</p>
                 </div>
                 <button className="ni-m-btn" onClick={() => router.push('/creator/dashboard')}>Go to My Dashboard →</button>
               </div>
