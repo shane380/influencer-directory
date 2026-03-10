@@ -63,7 +63,7 @@ const CSS = `
 .ni-term-secondary { font-size: 11px; color: #888888; font-weight: 300; margin-top: 2px; }
 .ni-term-sub { font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; color: #aaa; margin: 20px 0 4px; }
 .ni-term-sub:first-child { margin-top: 0; }
-.ni-term-divider { height: 1px; background: #f2f2f2; margin: 4px 0; }
+.ni-term-divider { height: 1px; background: #d0d0d0; margin: 4px 0; }
 .ni-footnote { font-size: 12px; color: #aaa; font-style: italic; line-height: 1.8; margin: 18px 0 32px; padding-left: 14px; border-left: 1.5px solid #e8e8e8; }
 
 /* PERKS */
@@ -179,7 +179,7 @@ const CSS = `
 .ni-m-term-secondary { font-size: 11px; color: #888; font-weight: 300; margin-top: 2px; text-align: right; }
 .ni-m-term-sub { font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; color: #aaa; margin: 18px 0 4px; }
 .ni-m-term-sub:first-child { margin-top: 0; }
-.ni-m-term-divider { height: 1px; background: #f2f2f2; margin: 4px 0; }
+.ni-m-term-divider { height: 1px; background: #d0d0d0; margin: 4px 0; }
 .ni-m-footnote { font-size: 12px; color: #aaa; font-style: italic; line-height: 1.75; margin: 16px 0 26px; padding-left: 12px; border-left: 1.5px solid #e8e8e8; }
 .ni-m-perk-row { display: flex; align-items: center; gap: 14px; padding: 11px 0; border-bottom: 1px solid #f5f5f5; font-family: 'Playfair Display', serif; font-size: 16px; color: #111; }
 .ni-m-perk-row:last-child { border-bottom: none; }
