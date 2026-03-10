@@ -270,14 +270,20 @@ export default function InvitePage() {
       if (!error && data) {
         setInvite(data)
         setForm(f => ({ ...f, name: data.creator_name, email: data.creator_email || '' }))
-        // Derive deal type from boolean flags, fallback to deal_type for backwards compat
-        const derivedDeal = data.has_retainer ? 'retainer' : data.has_ad_spend ? 'ad_spend' : data.deal_type || 'affiliate'
-        if (data.offer_choice) {
-          setStep('choose')
-          setSelectedDeal('retainer')
+        // No-deal invites go straight to signup
+        if (data.deal_type === 'none') {
+          setStep('signup')
+          setSelectedDeal('none')
         } else {
-          setStep('terms')
-          setSelectedDeal(derivedDeal)
+          // Derive deal type from boolean flags, fallback to deal_type for backwards compat
+          const derivedDeal = data.has_retainer ? 'retainer' : data.has_ad_spend ? 'ad_spend' : data.deal_type || 'affiliate'
+          if (data.offer_choice) {
+            setStep('choose')
+            setSelectedDeal('retainer')
+          } else {
+            setStep('terms')
+            setSelectedDeal(derivedDeal)
+          }
         }
       }
       setLoading(false)
@@ -320,7 +326,7 @@ export default function InvitePage() {
         setSubmitting(false)
         return
       }
-      setStep('payment')
+      setStep(selectedDeal === 'none' ? 'done' : 'payment')
     } catch {
       setError('Something went wrong. Please try again.')
     }
@@ -452,10 +458,13 @@ export default function InvitePage() {
       }
     }
     if (step === 'signup') {
+      const isNoDeal = selectedDeal === 'none'
       return {
-        eyebrow: 'Almost There',
+        eyebrow: isNoDeal ? 'Welcome' : 'Almost There',
         headline: <>Create your<br /><em>account.</em></>,
-        intro: 'Set up your login for your dashboard, wardrobe, and affiliate link.',
+        intro: isNoDeal
+          ? 'Set up your login to access your Nama Partners dashboard.'
+          : 'Set up your login for your dashboard, wardrobe, and affiliate link.',
       }
     }
     if (step === 'payment') {
@@ -878,7 +887,7 @@ export default function InvitePage() {
           <button className="ni-btn" onClick={handleSignup} disabled={submitting || !form.email || !form.password || !form.confirmPassword}>
             {submitting ? 'Creating account…' : 'Create My Account →'}
           </button>
-          <p style={{ fontSize: 12, color: '#ccc', textAlign: 'center', marginTop: 14, cursor: 'pointer' }} onClick={() => { setAgreed(false); setStep('terms') }}>← Back to terms</p>
+          {selectedDeal !== 'none' && <p style={{ fontSize: 12, color: '#ccc', textAlign: 'center', marginTop: 14, cursor: 'pointer' }} onClick={() => { setAgreed(false); setStep('terms') }}>← Back to terms</p>}
         </div>
       )
     }
@@ -1153,7 +1162,7 @@ export default function InvitePage() {
           <button className="ni-m-btn" onClick={handleSignup} disabled={submitting || !form.email || !form.password || !form.confirmPassword}>
             {submitting ? 'Creating account…' : 'Create My Account →'}
           </button>
-          <p style={{ fontSize: 12, color: '#ccc', textAlign: 'center', marginTop: 14, cursor: 'pointer' }} onClick={() => { setAgreed(false); setStep('terms') }}>← Back to terms</p>
+          {selectedDeal !== 'none' && <p style={{ fontSize: 12, color: '#ccc', textAlign: 'center', marginTop: 14, cursor: 'pointer' }} onClick={() => { setAgreed(false); setStep('terms') }}>← Back to terms</p>}
         </>
       )
     }
@@ -1244,7 +1253,7 @@ export default function InvitePage() {
     if (step === 'signup') {
       return (
         <>
-          <div className="ni-m-eyebrow">Almost There</div>
+          <div className="ni-m-eyebrow">{selectedDeal === 'none' ? 'Welcome' : 'Almost There'}</div>
           <div className="ni-m-headline">Create your<br /><em>account.</em></div>
         </>
       )

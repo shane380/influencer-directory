@@ -54,14 +54,14 @@ export default function CreatorsListPage() {
     contentType: "",
     usageRights: "90 days per campaign, renewable",
   });
-  const [dealType, setDealType] = useState<"affiliate" | "ad_spend" | "retainer">("retainer");
+  const [dealType, setDealType] = useState<"affiliate" | "ad_spend" | "retainer" | "none">("retainer");
   const [dealAffiliate, setDealAffiliate] = useState(10);
   const [dealAdSpendPct, setDealAdSpendPct] = useState(5);
   const [dealAdSpendMin, setDealAdSpendMin] = useState(0);
   const [dealRetainer, setDealRetainer] = useState(1500);
   const [addAffiliate, setAddAffiliate] = useState(false);
   const [offerChoice, setOfferChoice] = useState(false);
-  const [secondDealType, setSecondDealType] = useState<"affiliate" | "ad_spend" | "retainer">("ad_spend");
+  const [secondDealType, setSecondDealType] = useState<"affiliate" | "ad_spend" | "retainer" | "none">("ad_spend");
   const [secondAddAffiliate, setSecondAddAffiliate] = useState(false);
   const [isExistingCreator, setIsExistingCreator] = useState(false);
   const [minimumCommitment, setMinimumCommitment] = useState<number | null>(null);
@@ -216,6 +216,8 @@ export default function CreatorsListPage() {
 
   function buildDealStructure() {
     switch (dealType) {
+      case "none":
+        return null;
       case "affiliate":
         return { type: "affiliate", commission_rate: dealAffiliate };
       case "ad_spend":
@@ -226,6 +228,9 @@ export default function CreatorsListPage() {
   }
 
   function getInviteFields() {
+    if (dealType === "none") {
+      return { retainerAmount: null, adSpendPercentage: null, adSpendMinimum: null, commissionRate: 0 };
+    }
     const allTypes = offerChoice ? [dealType, secondDealType] : [dealType];
     let retainerAmount = null;
     let adSpendPercentage = null;
@@ -258,18 +263,18 @@ export default function CreatorsListPage() {
         creatorName: inviteForm.creatorName,
         creatorEmail: inviteForm.email || null,
         commissionRate: fields.commissionRate,
-        videosPerMonth: inviteForm.videosPerMonth,
-        contentType: inviteForm.contentType || null,
+        videosPerMonth: dealType === "none" ? null : inviteForm.videosPerMonth,
+        contentType: dealType === "none" ? null : (inviteForm.contentType || null),
         usageRights: inviteForm.usageRights,
         influencerId: selectedInfluencer?.id || null,
         dealStructure: ds,
-        dealType,
+        dealType: dealType === "none" ? "none" : dealType,
         retainerAmount: fields.retainerAmount,
         adSpendPercentage: fields.adSpendPercentage,
         adSpendMinimum: fields.adSpendMinimum,
-        offerChoice,
+        offerChoice: dealType === "none" ? false : offerChoice,
         isExistingCreator,
-        minimumCommitment,
+        minimumCommitment: dealType === "none" ? null : minimumCommitment,
       });
       setGeneratedUrl(url);
     } catch (err: any) {
@@ -668,7 +673,13 @@ export default function CreatorsListPage() {
                     <input
                       type="checkbox"
                       checked={isExistingCreator}
-                      onChange={(e) => setIsExistingCreator(e.target.checked)}
+                      onChange={(e) => {
+                        setIsExistingCreator(e.target.checked);
+                        if (e.target.checked) {
+                          setDealType("none");
+                          setOfferChoice(false);
+                        }
+                      }}
                       className="rounded border-gray-300"
                     />
                     <span className="text-sm text-gray-700">Existing creator</span>
@@ -692,6 +703,10 @@ export default function CreatorsListPage() {
                       onChange={(e) => {
                         const val = e.target.value as typeof dealType;
                         setDealType(val);
+                        if (val === "none") {
+                          setOfferChoice(false);
+                          setAddAffiliate(false);
+                        }
                         if (val === "affiliate") {
                           setAddAffiliate(false);
                           if (!offerChoice || (secondDealType !== "retainer" && secondDealType !== "ad_spend")) {
@@ -705,10 +720,15 @@ export default function CreatorsListPage() {
                       }}
                       className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300 mb-3"
                     >
+                      <option value="none">No Deal (Account Only)</option>
                       <option value="retainer">Monthly Retainer</option>
                       <option value="ad_spend">% of Ad Spend</option>
                       <option value="affiliate">Affiliate Only</option>
                     </select>
+
+                    {dealType === "none" && (
+                      <div className="text-xs text-gray-400 mb-3">Creator will be sent straight to account creation — no deal terms, no commission link.</div>
+                    )}
 
                     {dealType === "affiliate" && (
                       <div className="mb-3">
@@ -735,7 +755,7 @@ export default function CreatorsListPage() {
                       </div>
                     )}
 
-                    {dealType !== "affiliate" && (
+                    {dealType !== "affiliate" && dealType !== "none" && (
                       <div className="mb-3">
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input type="checkbox" checked={addAffiliate} onChange={(e) => setAddAffiliate(e.target.checked)} className="rounded border-gray-300" />
@@ -751,7 +771,7 @@ export default function CreatorsListPage() {
                     )}
 
                     {/* Offer Choice Toggle */}
-                    <div className="border-t pt-3 mt-3">
+                    {dealType !== "none" && <div className="border-t pt-3 mt-3">
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
                           type="checkbox"
@@ -762,9 +782,9 @@ export default function CreatorsListPage() {
                         <span className="text-sm text-gray-700 font-medium">Offer two deal options</span>
                       </label>
                       <p className="text-xs text-gray-400 mt-1">Creator can choose between two deal structures</p>
-                    </div>
+                    </div>}
 
-                    {offerChoice && (
+                    {dealType !== "none" && offerChoice && (
                       <div className="mt-3 pl-3 border-l-2 border-gray-200">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Second Deal Type</label>
                         <select
