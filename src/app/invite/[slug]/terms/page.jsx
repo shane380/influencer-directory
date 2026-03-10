@@ -29,7 +29,13 @@ export default function PartnershipTermsPage() {
   const { slug } = useParams()
   const supabase = createClient()
   const [invite, setInvite] = useState(null)
+  const [dealParam, setDealParam] = useState(null)
   const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    setDealParam(params.get('deal'))
+  }, [])
 
   useEffect(() => {
     async function load() {
@@ -62,7 +68,6 @@ export default function PartnershipTermsPage() {
     )
   }
 
-  const firstName = invite.creator_name?.split(' ')[0] || ''
   const retainerAmount = invite.retainer_amount
   const adSpendPct = invite.ad_spend_percentage
   const commissionRate = invite.commission_rate || 10
@@ -73,6 +78,24 @@ export default function PartnershipTermsPage() {
   const createdDate = invite.created_at
     ? new Date(invite.created_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })
     : ''
+
+  // Determine which deal components to show
+  // If offer_choice, the deal param narrows to the selected option
+  // Otherwise, show whatever flags are set on the invite
+  const selectedDeal = dealParam || (invite.has_retainer ? 'retainer' : invite.has_ad_spend ? 'ad_spend' : 'affiliate')
+  const showRetainer = selectedDeal === 'retainer' && invite.has_retainer && retainerAmount
+  const showAdSpend = selectedDeal === 'ad_spend' && invite.has_ad_spend && adSpendPct > 0
+  const showAffiliate = invite.has_affiliate || (!invite.has_retainer && !invite.has_ad_spend)
+  const showAdSpendMin = showAdSpend && adSpendMin > 0
+
+  // For non-offer-choice invites, show all flags
+  const isOfferChoice = invite.offer_choice
+  const showRetainerSection = isOfferChoice ? showRetainer : (invite.has_retainer && retainerAmount)
+  const showAdSpendSection = isOfferChoice ? showAdSpend : (invite.has_ad_spend && adSpendPct > 0)
+  const showAdSpendMinSection = isOfferChoice ? showAdSpendMin : (adSpendMin > 0)
+
+  // Partnership type label
+  const dealLabel = showRetainerSection ? 'Retainer Partnership' : showAdSpendSection ? 'Ad Spend Partnership' : 'Affiliate Partnership'
 
   return (
     <div className="pt-page">
@@ -87,30 +110,30 @@ export default function PartnershipTermsPage() {
 
       <div className="pt-title">Partnership Terms</div>
       <div className="pt-meta">
-        {invite.creator_name}{createdDate && <> &middot; {createdDate}</>}
+        {invite.creator_name} &middot; {dealLabel}{createdDate && <> &middot; {createdDate}</>}
       </div>
 
       {/* Compensation */}
       <div className="pt-section">
         <div className="pt-section-label">Compensation</div>
         <div className="pt-body">
-          {invite.has_retainer && retainerAmount && (
+          {showRetainerSection && (
             <p>Nama will pay you a fixed retainer of ${retainerAmount.toLocaleString()} per month. Payment is made by the 5th of the following month via your selected payment method.</p>
           )}
-          {invite.has_ad_spend && adSpendPct > 0 && (
+          {showAdSpendSection && (
             <p>You will earn {adSpendPct}% of monthly advertising spend attributed to your content.</p>
           )}
-          {invite.has_affiliate && (
+          {showAffiliate && (
             <p>You will earn {commissionRate}% commission on all completed sales attributed to your unique link or discount code. Returned, refunded, or cancelled orders are excluded. Commissions from sales made through coupon aggregator sites, deal forums, or browser extensions are excluded.</p>
           )}
-          {adSpendMin > 0 && (
+          {showAdSpendMinSection && (
             <p>Your monthly earnings are subject to a minimum guarantee of ${adSpendMin.toLocaleString()} in month 1.</p>
           )}
         </div>
       </div>
 
       {/* Deliverables */}
-      {videos && (
+      {videos && (showRetainerSection || showAdSpendSection) && (
         <div className="pt-section">
           <div className="pt-section-label">Deliverables</div>
           <div className="pt-body">

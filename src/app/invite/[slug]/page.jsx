@@ -508,7 +508,8 @@ export default function InvitePage() {
 
   const hasAffiliateAddon = (invite?.has_affiliate || commissionRate > 0) && (selectedDeal === 'retainer' || selectedDeal === 'ad_spend')
 
-  const agreeContent = <>I have read and agree to the <a href={`/invite/${slug}/terms`} target="_blank" rel="noopener noreferrer">Partnership Terms</a> and <a href="/terms/creator" target="_blank" rel="noopener noreferrer">Creator Terms of Use</a></>
+  const termsUrl = `/invite/${slug}/terms${selectedDeal ? `?deal=${selectedDeal}` : ''}`
+  const agreeContent = <>I have read and agree to the <a href={termsUrl} target="_blank" rel="noopener noreferrer">Partnership Terms</a> and <a href="/terms/creator" target="_blank" rel="noopener noreferrer">Creator Terms of Use</a></>
 
   // --- RENDER HELPERS ---
 
