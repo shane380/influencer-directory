@@ -1021,24 +1021,52 @@ export default function CreatorDashboard() {
       let uploaded = 0
       const uploadedFiles = []
 
-      // Upload each file individually to Google Drive
+      // Upload each file via resumable upload (bypasses Vercel payload limit)
       for (const file of contentFiles) {
-        const fd = new FormData()
-        fd.append('file', file)
-        fd.append('influencer_id', influencer.id)
-        fd.append('type', 'post')
-        fd.append('create_content', 'false') // Don't create content row, just upload to Drive
-
-        const res = await fetch('/api/drive/upload', { method: 'POST', body: fd })
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}))
-          throw new Error(err.error || `Upload failed for ${file.name}`)
+        // Step 1: Get a resumable upload URL from Google Drive
+        const initRes = await fetch('/api/drive/init-upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            influencer_id: influencer.id,
+            file_name: file.name,
+            mime_type: file.type,
+          }),
+        })
+        if (!initRes.ok) {
+          const err = await initRes.json().catch(() => ({}))
+          throw new Error(err.error || `Failed to init upload for ${file.name}`)
         }
-        const result = await res.json()
+        const { upload_url } = await initRes.json()
+
+        // Step 2: Upload file directly to Google Drive (not through Vercel)
+        const uploadRes = await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest()
+          xhr.upload.addEventListener('progress', e => {
+            if (e.lengthComputable) {
+              setContentProgress(Math.round(((uploaded + e.loaded) / totalSize) * 100))
+            }
+          })
+          xhr.addEventListener('load', () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve(JSON.parse(xhr.responseText))
+            } else {
+              reject(new Error(`Upload failed for ${file.name} (${xhr.status})`))
+            }
+          })
+          xhr.addEventListener('error', () => reject(new Error(`Upload failed for ${file.name}`)))
+          xhr.open('PUT', upload_url)
+          xhr.setRequestHeader('Content-Type', file.type)
+          xhr.send(file)
+        })
+
+        const driveFileId = uploadRes.id
+        const webViewLink = `https://drive.google.com/file/d/${driveFileId}/view`
+
         uploadedFiles.push({
           name: file.name,
-          drive_file_id: result.fileId,
-          drive_url: result.webViewLink,
+          drive_file_id: driveFileId,
+          drive_url: webViewLink,
           mime_type: file.type,
           size: file.size,
           uploaded_at: new Date().toISOString(),
@@ -1047,7 +1075,7 @@ export default function CreatorDashboard() {
         setContentProgress(Math.round((uploaded / totalSize) * 100))
       }
 
-      // Create submission record with uploaded file metadata
+      // Step 3: Create submission record with uploaded file metadata
       const res = await fetch('/api/creator/submit-content', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1056,7 +1084,6 @@ export default function CreatorDashboard() {
           notes: contentNotes.trim() || null,
           campaign_assignment_id: campaignContentTarget || null,
           files: uploadedFiles,
-          folder_url: uploadedFiles[0]?.drive_url ? new URL(uploadedFiles[0].drive_url).origin : null,
         }),
       })
       if (!res.ok) {
