@@ -50,6 +50,7 @@ const CSS = `
 .ni-option-detail strong { color: #333; font-weight: 300; }
 .ni-option-detail .ni-card-item { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid #f0f0f0; }
 .ni-option-detail .ni-card-item:last-child { padding-bottom: 0; margin-bottom: 0; border-bottom: none; }
+.ni-option-detail .ni-card-item:has(+ .ni-term-divider) { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
 .ni-option-detail .ni-term-sub { margin-bottom: 12px; }
 .ni-option-detail .ni-term-divider { margin-top: 12px; margin-bottom: 0; }
 .ni-option-hint { font-size: 11px; font-style: italic; color: #999; text-align: center; margin-top: 8px; }
@@ -57,6 +58,7 @@ const CSS = `
 /* TERM ROWS */
 .ni-term-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid #f2f2f2; }
 .ni-term-row:last-child { border-bottom: none; }
+.ni-term-row:has(+ .ni-term-divider), .ni-term-row:has(+ .ni-footnote) { border-bottom: none; }
 .ni-term-key { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #666; padding-top: 4px; }
 .ni-term-val { text-align: right; }
 .ni-term-primary { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 400; color: #111; }
@@ -168,12 +170,14 @@ const CSS = `
 .ni-m-option-detail strong { color: #333; font-weight: 300; }
 .ni-m-option-detail .ni-card-item { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid #f0f0f0; }
 .ni-m-option-detail .ni-card-item:last-child { padding-bottom: 0; margin-bottom: 0; border-bottom: none; }
+.ni-m-option-detail .ni-card-item:has(+ .ni-m-term-divider) { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
 .ni-m-option-detail .ni-m-term-sub { margin-bottom: 12px; }
 .ni-m-option-detail .ni-m-term-divider { margin-top: 12px; margin-bottom: 0; }
 .ni-m-option-hint { font-size: 11px; font-style: italic; color: #999; text-align: center; margin-top: 8px; }
 
 .ni-m-term-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #f2f2f2; }
 .ni-m-term-row:last-child { border-bottom: none; }
+.ni-m-term-row:has(+ .ni-m-term-divider), .ni-m-term-row:has(+ .ni-m-footnote) { border-bottom: none; }
 .ni-m-term-key { font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; color: #666; padding-top: 4px; }
 .ni-m-term-primary { font-family: 'Playfair Display', serif; font-size: 20px; color: #111; text-align: right; }
 .ni-m-term-secondary { font-size: 11px; color: #888; font-weight: 300; margin-top: 2px; text-align: right; }
