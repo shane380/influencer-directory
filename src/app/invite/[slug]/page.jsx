@@ -104,27 +104,27 @@ const CSS = `
 .ni-faq-item { padding: 0; border-bottom: 1px solid #f0f0f0; }
 .ni-faq-item:last-child { border-bottom: none; }
 .ni-faq-q { display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 18px 0; }
-.ni-faq-q-text { font-size: 13px; letter-spacing: 0; text-transform: none; color: #333; font-weight: 600; line-height: 1.4; padding-right: 12px; }
+.ni-faq-q-text { font-size: 10px; letter-spacing: 0.18em; text-transform: none; color: #333; font-weight: 600; line-height: 1.6; padding-right: 12px; }
 .ni-faq-icon { font-size: 18px; color: #bbb; flex-shrink: 0; transition: transform 0.2s; font-weight: 300; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1; }
 .ni-faq-icon.open { transform: rotate(45deg); }
-.ni-faq-a { font-size: 12.5px; color: #888; font-weight: 300; line-height: 1.8; padding: 0 0 18px; }
+.ni-faq-a { font-size: 11px; color: #444; font-weight: 300; line-height: 1.8; padding: 0 0 18px; }
 .ni-m-faq { margin-bottom: 24px; }
 .ni-m-faq-item { padding: 0; border-bottom: 1px solid #f0f0f0; }
 .ni-m-faq-item:last-child { border-bottom: none; }
 .ni-m-faq-q { display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 16px 0; }
-.ni-m-faq-q-text { font-size: 13px; letter-spacing: 0; text-transform: none; color: #333; font-weight: 600; line-height: 1.4; padding-right: 12px; }
+.ni-m-faq-q-text { font-size: 9.5px; letter-spacing: 0.16em; text-transform: none; color: #333; font-weight: 600; line-height: 1.6; padding-right: 12px; }
 .ni-m-faq-icon { font-size: 18px; color: #bbb; flex-shrink: 0; transition: transform 0.2s; font-weight: 300; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1; }
 .ni-m-faq-icon.open { transform: rotate(45deg); }
-.ni-m-faq-a { font-size: 12px; color: #888; font-weight: 300; line-height: 1.8; padding: 0 0 16px; }
+.ni-m-faq-a { font-size: 11px; color: #444; font-weight: 300; line-height: 1.8; padding: 0 0 16px; }
 
 /* AGREE */
 .ni-agree-row { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 24px; }
 .ni-agree-box { width: 18px !important; height: 18px !important; min-width: 18px; border-radius: 4px !important; border: 1.5px solid #ccc !important; flex-shrink: 0; margin-top: 2px; background: white !important; appearance: none !important; -webkit-appearance: none !important; cursor: pointer; position: relative; transition: all 0.15s; padding: 0 !important; }
 .ni-agree-box:checked { background: #111 !important; border-color: #111 !important; }
 .ni-agree-box:checked::after { content: "\\2713"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 10px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1; }
-.ni-agree-text { font-size: 12.5px; color: #888; line-height: 1.75; font-weight: 300; }
-.ni-agree-text a { color: #333; text-decoration: underline; text-underline-offset: 2px; }
-.ni-agree-text a:hover { color: #111; }
+.ni-agree-text { font-size: 11px; color: #444; line-height: 1.75; font-weight: 300; }
+.ni-agree-text a { color: #111; text-decoration: underline; text-underline-offset: 2px; }
+.ni-agree-text a:hover { color: #000; }
 
 /* BUTTONS */
 .ni-btn { width: 100%; padding: 16px; background: #111; color: white; border: none !important; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: 500; letter-spacing: 0.25em; text-transform: uppercase; cursor: pointer; border-radius: 6px; transition: background 0.2s; }
@@ -229,9 +229,9 @@ const CSS = `
 .ni-m-agree-box { width: 18px !important; height: 18px !important; min-width: 18px; border-radius: 4px !important; border: 1.5px solid #ccc !important; flex-shrink: 0; margin-top: 2px; background: white !important; appearance: none !important; -webkit-appearance: none !important; cursor: pointer; position: relative; transition: all 0.15s; padding: 0 !important; }
 .ni-m-agree-box:checked { background: #111 !important; border-color: #111 !important; }
 .ni-m-agree-box:checked::after { content: "\\2713"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 10px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1; }
-.ni-m-agree-text { font-size: 12.5px; color: #888; line-height: 1.75; font-weight: 300; }
-.ni-m-agree-text a { color: #333; text-decoration: underline; text-underline-offset: 2px; }
-.ni-m-agree-text a:hover { color: #111; }
+.ni-m-agree-text { font-size: 11px; color: #444; line-height: 1.75; font-weight: 300; }
+.ni-m-agree-text a { color: #111; text-decoration: underline; text-underline-offset: 2px; }
+.ni-m-agree-text a:hover { color: #000; }
 .ni-m-btn { width: 100%; padding: 16px; background: #111; color: white; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: 500; letter-spacing: 0.25em; text-transform: uppercase; cursor: pointer; border-radius: 6px; }
 .ni-m-btn:disabled { background: #ccc; cursor: not-allowed; }
 .ni-m-btn-outline { width: 100%; padding: 14px; background: transparent; color: #aaa; border: 1.5px solid #e8e8e8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: 400; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; border-radius: 6px; margin-top: 10px; }
