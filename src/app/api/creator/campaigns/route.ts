@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { sendEmail } from "@/lib/email";
+import { campaignAssignedEmail } from "@/lib/email-templates";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -120,6 +122,37 @@ export async function POST(request: NextRequest) {
       console.error("Assignment create error:", assignErr);
     } else {
       console.log(`Campaign "${title}" published with ${rows.length} assignments`);
+
+      // Fire-and-forget: send campaign assigned emails to creators
+      const creatorIds = rows
+        .map((r: { creator_id: string | null }) => r.creator_id)
+        .filter(Boolean);
+      if (creatorIds.length > 0) {
+        (async () => {
+          try {
+            const { data: creators } = await supabase
+              .from("creators")
+              .select("id, creator_name, email, notification_preferences")
+              .in("id", creatorIds);
+            for (const creator of creators || []) {
+              if (!creator.email) continue;
+              const prefs = creator.notification_preferences as Record<string, boolean> | null;
+              if (prefs && prefs.email_campaigns === false) continue;
+              const firstName = (creator.creator_name || "").split(" ")[0] || "there";
+              const { subject, html } = campaignAssignedEmail({
+                firstName,
+                campaignName: title,
+                description: description || undefined,
+              });
+              sendEmail({ to: creator.email, subject, html }).catch((err) =>
+                console.error(`Failed to email creator ${creator.id}:`, err)
+              );
+            }
+          } catch (err) {
+            console.error("Failed to send campaign emails:", err);
+          }
+        })();
+      }
     }
   }
 
@@ -145,7 +178,41 @@ export async function PATCH(request: NextRequest) {
       status: "sent",
     }));
 
-    await supabase.from("campaign_assignments").insert(rows);
+    const { error: patchAssignErr } = await supabase.from("campaign_assignments").insert(rows);
+
+    if (!patchAssignErr) {
+      // Fire-and-forget: send campaign assigned emails to creators
+      const creatorIds = rows
+        .map((r: { creator_id: string | null }) => r.creator_id)
+        .filter(Boolean);
+      if (creatorIds.length > 0) {
+        (async () => {
+          try {
+            const { data: creators } = await supabase
+              .from("creators")
+              .select("id, creator_name, email, notification_preferences")
+              .in("id", creatorIds);
+            for (const creator of creators || []) {
+              if (!creator.email) continue;
+              const prefs = creator.notification_preferences as Record<string, boolean> | null;
+              if (prefs && prefs.email_campaigns === false) continue;
+              const firstName = (creator.creator_name || "").split(" ")[0] || "there";
+              const { subject, html } = campaignAssignedEmail({
+                firstName,
+                campaignName: updates.title || "a new campaign",
+                description: updates.description || undefined,
+              });
+              sendEmail({ to: creator.email, subject, html }).catch((err) =>
+                console.error(`Failed to email creator ${creator.id}:`, err)
+              );
+            }
+          } catch (err) {
+            console.error("Failed to send campaign emails:", err);
+          }
+        })();
+      }
+    }
+
     delete updates.assignments;
   } else {
     delete updates.assignments;

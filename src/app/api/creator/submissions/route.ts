@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { sendEmail } from "@/lib/email";
+import { contentStatusEmail } from "@/lib/email-templates";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -61,6 +63,53 @@ export async function PATCH(request: NextRequest) {
   if (error) {
     console.error("Submission review failed:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Fire-and-forget: send content status email for approved/revision_requested
+  if (data && (status === "approved" || status === "revision_requested")) {
+    (async () => {
+      try {
+        // Look up the creator and campaign info for this submission
+        const creatorId = data.creator_id;
+        if (!creatorId) return;
+
+        const { data: creator } = await supabase
+          .from("creators")
+          .select("id, creator_name, email, notification_preferences")
+          .eq("id", creatorId)
+          .single();
+
+        if (!creator?.email) return;
+        const prefs = creator.notification_preferences as Record<string, boolean> | null;
+        if (prefs && prefs.email_content_status === false) return;
+
+        // Try to get campaign name from the linked assignment
+        let campaignName = "your campaign";
+        if (data.campaign_assignment_id) {
+          const { data: assignment } = await supabase
+            .from("campaign_assignments")
+            .select("campaign:creator_campaigns(title)")
+            .eq("id", data.campaign_assignment_id)
+            .single();
+          const campaign = assignment?.campaign as { title?: string } | null;
+          if (campaign?.title) {
+            campaignName = campaign.title;
+          }
+        }
+
+        const firstName = (creator.creator_name || "").split(" ")[0] || "there";
+        const { subject, html } = contentStatusEmail({
+          firstName,
+          campaignName,
+          status,
+          feedback: status === "revision_requested" ? (admin_feedback || undefined) : undefined,
+        });
+
+        await sendEmail({ to: creator.email, subject, html });
+      } catch (err) {
+        console.error("Failed to send content status email:", err);
+      }
+    })();
   }
 
   return NextResponse.json({ submission: data });
