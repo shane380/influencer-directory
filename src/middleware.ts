@@ -47,6 +47,9 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
+  const userRole = user?.user_metadata?.role;
+  const isCreator = userRole === 'creator';
+
   // Creator routes — redirect to /creator/login if no session
   if (pathname.startsWith('/creator')) {
     if (!user) {
@@ -55,6 +58,13 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
     return supabaseResponse;
+  }
+
+  // Block creator accounts from accessing admin routes
+  if (isCreator && !pathname.startsWith('/login') && !pathname.startsWith('/creator')) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/creator/dashboard';
+    return NextResponse.redirect(url);
   }
 
   // All other protected routes — redirect to /login if no session

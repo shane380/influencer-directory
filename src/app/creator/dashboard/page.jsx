@@ -725,19 +725,20 @@ export default function CreatorDashboard() {
   useEffect(() => {
     async function load() {
       try {
-      // Check if admin is viewing a specific creator's profile
-      const urlCreatorId = new URLSearchParams(window.location.search).get('creator_id')
-
       // Phase 1: Auth + core data (minimal, needed for page shell)
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/creator/login'); return }
 
+      const isAdmin = user.user_metadata?.role !== 'creator'
+      const urlCreatorId = new URLSearchParams(window.location.search).get('creator_id')
+
       let creatorData = null
-      if (urlCreatorId) {
+      if (urlCreatorId && isAdmin) {
         // Admin viewing a specific creator's profile
         const { data } = await supabase.from('creators').select('*').eq('id', urlCreatorId).single()
         creatorData = data
       } else {
+        // Creator viewing their own dashboard (ignore creator_id param for non-admins)
         const { data } = await supabase.from('creators').select('*').eq('user_id', user.id).single()
         creatorData = data
       }
