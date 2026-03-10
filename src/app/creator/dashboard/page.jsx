@@ -2413,11 +2413,6 @@ export default function CreatorDashboard() {
           <div className="cd-upload-success-icon">✓</div>
           <div className="cd-upload-success-title">Submitted</div>
           <div className="cd-upload-success-sub">We&apos;ll review within 48 hours.</div>
-          {contentSuccess.folderUrl && (
-            <a href={contentSuccess.folderUrl} target="_blank" rel="noopener noreferrer" className="cd-upload-success-link">
-              View in Google Drive →
-            </a>
-          )}
           <button className={mobile ? 'cd-m-submit' : 'cd-submit'} style={{ marginTop: 20 }} onClick={() => setContentSuccess(null)}>
             Submit More Content
           </button>
@@ -2566,11 +2561,6 @@ export default function CreatorDashboard() {
                         )
                       })}
                     </div>
-                  )}
-                  {sub.drive_folder_url && (
-                    <a href={sub.drive_folder_url} target="_blank" rel="noopener noreferrer" className="cd-sub-drive-link">
-                      Open in Drive →
-                    </a>
                   )}
                   {sub.notes && <div className="cd-past-notes">{sub.notes}</div>}
                   {sub.admin_feedback && (
