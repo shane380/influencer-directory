@@ -35,7 +35,7 @@ const CSS = `
 
 /* OPTION CARDS */
 .ni-option-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 36px; }
-.ni-option-card { border: 1.5px solid #e8e8e8; border-radius: 14px; padding: 24px 22px; cursor: pointer; transition: all 0.2s; position: relative; background: white; }
+.ni-option-card { border: 1.5px solid #e8e8e8; border-radius: 14px; padding: 24px 30px; cursor: pointer; transition: all 0.2s; position: relative; background: white; }
 .ni-option-card:hover { border-color: #ccc; }
 .ni-option-card.selected { border-color: #111; }
 .ni-option-card.selected .ni-check { opacity: 1; }
@@ -46,8 +46,12 @@ const CSS = `
 .ni-option-rate sup { font-size: 16px; vertical-align: super; color: #888; }
 .ni-option-name { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #888; margin-bottom: 10px; font-weight: 400; }
 .ni-option-rule { height: 1px; background: #f0f0f0; margin-bottom: 12px; }
-.ni-option-detail { font-size: 11.5px; color: #666; font-weight: 300; line-height: 1.75; }
-.ni-option-detail strong { color: #777; font-weight: 500; }
+.ni-option-detail { font-size: 13px; color: #333; font-weight: 300; line-height: 1.75; }
+.ni-option-detail strong { color: #333; font-weight: 300; }
+.ni-option-detail .ni-card-item { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid #f0f0f0; }
+.ni-option-detail .ni-card-item:last-child { padding-bottom: 0; margin-bottom: 0; border-bottom: none; }
+.ni-option-detail .ni-term-sub { margin-bottom: 12px; }
+.ni-option-detail .ni-term-divider { margin-top: 12px; margin-bottom: 0; }
 .ni-option-hint { font-size: 11px; font-style: italic; color: #999; text-align: center; margin-top: 8px; }
 
 /* TERM ROWS */
@@ -149,7 +153,7 @@ const CSS = `
 
 /* Mobile option cards */
 .ni-m-option-cards { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
-.ni-m-option-card { border: 1.5px solid #e8e8e8; border-radius: 12px; padding: 20px 18px; cursor: pointer; transition: border-color 0.2s; position: relative; }
+.ni-m-option-card { border: 1.5px solid #e8e8e8; border-radius: 12px; padding: 20px 26px; cursor: pointer; transition: border-color 0.2s; position: relative; }
 .ni-m-option-card:hover { border-color: #ccc; }
 .ni-m-option-card.selected { border-color: #111; }
 .ni-m-option-card.selected .ni-m-check { opacity: 1; }
@@ -160,8 +164,12 @@ const CSS = `
 .ni-m-option-rate sup { font-size: 15px; vertical-align: super; color: #999; }
 .ni-m-option-name { font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #999; margin-bottom: 10px; }
 .ni-m-option-rule { height: 1px; background: #f0f0f0; margin-bottom: 10px; }
-.ni-m-option-detail { font-size: 11.5px; color: #666; font-weight: 300; line-height: 1.7; }
-.ni-m-option-detail strong { color: #777; font-weight: 500; }
+.ni-m-option-detail { font-size: 13px; color: #333; font-weight: 300; line-height: 1.7; }
+.ni-m-option-detail strong { color: #333; font-weight: 300; }
+.ni-m-option-detail .ni-card-item { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid #f0f0f0; }
+.ni-m-option-detail .ni-card-item:last-child { padding-bottom: 0; margin-bottom: 0; border-bottom: none; }
+.ni-m-option-detail .ni-m-term-sub { margin-bottom: 12px; }
+.ni-m-option-detail .ni-m-term-divider { margin-top: 12px; margin-bottom: 0; }
 .ni-m-option-hint { font-size: 11px; font-style: italic; color: #999; text-align: center; margin-top: 8px; }
 
 .ni-m-term-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #f2f2f2; }
@@ -510,7 +518,7 @@ export default function InvitePage() {
             <div className="ni-m-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
             <div className="ni-m-option-name">Monthly Retainer</div>
             <div className="ni-m-option-rule" />
-            <div className="ni-m-option-detail"><div className="ni-m-term-sub">Compensation</div>${retainerAmount?.toLocaleString()} / month{commissionRate > 0 && <> · {commissionRate}% commission on sales</>} · Paid on the last day of the month<div className="ni-m-term-divider" /><div className="ni-m-term-sub">Deliverables</div>{videos} videos per month</div>
+            <div className="ni-m-option-detail"><div className="ni-m-term-sub">Compensation</div><div className="ni-card-item">${retainerAmount?.toLocaleString()} / month</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}<div className="ni-card-item">Paid on the last day of the month</div><div className="ni-m-term-divider" /><div className="ni-m-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></div>
           </div>
           <div className="ni-m-option-hint">More details on the next page</div>
         </div>
@@ -524,7 +532,7 @@ export default function InvitePage() {
           <div className="ni-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
           <div className="ni-option-name">Monthly Retainer</div>
           <div className="ni-option-rule" />
-          <div className="ni-option-detail"><div className="ni-term-sub">Compensation</div>${retainerAmount?.toLocaleString()} / month{commissionRate > 0 && <><br />{commissionRate}% commission on sales</>}<br />Paid on the last day of the month<div className="ni-term-divider" /><div className="ni-term-sub">Deliverables</div>{videos} videos per month</div>
+          <div className="ni-option-detail"><div className="ni-term-sub">Compensation</div><div className="ni-card-item">${retainerAmount?.toLocaleString()} / month</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}<div className="ni-card-item">Paid on the last day of the month</div><div className="ni-term-divider" /><div className="ni-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></div>
         </div>
         <div className="ni-option-hint">More details on the next page</div>
       </div>
@@ -542,7 +550,7 @@ export default function InvitePage() {
             <div className="ni-m-option-rate">{adSpendPct}<sup>%</sup></div>
             <div className="ni-m-option-name">% of Ad Spend</div>
             <div className="ni-m-option-rule" />
-            <div className="ni-m-option-detail"><div className="ni-m-term-sub">Compensation</div>{adSpendPct}% of monthly ad spend{commissionRate > 0 && <> · {commissionRate}% commission on sales</>}{adSpendMin ? <> · <strong>${adSpendMin.toLocaleString()} min in month 1</strong></> : ''} · Paid on the last day of the month<div className="ni-m-term-divider" /><div className="ni-m-term-sub">Deliverables</div>{videos} videos per month</div>
+            <div className="ni-m-option-detail"><div className="ni-m-term-sub">Compensation</div><div className="ni-card-item">{adSpendPct}% of monthly ad spend</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}{adSpendMin ? <div className="ni-card-item">${adSpendMin.toLocaleString()} minimum in month 1</div> : null}<div className="ni-card-item">Paid on the last day of the month</div><div className="ni-m-term-divider" /><div className="ni-m-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></div>
           </div>
           <div className="ni-m-option-hint">More details on the next page</div>
         </div>
@@ -556,7 +564,7 @@ export default function InvitePage() {
           <div className="ni-option-rate">{adSpendPct}<sup>%</sup></div>
           <div className="ni-option-name">% of Ad Spend</div>
           <div className="ni-option-rule" />
-          <div className="ni-option-detail"><div className="ni-term-sub">Compensation</div>{adSpendPct}% of monthly ad spend{commissionRate > 0 && <><br />{commissionRate}% commission on sales</>}{adSpendMin ? <><br /><strong>${adSpendMin.toLocaleString()} minimum in month 1</strong></> : ''}<br />Paid on the last day of the month<div className="ni-term-divider" /><div className="ni-term-sub">Deliverables</div>{videos} videos per month</div>
+          <div className="ni-option-detail"><div className="ni-term-sub">Compensation</div><div className="ni-card-item">{adSpendPct}% of monthly ad spend</div>{commissionRate > 0 && <div className="ni-card-item">{commissionRate}% commission on sales</div>}{adSpendMin ? <div className="ni-card-item">${adSpendMin.toLocaleString()} minimum in month 1</div> : null}<div className="ni-card-item">Paid on the last day of the month</div><div className="ni-term-divider" /><div className="ni-term-sub">Deliverables</div><div className="ni-card-item">{videos} videos per month</div></div>
         </div>
         <div className="ni-option-hint">More details on the next page</div>
       </div>
