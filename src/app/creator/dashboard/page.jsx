@@ -242,6 +242,7 @@ const CSS = `
 .cd-size-pill { padding: 3px 10px; border: 1px solid #e8e8e8; background: #fff; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #555; cursor: pointer; border-radius: 100px; transition: all 0.15s; letter-spacing: 0.04em; }
 .cd-size-pill:hover { border-color: #aaa; }
 .cd-size-pill.selected { background: #111; color: white; border-color: #111; }
+.cd-size-pill.oos { opacity: 0.35; text-decoration: line-through; cursor: not-allowed; }
 .cd-size-prompt { font-size: 10px; color: #c0392b; margin-top: 4px; }
 
 /* CART */
@@ -914,13 +915,14 @@ export default function CreatorDashboard() {
       if (!map[p.product_id]) {
         map[p.product_id] = { product_id: p.product_id, title: p.title, image: p.image, variants: [] }
       }
-      map[p.product_id].variants.push({ variant_id: p.variant_id, variant_title: p.variant_title, sku: p.sku, price: p.price })
+      map[p.product_id].variants.push({ variant_id: p.variant_id, variant_title: p.variant_title, sku: p.sku, price: p.price, inventory: p.inventory ?? 0 })
     }
     return Object.values(map)
   }
 
   function getDefaultSize(product) {
-    const sizes = product.variants.map(v => v.variant_title).filter(Boolean)
+    const inStockVariants = product.variants.filter(v => v.variant_title && (v.inventory || 0) > 0)
+    const sizes = inStockVariants.map(v => v.variant_title)
     if (!sizes.length) return null
     const name = product.title.toLowerCase()
     const isBottoms = /pant|short|skirt|legging|bottom|jogger|trouser/i.test(name)
@@ -1470,8 +1472,10 @@ export default function CreatorDashboard() {
         {grouped.length > 0 && (
           <div className={mobile ? 'cd-m-products' : 'cd-products'}>
             {grouped.slice(0, mobile ? 6 : 9).map(product => {
-              const sizes = product.variants.filter(v => v.variant_title).map(v => v.variant_title)
+              const sizeVariants = product.variants.filter(v => v.variant_title)
+              const sizes = sizeVariants.map(v => v.variant_title)
               const hasSizes = sizes.length > 0
+              const oosSet = new Set(sizeVariants.filter(v => (v.inventory || 0) <= 0).map(v => v.variant_title))
               const currentSize = selectedSizes[product.product_id] || getDefaultSize(product)
               const selectedVariant = currentSize ? product.variants.find(v => v.variant_title === currentSize) : (product.variants.length === 1 ? product.variants[0] : null)
               const inCart = selectedVariant ? cart.find(c => c.shopify_variant_id === selectedVariant.variant_id) : false
@@ -1486,13 +1490,17 @@ export default function CreatorDashboard() {
                     <div className={mobile ? 'cd-m-product-name' : 'cd-product-name'}>{product.title}</div>
                     {hasSizes && (
                       <div className="cd-size-row">
-                        {sizes.map(size => (
-                          <button
-                            key={size}
-                            className={`cd-size-pill${currentSize === size ? ' selected' : ''}`}
-                            onClick={e => { e.stopPropagation(); setSelectedSizes(prev => ({ ...prev, [product.product_id]: size })); setSizePrompts(prev => ({ ...prev, [product.product_id]: false })) }}
-                          >{size}</button>
-                        ))}
+                        {sizes.map(size => {
+                          const isOos = oosSet.has(size)
+                          return (
+                            <button
+                              key={size}
+                              className={`cd-size-pill${currentSize === size ? ' selected' : ''}${isOos ? ' oos' : ''}`}
+                              disabled={isOos}
+                              onClick={e => { if (isOos) return; e.stopPropagation(); setSelectedSizes(prev => ({ ...prev, [product.product_id]: size })); setSizePrompts(prev => ({ ...prev, [product.product_id]: false })) }}
+                            >{size}</button>
+                          )
+                        })}
                       </div>
                     )}
                     {sizePrompts[product.product_id] && <div className="cd-size-prompt">Select a size</div>}
