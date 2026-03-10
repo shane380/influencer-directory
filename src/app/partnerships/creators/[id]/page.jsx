@@ -24,6 +24,8 @@ export default function AdminCreatorProfile() {
   const [ads, setAds] = useState([])
   const [adsLoading, setAdsLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState({})
+  const [revisionId, setRevisionId] = useState(null)
+  const [revisionNotes, setRevisionNotes] = useState('')
 
   useEffect(() => {
     async function load() {
@@ -366,29 +368,59 @@ export default function AdminCreatorProfile() {
                       {sub.admin_feedback && (
                         <p className="text-xs text-amber-700 mb-2 bg-amber-50 px-2 py-1 rounded">Feedback: {sub.admin_feedback}</p>
                       )}
-                      <div className="flex gap-2 mt-2">
-                        {sub.status !== 'approved' && (
-                          <button
-                            onClick={() => updateSubmissionStatus(sub.id, 'approved')}
-                            disabled={actionLoading[sub.id]}
-                            className="px-3 py-1.5 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50"
-                          >
-                            Approve
-                          </button>
-                        )}
-                        {sub.status !== 'revision_requested' && (
-                          <button
-                            onClick={() => {
-                              const notes = prompt('Revision notes:')
-                              if (notes) updateSubmissionStatus(sub.id, 'revision_requested', notes)
-                            }}
-                            disabled={actionLoading[sub.id]}
-                            className="px-3 py-1.5 bg-white border border-amber-300 text-amber-700 text-xs rounded hover:bg-amber-50 disabled:opacity-50"
-                          >
-                            Request Revision
-                          </button>
-                        )}
-                      </div>
+                      {revisionId === sub.id && (
+                        <div className="mt-2 space-y-2">
+                          <textarea
+                            className="w-full text-sm border border-gray-200 rounded p-2 resize-none focus:outline-none focus:ring-1 focus:ring-amber-300"
+                            rows={2}
+                            placeholder="What changes are needed?"
+                            value={revisionNotes}
+                            onChange={e => setRevisionNotes(e.target.value)}
+                            autoFocus
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                updateSubmissionStatus(sub.id, 'revision_requested', revisionNotes)
+                                setRevisionId(null)
+                                setRevisionNotes('')
+                              }}
+                              disabled={actionLoading[sub.id] || !revisionNotes.trim()}
+                              className="px-3 py-1.5 bg-amber-600 text-white text-xs rounded hover:bg-amber-700 disabled:opacity-50"
+                            >
+                              Send Revision Request
+                            </button>
+                            <button
+                              onClick={() => { setRevisionId(null); setRevisionNotes('') }}
+                              className="px-3 py-1.5 text-gray-500 text-xs rounded hover:bg-gray-100"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {revisionId !== sub.id && (
+                        <div className="flex gap-2 mt-2">
+                          {sub.status !== 'approved' && (
+                            <button
+                              onClick={() => updateSubmissionStatus(sub.id, 'approved')}
+                              disabled={actionLoading[sub.id]}
+                              className="px-3 py-1.5 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50"
+                            >
+                              Approve
+                            </button>
+                          )}
+                          {sub.status !== 'revision_requested' && (
+                            <button
+                              onClick={() => { setRevisionId(sub.id); setRevisionNotes('') }}
+                              disabled={actionLoading[sub.id]}
+                              className="px-3 py-1.5 bg-white border border-amber-300 text-amber-700 text-xs rounded hover:bg-amber-50 disabled:opacity-50"
+                            >
+                              Request Revision
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
