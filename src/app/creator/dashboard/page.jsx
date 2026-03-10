@@ -1028,7 +1028,7 @@ export default function CreatorDashboard() {
           if (xhr.status >= 200 && xhr.status < 300) {
             resolve(JSON.parse(xhr.responseText))
           } else {
-            reject(new Error(xhr.responseText || 'Upload failed'))
+            try { const err = JSON.parse(xhr.responseText); reject(new Error(err.error || 'Upload failed')) } catch { reject(new Error(xhr.responseText || 'Upload failed')) }
           }
         })
         xhr.addEventListener('error', () => reject(new Error('Upload failed')))
@@ -1050,6 +1050,7 @@ export default function CreatorDashboard() {
       } catch {}
     } catch (err) {
       console.error('Submit content error:', err)
+      alert('Content upload failed: ' + (err.message || 'Unknown error'))
     }
     setContentSubmitting(false)
     setContentProgress(0)
