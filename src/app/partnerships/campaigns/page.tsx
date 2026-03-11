@@ -346,6 +346,213 @@ export default function CampaignsPage() {
     return map[status] || "bg-gray-100 text-gray-700";
   };
 
+  function renderInvitationModal() {
+    if (!showInvitationModal) return null;
+    return (
+      <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 overflow-y-auto pt-12 pb-12">
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <h2 className="text-lg font-semibold">New Creative Invitation</h2>
+            <button onClick={() => setShowInvitationModal(false)}><X className="h-5 w-5 text-gray-400" /></button>
+          </div>
+
+          <div className="px-6 py-4 space-y-5 max-h-[70vh] overflow-y-auto">
+            {/* Parent Campaign */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Link to Campaign</label>
+              <select
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                value={invitationParentId}
+                onChange={e => setInvitationParentId(e.target.value)}
+              >
+                <option value="">Select a campaign...</option>
+                {campaigns.filter(c => !c.parent_campaign_id && c.status === "active").map(c => (
+                  <option key={c.id} value={c.id}>{c.title}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Title */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Title</label>
+              <input
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                value={form.title}
+                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                placeholder="Creative invitation name"
+              />
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Description / Brief</label>
+              <textarea
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none"
+                rows={3}
+                value={form.description}
+                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                placeholder="Brief text or creative direction..."
+              />
+            </div>
+
+            {/* Brief URL */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Brief URL (optional)</label>
+              <input
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                value={form.brief_url}
+                onChange={e => setForm(f => ({ ...f, brief_url: e.target.value }))}
+                placeholder="https://... (PDF or Canva link)"
+              />
+            </div>
+
+            {/* Due Date + Max Selects */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Due Date</label>
+                <input
+                  type="date"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  value={form.due_date}
+                  onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Max Selects</label>
+                <input
+                  type="number"
+                  min={1}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  value={form.max_selects}
+                  onChange={e => setForm(f => ({ ...f, max_selects: parseInt(e.target.value) || 2 }))}
+                />
+              </div>
+            </div>
+
+            {/* Campaign Type */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Type</label>
+              <div className="flex gap-2">
+                <button
+                  className={`px-3 py-1.5 text-xs rounded-full border ${form.campaign_type === "mass" ? "bg-gray-900 text-white border-gray-900" : "border-gray-200"}`}
+                  onClick={() => setForm(f => ({ ...f, campaign_type: "mass" }))}
+                >
+                  Mass Campaign
+                </button>
+                <button
+                  className={`px-3 py-1.5 text-xs rounded-full border ${form.campaign_type === "individual" ? "bg-gray-900 text-white border-gray-900" : "border-gray-200"}`}
+                  onClick={() => setForm(f => ({ ...f, campaign_type: "individual" }))}
+                >
+                  Individual
+                </button>
+              </div>
+            </div>
+
+            {/* Products */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Available Products</label>
+              <div className="flex gap-2 mb-2">
+                <input
+                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  value={productQuery}
+                  onChange={e => setProductQuery(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && searchProducts()}
+                  placeholder="Search Shopify products..."
+                />
+                <button
+                  onClick={searchProducts}
+                  disabled={searchingProducts}
+                  className="px-3 py-2 bg-gray-100 rounded-lg text-sm hover:bg-gray-200"
+                >
+                  {searchingProducts ? "..." : "Search"}
+                </button>
+              </div>
+
+              {productResults.length > 0 && (
+                <div className="border border-gray-200 rounded-lg max-h-40 overflow-y-auto mb-2">
+                  {productResults.map(p => (
+                    <div
+                      key={p.variant_id}
+                      className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-b-0"
+                      onClick={() => addProduct(p)}
+                    >
+                      {p.image && <img src={p.image} alt="" className="w-8 h-8 object-cover rounded" />}
+                      <span className="text-xs flex-1">{p.title}{p.variant_title ? ` — ${p.variant_title}` : ""}</span>
+                      <span className="text-xs text-gray-400">{p.sku}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {availableProducts.length > 0 && (
+                <div className="flex gap-2 flex-wrap">
+                  {availableProducts.map(p => (
+                    <div key={p.variant_id} className="flex items-center gap-1 bg-gray-100 rounded px-2 py-1 text-xs">
+                      {p.image_url && <img src={p.image_url} alt="" className="w-5 h-5 object-cover rounded" />}
+                      {p.product_title}{p.variant_title ? ` — ${p.variant_title}` : ""}
+                      <button onClick={() => removeProduct(p.variant_id)} className="ml-1 text-gray-400 hover:text-gray-600">×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Assign Partners */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
+                Assign to Partners ({selectedCreators.length} selected)
+              </label>
+              {!creatorsLoaded ? (
+                <div className="text-xs text-gray-400 py-2">Loading partners...</div>
+              ) : (
+                <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
+                  {creators.map(c => {
+                    const isSelected = selectedCreators.find(sc => sc.creator_id === c.id);
+                    return (
+                      <div
+                        key={c.id}
+                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50 border-b border-gray-50 last:border-b-0 ${isSelected ? "bg-blue-50" : ""}`}
+                        onClick={() => toggleCreator(c)}
+                      >
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center text-xs ${isSelected ? "bg-gray-900 border-gray-900 text-white" : "border-gray-300"}`}>
+                          {isSelected && "✓"}
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium">{c.creator_name}</div>
+                          {c.influencer && <div className="text-xs text-gray-400">@{c.influencer.instagram_handle}</div>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100">
+            <button onClick={() => setShowInvitationModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">
+              Cancel
+            </button>
+            <button
+              onClick={() => saveCampaign(false)}
+              disabled={saving || !form.title.trim() || !invitationParentId}
+              className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            >
+              Save as Draft
+            </button>
+            <button
+              onClick={() => saveCampaign(true)}
+              disabled={saving || !form.title.trim() || !invitationParentId || selectedCreators.length === 0}
+              className="px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50"
+            >
+              {saving ? "Sending..." : "Send Invitation"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Detail view
   if (selectedCampaign) {
     return (
@@ -546,6 +753,7 @@ export default function CampaignsPage() {
             </div>
           )}
         </div>
+        {renderInvitationModal()}
       </div>
     );
   }
@@ -822,210 +1030,7 @@ export default function CampaignsPage() {
           </div>
         )}
 
-        {/* Creative Invitation Modal */}
-        {showInvitationModal && (
-          <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 overflow-y-auto pt-12 pb-12">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                <h2 className="text-lg font-semibold">New Creative Invitation</h2>
-                <button onClick={() => setShowInvitationModal(false)}><X className="h-5 w-5 text-gray-400" /></button>
-              </div>
-
-              <div className="px-6 py-4 space-y-5 max-h-[70vh] overflow-y-auto">
-                {/* Parent Campaign */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Link to Campaign</label>
-                  <select
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                    value={invitationParentId}
-                    onChange={e => setInvitationParentId(e.target.value)}
-                  >
-                    <option value="">Select a campaign...</option>
-                    {campaigns.filter(c => !c.parent_campaign_id && c.status === "active").map(c => (
-                      <option key={c.id} value={c.id}>{c.title}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Title */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Title</label>
-                  <input
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                    value={form.title}
-                    onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                    placeholder="Creative invitation name"
-                  />
-                </div>
-
-                {/* Description */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Description / Brief</label>
-                  <textarea
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none"
-                    rows={3}
-                    value={form.description}
-                    onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                    placeholder="Brief text or creative direction..."
-                  />
-                </div>
-
-                {/* Brief URL */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Brief URL (optional)</label>
-                  <input
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                    value={form.brief_url}
-                    onChange={e => setForm(f => ({ ...f, brief_url: e.target.value }))}
-                    placeholder="https://... (PDF or Canva link)"
-                  />
-                </div>
-
-                {/* Due Date + Max Selects */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Due Date</label>
-                    <input
-                      type="date"
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                      value={form.due_date}
-                      onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Max Selects</label>
-                    <input
-                      type="number"
-                      min={1}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                      value={form.max_selects}
-                      onChange={e => setForm(f => ({ ...f, max_selects: parseInt(e.target.value) || 2 }))}
-                    />
-                  </div>
-                </div>
-
-                {/* Campaign Type */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Type</label>
-                  <div className="flex gap-2">
-                    <button
-                      className={`px-3 py-1.5 text-xs rounded-full border ${form.campaign_type === "mass" ? "bg-gray-900 text-white border-gray-900" : "border-gray-200"}`}
-                      onClick={() => setForm(f => ({ ...f, campaign_type: "mass" }))}
-                    >
-                      Mass Campaign
-                    </button>
-                    <button
-                      className={`px-3 py-1.5 text-xs rounded-full border ${form.campaign_type === "individual" ? "bg-gray-900 text-white border-gray-900" : "border-gray-200"}`}
-                      onClick={() => setForm(f => ({ ...f, campaign_type: "individual" }))}
-                    >
-                      Individual
-                    </button>
-                  </div>
-                </div>
-
-                {/* Products */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Available Products</label>
-                  <div className="flex gap-2 mb-2">
-                    <input
-                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                      value={productQuery}
-                      onChange={e => setProductQuery(e.target.value)}
-                      onKeyDown={e => e.key === "Enter" && searchProducts()}
-                      placeholder="Search Shopify products..."
-                    />
-                    <button
-                      onClick={searchProducts}
-                      disabled={searchingProducts}
-                      className="px-3 py-2 bg-gray-100 rounded-lg text-sm hover:bg-gray-200"
-                    >
-                      {searchingProducts ? "..." : "Search"}
-                    </button>
-                  </div>
-
-                  {productResults.length > 0 && (
-                    <div className="border border-gray-200 rounded-lg max-h-40 overflow-y-auto mb-2">
-                      {productResults.map(p => (
-                        <div
-                          key={p.variant_id}
-                          className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-b-0"
-                          onClick={() => addProduct(p)}
-                        >
-                          {p.image && <img src={p.image} alt="" className="w-8 h-8 object-cover rounded" />}
-                          <span className="text-xs flex-1">{p.title}{p.variant_title ? ` — ${p.variant_title}` : ""}</span>
-                          <span className="text-xs text-gray-400">{p.sku}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {availableProducts.length > 0 && (
-                    <div className="flex gap-2 flex-wrap">
-                      {availableProducts.map(p => (
-                        <div key={p.variant_id} className="flex items-center gap-1 bg-gray-100 rounded px-2 py-1 text-xs">
-                          {p.image_url && <img src={p.image_url} alt="" className="w-5 h-5 object-cover rounded" />}
-                          {p.product_title}{p.variant_title ? ` — ${p.variant_title}` : ""}
-                          <button onClick={() => removeProduct(p.variant_id)} className="ml-1 text-gray-400 hover:text-gray-600">×</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Assign Partners */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-                    Assign to Partners ({selectedCreators.length} selected)
-                  </label>
-                  {!creatorsLoaded ? (
-                    <div className="text-xs text-gray-400 py-2">Loading partners...</div>
-                  ) : (
-                    <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
-                      {creators.map(c => {
-                        const isSelected = selectedCreators.find(sc => sc.creator_id === c.id);
-                        return (
-                          <div
-                            key={c.id}
-                            className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50 border-b border-gray-50 last:border-b-0 ${isSelected ? "bg-blue-50" : ""}`}
-                            onClick={() => toggleCreator(c)}
-                          >
-                            <div className={`w-4 h-4 rounded border flex items-center justify-center text-xs ${isSelected ? "bg-gray-900 border-gray-900 text-white" : "border-gray-300"}`}>
-                              {isSelected && "✓"}
-                            </div>
-                            <div>
-                              <div className="text-sm font-medium">{c.creator_name}</div>
-                              {c.influencer && <div className="text-xs text-gray-400">@{c.influencer.instagram_handle}</div>}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100">
-                <button onClick={() => setShowInvitationModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">
-                  Cancel
-                </button>
-                <button
-                  onClick={() => saveCampaign(false)}
-                  disabled={saving || !form.title.trim() || !invitationParentId}
-                  className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-                >
-                  Save as Draft
-                </button>
-                <button
-                  onClick={() => saveCampaign(true)}
-                  disabled={saving || !form.title.trim() || !invitationParentId || selectedCreators.length === 0}
-                  className="px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50"
-                >
-                  {saving ? "Sending..." : "Send Invitation"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {renderInvitationModal()}
       </div>
     </div>
   );
