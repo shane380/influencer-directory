@@ -216,39 +216,44 @@ const CSS = `
 .cd-search-btn { padding: 12px 24px; background: #111; color: white; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 9.5px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; }
 
 /* CAMPAIGNS */
-.cd-campaign-card { background: #fff; border: 1px solid #e8e8e8; margin-bottom: 16px; }
-.cd-campaign-head { padding: 28px 32px 0; }
-.cd-campaign-eyebrow { font-size: 9px; letter-spacing: 0.35em; text-transform: uppercase; color: #aaa; display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
-.cd-campaign-title { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 300; color: #111; line-height: 1.2; margin-bottom: 4px; }
-.cd-campaign-due { font-size: 11px; color: #888; margin-bottom: 12px; }
-.cd-campaign-desc { font-size: 13px; color: #555; line-height: 1.6; margin-bottom: 0; padding: 0 32px 20px; }
-.cd-campaign-brief { display: flex; gap: 8px; overflow-x: auto; padding: 0 32px 16px; }
-.cd-campaign-brief img { height: 200px; border: 1px solid #eee; object-fit: contain; flex-shrink: 0; }
-.cd-campaign-brief-link { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: #111; text-decoration: none; letter-spacing: 0.06em; padding: 8px 16px; border: 1px solid #e8e8e8; margin: 0 32px 16px; }
-.cd-campaign-brief-link:hover { border-color: #aaa; }
-.cd-campaign-status { display: inline-flex; align-items: center; gap: 6px; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; padding: 5px 14px; border-radius: 100px; border: 1px solid; }
-.cd-campaign-status-sent { color: #1565c0; border-color: #bbdefb; background: #e3f2fd; }
-.cd-campaign-status-confirmed { color: #e65100; border-color: #ffe0b2; background: #fff3e0; }
-.cd-campaign-status-content { color: #6a1b9a; border-color: #e1bee7; background: #f3e5f5; }
-.cd-campaign-status-complete { color: #2e7d32; border-color: #d4edda; background: #f0faf0; }
-.cd-campaign-status-declined { color: #888; border-color: #e8e8e8; background: #f5f5f5; }
-.cd-campaign-body { padding: 0 32px 28px; }
-.cd-campaign-products { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 12px; }
-.cd-campaign-product { border: 1px solid #e8e8e8; cursor: pointer; transition: border-color 0.2s; position: relative; }
-.cd-campaign-product.selected { border-color: #111; }
-.cd-campaign-product-check { position: absolute; top: 8px; right: 8px; width: 20px; height: 20px; border-radius: 50%; background: #111; color: #fff; font-size: 10px; display: flex; align-items: center; justify-content: center; z-index: 1; }
-.cd-campaign-product-img { aspect-ratio: 4/5; background: #f5f5f5; overflow: hidden; }
-.cd-campaign-product-img img { width: 100%; height: 100%; object-fit: cover; }
-.cd-campaign-product-info { padding: 8px 10px; }
-.cd-campaign-product-name { font-size: 11px; color: #111; line-height: 1.3; margin-bottom: 4px; }
-.cd-campaign-max { font-size: 10px; color: #aaa; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
-.cd-campaign-confirm-msg { font-size: 13px; color: #555; line-height: 1.6; padding: 20px 0; }
-.cd-campaign-content-link { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: #111; text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; padding: 8px 0; margin-top: 8px; }
-.cd-campaign-content-link:hover { text-decoration: underline; }
-.cd-campaign-section-label { font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; color: #aaa; margin-bottom: 10px; margin-top: 16px; cursor: pointer; }
-.cd-campaign-submitted-thumbs { display: flex; gap: 6px; flex-wrap: wrap; }
-.cd-campaign-submitted-thumb { width: 48px; height: 48px; background: #f5f5f5; border: 1px solid #eee; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-.cd-campaign-submitted-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.cd-campaign-section-hdr { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.cd-campaign-section-hdr span { flex: 1; height: 1px; background: #e8e8e8; }
+.cd-campaign-section-count { font-size: 11px; letter-spacing: 0; text-transform: none; color: #aaa; }
+.cd-campaign-card { background: #fff; border: 1px solid #e8e8e8; border-radius: 0; padding: 24px 28px; }
+.cd-campaign-card + .cd-campaign-card { border-top: none; }
+.cd-campaign-card.for-you { border-left: 1.5px solid #1a1a1a; }
+.cd-campaign-title { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 300; color: #111; line-height: 1.2; margin-bottom: 6px; }
+.cd-campaign-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+.cd-campaign-due { font-size: 11px; color: #aaa; }
+.cd-campaign-status { display: inline-flex; align-items: center; font-size: 8px; letter-spacing: 0.04em; padding: 3px 10px; border-radius: 100px; border: 1px solid; background: transparent; }
+.cd-campaign-status-sent { color: #1565c0; border-color: #90caf9; }
+.cd-campaign-status-confirmed { color: #e65100; border-color: #ffcc80; }
+.cd-campaign-status-content { color: #6a1b9a; border-color: #ce93d8; }
+.cd-campaign-status-complete { color: #2e7d32; border-color: #a5d6a7; }
+.cd-campaign-status-declined { color: #888; border-color: #ccc; }
+.cd-campaign-desc { font-size: 12px; color: #888; line-height: 1.5; margin-bottom: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cd-campaign-brief-link { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; color: #888; text-decoration: none; letter-spacing: 0.04em; margin-top: 8px; }
+.cd-campaign-brief-link:hover { color: #111; }
+.cd-campaign-product-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.cd-campaign-chip { display: flex; align-items: center; gap: 6px; background: #f5f5f4; border-radius: 8px; padding: 4px 10px 4px 4px; font-size: 11px; color: #333; cursor: pointer; border: 1.5px solid transparent; transition: border-color 0.15s; }
+.cd-campaign-chip.selected { border-color: #1a1a1a; }
+.cd-campaign-chip-check { width: 14px; height: 14px; border-radius: 50%; background: #1a1a1a; color: #fff; font-size: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.cd-campaign-chip img { width: 26px; height: 26px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
+.cd-campaign-chip-placeholder { width: 26px; height: 26px; border-radius: 6px; background: #e8e8e8; flex-shrink: 0; }
+.cd-campaign-max { font-size: 10px; color: #aaa; letter-spacing: 0.08em; text-transform: uppercase; margin-top: 14px; margin-bottom: 2px; }
+.cd-campaign-notes { margin-top: 12px; }
+.cd-campaign-btn-fill { display: inline-block; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 2.5px; text-transform: uppercase; color: #fff; background: #1a1a1a; border: none; padding: 14px 28px; cursor: pointer; margin-top: 16px; transition: background 0.15s; }
+.cd-campaign-btn-fill:hover { background: #333; }
+.cd-campaign-btn-fill:disabled { opacity: 0.4; cursor: default; }
+.cd-campaign-btn-outline { display: inline-block; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 2.5px; text-transform: uppercase; color: #1a1a1a; background: transparent; border: 1px solid #e8e8e8; padding: 14px 28px; cursor: pointer; margin-top: 16px; transition: border-color 0.15s; text-decoration: none; }
+.cd-campaign-btn-outline:hover { border-color: #999; }
+.cd-campaign-confirm-msg { font-size: 12px; color: #888; line-height: 1.5; padding-top: 10px; }
+.cd-campaign-inv-indent { margin-left: 16px; border-left: 1px solid #e8e8e8; padding-left: 16px; margin-top: 0; }
+.cd-campaign-inv-label { font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; color: #bbb; margin-bottom: 8px; margin-top: 16px; }
+@media (max-width: 768px) {
+  .cd-campaign-card { padding: 20px; }
+  .cd-campaign-title { font-size: 18px; }
+}
 
 /* PRODUCTS */
 .cd-products { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
@@ -2253,9 +2258,9 @@ export default function CreatorDashboard() {
 
   function getCampaignStatusInfo(status) {
     const map = {
-      sent: { label: 'Awaiting your confirmation', cls: 'cd-campaign-status-sent' },
-      confirmed: { label: 'Confirmed — order coming', cls: 'cd-campaign-status-confirmed' },
-      content_submitted: { label: 'Content submitted', cls: 'cd-campaign-status-content' },
+      sent: { label: 'Confirm', cls: 'cd-campaign-status-sent' },
+      confirmed: { label: 'Order coming', cls: 'cd-campaign-status-confirmed' },
+      content_submitted: { label: 'Under review', cls: 'cd-campaign-status-content' },
       complete: { label: 'Complete', cls: 'cd-campaign-status-complete' },
       declined: { label: 'Declined', cls: 'cd-campaign-status-declined' },
     }
@@ -2302,133 +2307,107 @@ export default function CreatorDashboard() {
     setCampaignConfirming(null)
   }
 
-  function renderCampaignCard(assignment, mobile) {
+  function renderProductChips(products, assignmentId, selectable, maxSelects) {
+    if (!products || products.length === 0) return null
+    return (
+      <div className="cd-campaign-product-chips">
+        {products.map((p, i) => {
+          const selects = selectable ? (campaignSelects[assignmentId]?.products || []) : []
+          const isSelected = selectable ? selects.find(s => s.variant_id === p.variant_id) : true
+          return (
+            <div
+              key={i}
+              className={`cd-campaign-chip${isSelected ? ' selected' : ''}`}
+              style={selectable ? { cursor: 'pointer' } : { cursor: 'default' }}
+              onClick={selectable ? () => toggleCampaignProduct(assignmentId, p, maxSelects) : undefined}
+            >
+              {isSelected && selectable && <div className="cd-campaign-chip-check">✓</div>}
+              {p.image_url ? <img src={p.image_url} alt={p.product_title} /> : <div className="cd-campaign-chip-placeholder" />}
+              <span>{p.product_title}{p.variant_title ? ` · ${p.variant_title}` : ''}</span>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  function renderCampaignCard(assignment, section) {
     const campaign = assignment.campaign
     if (!campaign) return null
     const statusInfo = getCampaignStatusInfo(assignment.status)
     const products = campaign.available_products || []
     const maxSelects = campaign.max_selects || 2
-    const briefImages = campaign.brief_images || []
     const dueDate = campaign.due_date ? new Date(campaign.due_date + 'T00:00:00').toLocaleDateString('en', { month: 'long', day: 'numeric' }) : null
+    const isForYou = section === 'forYou'
 
     return (
-      <div key={assignment.id} className="cd-campaign-card">
-        <div className="cd-campaign-head">
-          <div className="cd-campaign-eyebrow">{campaign.parent_campaign_id ? 'Creative Invitation' : 'Campaign'}</div>
-          <div className="cd-campaign-title">{campaign.title}</div>
-          {dueDate && <div className="cd-campaign-due">Due {dueDate}</div>}
+      <div key={assignment.id} className={`cd-campaign-card${isForYou ? ' for-you' : ''}`}>
+        <div className="cd-campaign-title">{campaign.title}</div>
+        <div className="cd-campaign-meta">
           <span className={`cd-campaign-status ${statusInfo.cls}`}>{statusInfo.label}</span>
+          {dueDate && <span className="cd-campaign-due">Due {dueDate}</span>}
         </div>
 
-        {campaign.description && <div className="cd-campaign-desc">{campaign.description}</div>}
-
-        {briefImages.length > 0 && (
-          <div className="cd-campaign-brief">
-            {briefImages.map((img, i) => (
-              <img key={i} src={img.url || img} alt={`Brief ${i + 1}`} />
-            ))}
-          </div>
-        )}
+        {campaign.description && <div className="cd-campaign-desc" style={{ marginTop: 8 }}>{campaign.description}</div>}
 
         {campaign.brief_url && (
           <a href={campaign.brief_url} target="_blank" rel="noopener noreferrer" className="cd-campaign-brief-link">
-            View Brief →
+            View brief →
           </a>
         )}
 
-        <div className="cd-campaign-body">
-          {/* Status: Sent — show product selection */}
-          {assignment.status === 'sent' && products.length > 0 && (
-            <>
-              <div className="cd-campaign-max">Select up to {maxSelects} item{maxSelects !== 1 ? 's' : ''}</div>
-              <div className="cd-campaign-products">
-                {products.map((p, i) => {
-                  const selects = campaignSelects[assignment.id]?.products || []
-                  const isSelected = selects.find(s => s.variant_id === p.variant_id)
-                  return (
-                    <div
-                      key={i}
-                      className={`cd-campaign-product${isSelected ? ' selected' : ''}`}
-                      onClick={() => toggleCampaignProduct(assignment.id, p, maxSelects)}
-                    >
-                      {isSelected && <div className="cd-campaign-product-check">✓</div>}
-                      <div className="cd-campaign-product-img">
-                        {p.image_url ? <img src={p.image_url} alt={p.product_title} /> : <div style={{ width: '100%', height: '100%', background: '#eee' }} />}
-                      </div>
-                      <div className="cd-campaign-product-info">
-                        <div className="cd-campaign-product-name">{p.product_title}</div>
-                        {p.variant_title && <div style={{ fontSize: 10, color: '#aaa' }}>{p.variant_title}</div>}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-              <div style={{ marginTop: 14 }}>
-                <label className="cd-field-label">Notes (optional)</label>
-                <input
-                  className="cd-field-input"
-                  value={campaignNotes[assignment.id] || ''}
-                  onChange={e => setCampaignNotes(prev => ({ ...prev, [assignment.id]: e.target.value }))}
-                  placeholder="Anything to add?"
-                  style={{ marginBottom: 14 }}
-                />
-              </div>
-              <button
-                className="cd-submit"
-                onClick={() => confirmCampaignSelects(assignment)}
-                disabled={!(campaignSelects[assignment.id]?.products?.length) || campaignConfirming === assignment.id}
-              >
-                {campaignConfirming === assignment.id ? 'Confirming…' : 'Confirm Selects →'}
-              </button>
-            </>
-          )}
-
-          {/* Status: Confirmed — show confirmed selects */}
-          {assignment.status === 'confirmed' && (
-            <>
-              <div className="cd-campaign-confirm-msg">Your order is being prepared. We&apos;ll ship your pieces soon.</div>
-              {(assignment.selected_products || []).length > 0 && (
-                <div className="cd-campaign-products">
-                  {assignment.selected_products.map((p, i) => (
-                    <div key={i} className="cd-campaign-product selected" style={{ cursor: 'default' }}>
-                      <div className="cd-campaign-product-img">
-                        {p.image_url ? <img src={p.image_url} alt={p.product_title} /> : <div style={{ width: '100%', height: '100%', background: '#eee' }} />}
-                      </div>
-                      <div className="cd-campaign-product-info">
-                        <div className="cd-campaign-product-name">{p.product_title}</div>
-                        {p.variant_title && <div style={{ fontSize: 10, color: '#aaa' }}>{p.variant_title}</div>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <a className="cd-campaign-content-link" href="#" onClick={e => { e.preventDefault(); setActiveTab('submit'); setCampaignContentTarget(assignment.id) }}>
-                Submit Content →
-              </a>
-            </>
-          )}
-
-          {/* Status: Content Submitted */}
-          {assignment.status === 'content_submitted' && (
-            <div className="cd-campaign-confirm-msg">Content submitted — under review.</div>
-          )}
-
-          {/* Status: Complete */}
-          {assignment.status === 'complete' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 0' }}>
-              <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#2e7d32', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>✓</div>
-              <span style={{ fontSize: 13, color: '#2e7d32' }}>Campaign complete</span>
+        {/* Sent — product selection */}
+        {assignment.status === 'sent' && products.length > 0 && (
+          <>
+            <div className="cd-campaign-max">Select up to {maxSelects} item{maxSelects !== 1 ? 's' : ''}</div>
+            {renderProductChips(products, assignment.id, true, maxSelects)}
+            <div className="cd-campaign-notes">
+              <input
+                className="cd-field-input"
+                value={campaignNotes[assignment.id] || ''}
+                onChange={e => setCampaignNotes(prev => ({ ...prev, [assignment.id]: e.target.value }))}
+                placeholder="Notes (optional)"
+              />
             </div>
-          )}
-        </div>
+            <button
+              className="cd-campaign-btn-fill"
+              onClick={() => confirmCampaignSelects(assignment)}
+              disabled={!(campaignSelects[assignment.id]?.products?.length) || campaignConfirming === assignment.id}
+            >
+              {campaignConfirming === assignment.id ? 'Confirming…' : 'Confirm Selects'}
+            </button>
+          </>
+        )}
+
+        {/* Confirmed — show selected products */}
+        {assignment.status === 'confirmed' && (
+          <>
+            <div className="cd-campaign-confirm-msg">Your order is being prepared.</div>
+            {renderProductChips(assignment.selected_products, assignment.id, false, 0)}
+            <a className="cd-campaign-btn-outline" href="#" onClick={e => { e.preventDefault(); setActiveTab('submit'); setCampaignContentTarget(assignment.id) }}>
+              Submit Content
+            </a>
+          </>
+        )}
+
+        {/* Content Submitted */}
+        {assignment.status === 'content_submitted' && (
+          <div className="cd-campaign-confirm-msg">Content submitted — under review.</div>
+        )}
+
+        {/* Complete */}
+        {assignment.status === 'complete' && (
+          <div className="cd-campaign-confirm-msg" style={{ color: '#2e7d32' }}>Campaign complete ✓</div>
+        )}
       </div>
     )
   }
 
   function renderCampaigns(mobile) {
-    // Separate parent campaigns from creative invitations
-    const parentAssignments = campaignAssignments.filter(a => !a.campaign?.parent_campaign_id)
-    const childAssignments = campaignAssignments.filter(a => a.campaign?.parent_campaign_id)
+    // Collect all assignments including children
+    const allAssignments = [...campaignAssignments]
+    const childAssignments = allAssignments.filter(a => a.campaign?.parent_campaign_id)
+    const parentAssignments = allAssignments.filter(a => !a.campaign?.parent_campaign_id)
 
     // Group children by parent campaign id
     const childrenByParent = {}
@@ -2438,12 +2417,15 @@ export default function CreatorDashboard() {
       childrenByParent[pid].push(a)
     })
 
-    const active = parentAssignments.filter(a => ['sent', 'confirmed'].includes(a.status))
-    const past = parentAssignments.filter(a => ['content_submitted', 'complete', 'declined'].includes(a.status))
+    // "For You" = needs action (sent status)
+    const forYou = parentAssignments.filter(a => a.status === 'sent')
+    const forYouChildren = childAssignments.filter(a => a.status === 'sent')
+    // "In Progress" = confirmed, content_submitted, complete, declined
+    const inProgress = parentAssignments.filter(a => a.status !== 'sent')
+    const inProgressChildren = childAssignments.filter(a => a.status !== 'sent')
 
-    // Also include active/past children whose parent isn't in our assignments (edge case)
-    const parentCampaignIds = new Set(parentAssignments.map(a => a.campaign?.id).filter(Boolean))
-    const orphanChildren = childAssignments.filter(a => !parentCampaignIds.has(a.campaign.parent_campaign_id))
+    const forYouCount = forYou.length + forYouChildren.length
+    const inProgressCount = inProgress.length + inProgressChildren.length
 
     if (campaignAssignments.length === 0) {
       return (
@@ -2454,33 +2436,47 @@ export default function CreatorDashboard() {
       )
     }
 
-    function renderWithChildren(a) {
-      const children = childrenByParent[a.campaign?.id] || []
+    function renderWithChildren(a, section) {
+      const children = (childrenByParent[a.campaign?.id] || []).filter(c => section === 'forYou' ? c.status === 'sent' : c.status !== 'sent')
       return (
-        <div key={assignment_key(a)}>
-          {renderCampaignCard(a, mobile)}
+        <div key={'cg-' + a.id}>
+          {renderCampaignCard(a, section)}
           {children.length > 0 && (
-            <div style={{ marginLeft: 20, borderLeft: '2px solid #e8e8e8', paddingLeft: 16, marginTop: -8, marginBottom: 16 }}>
-              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#999', marginBottom: 8 }}>Creative Invitations</div>
-              {children.map(c => renderCampaignCard(c, mobile))}
+            <div className="cd-campaign-inv-indent">
+              <div className="cd-campaign-inv-label">Creative Invitations</div>
+              {children.map(c => renderCampaignCard(c, section))}
             </div>
           )}
         </div>
       )
     }
 
-    function assignment_key(a) { return 'cg-' + a.id }
+    // Orphan children (parent not assigned to this creator)
+    const parentCampaignIds = new Set(parentAssignments.map(a => a.campaign?.id).filter(Boolean))
+    const orphanForYou = forYouChildren.filter(a => !parentCampaignIds.has(a.campaign.parent_campaign_id))
+    const orphanInProgress = inProgressChildren.filter(a => !parentCampaignIds.has(a.campaign.parent_campaign_id))
 
     return (
       <>
-        {active.map(a => renderWithChildren(a))}
-        {orphanChildren.filter(a => ['sent', 'confirmed'].includes(a.status)).map(a => renderCampaignCard(a, mobile))}
-        {past.length > 0 && (
-          <div style={{ marginTop: active.length ? 24 : 0 }}>
-            <div className="cd-campaign-section-label" onClick={() => setShowPastCampaigns(!showPastCampaigns)}>
-              Past Campaigns ({past.length}) {showPastCampaigns ? '▼' : '▶'}
+        {/* For You */}
+        {forYouCount > 0 && (
+          <div style={{ marginBottom: 32 }}>
+            <div className="cd-campaign-section-hdr">
+              For You <span className="cd-campaign-section-count">{forYouCount}</span> <span />
             </div>
-            {showPastCampaigns && past.map(a => renderWithChildren(a))}
+            {forYou.map(a => renderWithChildren(a, 'forYou'))}
+            {orphanForYou.map(a => renderCampaignCard(a, 'forYou'))}
+          </div>
+        )}
+
+        {/* In Progress */}
+        {inProgressCount > 0 && (
+          <div>
+            <div className="cd-campaign-section-hdr">
+              In Progress <span />
+            </div>
+            {inProgress.map(a => renderWithChildren(a, 'inProgress'))}
+            {orphanInProgress.map(a => renderCampaignCard(a, 'inProgress'))}
           </div>
         )}
       </>
