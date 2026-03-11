@@ -708,6 +708,10 @@ export default function CreatorDashboard() {
   const [contentSuccess, setContentSuccess] = useState(null) // null | { folderUrl }
   const [contentSubTab, setContentSubTab] = useState('submit') // 'submit' | 'history'
   const [notifOpen, setNotifOpen] = useState(false)
+  const [lastSeenNotif, setLastSeenNotif] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('nama_notif_seen') || '1970-01-01T00:00:00Z'
+    return '1970-01-01T00:00:00Z'
+  })
   const [submissions, setSubmissions] = useState([])
 
   const [copied, setCopied] = useState(false)
@@ -2447,6 +2451,52 @@ export default function CreatorDashboard() {
     )
   }
 
+  function getNotifications() {
+    const items = []
+    // Content submission reviews
+    submissions.forEach(s => {
+      if (s.status === 'approved' || s.status === 'revision_requested' || s.status === 'rejected') {
+        const [yr, mo] = (s.month || '').split('-')
+        const monthLabel = yr && mo ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString('en', { month: 'short', year: 'numeric' }) : s.month
+        const statusLabel = s.status === 'approved' ? 'Content Approved' : s.status === 'revision_requested' ? 'Revision Requested' : 'Content Rejected'
+        items.push({
+          id: 'sub-' + s.id,
+          title: statusLabel,
+          meta: monthLabel + ' submission',
+          feedback: s.admin_feedback || null,
+          tab: 'submit',
+          timestamp: s.reviewed_at || s.created_at || '1970-01-01T00:00:00Z',
+        })
+      }
+    })
+    // Campaign assignments
+    campaignAssignments.forEach(a => {
+      if (a.status === 'sent' || a.status === 'confirmed') {
+        items.push({
+          id: 'camp-' + a.id,
+          title: 'New Campaign Brief',
+          meta: a.campaign?.title || 'Campaign',
+          feedback: null,
+          tab: 'campaigns',
+          timestamp: a.sent_at || a.created_at || '1970-01-01T00:00:00Z',
+        })
+      }
+    })
+    items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    return items
+  }
+
+  function getUnseenCount(notifications) {
+    return notifications.filter(n => new Date(n.timestamp) > new Date(lastSeenNotif)).length
+  }
+
+  function handleOpenNotif() {
+    const now = new Date().toISOString()
+    setLastSeenNotif(now)
+    localStorage.setItem('nama_notif_seen', now)
+    setNotifOpen(!notifOpen)
+  }
+
   function getMonthOptions() {
     const options = []
     const now = new Date()
@@ -3008,33 +3058,29 @@ export default function CreatorDashboard() {
               </div>
 
               {(() => {
-                const reviewed = submissions.filter(s => s.status === 'approved' || s.status === 'revision_requested' || s.status === 'rejected')
+                const notifs = getNotifications()
+                const unseenCount = getUnseenCount(notifs)
                 return (
                   <div style={{ position: 'relative' }}>
-                    <button className="cd-notif-btn" onClick={() => setNotifOpen(!notifOpen)}>
+                    <button className="cd-notif-btn" onClick={handleOpenNotif}>
                       <span className="cd-notif-btn-label">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
                         Notifications
                       </span>
-                      {reviewed.length > 0 && <span className="cd-notif-badge">{reviewed.length}</span>}
+                      {unseenCount > 0 && <span className="cd-notif-badge">{unseenCount}</span>}
                     </button>
                     {notifOpen && (
                       <div className="cd-notif-dropdown">
-                        {reviewed.length === 0 ? (
+                        {notifs.length === 0 ? (
                           <div className="cd-notif-empty">No notifications</div>
                         ) : (
-                          reviewed.slice(0, 5).map(sub => {
-                            const [yr, mo] = (sub.month || '').split('-')
-                            const monthLabel = yr && mo ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString('en', { month: 'short', year: 'numeric' }) : sub.month
-                            const statusLabel = sub.status === 'approved' ? 'Content Approved' : sub.status === 'revision_requested' ? 'Revision Requested' : 'Content Rejected'
-                            return (
-                              <button key={sub.id} className="cd-notif-item" onClick={() => { setNotifOpen(false); setActiveTab('submit') }}>
-                                <div className="cd-notif-item-title">{statusLabel}</div>
-                                <div className="cd-notif-item-meta">{monthLabel} submission</div>
-                                {sub.admin_feedback && <div className="cd-notif-item-feedback">&ldquo;{sub.admin_feedback}&rdquo;</div>}
-                              </button>
-                            )
-                          })
+                          notifs.slice(0, 8).map(n => (
+                            <button key={n.id} className="cd-notif-item" onClick={() => { setNotifOpen(false); setActiveTab(n.tab) }}>
+                              <div className="cd-notif-item-title">{n.title}</div>
+                              <div className="cd-notif-item-meta">{n.meta}</div>
+                              {n.feedback && <div className="cd-notif-item-feedback">&ldquo;{n.feedback}&rdquo;</div>}
+                            </button>
+                          ))
                         )}
                       </div>
                     )}
@@ -3098,34 +3144,35 @@ export default function CreatorDashboard() {
               <img src="/nama-logo.svg" alt="Nama" className="cd-m-logo" />
               <div className="cd-m-logo-sub">Partners</div>
             </div>
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }} onClick={() => setNotifOpen(!notifOpen)}>
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#999" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
-                {submissions.filter(s => s.status === 'approved' || s.status === 'revision_requested' || s.status === 'rejected').length > 0 && (
-                  <span style={{ position: 'absolute', top: 0, right: 0, width: 8, height: 8, borderRadius: '50%', background: '#e74c3c' }} />
-                )}
-              </button>
-              {notifOpen && (
-                <div style={{ position: 'absolute', top: '100%', right: 0, width: 240, background: 'white', border: '1px solid #e8e8e8', borderRadius: 10, boxShadow: '0 4px 20px rgba(0,0,0,0.08)', zIndex: 50, maxHeight: 260, overflowY: 'auto', marginTop: 4 }}>
-                  {(() => {
-                    const reviewed = submissions.filter(s => s.status === 'approved' || s.status === 'revision_requested' || s.status === 'rejected')
-                    if (reviewed.length === 0) return <div style={{ padding: 16, textAlign: 'center', fontSize: 11, color: '#ccc' }}>No notifications</div>
-                    return reviewed.slice(0, 5).map(sub => {
-                      const [yr, mo] = (sub.month || '').split('-')
-                      const monthLabel = yr && mo ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString('en', { month: 'short', year: 'numeric' }) : sub.month
-                      const statusLabel = sub.status === 'approved' ? 'Content Approved' : sub.status === 'revision_requested' ? 'Revision Requested' : 'Content Rejected'
-                      return (
-                        <button key={sub.id} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f5f5f5', background: 'none', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }} onClick={() => { setNotifOpen(false); setActiveTab('submit') }}>
-                          <div style={{ fontSize: 11, fontWeight: 600, color: '#333' }}>{statusLabel}</div>
-                          <div style={{ fontSize: 10, color: '#999' }}>{monthLabel} submission</div>
-                          {sub.admin_feedback && <div style={{ fontSize: 10, color: '#666', marginTop: 3, fontStyle: 'italic' }}>&ldquo;{sub.admin_feedback}&rdquo;</div>}
-                        </button>
-                      )
-                    })
-                  })()}
+            {(() => {
+              const notifs = getNotifications()
+              const unseenCount = getUnseenCount(notifs)
+              return (
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }} onClick={handleOpenNotif}>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#999" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+                    {unseenCount > 0 && (
+                      <span style={{ position: 'absolute', top: 0, right: 0, width: 8, height: 8, borderRadius: '50%', background: '#e74c3c' }} />
+                    )}
+                  </button>
+                  {notifOpen && (
+                    <div style={{ position: 'absolute', top: '100%', right: 0, width: 240, background: 'white', border: '1px solid #e8e8e8', borderRadius: 10, boxShadow: '0 4px 20px rgba(0,0,0,0.08)', zIndex: 50, maxHeight: 260, overflowY: 'auto', marginTop: 4 }}>
+                      {notifs.length === 0 ? (
+                        <div style={{ padding: 16, textAlign: 'center', fontSize: 11, color: '#ccc' }}>No notifications</div>
+                      ) : (
+                        notifs.slice(0, 8).map(n => (
+                          <button key={n.id} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f5f5f5', background: 'none', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }} onClick={() => { setNotifOpen(false); setActiveTab(n.tab) }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: '#333' }}>{n.title}</div>
+                            <div style={{ fontSize: 10, color: '#999' }}>{n.meta}</div>
+                            {n.feedback && <div style={{ fontSize: 10, color: '#666', marginTop: 3, fontStyle: 'italic' }}>&ldquo;{n.feedback}&rdquo;</div>}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              )
+            })()}
           </div>
 
           <div className="cd-m-bottom-nav">
