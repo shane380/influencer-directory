@@ -179,6 +179,25 @@ const CSS = `
 .cd-resubmit-cancel { background: none; border: 1px solid #ccc; padding: 4px 14px; font-size: 12px; color: #666; cursor: pointer; }
 .cd-resubmit-cancel:hover { border-color: #999; color: #333; }
 
+/* CONTENT SPLIT LAYOUT (desktop) */
+.cd-card-content .cd-card-body { padding: 0; }
+.cd-content-split { display: flex; min-height: 400px; }
+.cd-content-left { flex: 1; padding: 0 36px 36px; }
+.cd-content-right { width: 340px; background: #fafafa; border-left: 1px solid #e8e8e8; display: flex; flex-direction: column; }
+.cd-content-right-eyebrow { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; padding: 24px 24px 16px; }
+.cd-content-right-scroll { flex: 1; overflow-y: auto; padding: 0 24px 24px; max-height: 600px; }
+.cd-form-row { display: flex; gap: 12px; margin-bottom: 0; }
+.cd-form-col { flex: 1; }
+.cd-hist-card { padding: 16px 0; border-bottom: 1px solid #eee; }
+.cd-hist-card:first-child { padding-top: 0; }
+.cd-hist-card:last-child { border-bottom: none; }
+.cd-hist-feedback { font-size: 11px; color: #a68307; background: #fefce8; border-left: 3px solid #e5d78e; padding: 8px 12px; margin-top: 8px; line-height: 1.5; }
+
+/* CONTENT MOBILE TABS */
+.cd-content-tabs { display: flex; border-bottom: 1px solid #e8e8e8; margin-bottom: 20px; }
+.cd-content-tab { flex: 1; text-align: center; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; padding: 10px 0; border: none; border-bottom: 2px solid transparent; background: none; color: #aaa; font-weight: 400; cursor: pointer; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+.cd-content-tab.active { color: #1a1a1a; font-weight: 600; border-bottom-color: #1a1a1a; }
+
 /* LIGHTBOX */
 .cd-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 9999; cursor: pointer; }
 .cd-lightbox img, .cd-lightbox video { max-width: 90vw; max-height: 90vh; object-fit: contain; cursor: default; }
@@ -687,6 +706,7 @@ export default function CreatorDashboard() {
   const [contentSubmitting, setContentSubmitting] = useState(false)
   const [contentProgress, setContentProgress] = useState(0)
   const [contentSuccess, setContentSuccess] = useState(null) // null | { folderUrl }
+  const [contentSubTab, setContentSubTab] = useState('submit') // 'submit' | 'history'
   const [notifOpen, setNotifOpen] = useState(false)
   const [submissions, setSubmissions] = useState([])
 
@@ -2453,9 +2473,11 @@ export default function CreatorDashboard() {
     return null
   }
 
-  function renderSubmitContent(mobile) {
+  function renderUploadForm(mobile) {
     const prefix = mobile ? 'cd-m-' : 'cd-'
     const monthOptions = getMonthOptions()
+    const confirmedAssignments = campaignAssignments.filter(a => a.status === 'confirmed' && a.campaign)
+    const showCampaign = confirmedAssignments.length > 0 || campaignContentTarget
 
     if (contentSuccess) {
       return (
@@ -2472,7 +2494,7 @@ export default function CreatorDashboard() {
 
     return (
       <>
-        {resubmitTarget ? (
+        {resubmitTarget && (
           <div className="cd-resubmit-banner">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
@@ -2487,40 +2509,35 @@ export default function CreatorDashboard() {
               </button>
             </div>
           </div>
-        ) : (
-          <div className="cd-upload-sub">Upload your videos or photos below. We&apos;ll review within 48 hours.</div>
         )}
 
-        {(() => {
-          const confirmedAssignments = campaignAssignments.filter(a => a.status === 'confirmed' && a.campaign)
-          if (confirmedAssignments.length > 0 || campaignContentTarget) {
-            return (
-              <>
-                <label className={mobile ? 'cd-m-field-label' : 'cd-field-label'}>Campaign</label>
-                <select
-                  className={mobile ? 'cd-m-field-input' : 'cd-field-input'}
-                  value={campaignContentTarget || ''}
-                  onChange={e => setCampaignContentTarget(e.target.value || null)}
-                  disabled={!!campaignContentTarget && campaignAssignments.find(a => a.id === campaignContentTarget)}
-                  style={{ marginBottom: 16 }}
-                >
-                  <option value="">Not campaign related</option>
-                  {confirmedAssignments.map(a => (
-                    <option key={a.id} value={a.id}>{a.campaign?.title || 'Campaign'}</option>
-                  ))}
-                </select>
-              </>
-            )
-          }
-          return null
-        })()}
+        {/* Campaign + Month side by side */}
+        <div className="cd-form-row">
+          {showCampaign && (
+            <div className="cd-form-col">
+              <label className={mobile ? 'cd-m-field-label' : 'cd-field-label'}>Campaign</label>
+              <select
+                className={mobile ? 'cd-m-field-input' : 'cd-field-input'}
+                value={campaignContentTarget || ''}
+                onChange={e => setCampaignContentTarget(e.target.value || null)}
+                disabled={!!campaignContentTarget && campaignAssignments.find(a => a.id === campaignContentTarget)}
+              >
+                <option value="">Not campaign related</option>
+                {confirmedAssignments.map(a => (
+                  <option key={a.id} value={a.id}>{a.campaign?.title || 'Campaign'}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="cd-form-col">
+            <label className={mobile ? 'cd-m-field-label' : 'cd-field-label'}>Month</label>
+            <select className={mobile ? 'cd-m-field-input' : 'cd-field-input'} value={contentMonth} onChange={e => setContentMonth(e.target.value)} disabled={!!resubmitTarget}>
+              {monthOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+        </div>
 
-        <label className={mobile ? 'cd-m-field-label' : 'cd-field-label'}>Month</label>
-        <select className={mobile ? 'cd-m-field-input' : 'cd-field-input'} value={contentMonth} onChange={e => setContentMonth(e.target.value)} disabled={!!resubmitTarget} style={{ marginBottom: 16 }}>
-          {monthOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-
-        <label className={mobile ? 'cd-m-field-label' : 'cd-field-label'}>Files</label>
+        <label className={mobile ? 'cd-m-field-label' : 'cd-field-label'} style={{ marginTop: 16 }}>Files</label>
         <div
           className="cd-dropzone"
           onDragOver={e => e.preventDefault()}
@@ -2589,74 +2606,113 @@ export default function CreatorDashboard() {
         >
           {contentSubmitting ? 'Uploading…' : resubmitTarget ? 'Resubmit Content →' : 'Submit Content →'}
         </button>
-
-        {submissions.length > 0 && (
-          <div style={{ marginTop: 32 }}>
-            <div className="cd-cart-label">Past Submissions</div>
-            {submissions.map(sub => {
-              const files = Array.isArray(sub.files) ? sub.files : []
-              const [yr, mo] = (sub.month || '').split('-')
-              const monthLabel = yr && mo ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString('en', { month: 'long', year: 'numeric' }) : sub.month
-              return (
-                <div key={sub.id} style={{ paddingBottom: 16, marginBottom: 16, borderBottom: '1px solid #f2f2f2' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                    <div>
-                      <div className="cd-past-text">{monthLabel}</div>
-                      <div className="cd-past-label">{files.length} file{files.length !== 1 ? 's' : ''}</div>
-                    </div>
-                    <span className={`cd-badge${getStatusBadgeClass(sub.status)}`}>
-                      {(sub.status || '').replace(/_/g, ' ')}
-                    </span>
-                  </div>
-                  {files.length > 0 && (
-                    <div className="cd-sub-previews">
-                      {files.map((file, fi) => {
-                        const isImage = file.mime_type?.startsWith('image/')
-                        const isVideo = file.mime_type?.startsWith('video/')
-                        const previewUrl = `/api/drive/preview/${file.drive_file_id}`
-                        return (
-                          <div key={fi} className="cd-sub-preview-wrap">
-                            {isImage ? (
-                              <img src={previewUrl} alt={file.name} className="cd-sub-preview-img" onClick={() => setLightboxFile(file)} />
-                            ) : isVideo ? (
-                              <video controls preload="metadata" src={previewUrl} className="cd-sub-preview-video" />
-                            ) : (
-                              <div style={{ width: 48, height: 48, background: '#f5f5f5', border: '1px solid #eee', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#ccc' }}>FILE</div>
-                            )}
-                            <div className="cd-sub-preview-name">{file.name}</div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                  {sub.notes && <div className="cd-past-notes">{sub.notes}</div>}
-                  {sub.admin_feedback && (
-                    <div style={{ fontSize: 11, color: sub.status === 'revision_requested' ? '#a68307' : sub.status === 'rejected' ? '#c62828' : '#2e7d32', marginTop: 3 }}>
-                      Feedback: {sub.admin_feedback}
-                    </div>
-                  )}
-                  {sub.status === 'revision_requested' && (
-                    <button
-                      className="cd-resubmit-btn"
-                      onClick={() => {
-                        setResubmitTarget(sub.id)
-                        setContentMonth(sub.month)
-                        setCampaignContentTarget(sub.campaign_assignment_id || null)
-                        setContentFiles([])
-                        setContentNotes('')
-                        setContentSuccess(null)
-                        window.scrollTo({ top: 0, behavior: 'smooth' })
-                      }}
-                    >
-                      Resubmit Content →
-                    </button>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
       </>
+    )
+  }
+
+  function renderSubmissionHistory(mobile) {
+    if (submissions.length === 0) {
+      return (
+        <div style={{ textAlign: 'center', padding: '40px 0', color: '#aaa', fontSize: 13 }}>
+          No submissions yet
+        </div>
+      )
+    }
+
+    return submissions.map(sub => {
+      const files = Array.isArray(sub.files) ? sub.files : []
+      const [yr, mo] = (sub.month || '').split('-')
+      const monthLabel = yr && mo ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString('en', { month: 'long', year: 'numeric' }) : sub.month
+      const statusLabel = sub.status === 'pending' ? 'in review' : (sub.status || '').replace(/_/g, ' ')
+      return (
+        <div key={sub.id} className="cd-hist-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+            <div>
+              <div className="cd-past-text">{monthLabel}</div>
+              <div className="cd-past-label">{files.length} file{files.length !== 1 ? 's' : ''}</div>
+            </div>
+            <span className={`cd-badge${getStatusBadgeClass(sub.status)}`}>
+              {statusLabel}
+            </span>
+          </div>
+          {files.length > 0 && (
+            <div className="cd-sub-previews">
+              {files.map((file, fi) => {
+                const isImage = file.mime_type?.startsWith('image/')
+                const isVideo = file.mime_type?.startsWith('video/')
+                const previewUrl = `/api/drive/preview/${file.drive_file_id}`
+                return (
+                  <div key={fi} className="cd-sub-preview-wrap">
+                    {isImage ? (
+                      <img src={previewUrl} alt={file.name} className="cd-sub-preview-img" onClick={() => setLightboxFile(file)} />
+                    ) : isVideo ? (
+                      <video controls preload="metadata" src={previewUrl} className="cd-sub-preview-video" />
+                    ) : (
+                      <div style={{ width: 48, height: 48, background: '#f5f5f5', border: '1px solid #eee', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#ccc' }}>FILE</div>
+                    )}
+                    <div className="cd-sub-preview-name">{file.name}</div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {sub.notes && <div className="cd-past-notes">{sub.notes}</div>}
+          {sub.admin_feedback && (
+            <div className="cd-hist-feedback">
+              Feedback: {sub.admin_feedback}
+            </div>
+          )}
+          {sub.status === 'revision_requested' && (
+            <button
+              className="cd-resubmit-btn"
+              onClick={() => {
+                setResubmitTarget(sub.id)
+                setContentMonth(sub.month)
+                setCampaignContentTarget(sub.campaign_assignment_id || null)
+                setContentFiles([])
+                setContentNotes('')
+                setContentSuccess(null)
+                if (mobile) setContentSubTab('submit')
+              }}
+            >
+              Resubmit Content →
+            </button>
+          )}
+        </div>
+      )
+    })
+  }
+
+  function renderSubmitContent(mobile) {
+    if (mobile) {
+      return (
+        <>
+          <div className="cd-content-tabs">
+            <button className={`cd-content-tab${contentSubTab === 'submit' ? ' active' : ''}`} onClick={() => setContentSubTab('submit')}>Submit</button>
+            <button className={`cd-content-tab${contentSubTab === 'history' ? ' active' : ''}`} onClick={() => setContentSubTab('history')}>Past Submissions</button>
+          </div>
+          {contentSubTab === 'submit' ? (
+            <div style={{ padding: '0' }}>{renderUploadForm(true)}</div>
+          ) : (
+            <div>{renderSubmissionHistory(true)}</div>
+          )}
+        </>
+      )
+    }
+
+    // Desktop: side-by-side split
+    return (
+      <div className="cd-content-split">
+        <div className="cd-content-left">
+          {renderUploadForm(false)}
+        </div>
+        <div className="cd-content-right">
+          <div className="cd-content-right-eyebrow">Past Submissions</div>
+          <div className="cd-content-right-scroll">
+            {renderSubmissionHistory(false)}
+          </div>
+        </div>
+      </div>
     )
   }
 
@@ -2897,16 +2953,15 @@ export default function CreatorDashboard() {
     }
 
     return (
-      <div className="cd-card">
+      <div className="cd-card cd-card-content">
         <div className="cd-card-head">
           <div>
             <div className="cd-card-eyebrow">Monthly Delivery</div>
             <div className="cd-card-title">Submit Content</div>
+            <div className="cd-upload-sub" style={{ marginTop: 8 }}>Upload your videos or photos below. We&apos;ll review within 48 hours.</div>
           </div>
         </div>
-        <div className="cd-card-body">
-          {renderSubmitContent(false)}
-        </div>
+        {renderSubmitContent(false)}
       </div>
     )
   }
