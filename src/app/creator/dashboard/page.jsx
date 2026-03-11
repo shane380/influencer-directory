@@ -95,7 +95,8 @@ const CSS = `
 
 /* SIDENAV */
 .cd-sidenav { flex: 1; }
-.cd-nav-item { display: flex; align-items: center; justify-content: space-between; padding: 14px 32px; border-bottom: 1px solid #e8e8e8; cursor: pointer; transition: background 0.12s; background: none; width: 100%; text-align: left; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+.cd-nav-item { display: flex; align-items: center; justify-content: space-between; padding: 14px 32px; border-bottom: 1px solid #e8e8e8; cursor: pointer; transition: background 0.12s; background: none; width: 100%; text-align: left; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; position: relative; }
+.cd-nav-badge { min-width: 16px; height: 16px; border-radius: 8px; background: #ef4444; color: #fff; font-size: 9px; font-weight: 600; display: flex; align-items: center; justify-content: center; padding: 0 4px; line-height: 1; margin-right: 8px; }
 .cd-nav-item:hover { background: #f5f5f5; }
 .cd-nav-item.active { background: #f5f5f5; }
 .cd-nav-label { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: #aaa; }
@@ -651,7 +652,8 @@ const CSS = `
 @media (max-width: 768px) {
   .cd-m-tabbar { display: flex; position: fixed; bottom: 0; left: 0; right: 0; height: 68px; background: #fff; border-top: 1px solid #e8e8e8; z-index: 50; padding-top: 10px; }
 }
-.cd-m-tabbar-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; background: none; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 0; }
+.cd-m-tabbar-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; background: none; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 0; position: relative; }
+.cd-m-tabbar-badge { position: absolute; top: -4px; right: 50%; margin-right: -16px; min-width: 16px; height: 16px; border-radius: 8px; background: #ef4444; color: #fff; font-size: 9px; font-weight: 600; display: flex; align-items: center; justify-content: center; padding: 0 4px; line-height: 1; }
 .cd-m-tabbar-icon svg { width: 22px; height: 22px; stroke: #ccc; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .cd-m-tabbar-item.active .cd-m-tabbar-icon svg { stroke: #111; }
 .cd-m-tabbar-label { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: #aaa; }
@@ -3078,17 +3080,27 @@ export default function CreatorDashboard() {
               </div>
 
               <div className="cd-sidenav">
-                {TABS.map((tab, i) => (
-                  <button
-                    key={tab}
-                    className={`cd-nav-item${activeTab === tab ? ' active' : ''}`}
-                    style={i === TABS.length - 1 ? { borderBottom: 'none' } : undefined}
-                    onClick={() => setActiveTab(tab)}
-                  >
-                    <span className="cd-nav-label">{TAB_LABELS[tab]}</span>
-                    <span className="cd-nav-arrow">→</span>
-                  </button>
-                ))}
+                {TABS.map((tab, i) => {
+                  let badgeCount = 0
+                  if (tab === 'campaigns') {
+                    const campNotifs = getNotifications().filter(n => n.tab === 'campaigns')
+                    badgeCount = campNotifs.filter(n => new Date(n.timestamp) > new Date(lastSeenNotif)).length
+                  }
+                  return (
+                    <button
+                      key={tab}
+                      className={`cd-nav-item${activeTab === tab ? ' active' : ''}`}
+                      style={i === TABS.length - 1 ? { borderBottom: 'none' } : undefined}
+                      onClick={() => setActiveTab(tab)}
+                    >
+                      <span className="cd-nav-label">{TAB_LABELS[tab]}</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        {badgeCount > 0 && <span className="cd-nav-badge">{badgeCount}</span>}
+                        <span className="cd-nav-arrow">→</span>
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
 
               {(() => {
@@ -3339,6 +3351,11 @@ export default function CreatorDashboard() {
               <div className="cd-m-tabbar-label">Stats</div>
             </button>
             <button className={`cd-m-tabbar-item${activeTab === 'campaigns' ? ' active' : ''}`} onClick={() => setActiveTab('campaigns')}>
+              {(() => {
+                const campNotifs = getNotifications().filter(n => n.tab === 'campaigns')
+                const unseenCamp = campNotifs.filter(n => new Date(n.timestamp) > new Date(lastSeenNotif)).length
+                return unseenCamp > 0 ? <div className="cd-m-tabbar-badge">{unseenCamp}</div> : null
+              })()}
               <div className="cd-m-tabbar-icon"><svg viewBox="0 0 24 24"><path d="M4 15V9l8-4v14l-8-4z" /><path d="M12 7l5-2v14l-5-2" /><line x1="20" y1="10" x2="22" y2="9" /><line x1="20" y1="12" x2="22" y2="12" /><line x1="20" y1="14" x2="22" y2="15" /></svg></div>
               <div className="cd-m-tabbar-label">Campaigns</div>
             </button>
