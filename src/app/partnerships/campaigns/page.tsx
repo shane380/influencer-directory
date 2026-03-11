@@ -103,6 +103,9 @@ export default function CampaignsPage() {
   // Creative Invitation modal
   const [showInvitationModal, setShowInvitationModal] = useState(false);
   const [invitationParentId, setInvitationParentId] = useState<string>("");
+  const [invProductTab, setInvProductTab] = useState<"wardrobe" | "new">("wardrobe");
+  const [wardrobeItems, setWardrobeItems] = useState<Product[]>([]);
+  const [wardrobeLoading, setWardrobeLoading] = useState(false);
 
   // Detail view
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
@@ -194,15 +197,49 @@ export default function CampaignsPage() {
 
   function toggleCreator(c: Creator) {
     const exists = selectedCreators.find(sc => sc.creator_id === c.id);
+    let next: typeof selectedCreators;
     if (exists) {
-      setSelectedCreators(prev => prev.filter(sc => sc.creator_id !== c.id));
+      next = selectedCreators.filter(sc => sc.creator_id !== c.id);
     } else {
-      setSelectedCreators(prev => [...prev, {
+      next = [...selectedCreators, {
         creator_id: c.id,
         influencer_id: c.influencer?.id || null,
         name: c.creator_name,
-      }]);
+      }];
     }
+    setSelectedCreators(next);
+    if (showInvitationModal) fetchWardrobeForCreators(next);
+  }
+
+  async function fetchWardrobeForCreators(creatorList: { influencer_id: string | null; creator_id: string | null; name: string }[]) {
+    const influencerIds = creatorList.map(c => c.influencer_id).filter(Boolean) as string[];
+    if (influencerIds.length === 0) { setWardrobeItems([]); return; }
+    setWardrobeLoading(true);
+    try {
+      const { data: orders } = await (supabase
+        .from("influencer_orders") as any)
+        .select("line_items")
+        .in("influencer_id", influencerIds);
+      const seen = new Set<string>();
+      const items: Product[] = [];
+      for (const order of orders || []) {
+        for (const li of order.line_items || []) {
+          const key = `${li.product_name}||${li.variant_title || ""}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          items.push({
+            variant_id: `wardrobe-${seen.size}`,
+            product_title: li.product_name,
+            variant_title: li.variant_title || undefined,
+            image_url: li.image_url || undefined,
+          });
+        }
+      }
+      setWardrobeItems(items);
+    } catch {
+      setWardrobeItems([]);
+    }
+    setWardrobeLoading(false);
   }
 
   function openCreateModal() {
@@ -224,6 +261,8 @@ export default function CampaignsPage() {
     setBriefImages([]);
     setAvailableProducts([]);
     setSelectedCreators([]);
+    setWardrobeItems([]);
+    setInvProductTab("wardrobe");
     setShowInvitationModal(true);
     setShowModal(false);
     fetchCreators();
@@ -450,49 +489,103 @@ export default function CampaignsPage() {
 
             {/* Products */}
             <div>
-              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Available Products</label>
-              <div className="flex gap-2 mb-2">
-                <input
-                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                  value={productQuery}
-                  onChange={e => setProductQuery(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && searchProducts()}
-                  placeholder="Search Shopify products..."
-                />
+              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Available Products</label>
+              <div className="flex gap-1 mb-3">
                 <button
-                  onClick={searchProducts}
-                  disabled={searchingProducts}
-                  className="px-3 py-2 bg-gray-100 rounded-lg text-sm hover:bg-gray-200"
+                  className={`px-3 py-1 text-xs rounded-full border ${invProductTab === "wardrobe" ? "bg-gray-900 text-white border-gray-900" : "border-gray-200 text-gray-600"}`}
+                  onClick={() => setInvProductTab("wardrobe")}
                 >
-                  {searchingProducts ? "..." : "Search"}
+                  From Wardrobe
+                </button>
+                <button
+                  className={`px-3 py-1 text-xs rounded-full border ${invProductTab === "new" ? "bg-gray-900 text-white border-gray-900" : "border-gray-200 text-gray-600"}`}
+                  onClick={() => setInvProductTab("new")}
+                >
+                  Send New Items
                 </button>
               </div>
 
-              {productResults.length > 0 && (
-                <div className="border border-gray-200 rounded-lg max-h-40 overflow-y-auto mb-2">
-                  {productResults.map(p => (
-                    <div
-                      key={p.variant_id}
-                      className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-b-0"
-                      onClick={() => addProduct(p)}
-                    >
-                      {p.image && <img src={p.image} alt="" className="w-8 h-8 object-cover rounded" />}
-                      <span className="text-xs flex-1">{p.title}{p.variant_title ? ` — ${p.variant_title}` : ""}</span>
-                      <span className="text-xs text-gray-400">{p.sku}</span>
+              {invProductTab === "wardrobe" && (
+                <div>
+                  {selectedCreators.length === 0 ? (
+                    <div className="text-xs text-gray-400 py-3 text-center border border-dashed border-gray-200 rounded-lg">Select partners below to see their wardrobe items</div>
+                  ) : wardrobeLoading ? (
+                    <div className="text-xs text-gray-400 py-3 text-center">Loading wardrobe...</div>
+                  ) : wardrobeItems.length === 0 ? (
+                    <div className="text-xs text-gray-400 py-3 text-center border border-dashed border-gray-200 rounded-lg">No wardrobe items found for selected partners</div>
+                  ) : (
+                    <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
+                      {wardrobeItems.map(w => {
+                        const alreadyAdded = availableProducts.find(ap => ap.product_title === w.product_title && (ap.variant_title || "") === (w.variant_title || ""));
+                        return (
+                          <div
+                            key={w.variant_id}
+                            className={`flex items-center gap-2 px-3 py-2 border-b border-gray-50 last:border-b-0 ${alreadyAdded ? "opacity-50 cursor-default" : "hover:bg-gray-50 cursor-pointer"}`}
+                            onClick={() => {
+                              if (alreadyAdded) return;
+                              setAvailableProducts(prev => [...prev, { ...w, variant_id: `wardrobe-${Date.now()}-${Math.random().toString(36).slice(2)}` }]);
+                            }}
+                          >
+                            {w.image_url ? <img src={w.image_url} alt="" className="w-8 h-8 object-cover rounded" /> : <div className="w-8 h-8 bg-gray-100 rounded" />}
+                            <span className="text-xs flex-1">{w.product_title}{w.variant_title ? ` — ${w.variant_title}` : ""}</span>
+                            {alreadyAdded ? <span className="text-xs text-green-600">Added</span> : <span className="text-xs text-gray-400">+ Add</span>}
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
+                  )}
+                </div>
+              )}
+
+              {invProductTab === "new" && (
+                <div>
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                      value={productQuery}
+                      onChange={e => setProductQuery(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && searchProducts()}
+                      placeholder="Search Shopify products..."
+                    />
+                    <button
+                      onClick={searchProducts}
+                      disabled={searchingProducts}
+                      className="px-3 py-2 bg-gray-100 rounded-lg text-sm hover:bg-gray-200"
+                    >
+                      {searchingProducts ? "..." : "Search"}
+                    </button>
+                  </div>
+
+                  {productResults.length > 0 && (
+                    <div className="border border-gray-200 rounded-lg max-h-40 overflow-y-auto mb-2">
+                      {productResults.map(p => (
+                        <div
+                          key={p.variant_id}
+                          className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-b-0"
+                          onClick={() => addProduct(p)}
+                        >
+                          {p.image && <img src={p.image} alt="" className="w-8 h-8 object-cover rounded" />}
+                          <span className="text-xs flex-1">{p.title}{p.variant_title ? ` — ${p.variant_title}` : ""}</span>
+                          <span className="text-xs text-gray-400">{p.sku}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
               {availableProducts.length > 0 && (
-                <div className="flex gap-2 flex-wrap">
-                  {availableProducts.map(p => (
-                    <div key={p.variant_id} className="flex items-center gap-1 bg-gray-100 rounded px-2 py-1 text-xs">
-                      {p.image_url && <img src={p.image_url} alt="" className="w-5 h-5 object-cover rounded" />}
-                      {p.product_title}{p.variant_title ? ` — ${p.variant_title}` : ""}
-                      <button onClick={() => removeProduct(p.variant_id)} className="ml-1 text-gray-400 hover:text-gray-600">×</button>
-                    </div>
-                  ))}
+                <div className="mt-2">
+                  <div className="text-xs text-gray-500 mb-1">Selected ({availableProducts.length})</div>
+                  <div className="flex gap-2 flex-wrap">
+                    {availableProducts.map(p => (
+                      <div key={p.variant_id} className="flex items-center gap-1 bg-gray-100 rounded px-2 py-1 text-xs">
+                        {p.image_url && <img src={p.image_url} alt="" className="w-5 h-5 object-cover rounded" />}
+                        {p.product_title}{p.variant_title ? ` — ${p.variant_title}` : ""}
+                        <button onClick={() => removeProduct(p.variant_id)} className="ml-1 text-gray-400 hover:text-gray-600">×</button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
