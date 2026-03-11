@@ -17,6 +17,7 @@ import {
   HelpCircle,
   LogOut,
   Bell,
+  Settings,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -440,16 +441,28 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                 Account Settings
               </button>
               {currentUser.isAdmin && (
-                <button
-                  onClick={() => {
-                    setUserMenuOpen(false);
-                    router.push("/admin/users");
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  <Users className="h-4 w-4 text-gray-400" />
-                  Manage Users
-                </button>
+                <>
+                  <button
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      router.push("/admin/users");
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <Users className="h-4 w-4 text-gray-400" />
+                    Manage Users
+                  </button>
+                  <button
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      router.push("/admin/settings");
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <Settings className="h-4 w-4 text-gray-400" />
+                    App Settings
+                  </button>
+                </>
               )}
               <button
                 onClick={() => {
