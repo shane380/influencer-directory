@@ -280,7 +280,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                             : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
                         }`}
                       >
-                        Creators
+                        Partners
                       </button>
                     </li>
                     <li>

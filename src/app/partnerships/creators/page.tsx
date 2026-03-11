@@ -395,13 +395,13 @@ export default function CreatorsListPage() {
           ) : creators.length > 0 ? (
             <>
             {pendingInvites.length > 0 && (
-              <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">Active Creators</h2>
+              <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">Active Partners</h2>
             )}
             <div className="bg-white border rounded-lg overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-gray-50">
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Creator</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Partner</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Commission</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Affiliate Code</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Pending Requests</th>
@@ -471,7 +471,7 @@ export default function CreatorsListPage() {
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
                             className="text-gray-400 hover:text-gray-600 transition-colors"
-                            title="View Creator Profile"
+                            title="View Partner Profile"
                           >
                             <ExternalLink className="h-4 w-4" />
                           </a>
@@ -529,7 +529,7 @@ export default function CreatorsListPage() {
           <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b">
               <h2 className="text-lg font-semibold text-gray-900">
-                {generatedUrl ? "Invite Created" : "Generate Creator Invite"}
+                {generatedUrl ? "Invite Created" : "Generate Partner Invite"}
               </h2>
               <button onClick={resetModal} className="text-gray-400 hover:text-gray-600">
                 <X className="h-5 w-5" />
@@ -637,7 +637,7 @@ export default function CreatorsListPage() {
 
                   {/* Form fields */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Creator Name</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Partner Name</label>
                     <input
                       type="text"
                       value={inviteForm.creatorName}
@@ -734,7 +734,7 @@ export default function CreatorsListPage() {
                     </select>
 
                     {dealType === "none" && (
-                      <div className="text-xs text-gray-400 mb-3">Creator will be sent straight to account creation — no deal terms, no commission link.</div>
+                      <div className="text-xs text-gray-400 mb-3">Partner will be sent straight to account creation — no deal terms, no commission link.</div>
                     )}
 
                     {dealType === "affiliate" && (
@@ -788,7 +788,7 @@ export default function CreatorsListPage() {
                         />
                         <span className="text-sm text-gray-700 font-medium">Offer two deal options</span>
                       </label>
-                      <p className="text-xs text-gray-400 mt-1">Creator can choose between two deal structures</p>
+                      <p className="text-xs text-gray-400 mt-1">Partner can choose between two deal structures</p>
                     </div>}
 
                     {dealType !== "none" && offerChoice && (

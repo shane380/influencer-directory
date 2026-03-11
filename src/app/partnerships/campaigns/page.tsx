@@ -365,7 +365,7 @@ export default function CampaignsPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="text-left px-4 py-2 font-medium text-gray-600">Creator</th>
+                    <th className="text-left px-4 py-2 font-medium text-gray-600">Partner</th>
                     <th className="text-left px-4 py-2 font-medium text-gray-600">Status</th>
                     <th className="text-left px-4 py-2 font-medium text-gray-600">Selected</th>
                     <th className="text-left px-4 py-2 font-medium text-gray-600">Order</th>
@@ -462,7 +462,7 @@ export default function CampaignsPage() {
       <div className="flex-1 ml-48 overflow-y-auto p-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-semibold">Creator Campaigns</h1>
+            <h1 className="text-2xl font-semibold">Partner Campaigns</h1>
             <p className="text-sm text-gray-500 mt-1">Send briefs, manage product selects, and track content delivery.</p>
           </div>
           <button
