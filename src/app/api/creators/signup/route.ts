@@ -125,7 +125,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
-  // Create auth user
+  // Create auth user — or reuse existing one (e.g. team member also becoming a partner)
+  let userId: string;
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
     email,
     password,
@@ -134,10 +135,26 @@ export async function POST(request: NextRequest) {
   });
 
   if (authError) {
-    return NextResponse.json({ error: authError.message }, { status: 400 });
+    // If user already exists, look them up and add creator role
+    if (authError.message?.toLowerCase().includes('already') || authError.message?.toLowerCase().includes('exists')) {
+      const { data: listData } = await supabase.auth.admin.listUsers();
+      const existingUser = listData?.users?.find((u: { email?: string }) => u.email === email);
+      if (!existingUser) {
+        return NextResponse.json({ error: 'Could not find existing user' }, { status: 400 });
+      }
+      userId = existingUser.id;
+      // Update metadata to include creator role alongside existing role
+      const existingMeta = existingUser.user_metadata || {};
+      await supabase.auth.admin.updateUserById(userId, {
+        password,
+        user_metadata: { ...existingMeta, full_name: existingMeta.full_name || creatorName, creator_role: true },
+      });
+    } else {
+      return NextResponse.json({ error: authError.message }, { status: 400 });
+    }
+  } else {
+    userId = authData.user.id;
   }
-
-  const userId = authData.user.id;
 
   // Generate affiliate code
   const affiliateCode = creatorName
