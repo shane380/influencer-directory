@@ -24,11 +24,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ assignments: data || [] });
   }
 
+  // Filter by parent if specified
+  const parentCampaignId = request.nextUrl.searchParams.get("parent_campaign_id");
+
   // Admin view: all campaigns with assignment counts
-  const { data: campaigns, error } = await supabase
+  let query = supabase
     .from("creator_campaigns")
     .select("*")
     .order("created_at", { ascending: false });
+
+  if (parentCampaignId) {
+    query = query.eq("parent_campaign_id", parentCampaignId);
+  }
+
+  const { data: campaigns, error } = await query;
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -77,6 +86,7 @@ export async function POST(request: NextRequest) {
     campaign_type,
     status,
     created_by,
+    parent_campaign_id,
     assignments, // array of { influencer_id, creator_id }
   } = body;
 
@@ -84,20 +94,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Title required" }, { status: 400 });
   }
 
+  const insertData: Record<string, unknown> = {
+    title,
+    description: description || null,
+    brief_url: brief_url || null,
+    brief_images: brief_images || [],
+    due_date: due_date || null,
+    available_products: available_products || [],
+    max_selects: max_selects || 2,
+    campaign_type: campaign_type || "mass",
+    status: status || "draft",
+    created_by: created_by || null,
+  };
+  if (parent_campaign_id) {
+    insertData.parent_campaign_id = parent_campaign_id;
+  }
+
   const { data: campaign, error } = await supabase
     .from("creator_campaigns")
-    .insert({
-      title,
-      description: description || null,
-      brief_url: brief_url || null,
-      brief_images: brief_images || [],
-      due_date: due_date || null,
-      available_products: available_products || [],
-      max_selects: max_selects || 2,
-      campaign_type: campaign_type || "mass",
-      status: status || "draft",
-      created_by: created_by || null,
-    })
+    .insert(insertData)
     .select()
     .single();
 
