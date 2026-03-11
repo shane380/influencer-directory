@@ -2312,7 +2312,7 @@ export default function CreatorDashboard() {
     return (
       <div key={assignment.id} className="cd-campaign-card">
         <div className="cd-campaign-head">
-          <div className="cd-campaign-eyebrow">Campaign</div>
+          <div className="cd-campaign-eyebrow">{campaign.parent_campaign_id ? 'Creative Invitation' : 'Campaign'}</div>
           <div className="cd-campaign-title">{campaign.title}</div>
           {dueDate && <div className="cd-campaign-due">Due {dueDate}</div>}
           <span className={`cd-campaign-status ${statusInfo.cls}`}>{statusInfo.label}</span>
@@ -2424,8 +2424,24 @@ export default function CreatorDashboard() {
   }
 
   function renderCampaigns(mobile) {
-    const active = campaignAssignments.filter(a => ['sent', 'confirmed'].includes(a.status))
-    const past = campaignAssignments.filter(a => ['content_submitted', 'complete', 'declined'].includes(a.status))
+    // Separate parent campaigns from creative invitations
+    const parentAssignments = campaignAssignments.filter(a => !a.campaign?.parent_campaign_id)
+    const childAssignments = campaignAssignments.filter(a => a.campaign?.parent_campaign_id)
+
+    // Group children by parent campaign id
+    const childrenByParent = {}
+    childAssignments.forEach(a => {
+      const pid = a.campaign.parent_campaign_id
+      if (!childrenByParent[pid]) childrenByParent[pid] = []
+      childrenByParent[pid].push(a)
+    })
+
+    const active = parentAssignments.filter(a => ['sent', 'confirmed'].includes(a.status))
+    const past = parentAssignments.filter(a => ['content_submitted', 'complete', 'declined'].includes(a.status))
+
+    // Also include active/past children whose parent isn't in our assignments (edge case)
+    const parentCampaignIds = new Set(parentAssignments.map(a => a.campaign?.id).filter(Boolean))
+    const orphanChildren = childAssignments.filter(a => !parentCampaignIds.has(a.campaign.parent_campaign_id))
 
     if (campaignAssignments.length === 0) {
       return (
@@ -2436,15 +2452,33 @@ export default function CreatorDashboard() {
       )
     }
 
+    function renderWithChildren(a) {
+      const children = childrenByParent[a.campaign?.id] || []
+      return (
+        <div key={assignment_key(a)}>
+          {renderCampaignCard(a, mobile)}
+          {children.length > 0 && (
+            <div style={{ marginLeft: 20, borderLeft: '2px solid #e8e8e8', paddingLeft: 16, marginTop: -8, marginBottom: 16 }}>
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#999', marginBottom: 8 }}>Creative Invitations</div>
+              {children.map(c => renderCampaignCard(c, mobile))}
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    function assignment_key(a) { return 'cg-' + a.id }
+
     return (
       <>
-        {active.map(a => renderCampaignCard(a, mobile))}
+        {active.map(a => renderWithChildren(a))}
+        {orphanChildren.filter(a => ['sent', 'confirmed'].includes(a.status)).map(a => renderCampaignCard(a, mobile))}
         {past.length > 0 && (
           <div style={{ marginTop: active.length ? 24 : 0 }}>
             <div className="cd-campaign-section-label" onClick={() => setShowPastCampaigns(!showPastCampaigns)}>
               Past Campaigns ({past.length}) {showPastCampaigns ? '▼' : '▶'}
             </div>
-            {showPastCampaigns && past.map(a => renderCampaignCard(a, mobile))}
+            {showPastCampaigns && past.map(a => renderWithChildren(a))}
           </div>
         )}
       </>
