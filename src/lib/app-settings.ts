@@ -8,15 +8,15 @@ export async function isEmailTriggerEnabled(key: string): Promise<boolean> {
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
-    const { data } = await supabase
-      .from("app_settings")
-      .select("email_triggers")
-      .eq("id", "default")
+    const { data } = await (supabase.from("app_settings") as any)
+      .select("value")
+      .eq("key", "email_triggers")
       .single();
 
-    if (!data?.email_triggers) return true; // Default to enabled if no settings
-    return data.email_triggers[key] !== false;
+    if (!data?.value) return true;
+    const triggers = typeof data.value === "string" ? JSON.parse(data.value) : data.value;
+    return triggers[key] !== false;
   } catch {
-    return true; // Default to enabled on error
+    return true;
   }
 }

@@ -23,26 +23,30 @@ function getAdminClient() {
   );
 }
 
+const DEFAULT_TRIGGERS = {
+  campaign_assigned: true,
+  content_approved: true,
+  revision_requested: true,
+  partner_invite: false,
+};
+
 // GET: Fetch app settings
 export async function GET() {
   const admin = await verifyAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
   const supabase = getAdminClient();
-  const { data } = await supabase
-    .from("app_settings")
-    .select("email_triggers")
-    .eq("id", "default")
+  const { data } = await (supabase.from("app_settings") as any)
+    .select("value")
+    .eq("key", "email_triggers")
     .single();
 
-  return NextResponse.json({
-    email_triggers: data?.email_triggers || {
-      campaign_assigned: true,
-      content_approved: true,
-      revision_requested: true,
-      partner_invite: false,
-    },
-  });
+  let triggers = DEFAULT_TRIGGERS;
+  if (data?.value) {
+    triggers = typeof data.value === "string" ? JSON.parse(data.value) : data.value;
+  }
+
+  return NextResponse.json({ email_triggers: triggers });
 }
 
 // PATCH: Update app settings
@@ -58,19 +62,19 @@ export async function PATCH(request: NextRequest) {
   }
 
   const supabase = getAdminClient();
-  const { data, error } = await supabase
-    .from("app_settings")
-    .update({
-      email_triggers,
+  const { data, error } = await (supabase.from("app_settings") as any)
+    .upsert({
+      key: "email_triggers",
+      value: JSON.stringify(email_triggers),
       updated_at: new Date().toISOString(),
-    })
-    .eq("id", "default")
-    .select("email_triggers")
+    }, { onConflict: "key" })
+    .select("value")
     .single();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ email_triggers: data.email_triggers });
+  const result = typeof data.value === "string" ? JSON.parse(data.value) : data.value;
+  return NextResponse.json({ email_triggers: result });
 }
