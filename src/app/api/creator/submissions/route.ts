@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email";
 import { contentStatusEmail } from "@/lib/email-templates";
+import { isEmailTriggerEnabled } from "@/lib/app-settings";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -69,6 +70,11 @@ export async function PATCH(request: NextRequest) {
   if (data && (status === "approved" || status === "revision_requested")) {
     (async () => {
       try {
+        // Check if this trigger is enabled in app settings
+        const triggerKey = status === "approved" ? "content_approved" : "revision_requested";
+        const enabled = await isEmailTriggerEnabled(triggerKey);
+        if (!enabled) return;
+
         // Look up the creator and campaign info for this submission
         const creatorId = data.creator_id;
         if (!creatorId) return;

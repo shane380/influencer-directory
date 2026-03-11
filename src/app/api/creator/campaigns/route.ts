@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email";
 import { campaignAssignedEmail } from "@/lib/email-templates";
+import { isEmailTriggerEnabled } from "@/lib/app-settings";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -130,6 +131,8 @@ export async function POST(request: NextRequest) {
       if (creatorIds.length > 0) {
         (async () => {
           try {
+            const enabled = await isEmailTriggerEnabled("campaign_assigned");
+            if (!enabled) return;
             const { data: creators } = await supabase
               .from("creators")
               .select("id, creator_name, email, notification_preferences")
@@ -188,6 +191,8 @@ export async function PATCH(request: NextRequest) {
       if (creatorIds.length > 0) {
         (async () => {
           try {
+            const enabled = await isEmailTriggerEnabled("campaign_assigned");
+            if (!enabled) return;
             const { data: creators } = await supabase
               .from("creators")
               .select("id, creator_name, email, notification_preferences")
