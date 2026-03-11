@@ -3336,7 +3336,7 @@ export default function CreatorDashboard() {
           <div className="cd-m-tabbar">
             <button className={`cd-m-tabbar-item${activeTab === 'ads' ? ' active' : ''}`} onClick={() => setActiveTab('ads')}>
               <div className="cd-m-tabbar-icon"><svg viewBox="0 0 24 24"><rect x="4" y="14" width="4" height="6" rx="0.5" /><rect x="10" y="10" width="4" height="10" rx="0.5" /><rect x="16" y="4" width="4" height="16" rx="0.5" /></svg></div>
-              <div className="cd-m-tabbar-label">Ads</div>
+              <div className="cd-m-tabbar-label">Stats</div>
             </button>
             <button className={`cd-m-tabbar-item${activeTab === 'campaigns' ? ' active' : ''}`} onClick={() => setActiveTab('campaigns')}>
               <div className="cd-m-tabbar-icon"><svg viewBox="0 0 24 24"><path d="M4 15V9l8-4v14l-8-4z" /><path d="M12 7l5-2v14l-5-2" /><line x1="20" y1="10" x2="22" y2="9" /><line x1="20" y1="12" x2="22" y2="12" /><line x1="20" y1="14" x2="22" y2="15" /></svg></div>
