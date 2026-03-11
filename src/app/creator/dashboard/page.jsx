@@ -2474,7 +2474,7 @@ export default function CreatorDashboard() {
       if (a.status === 'sent' || a.status === 'confirmed') {
         items.push({
           id: 'camp-' + a.id,
-          title: 'New Campaign Brief',
+          title: a.campaign?.parent_campaign_id ? 'New Creative Invitation' : 'New Campaign Brief',
           meta: a.campaign?.title || 'Campaign',
           feedback: null,
           tab: 'campaigns',
