@@ -331,8 +331,7 @@ export function OrderDialog({
 
       setLoadingCampaignHistory(true);
       try {
-        const { data, error } = await supabase
-          .from("campaign_order_history")
+        const { data, error } = await (supabase.from("campaign_order_history") as any)
           .select("*")
           .eq("campaign_influencer_id", campaignInfluencer.id)
           .order("completed_at", { ascending: false });
@@ -737,8 +736,7 @@ export function OrderDialog({
         if (updateError) throw updateError;
       } else {
         // Snapshot the current order into campaign_order_history before clearing
-        const { error: historyError } = await supabase
-          .from("campaign_order_history")
+        const { error: historyError } = await (supabase.from("campaign_order_history") as any)
           .insert({
             campaign_influencer_id: campaignInfluencer.id,
             campaign_id: campaignInfluencer.campaign_id,
