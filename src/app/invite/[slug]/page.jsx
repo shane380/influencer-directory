@@ -24,7 +24,7 @@ const CSS = `
 .ni-done-center { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 56px 48px; }
 .ni-done-center .ni-logo-lockup { align-items: center; margin-bottom: 48px; }
 .ni-done-content { text-align: center; width: 100%; max-width: 400px; }
-.ni-done-center .ni-headline { font-family: 'Playfair Display', serif; font-size: 56px; font-weight: 300; color: #111; line-height: 1; margin-bottom: 16px; }
+.ni-done-center .ni-headline { font-family: 'Playfair Display', serif; font-size: 38px; font-weight: 300; color: #111; line-height: 1; margin-bottom: 16px; }
 .ni-done-center .ni-intro { font-size: 13px; color: #777; line-height: 1.9; font-weight: 300; margin-bottom: 36px; }
 .ni-done-center .ni-btn { max-width: 400px; width: 100%; }
 .ni-panel-left { padding: 56px 48px; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; justify-content: space-between; position: sticky; top: 0; height: 100vh; background: white; }
@@ -34,7 +34,7 @@ const CSS = `
 .ni-logo { height: 31px; display: block; width: fit-content; }
 .ni-logo-sub { font-size: 9.5px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; }
 .ni-eyebrow { font-size: 9px; letter-spacing: 0.42em; text-transform: uppercase; color: #666; margin-bottom: 18px; }
-.ni-headline { font-family: 'Playfair Display', serif; font-size: 52px; font-weight: 300; color: #111; line-height: 1.02; margin-bottom: 22px; }
+.ni-headline { font-family: 'Playfair Display', serif; font-size: 38px; font-weight: 300; color: #111; line-height: 1.02; margin-bottom: 22px; }
 .ni-headline em { font-style: italic; color: #888; display: block; }
 .ni-intro { font-size: 13px; color: #888; line-height: 1.9; font-weight: 300; max-width: 260px; }
 .ni-left-footer { font-size: 10px; color: #ccc; letter-spacing: 0.15em; text-transform: uppercase; }
@@ -157,7 +157,7 @@ const CSS = `
 .ni-m-logo-sub { font-size: 8px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; }
 .ni-m-hero { padding: 32px 24px 28px; border-bottom: 1px solid #e8e8e8; }
 .ni-m-eyebrow { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #666; margin-bottom: 14px; }
-.ni-m-headline { font-family: 'Playfair Display', serif; font-size: 44px; font-weight: 300; color: #111; line-height: 1.02; }
+.ni-m-headline { font-family: 'Playfair Display', serif; font-size: 38px; font-weight: 300; color: #111; line-height: 1.02; }
 .ni-m-headline em { font-style: italic; color: #999; display: block; }
 .ni-m-intro { font-size: 13px; color: #999; font-weight: 300; line-height: 1.8; margin-top: 14px; }
 .ni-m-body { padding: 28px 24px 56px; }
@@ -165,7 +165,7 @@ const CSS = `
 .ni-m-done-center .ni-m-logo-lockup { align-items: center; margin-bottom: 40px; }
 .ni-m-done-content { text-align: left; width: 100%; max-width: 340px; }
 .ni-m-done-center .ni-m-eyebrow { font-size: 8px; letter-spacing: 0.4em; text-transform: uppercase; color: #666; margin-bottom: 14px; }
-.ni-m-done-center .ni-m-headline { font-family: 'Playfair Display', serif; font-size: 36px; font-weight: 300; color: #111; line-height: 1.05; margin-bottom: 18px; }
+.ni-m-done-center .ni-m-headline { font-family: 'Playfair Display', serif; font-size: 38px; font-weight: 300; color: #111; line-height: 1.05; margin-bottom: 18px; }
 .ni-m-done-center .ni-m-headline em { font-style: italic; color: #888; display: block; }
 .ni-m-done-center .ni-m-intro { font-size: 13px; color: #888; line-height: 1.9; font-weight: 300; margin-bottom: 32px; }
 .ni-m-done-center .ni-m-btn { max-width: 340px; width: 100%; }
