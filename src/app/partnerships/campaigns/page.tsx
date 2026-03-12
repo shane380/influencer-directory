@@ -107,6 +107,9 @@ export default function CampaignsPage() {
   const [wardrobeItems, setWardrobeItems] = useState<Product[]>([]);
   const [wardrobeLoading, setWardrobeLoading] = useState(false);
 
+  // Existing assignments for edit modal
+  const [existingAssignments, setExistingAssignments] = useState<Assignment[]>([]);
+
   // Detail view
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -265,7 +268,7 @@ export default function CampaignsPage() {
     fetchCreators();
   }
 
-  function openEditModal(campaign: Campaign) {
+  async function openEditModal(campaign: Campaign) {
     setEditingCampaign(campaign);
     setSelectedCampaign(null);
     setInvitationParentId("");
@@ -280,9 +283,16 @@ export default function CampaignsPage() {
     setBriefImages(campaign.brief_images || []);
     setAvailableProducts(campaign.available_products || []);
     setSelectedCreators([]);
+    setExistingAssignments([]);
     setShowModal(true);
     setShowInvitationModal(false);
     fetchCreators();
+    // Fetch existing assignments for this campaign
+    try {
+      const res = await fetch(`/api/creator/campaigns/assignments?campaign_id=${campaign.id}`);
+      const data = await res.json();
+      setExistingAssignments(data.assignments || []);
+    } catch {}
   }
 
   function openCreateInvitation(parentId?: string) {
@@ -324,7 +334,14 @@ export default function CampaignsPage() {
       body.parent_campaign_id = parentId;
     }
 
-    if (publish && !editingCampaign) {
+    if (editingCampaign && selectedCreators.length > 0) {
+      // Add new assignments to existing campaign
+      body.status = "active";
+      body.assignments = selectedCreators.map(sc => ({
+        influencer_id: sc.influencer_id,
+        creator_id: sc.creator_id,
+      }));
+    } else if (publish && !editingCampaign) {
       body.assignments = selectedCreators.map(sc => ({
         influencer_id: sc.influencer_id,
         creator_id: sc.creator_id,
@@ -1118,16 +1135,37 @@ export default function CampaignsPage() {
                   )}
                 </div>
 
-                {/* Assign Creators */}
+                {/* Assigned Creators (edit mode) */}
+                {editingCampaign && existingAssignments.length > 0 && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
+                      Assigned Creators ({existingAssignments.length})
+                    </label>
+                    <div className="border border-gray-200 rounded-lg max-h-36 overflow-y-auto">
+                      {existingAssignments.map(a => (
+                        <div key={a.id} className="flex items-center gap-3 px-3 py-2 border-b border-gray-50 last:border-b-0">
+                          <div className="w-4 h-4 rounded border bg-gray-900 border-gray-900 text-white flex items-center justify-center text-xs">✓</div>
+                          <div>
+                            <div className="text-sm font-medium">{a.creator_name || a.influencer_name || "Unknown"}</div>
+                            {a.influencer_handle && <div className="text-xs text-gray-400">@{a.influencer_handle}</div>}
+                          </div>
+                          <span className={`ml-auto px-2 py-0.5 rounded-full text-xs font-medium ${statusBadge(a.status)}`}>{a.status}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Assign (more) Creators */}
                 <div>
                   <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-                    Assign to Creators ({selectedCreators.length} selected)
+                    {editingCampaign ? `Add More Creators (${selectedCreators.length} selected)` : `Assign to Creators (${selectedCreators.length} selected)`}
                   </label>
                   {!creatorsLoaded ? (
                     <div className="text-xs text-gray-400 py-2">Loading creators...</div>
                   ) : (
                     <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
-                      {creators.map(c => {
+                      {creators.filter(c => !existingAssignments.some(a => a.creator_id === c.id)).map(c => {
                         const isSelected = selectedCreators.find(sc => sc.creator_id === c.id);
                         return (
                           <div
@@ -1160,7 +1198,7 @@ export default function CampaignsPage() {
                     disabled={saving || !form.title.trim()}
                     className="px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50"
                   >
-                    {saving ? "Saving..." : "Save Changes"}
+                    {saving ? "Saving..." : (selectedCreators.length > 0 ? "Save & Send to New Creators" : "Save Changes")}
                   </button>
                 ) : (
                   <>
