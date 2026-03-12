@@ -434,9 +434,7 @@ export default function InvitePage() {
   const defaultHeadline = isExisting
     ? <>Hi {firstName},<br /><em>let&apos;s make it<br />official.</em></>
     : <>Hi {firstName},<br /><em>let&apos;s make it<br />official.</em></>
-  const defaultIntro = isExisting
-    ? "You've already shown us what you can do. This is us making it official."
-    : "We've truly loved working with you — this is our formal proposal, all in one place."
+  const defaultIntro = "We've truly loved working with you — now we want to make it official."
 
   // Left panel content per step
   function getLeftContent() {
