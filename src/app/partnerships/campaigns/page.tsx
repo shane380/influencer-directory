@@ -259,6 +259,7 @@ export default function CampaignsPage() {
 
   function openEditModal(campaign: Campaign) {
     setEditingCampaign(campaign);
+    setSelectedCampaign(null);
     setInvitationParentId("");
     setForm({
       title: campaign.title,
