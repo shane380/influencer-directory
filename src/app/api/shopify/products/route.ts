@@ -239,7 +239,7 @@ export async function GET(request: NextRequest) {
     const graphqlUrl = `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/graphql.json`;
     const graphqlQuery = `
       {
-        products(first: 50, query: "title:*${searchTerm.replace(/"/g, '\\"')}* status:active OR status:draft") {
+        products(first: 100, query: "${searchTerm.replace(/"/g, '\\"').split(/\s+/).map((w: string) => `title:*${w}*`).join(' ')} status:active OR status:draft") {
           edges {
             node {
               id
@@ -289,11 +289,15 @@ export async function GET(request: NextRequest) {
     const parseGid = (gid: string) => parseInt(gid.split('/').pop() || '0', 10);
 
     const searchWords = searchTerm.toLowerCase().split(/\s+/).filter(word => word.length > 0);
+    const seenProductIds = new Set<number>();
 
     for (const { node: product } of gqlProducts) {
       if (product.status === 'ARCHIVED') continue;
       const titleLower = product.title.toLowerCase();
       const productId = parseGid(product.id);
+
+      // Check if product title alone matches (most common case)
+      const titleMatches = searchWords.every((word: string) => titleLower.includes(word));
 
       for (const { node: variant } of product.variants.edges) {
         const skuLower = variant.sku?.toLowerCase() || "";
@@ -301,7 +305,7 @@ export async function GET(request: NextRequest) {
         const skuNormalized = skuLower.replace(/-/g, ' ');
         const searchableText = `${titleLower} ${variantTitleLower} ${skuLower} ${skuNormalized}`;
 
-        const allWordsMatch = searchWords.every((word: string) => searchableText.includes(word));
+        const allWordsMatch = titleMatches || searchWords.every((word: string) => searchableText.includes(word));
 
         if (allWordsMatch) {
           matchingProducts.push({
@@ -318,10 +322,12 @@ export async function GET(request: NextRequest) {
             status: product.status.toLowerCase(),
           });
 
-          if (matchingProducts.length >= 50) break;
+          // Track unique products — stop once we have enough distinct products
+          seenProductIds.add(productId);
+          if (seenProductIds.size >= 50) break;
         }
       }
-      if (matchingProducts.length >= 50) break;
+      if (seenProductIds.size >= 50) break;
     }
 
     // Fetch inventory levels per location for all matching products
