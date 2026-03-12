@@ -608,10 +608,6 @@ export default function InvitePage() {
             </div>
             <div className="ni-sec-label">Partnership Perks</div>
             {renderDesktopPerks()}
-            <div className="ni-highlight">
-              <div><div className="ni-highlight-tag">Monthly Retainer</div><div className="ni-highlight-val" style={{ fontSize: 48 }}>${retainerAmount?.toLocaleString()}</div></div>
-              <div className="ni-highlight-desc">Fixed payment by the 5th of every month. No conditions, no variables.</div>
-            </div>
             <div className="ni-sec-label">FAQ&apos;s</div>
             <div className="ni-faq">
               {[
@@ -691,10 +687,6 @@ export default function InvitePage() {
             </div>
             <div className="ni-sec-label">Partnership Perks</div>
             {renderDesktopPerks()}
-            <div className="ni-highlight">
-              <div><div className="ni-highlight-tag">Ad Spend Commission</div><div className="ni-highlight-val">{adSpendPct}<sup>%</sup></div></div>
-              <div className="ni-highlight-desc">Of every dollar we put behind your content. No ceiling, paid monthly.</div>
-            </div>
             {adSpendMin > 0 && (
               <div className="ni-min-note">
                 <div className="ni-min-note-icon">—</div>
@@ -772,10 +764,6 @@ export default function InvitePage() {
           </div>
           <div className="ni-sec-label">Partnership Perks</div>
           {renderDesktopPerks()}
-          <div className="ni-highlight">
-            <div><div className="ni-highlight-tag">Affiliate Commission</div><div className="ni-highlight-val">{commissionRate}<sup>%</sup></div></div>
-            <div className="ni-highlight-desc">On every sale through your link. No cap, paid monthly.</div>
-          </div>
           <div className="ni-sec-label">FAQ&apos;s</div>
           <div className="ni-faq">
             {[
@@ -900,10 +888,6 @@ export default function InvitePage() {
             <div className="ni-m-term-row"><span className="ni-m-term-key">Term</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
             <div className="ni-m-sec-label">Perks</div>
             {renderMobilePerks()}
-            <div className="ni-m-highlight">
-              <div><div className="ni-m-highlight-tag">Monthly Retainer</div><div className="ni-m-highlight-val" style={{ fontSize: 44 }}>${retainerAmount?.toLocaleString()}</div></div>
-              <div className="ni-m-highlight-desc">Fixed payment by the 5th of every month.</div>
-            </div>
             <div className="ni-m-sec-label">FAQ&apos;s</div>
             <div className="ni-m-faq">
               {[
@@ -966,10 +950,6 @@ export default function InvitePage() {
                 <div className="ni-m-perk-row" key={i}><span className="ni-m-perk-dot">✓</span>{p}</div>
               ))}
             </div>
-            <div className="ni-m-highlight">
-              <div><div className="ni-m-highlight-tag">Ad Spend Commission</div><div className="ni-m-highlight-val">{adSpendPct}<sup>%</sup></div></div>
-              <div className="ni-m-highlight-desc">Of every dollar behind your content. No ceiling.</div>
-            </div>
             {adSpendMin > 0 && (
               <div className="ni-m-min-note">
                 <div style={{ fontSize: 12, color: '#999', flexShrink: 0, marginTop: 2 }}>—</div>
@@ -1026,10 +1006,6 @@ export default function InvitePage() {
           <div className="ni-m-term-row"><span className="ni-m-term-key">Term</span><div className="ni-term-val">{minimumCommitment ? (<><div className="ni-m-term-primary">{minimumCommitment}-month minimum</div><div className="ni-m-term-secondary">Month-to-month after that, 2 weeks notice to end</div></>) : (<><div className="ni-m-term-primary">Month-to-month</div><div className="ni-m-term-secondary">2 weeks notice to end</div></>)}</div></div>
           <div className="ni-m-sec-label">Perks</div>
           {renderMobilePerks()}
-          <div className="ni-m-highlight">
-            <div><div className="ni-m-highlight-tag">Affiliate Commission</div><div className="ni-m-highlight-val">{commissionRate}<sup>%</sup></div></div>
-            <div className="ni-m-highlight-desc">On every sale through your link. No cap.</div>
-          </div>
           <div className="ni-m-sec-label">FAQ&apos;s</div>
           <div className="ni-m-faq">
             {[
