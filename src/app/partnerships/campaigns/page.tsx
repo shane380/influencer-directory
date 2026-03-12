@@ -317,14 +317,14 @@ export default function CampaignsPage() {
       available_products: availableProducts,
       max_selects: form.max_selects,
       campaign_type: form.campaign_type,
-      status: publish ? "active" : "draft",
+      status: editingCampaign ? editingCampaign.status : (publish ? "active" : "draft"),
     };
 
     if (parentId) {
       body.parent_campaign_id = parentId;
     }
 
-    if (publish) {
+    if (publish && !editingCampaign) {
       body.assignments = selectedCreators.map(sc => ({
         influencer_id: sc.influencer_id,
         creator_id: sc.creator_id,
@@ -1154,20 +1154,32 @@ export default function CampaignsPage() {
                 <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">
                   Cancel
                 </button>
-                <button
-                  onClick={() => saveCampaign(false)}
-                  disabled={saving || !form.title.trim()}
-                  className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-                >
-                  Save as Draft
-                </button>
-                <button
-                  onClick={() => saveCampaign(true)}
-                  disabled={saving || !form.title.trim() || selectedCreators.length === 0}
-                  className="px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50"
-                >
-                  {saving ? "Publishing..." : "Publish & Send"}
-                </button>
+                {editingCampaign ? (
+                  <button
+                    onClick={() => saveCampaign(false)}
+                    disabled={saving || !form.title.trim()}
+                    className="px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50"
+                  >
+                    {saving ? "Saving..." : "Save Changes"}
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => saveCampaign(false)}
+                      disabled={saving || !form.title.trim()}
+                      className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Save as Draft
+                    </button>
+                    <button
+                      onClick={() => saveCampaign(true)}
+                      disabled={saving || !form.title.trim() || selectedCreators.length === 0}
+                      className="px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50"
+                    >
+                      {saving ? "Publishing..." : "Publish & Send"}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
