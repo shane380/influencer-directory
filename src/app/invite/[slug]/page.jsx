@@ -25,7 +25,7 @@ const CSS = `
 .ni-done-center .ni-logo-lockup { align-items: center; margin-bottom: 48px; }
 .ni-done-content { text-align: center; width: 100%; max-width: 400px; }
 .ni-done-center .ni-headline { font-family: 'Playfair Display', serif; font-size: 38px; font-weight: 300; color: #111; line-height: 1; margin-bottom: 16px; }
-.ni-done-center .ni-intro { font-size: 13px; color: #777; line-height: 1.9; font-weight: 300; margin-bottom: 36px; }
+.ni-done-center .ni-intro { font-size: 13px; color: #111; line-height: 1.9; font-weight: 300; margin-bottom: 36px; max-width: none; text-align: center; }
 .ni-done-center .ni-btn { max-width: 400px; width: 100%; }
 .ni-panel-left { padding: 56px 48px; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; justify-content: space-between; position: sticky; top: 0; height: 100vh; background: white; }
 .ni-panel-right { padding: 56px 52px; overflow-y: auto; }
@@ -167,7 +167,7 @@ const CSS = `
 .ni-m-done-center .ni-m-eyebrow { font-size: 8px; letter-spacing: 0.4em; text-transform: uppercase; color: #666; margin-bottom: 14px; }
 .ni-m-done-center .ni-m-headline { font-family: 'Playfair Display', serif; font-size: 38px; font-weight: 300; color: #111; line-height: 1.05; margin-bottom: 18px; }
 .ni-m-done-center .ni-m-headline em { font-style: italic; color: #888; display: block; }
-.ni-m-done-center .ni-m-intro { font-size: 13px; color: #888; line-height: 1.9; font-weight: 300; margin-bottom: 32px; }
+.ni-m-done-center .ni-m-intro { font-size: 13px; color: #111; line-height: 1.9; font-weight: 300; margin-bottom: 32px; }
 .ni-m-done-center .ni-m-btn { max-width: 340px; width: 100%; }
 .ni-m-sec-label { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: #aaa; margin-top: 36px; margin-bottom: 28px; display: flex; align-items: center; gap: 10px; }
 .ni-m-sec-label:first-child { margin-top: 0; }
@@ -1156,7 +1156,8 @@ export default function InvitePage() {
               <div className="ni-logo-lockup"><img src="/nama-logo.svg" alt="Nama" className="ni-logo" /><div className="ni-logo-sub">Partners</div></div>
               <div className="ni-done-content">
                 <div className="ni-headline">Welcome.</div>
-                <p className="ni-intro">Your partnership is live. Everything you need is in your dashboard.</p>
+                <p className="ni-intro" style={{ marginBottom: 0 }}>Your partnership is live. Everything you need is in your dashboard.</p>
+                <p className="ni-intro">If you have any questions, please <a href="https://www.instagram.com/nama/" target="_blank" rel="noopener noreferrer" style={{ color: '#111', textDecoration: 'underline', textUnderlineOffset: 2 }}>DM us on Instagram</a> or email us at <a href="mailto:partnerships@namaclo.com" style={{ color: '#111', textDecoration: 'underline', textUnderlineOffset: 2 }}>partnerships@namaclo.com</a></p>
               </div>
               <button className="ni-btn" onClick={() => router.push('/creator/dashboard')}>Go to My Dashboard →</button>
             </div>
@@ -1173,7 +1174,8 @@ export default function InvitePage() {
                 <div className="ni-m-logo-lockup"><img src="/nama-logo.svg" alt="Nama" className="ni-m-logo" /><div className="ni-m-logo-sub">Partners</div></div>
                 <div className="ni-m-done-content" style={{ textAlign: 'center' }}>
                   <div className="ni-m-headline" style={{ textAlign: 'center' }}>Welcome.</div>
-                  <p className="ni-m-intro" style={{ textAlign: 'center' }}>Your partnership is live. Everything you need is in your dashboard.</p>
+                  <p className="ni-m-intro" style={{ textAlign: 'center', marginBottom: 0 }}>Your partnership is live. Everything you need is in your dashboard.</p>
+                  <p className="ni-m-intro" style={{ textAlign: 'center' }}>If you have any questions, please <a href="https://www.instagram.com/nama/" target="_blank" rel="noopener noreferrer" style={{ color: '#111', textDecoration: 'underline', textUnderlineOffset: 2 }}>DM us on Instagram</a> or email us at <a href="mailto:partnerships@namaclo.com" style={{ color: '#111', textDecoration: 'underline', textUnderlineOffset: 2 }}>partnerships@namaclo.com</a></p>
                 </div>
                 <button className="ni-m-btn" onClick={() => router.push('/creator/dashboard')}>Go to My Dashboard →</button>
               </div>
