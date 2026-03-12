@@ -178,13 +178,21 @@ export default function CampaignsPage() {
     try {
       const res = await fetch(`/api/shopify/products?query=${encodeURIComponent(productQuery)}`);
       const data = await res.json();
-      setProductResults(data.products || []);
+      // Group variants by product_id, keep one representative per product, newest first
+      const allProducts: SearchProduct[] = data.products || [];
+      const grouped = new Map<number, SearchProduct>();
+      for (const p of allProducts) {
+        if (!grouped.has(p.product_id)) grouped.set(p.product_id, p);
+      }
+      // Reverse so newest products (highest product_id) appear first
+      const deduped = Array.from(grouped.values()).sort((a, b) => b.product_id - a.product_id);
+      setProductResults(deduped);
     } catch {}
     setSearchingProducts(false);
   }
 
   function addProduct(p: SearchProduct) {
-    if (availableProducts.find(ap => String(ap.variant_id) === String(p.variant_id))) return;
+    if (availableProducts.find(ap => String(ap.product_id) === String(p.product_id))) return;
     setAvailableProducts(prev => [...prev, {
       variant_id: String(p.variant_id),
       product_id: String(p.product_id),
@@ -588,13 +596,12 @@ export default function CampaignsPage() {
                     <div className="border border-gray-200 rounded-lg max-h-40 overflow-y-auto mb-2">
                       {productResults.map(p => (
                         <div
-                          key={p.variant_id}
+                          key={p.product_id}
                           className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-b-0"
                           onClick={() => addProduct(p)}
                         >
                           {p.image && <img src={p.image} alt="" className="w-8 h-8 object-cover rounded" />}
-                          <span className="text-xs flex-1">{p.title}{p.variant_title ? ` — ${p.variant_title}` : ""}</span>
-                          <span className="text-xs text-gray-400">{p.sku}</span>
+                          <span className="text-xs flex-1">{p.title}</span>
                         </div>
                       ))}
                     </div>
@@ -1087,13 +1094,12 @@ export default function CampaignsPage() {
                     <div className="border border-gray-200 rounded-lg max-h-40 overflow-y-auto mb-2">
                       {productResults.map(p => (
                         <div
-                          key={p.variant_id}
+                          key={p.product_id}
                           className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-b-0"
                           onClick={() => addProduct(p)}
                         >
                           {p.image && <img src={p.image} alt="" className="w-8 h-8 object-cover rounded" />}
-                          <span className="text-xs flex-1">{p.title}{p.variant_title ? ` — ${p.variant_title}` : ""}</span>
-                          <span className="text-xs text-gray-400">{p.sku}</span>
+                          <span className="text-xs flex-1">{p.title}</span>
                         </div>
                       ))}
                     </div>
