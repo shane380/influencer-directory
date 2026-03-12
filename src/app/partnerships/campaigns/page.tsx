@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Sidebar } from "@/components/sidebar";
-import { Plus, Search, ChevronDown, ChevronRight, ExternalLink, X } from "lucide-react";
+import { Plus, Search, ChevronDown, ChevronRight, ExternalLink, X, Pencil } from "lucide-react";
 
 interface Campaign {
   id: string;
@@ -938,6 +938,7 @@ export default function CampaignsPage() {
                   <th className="text-left px-4 py-2.5 font-medium text-gray-600">Confirmed</th>
                   <th className="text-left px-4 py-2.5 font-medium text-gray-600">Content</th>
                   <th className="text-left px-4 py-2.5 font-medium text-gray-600">Due</th>
+                  <th className="w-10"></th>
                 </tr>
               </thead>
               <tbody>
@@ -959,6 +960,15 @@ export default function CampaignsPage() {
                     <td className="px-4 py-3 text-gray-500">{c.counts.content_submitted + c.counts.complete}</td>
                     <td className="px-4 py-3 text-gray-500">
                       {c.due_date ? new Date(c.due_date + "T00:00:00").toLocaleDateString("en", { month: "short", day: "numeric" }) : "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openEditModal(c); }}
+                        className="text-gray-400 hover:text-gray-700"
+                        title="Edit campaign"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
                     </td>
                   </tr>
                 ))}
