@@ -131,12 +131,15 @@ export default function CampaignsPage() {
 
   async function fetchCampaigns() {
     setLoading(true);
+    let result: Campaign[] = [];
     try {
       const res = await fetch("/api/creator/campaigns");
       const data = await res.json();
-      setCampaigns(data.campaigns || []);
+      result = data.campaigns || [];
+      setCampaigns(result);
     } catch {}
     setLoading(false);
+    return result;
   }
 
   async function fetchCreators() {
@@ -254,6 +257,25 @@ export default function CampaignsPage() {
     fetchCreators();
   }
 
+  function openEditModal(campaign: Campaign) {
+    setEditingCampaign(campaign);
+    setInvitationParentId("");
+    setForm({
+      title: campaign.title,
+      description: campaign.description || "",
+      brief_url: campaign.brief_url || "",
+      due_date: campaign.due_date || "",
+      max_selects: campaign.max_selects,
+      campaign_type: campaign.campaign_type as "mass" | "individual",
+    });
+    setBriefImages(campaign.brief_images || []);
+    setAvailableProducts(campaign.available_products || []);
+    setSelectedCreators([]);
+    setShowModal(true);
+    setShowInvitationModal(false);
+    fetchCreators();
+  }
+
   function openCreateInvitation(parentId?: string) {
     setEditingCampaign(null);
     setInvitationParentId(parentId || "");
@@ -307,10 +329,15 @@ export default function CampaignsPage() {
       } else {
         await fetch("/api/creator/campaigns", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       }
-      await fetchCampaigns();
+      const refreshed = await fetchCampaigns();
       setShowModal(false);
       setShowInvitationModal(false);
-      if (selectedCampaign) openDetail(selectedCampaign);
+      if (editingCampaign) {
+        const updated = (refreshed || []).find((c: Campaign) => c.id === editingCampaign.id);
+        if (updated) { setSelectedCampaign(updated); openDetail(updated); }
+      } else if (selectedCampaign) {
+        openDetail(selectedCampaign);
+      }
     } catch {}
     setSaving(false);
   }
@@ -675,6 +702,12 @@ export default function CampaignsPage() {
                 {selectedCampaign.due_date && <span className="text-sm text-gray-500">Due {new Date(selectedCampaign.due_date + "T00:00:00").toLocaleDateString("en", { month: "long", day: "numeric" })}</span>}
               </div>
             </div>
+            <button
+              onClick={() => openEditModal(selectedCampaign)}
+              className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50"
+            >
+              Edit Campaign
+            </button>
           </div>
 
           {selectedCampaign.description && <p className="text-sm text-gray-600 mb-4">{selectedCampaign.description}</p>}
