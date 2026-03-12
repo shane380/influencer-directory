@@ -8,6 +8,7 @@ import {
   ProductSelection,
   ShopifyOrderStatus,
   InfluencerOrder,
+  CampaignOrderHistory,
 } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -147,6 +148,11 @@ export function OrderDialog({
   const [loadingOrderHistory, setLoadingOrderHistory] = useState(false);
   const [orderHistoryExpanded, setOrderHistoryExpanded] = useState(false);
 
+  // Campaign order history state
+  const [campaignOrderHistory, setCampaignOrderHistory] = useState<CampaignOrderHistory[]>([]);
+  const [loadingCampaignHistory, setLoadingCampaignHistory] = useState(false);
+  const [campaignHistoryExpanded, setCampaignHistoryExpanded] = useState(false);
+
   const supabase = createClient();
 
   // Check if this is a whitelisting context (no real campaign)
@@ -175,6 +181,7 @@ export function OrderDialog({
     setShowCustomerSearch(false);
     setCustomerConfirmed(false);
     setShowCreateCustomerForm(false);
+    setCampaignHistoryExpanded(false);
     // Pre-fill form with influencer data
     const nameParts = influencer.name.split(" ");
     setNewCustomerForm({
@@ -313,6 +320,34 @@ export function OrderDialog({
 
     fetchOrderHistory();
   }, [open, shopifyCustomer, customerConfirmed, influencer.id]);
+
+  // Fetch campaign order history when dialog opens (campaign context only)
+  useEffect(() => {
+    async function fetchCampaignOrderHistory() {
+      if (!open || isWhitelistingContext || !campaignInfluencer.id) {
+        setCampaignOrderHistory([]);
+        return;
+      }
+
+      setLoadingCampaignHistory(true);
+      try {
+        const { data, error } = await supabase
+          .from("campaign_order_history")
+          .select("*")
+          .eq("campaign_influencer_id", campaignInfluencer.id)
+          .order("completed_at", { ascending: false });
+
+        if (error) throw error;
+        setCampaignOrderHistory((data as CampaignOrderHistory[]) || []);
+      } catch (err) {
+        console.error("Error fetching campaign order history:", err);
+      } finally {
+        setLoadingCampaignHistory(false);
+      }
+    }
+
+    fetchCampaignOrderHistory();
+  }, [open, isWhitelistingContext, campaignInfluencer.id]);
 
   const handleProductSearch = async () => {
     if (!skuSearch.trim()) return;
@@ -701,6 +736,23 @@ export function OrderDialog({
           .eq("id", influencer.id);
         if (updateError) throw updateError;
       } else {
+        // Snapshot the current order into campaign_order_history before clearing
+        const { error: historyError } = await supabase
+          .from("campaign_order_history")
+          .insert({
+            campaign_influencer_id: campaignInfluencer.id,
+            campaign_id: campaignInfluencer.campaign_id,
+            influencer_id: campaignInfluencer.influencer_id,
+            shopify_order_id: campaignInfluencer.shopify_order_id,
+            shopify_real_order_id: campaignInfluencer.shopify_real_order_id,
+            shopify_order_status: campaignInfluencer.shopify_order_status,
+            product_selections: campaignInfluencer.product_selections as any,
+            tracking_number: campaignInfluencer.tracking_number,
+            tracking_url: campaignInfluencer.tracking_url,
+            order_status_updated_at: campaignInfluencer.order_status_updated_at,
+          });
+        if (historyError) throw historyError;
+
         // Clear order fields on campaign_influencers table
         const { error: updateError } = await (supabase.from("campaign_influencers") as any)
           .update({
@@ -885,6 +937,97 @@ export function OrderDialog({
                     )
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Past Orders in Campaign - show in existing order view */}
+            {!isWhitelistingContext && campaignOrderHistory.length > 0 && (
+              <div className="border-t pt-4">
+                <Collapsible
+                  open={campaignHistoryExpanded}
+                  onOpenChange={setCampaignHistoryExpanded}
+                >
+                  <CollapsibleTrigger className="flex items-center justify-between w-full py-2 hover:no-underline">
+                    <div className="flex items-center gap-2 font-medium">
+                      <History className="h-4 w-4" />
+                      Past Orders in Campaign
+                      <span className="text-sm font-normal text-gray-500">
+                        ({campaignOrderHistory.length})
+                      </span>
+                    </div>
+                    <ChevronDown
+                      className={`h-4 w-4 text-gray-500 transition-transform ${campaignHistoryExpanded ? "rotate-180" : ""}`}
+                    />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-3">
+                    <div className="space-y-3 max-h-64 overflow-y-auto">
+                      {campaignOrderHistory.map((entry) => (
+                        <div
+                          key={entry.id}
+                          className="border rounded-lg p-3 space-y-2"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm">
+                                {new Date(entry.completed_at).toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                })}
+                              </span>
+                              {entry.shopify_order_status && (
+                                <Badge
+                                  className={
+                                    orderStatusColors[entry.shopify_order_status as ShopifyOrderStatus] ||
+                                    "bg-gray-100 text-gray-800"
+                                  }
+                                >
+                                  {orderStatusLabels[entry.shopify_order_status as ShopifyOrderStatus] ||
+                                    entry.shopify_order_status}
+                                </Badge>
+                              )}
+                              {entry.shopify_order_id && (
+                                <a
+                                  href={`https://admin.shopify.com/store/namasletica/draft_orders/${entry.shopify_order_id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
+                                >
+                                  Order #{entry.shopify_order_id}
+                                  <ExternalLink className="h-3 w-3" />
+                                </a>
+                              )}
+                            </div>
+                            {entry.tracking_url && (
+                              <a
+                                href={entry.tracking_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1"
+                              >
+                                Track
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            )}
+                          </div>
+                          {entry.product_selections && (entry.product_selections as CartItem[]).length > 0 && (
+                            <div className="pl-4 space-y-1">
+                              {(entry.product_selections as CartItem[]).map((item, index) => (
+                                <div
+                                  key={index}
+                                  className="text-sm text-gray-600 flex items-center gap-2"
+                                >
+                                  <span className="text-gray-400">&times;{item.quantity}</span>
+                                  <span>{item.title}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
               </div>
             )}
 
@@ -1392,6 +1535,106 @@ export function OrderDialog({
                                 </div>
                               ))}
                             </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+            )}
+
+            {/* Past Orders in Campaign - show in new-order view */}
+            {!isWhitelistingContext && (campaignOrderHistory.length > 0 || loadingCampaignHistory) && (
+              <div className="border-b pb-6">
+                <Collapsible
+                  open={campaignHistoryExpanded}
+                  onOpenChange={setCampaignHistoryExpanded}
+                >
+                  <CollapsibleTrigger className="flex items-center justify-between w-full py-2 hover:no-underline">
+                    <div className="flex items-center gap-2 font-medium">
+                      <History className="h-4 w-4" />
+                      Past Orders in Campaign
+                      {!loadingCampaignHistory && (
+                        <span className="text-sm font-normal text-gray-500">
+                          ({campaignOrderHistory.length})
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown
+                      className={`h-4 w-4 text-gray-500 transition-transform ${campaignHistoryExpanded ? "rotate-180" : ""}`}
+                    />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-3">
+                    {loadingCampaignHistory ? (
+                      <div className="flex items-center gap-2 text-gray-500 py-4">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading past orders...
+                      </div>
+                    ) : (
+                      <div className="space-y-3 max-h-64 overflow-y-auto">
+                        {campaignOrderHistory.map((entry) => (
+                          <div
+                            key={entry.id}
+                            className="border rounded-lg p-3 space-y-2"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm">
+                                  {new Date(entry.completed_at).toLocaleDateString("en-US", {
+                                    month: "short",
+                                    day: "numeric",
+                                    year: "numeric",
+                                  })}
+                                </span>
+                                {entry.shopify_order_status && (
+                                  <Badge
+                                    className={
+                                      orderStatusColors[entry.shopify_order_status as ShopifyOrderStatus] ||
+                                      "bg-gray-100 text-gray-800"
+                                    }
+                                  >
+                                    {orderStatusLabels[entry.shopify_order_status as ShopifyOrderStatus] ||
+                                      entry.shopify_order_status}
+                                  </Badge>
+                                )}
+                                {entry.shopify_order_id && (
+                                  <a
+                                    href={`https://admin.shopify.com/store/namasletica/draft_orders/${entry.shopify_order_id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
+                                  >
+                                    Order #{entry.shopify_order_id}
+                                    <ExternalLink className="h-3 w-3" />
+                                  </a>
+                                )}
+                              </div>
+                              {entry.tracking_url && (
+                                <a
+                                  href={entry.tracking_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1"
+                                >
+                                  Track
+                                  <ExternalLink className="h-3 w-3" />
+                                </a>
+                              )}
+                            </div>
+                            {entry.product_selections && (entry.product_selections as CartItem[]).length > 0 && (
+                              <div className="pl-4 space-y-1">
+                                {(entry.product_selections as CartItem[]).map((item, index) => (
+                                  <div
+                                    key={index}
+                                    className="text-sm text-gray-600 flex items-center gap-2"
+                                  >
+                                    <span className="text-gray-400">&times;{item.quantity}</span>
+                                    <span>{item.title}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

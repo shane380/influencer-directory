@@ -389,6 +389,36 @@ export interface InfluencerOrderInsert {
   line_items?: OrderLineItem[];
 }
 
+// Campaign Order History Types
+
+export interface CampaignOrderHistory {
+  id: string;
+  campaign_influencer_id: string;
+  campaign_id: string;
+  influencer_id: string;
+  shopify_order_id: string | null;
+  shopify_real_order_id: string | null;
+  shopify_order_status: string | null;
+  product_selections: ProductSelection[] | null;
+  tracking_number: string | null;
+  tracking_url: string | null;
+  order_status_updated_at: string | null;
+  completed_at: string;
+}
+
+export interface CampaignOrderHistoryInsert {
+  campaign_influencer_id: string;
+  campaign_id: string;
+  influencer_id: string;
+  shopify_order_id?: string | null;
+  shopify_real_order_id?: string | null;
+  shopify_order_status?: string | null;
+  product_selections?: ProductSelection[] | null;
+  tracking_number?: string | null;
+  tracking_url?: string | null;
+  order_status_updated_at?: string | null;
+}
+
 // Contract Types
 
 export interface PaidCollabContractVariables {
@@ -500,6 +530,12 @@ export interface Database {
         Row: InfluencerContract;
         Insert: InfluencerContractInsert;
         Update: Partial<InfluencerContractInsert>;
+        Relationships: [];
+      };
+      campaign_order_history: {
+        Row: CampaignOrderHistory;
+        Insert: CampaignOrderHistoryInsert;
+        Update: Partial<CampaignOrderHistoryInsert>;
         Relationships: [];
       };
     };
