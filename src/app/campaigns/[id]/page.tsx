@@ -300,7 +300,7 @@ export default function CampaignDetailPage() {
     if (error) {
       console.error("Error fetching campaign influencers:", error);
     } else {
-      setCampaignInfluencers(data || []);
+      setCampaignInfluencers((data || []).filter((ci: any) => ci.influencer));
     }
     setLoading(false);
   }, [supabase, campaignId]);

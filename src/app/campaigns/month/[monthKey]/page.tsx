@@ -339,7 +339,7 @@ export default function MonthCampaignViewPage() {
       console.error("Error fetching campaign influencers:", error);
     } else {
       // Add collection property to each record
-      const withCollection = (data || []).map((ci: any) => ({
+      const withCollection = (data || []).filter((ci: any) => ci.campaign && ci.influencer).map((ci: any) => ({
         ...ci,
         collection: extractCollection(ci.campaign.name),
       }));
@@ -586,8 +586,8 @@ export default function MonthCampaignViewPage() {
       if (search) {
         const searchLower = search.toLowerCase();
         return (
-          influencer.name.toLowerCase().includes(searchLower) ||
-          influencer.instagram_handle.toLowerCase().includes(searchLower) ||
+          (influencer.name || "").toLowerCase().includes(searchLower) ||
+          (influencer.instagram_handle || "").toLowerCase().includes(searchLower) ||
           (influencer.email?.toLowerCase().includes(searchLower) ?? false)
         );
       }
@@ -596,13 +596,13 @@ export default function MonthCampaignViewPage() {
     .sort((a, b) => {
       const multiplier = sortDirection === "asc" ? 1 : -1;
       if (sortField === "name") {
-        return multiplier * a.influencer.name.localeCompare(b.influencer.name);
+        return multiplier * (a.influencer.name || "").localeCompare(b.influencer.name || "");
       } else if (sortField === "follower_count") {
-        return multiplier * (a.influencer.follower_count - b.influencer.follower_count);
+        return multiplier * ((a.influencer.follower_count || 0) - (b.influencer.follower_count || 0));
       } else if (sortField === "added_at") {
         return multiplier * (new Date(a.added_at).getTime() - new Date(b.added_at).getTime());
       } else if (sortField === "collection") {
-        return multiplier * a.collection.localeCompare(b.collection);
+        return multiplier * (a.collection || "").localeCompare(b.collection || "");
       }
       return 0;
     }), [campaignInfluencers, statusFilter, partnershipTypeFilter, contentFilter, orderStatusFilter, collectionFilter, search, sortField, sortDirection]);
