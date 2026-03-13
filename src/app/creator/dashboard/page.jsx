@@ -255,7 +255,7 @@ const CSS = `
 .cd-camp-back { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #aaa; cursor: pointer; background: none; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 0; margin-bottom: 24px; transition: color 0.15s; }
 .cd-camp-back:hover { color: #111; }
 .cd-camp-detail { }
-.cd-camp-banner { width: 100%; aspect-ratio: 21/9; object-fit: cover; display: block; margin-bottom: 28px; }
+.cd-camp-banner { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; margin-bottom: 28px; border-radius: 8px; }
 .cd-camp-steps { display: flex; align-items: center; gap: 0; margin-bottom: 32px; }
 .cd-camp-step { display: flex; align-items: center; gap: 8px; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #ccc; padding: 10px 0; flex: 1; justify-content: center; border-bottom: 2px solid #e8e8e8; transition: all 0.2s; }
 .cd-camp-step.active { color: #111; border-bottom-color: #111; font-weight: 500; }
@@ -267,16 +267,16 @@ const CSS = `
 .cd-camp-deliverables-label { font-size: 9px; letter-spacing: 0.38em; text-transform: uppercase; color: #aaa; margin-bottom: 10px; }
 .cd-camp-deliverables-text { font-size: 13px; color: #555; line-height: 1.7; white-space: pre-wrap; }
 .cd-camp-card-banner-wrap { margin: -24px -28px 16px; overflow: hidden; }
-.cd-camp-card-banner { width: 100%; height: 120px; object-fit: cover; display: block; }
+.cd-camp-card-banner { width: 100%; height: 180px; object-fit: cover; display: block; }
 .cd-camp-go-live { font-size: 11px; color: #aaa; }
 @media (max-width: 768px) {
   .cd-campaign-card { padding: 20px; }
   .cd-campaign-title { font-size: 18px; }
-  .cd-camp-banner { aspect-ratio: 16/9; margin-bottom: 20px; }
+  .cd-camp-banner { aspect-ratio: 4/3; margin-bottom: 20px; }
   .cd-camp-step { font-size: 8px; letter-spacing: 0.06em; gap: 4px; }
   .cd-camp-step-num { width: 16px; height: 16px; font-size: 8px; }
   .cd-camp-card-banner-wrap { margin: -20px -20px 12px; }
-  .cd-camp-card-banner { height: 80px; }
+  .cd-camp-card-banner { height: 140px; }
 }
 
 /* PRODUCTS */
