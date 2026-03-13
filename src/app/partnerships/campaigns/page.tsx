@@ -94,6 +94,7 @@ export default function CampaignsPage() {
   const [briefImages, setBriefImages] = useState<{ url: string; drive_file_id?: string }[]>([]);
   const [bannerImage, setBannerImage] = useState<{ url: string; drive_file_id?: string } | null>(null);
   const [bannerUploading, setBannerUploading] = useState(false);
+  const [briefMediaUploading, setBriefMediaUploading] = useState(false);
   const [availableProducts, setAvailableProducts] = useState<Product[]>([]);
   const [selectedCreators, setSelectedCreators] = useState<{ influencer_id: string | null; creator_id: string | null; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
@@ -234,6 +235,38 @@ export default function CampaignsPage() {
       } catch {}
     }
     setBannerImage(null);
+  }
+
+  async function uploadBriefMedia(files: File[]) {
+    setBriefMediaUploading(true);
+    for (const file of files) {
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await fetch("/api/drive/banner", { method: "POST", body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          setBriefImages(prev => [...prev, { url: data.url, drive_file_id: data.fileId }]);
+        }
+      } catch (err) {
+        console.error("Brief media upload failed:", err);
+      }
+    }
+    setBriefMediaUploading(false);
+  }
+
+  async function deleteBriefMedia(index: number) {
+    const item = briefImages[index];
+    if (item?.drive_file_id) {
+      try {
+        await fetch("/api/drive/banner", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fileId: item.drive_file_id }),
+        });
+      } catch {}
+    }
+    setBriefImages(prev => prev.filter((_, i) => i !== index));
   }
 
   function addProduct(p: SearchProduct) {
@@ -1177,6 +1210,59 @@ export default function CampaignsPage() {
                       )}
                     </div>
                   )}
+                </div>
+
+                {/* Content References */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Content References (optional)</label>
+                  {briefImages.length > 0 && (
+                    <div className="grid grid-cols-4 gap-2 mb-2">
+                      {briefImages.map((img, i) => (
+                        <div key={i} className="relative border border-gray-200 rounded-lg overflow-hidden">
+                          {img.url.includes("video") ? (
+                            <video src={img.url} className="w-full h-20 object-cover" muted />
+                          ) : (
+                            <img src={img.url} alt="" className="w-full h-20 object-cover" />
+                          )}
+                          <button
+                            onClick={() => deleteBriefMedia(i)}
+                            className="absolute top-1 right-1 bg-white/90 rounded-full p-0.5 hover:bg-white shadow-sm"
+                          >
+                            <X className="h-3 w-3 text-gray-500" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div
+                    className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${briefMediaUploading ? "border-gray-300 bg-gray-50" : "border-gray-200 hover:border-gray-400"}`}
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => {
+                      e.preventDefault();
+                      const files = Array.from(e.dataTransfer?.files || []).filter(f => f.type.startsWith("image/") || f.type.startsWith("video/"));
+                      if (files.length > 0) uploadBriefMedia(files);
+                    }}
+                    onClick={() => {
+                      const input = document.createElement("input");
+                      input.type = "file";
+                      input.accept = "image/*,video/*";
+                      input.multiple = true;
+                      input.onchange = () => {
+                        const files = Array.from(input.files || []);
+                        if (files.length > 0) uploadBriefMedia(files);
+                      };
+                      input.click();
+                    }}
+                  >
+                    {briefMediaUploading ? (
+                      <div className="text-sm text-gray-400">Uploading...</div>
+                    ) : (
+                      <>
+                        <div className="text-sm text-gray-400">Drop files here or click to upload</div>
+                        <div className="text-xs text-gray-300 mt-1">Images & videos — MP4, MOV, JPG, PNG, WebP</div>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 {/* Deliverables */}

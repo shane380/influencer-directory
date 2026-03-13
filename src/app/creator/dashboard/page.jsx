@@ -2457,6 +2457,24 @@ export default function CreatorDashboard() {
           </div>
         )}
 
+        {/* Content References */}
+        {campaign.brief_images?.length > 0 && (
+          <div style={{ marginBottom: 24 }}>
+            <div className="cd-camp-deliverables-label">Content References</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+              {campaign.brief_images.map((img, i) => (
+                <div key={i} style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid #e8e8e8' }}>
+                  {img.url?.includes('video') ? (
+                    <video src={img.url} style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} controls muted />
+                  ) : (
+                    <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {campaign.brief_url && (
           <a href={campaign.brief_url} target="_blank" rel="noopener noreferrer" className="cd-campaign-brief-link" style={{ marginBottom: 20, display: 'inline-flex' }}>
             View brief →
