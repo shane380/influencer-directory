@@ -217,7 +217,7 @@ const CSS = `
 
 /* CAMPAIGNS */
 .cd-campaign-section-hdr { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
-.cd-campaign-section-hdr span { flex: 1; height: 1px; background: #e8e8e8; }
+.cd-campaign-section-hdr span:last-child { flex: 1; height: 1px; background: #e8e8e8; }
 .cd-campaign-section-count { font-size: 11px; letter-spacing: 0; text-transform: none; color: #aaa; }
 .cd-campaign-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
 .cd-campaign-card { background: #fff; border: 1px solid #e8e8e8; border-radius: 8px; padding: 24px 28px; }
@@ -2871,7 +2871,7 @@ export default function CreatorDashboard() {
         {forYouCount > 0 && (
           <div style={{ marginBottom: 32 }}>
             <div className="cd-campaign-section-hdr">
-              For You <span className="cd-campaign-section-count">{forYouCount}</span> <span />
+              New Invites <span className="cd-campaign-section-count">{forYouCount}</span> <span />
             </div>
             <div className="cd-campaign-grid">
               {forYou.map(a => renderWithChildren(a, 'forYou'))}
