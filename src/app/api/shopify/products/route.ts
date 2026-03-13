@@ -96,9 +96,18 @@ async function getInventoryLevels(
 
     if (response.ok) {
       const data = await response.json();
-      for (const level of data.inventory_levels || []) {
+      const levels = data.inventory_levels || [];
+      console.log(`Inventory levels response: ${levels.length} levels for ${chunk.length} items at ${locationIds.length} locations`);
+      if (levels.length === 0) {
+        console.log(`No inventory levels returned. Item IDs: ${chunk.slice(0, 5).join(",")}, Location IDs: ${locationIds.join(",")}`);
+      }
+      for (const level of levels) {
         inventoryMap.set(`${level.inventory_item_id}-${level.location_id}`, level.available || 0);
       }
+    } else {
+      const errorText = await response.text().catch(() => "unknown");
+      console.error(`Inventory levels API failed (${response.status}): ${errorText}`);
+      console.error(`Request URL: ${url}`);
     }
   }
 
@@ -334,7 +343,9 @@ export async function GET(request: NextRequest) {
     if (matchingProducts.length > 0 && locations.length > 0) {
       const inventoryItemIds = matchingProducts.map(p => p.inventory_item_id);
       const locationIds = locations.map(l => l.id);
+      console.log(`Fetching inventory for ${inventoryItemIds.length} items at ${locations.length} locations: ${locations.map(l => `${l.name}(${l.id})`).join(", ")}`);
       const inventoryMap = await getInventoryLevels(SHOPIFY_STORE_URL, SHOPIFY_ACCESS_TOKEN, inventoryItemIds, locationIds);
+      console.log(`Inventory map has ${inventoryMap.size} entries`);
 
       // Populate inventory_by_location for each product
       for (const product of matchingProducts) {
@@ -343,6 +354,10 @@ export async function GET(request: NextRequest) {
           location_name: loc.name,
           available: inventoryMap.get(`${product.inventory_item_id}-${loc.id}`) || 0,
         }));
+        // Log first few products for debugging
+        if (matchingProducts.indexOf(product) < 3) {
+          console.log(`Product "${product.title}" (inv_item: ${product.inventory_item_id}): GraphQL qty=${product.inventory}, by_location=${JSON.stringify(product.inventory_by_location)}`);
+        }
       }
     }
 
