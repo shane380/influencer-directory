@@ -91,7 +91,7 @@ export default function CampaignsPage() {
     deliverables: "",
     go_live_date: "",
   });
-  const [briefImages, setBriefImages] = useState<{ url: string; drive_file_id?: string }[]>([]);
+  const [briefImages, setBriefImages] = useState<{ url: string; drive_file_id?: string; storage_path?: string }[]>([]);
   const [bannerImage, setBannerImage] = useState<{ url: string; drive_file_id?: string } | null>(null);
   const [bannerUploading, setBannerUploading] = useState(false);
   const [briefMediaUploading, setBriefMediaUploading] = useState(false);
@@ -277,20 +277,35 @@ export default function CampaignsPage() {
   async function uploadBriefMedia(files: File[]) {
     setBriefMediaUploading(true);
     setUploadStatus(null);
+    const supabase = createClient();
     let succeeded = 0;
     let failed = 0;
     for (const file of files) {
       try {
-        const compressed = file.type.startsWith("image/") ? await compressImage(file, 1600, 0.85) : file;
-        const formData = new FormData();
-        formData.append("file", compressed);
-        const res = await fetch("/api/drive/banner", { method: "POST", body: formData });
-        if (res.ok) {
-          const data = await res.json();
-          setBriefImages(prev => [...prev, { url: data.url, drive_file_id: data.fileId }]);
-          succeeded++;
+        // Images under 3MB: compress and upload via Drive API
+        // Videos and large files: upload directly to Supabase Storage (no size limit)
+        if (file.type.startsWith("image/") && file.size < 3 * 1024 * 1024) {
+          const compressed = await compressImage(file, 1600, 0.85);
+          const formData = new FormData();
+          formData.append("file", compressed);
+          const res = await fetch("/api/drive/banner", { method: "POST", body: formData });
+          if (res.ok) {
+            const data = await res.json();
+            setBriefImages(prev => [...prev, { url: data.url, drive_file_id: data.fileId }]);
+            succeeded++;
+          } else {
+            failed++;
+          }
         } else {
-          failed++;
+          // Upload to Supabase Storage for large files / videos
+          const storagePath = `campaign-references/${Date.now()}-${file.name}`;
+          const { error: storageErr } = await supabase.storage
+            .from("creator-uploads")
+            .upload(storagePath, file, { cacheControl: "3600", upsert: false });
+          if (storageErr) throw new Error(storageErr.message);
+          const { data: urlData } = supabase.storage.from("creator-uploads").getPublicUrl(storagePath);
+          setBriefImages(prev => [...prev, { url: urlData.publicUrl, storage_path: storagePath }]);
+          succeeded++;
         }
       } catch (err) {
         console.error("Brief media upload failed:", err);
@@ -317,6 +332,11 @@ export default function CampaignsPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ fileId: item.drive_file_id }),
         });
+      } catch {}
+    } else if (item?.storage_path) {
+      try {
+        const supabase = createClient();
+        await supabase.storage.from("creator-uploads").remove([item.storage_path]);
       } catch {}
     }
     setBriefImages(prev => prev.filter((_, i) => i !== index));
