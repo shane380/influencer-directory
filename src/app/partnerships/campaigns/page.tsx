@@ -93,6 +93,7 @@ export default function CampaignsPage() {
   });
   const [briefImages, setBriefImages] = useState<{ url: string; drive_file_id?: string }[]>([]);
   const [bannerImage, setBannerImage] = useState<{ url: string; drive_file_id?: string } | null>(null);
+  const [bannerUploading, setBannerUploading] = useState(false);
   const [availableProducts, setAvailableProducts] = useState<Product[]>([]);
   const [selectedCreators, setSelectedCreators] = useState<{ influencer_id: string | null; creator_id: string | null; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
@@ -198,6 +199,35 @@ export default function CampaignsPage() {
       setProductResults(deduped);
     } catch {}
     setSearchingProducts(false);
+  }
+
+  async function uploadBanner(file: File) {
+    setBannerUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/drive/banner", { method: "POST", body: formData });
+      if (res.ok) {
+        const data = await res.json();
+        setBannerImage({ url: data.url, drive_file_id: data.fileId });
+      }
+    } catch (err) {
+      console.error("Banner upload failed:", err);
+    }
+    setBannerUploading(false);
+  }
+
+  async function deleteBanner() {
+    if (bannerImage?.drive_file_id) {
+      try {
+        await fetch("/api/drive/banner", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fileId: bannerImage.drive_file_id }),
+        });
+      } catch {}
+    }
+    setBannerImage(null);
   }
 
   function addProduct(p: SearchProduct) {
@@ -1079,21 +1109,45 @@ export default function CampaignsPage() {
 
                 {/* Banner Image */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Banner Image URL (optional)</label>
-                  <div className="flex gap-2">
-                    <input
-                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                      value={bannerImage?.url || ""}
-                      onChange={e => setBannerImage(e.target.value ? { url: e.target.value } : null)}
-                      placeholder="https://... (banner image URL)"
-                    />
-                    {bannerImage?.url && (
-                      <button onClick={() => setBannerImage(null)} className="px-2 text-gray-400 hover:text-gray-600">×</button>
-                    )}
-                  </div>
-                  {bannerImage?.url && (
-                    <div className="mt-2 border border-gray-200 rounded-lg overflow-hidden">
+                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Banner Image (optional)</label>
+                  {bannerImage?.url ? (
+                    <div className="relative border border-gray-200 rounded-lg overflow-hidden">
                       <img src={bannerImage.url} alt="Banner preview" className="w-full h-32 object-cover" />
+                      <button
+                        onClick={deleteBanner}
+                        className="absolute top-2 right-2 bg-white/90 rounded-full p-1 hover:bg-white shadow-sm"
+                      >
+                        <X className="h-4 w-4 text-gray-500" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${bannerUploading ? "border-gray-300 bg-gray-50" : "border-gray-200 hover:border-gray-400"}`}
+                      onDragOver={e => e.preventDefault()}
+                      onDrop={e => {
+                        e.preventDefault();
+                        const file = e.dataTransfer?.files?.[0];
+                        if (file && file.type.startsWith("image/")) uploadBanner(file);
+                      }}
+                      onClick={() => {
+                        const input = document.createElement("input");
+                        input.type = "file";
+                        input.accept = "image/*";
+                        input.onchange = () => {
+                          const file = input.files?.[0];
+                          if (file) uploadBanner(file);
+                        };
+                        input.click();
+                      }}
+                    >
+                      {bannerUploading ? (
+                        <div className="text-sm text-gray-400">Uploading...</div>
+                      ) : (
+                        <>
+                          <div className="text-sm text-gray-400">Drop an image here or click to upload</div>
+                          <div className="text-xs text-gray-300 mt-1">JPG, PNG, WebP</div>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
