@@ -283,6 +283,7 @@ const CSS = `
   .cd-camp-step-num { width: 16px; height: 16px; font-size: 8px; }
   .cd-camp-card-banner-wrap { margin: -20px -20px 12px; }
   .cd-camp-card-banner { aspect-ratio: 20/17; }
+  .cd-products { grid-template-columns: repeat(2,1fr); }
 }
 
 /* PRODUCTS */
@@ -2516,7 +2517,7 @@ export default function CreatorDashboard() {
                   const pid = p.product_id || i
                   const variants = campaignVariants[pid] || []
                   const selects = campaignSelects[assignment.id]?.products || []
-                  const selectedProduct = selects.find(s => String(s.product_id) === String(pid) || s.product_title === p.product_title)
+                  const selectedProduct = selects.find(s => String(s.product_id) === String(pid))
                   const selectedSize = campaignSelects[assignment.id]?.sizes?.[pid]
 
                   return (
@@ -2542,7 +2543,7 @@ export default function CreatorDashboard() {
                                     // Select this product with this size
                                     setCampaignSelects(prev => {
                                       const current = prev[assignment.id] || { products: [], sizes: {} }
-                                      const existingIdx = current.products.findIndex(s => String(s.product_id) === String(pid) || s.product_title === p.product_title)
+                                      const existingIdx = current.products.findIndex(s => String(s.product_id) === String(pid))
                                       let updatedProducts = [...current.products]
                                       let updatedSizes = { ...current.sizes }
 
