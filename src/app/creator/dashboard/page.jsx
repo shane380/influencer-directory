@@ -2443,8 +2443,8 @@ export default function CreatorDashboard() {
 
         <div className="cd-campaign-meta" style={{ marginBottom: 16 }}>
           <span className={`cd-campaign-status ${statusInfo.cls}`}>{statusInfo.label}</span>
-          {goLiveDate && <span className="cd-camp-go-live">Go live {goLiveDate}</span>}
-          {dueDate && <span className="cd-campaign-due">Due {dueDate}</span>}
+          {goLiveDate && <span className="cd-camp-go-live">Goes live {goLiveDate}</span>}
+          {dueDate && <span className="cd-campaign-due">Content due {dueDate}</span>}
         </div>
 
         {campaign.description && <div style={{ fontSize: 13, color: '#666', lineHeight: 1.7, marginBottom: 20 }}>{campaign.description}</div>}
@@ -2778,8 +2778,8 @@ export default function CreatorDashboard() {
         <div className="cd-campaign-title">{campaign.title}</div>
         <div className="cd-campaign-meta">
           <span className={`cd-campaign-status ${statusInfo.cls}`}>{statusInfo.label}</span>
-          {goLiveDate && <span className="cd-camp-go-live">Go live {goLiveDate}</span>}
-          {dueDate && <span className="cd-campaign-due">Due {dueDate}</span>}
+          {goLiveDate && <span className="cd-camp-go-live">Goes live {goLiveDate}</span>}
+          {dueDate && <span className="cd-campaign-due">Content due {dueDate}</span>}
         </div>
 
         {campaign.description && <div className="cd-campaign-desc" style={{ marginTop: 8 }}>{campaign.description}</div>}
