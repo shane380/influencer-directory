@@ -70,11 +70,12 @@ export function renderEmailTemplate({
           <tr>
             <td align="center" style="padding-bottom:32px;">
               <!--[if !mso]><!-->
-              <img src="https://creators.namaclo.com/nama-logo.svg" alt="Nama" width="100" style="display:block;border:0;width:100px;height:auto;" />
+              <img src="https://creators.namaclo.com/nama-logo.svg" alt="Nama" width="100" style="display:block;border:0;width:100px;height:auto;margin:0 auto;" />
               <!--<![endif]-->
               <!--[if mso]>
               <span style="font-family:'Playfair Display',Georgia,serif;font-size:28px;font-weight:700;color:#000000;letter-spacing:2px;">Nama</span>
               <![endif]-->
+              <div style="margin-top:4px;font-family:'Helvetica Neue',Arial,Helvetica,sans-serif;font-size:11px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#999999;">Partners</div>
             </td>
           </tr>
 
