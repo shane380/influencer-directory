@@ -797,7 +797,12 @@ export default function CreatorDashboard() {
       if (!user) { router.push('/creator/login'); return }
 
       const isAdmin = user.user_metadata?.role !== 'creator'
-      const urlCreatorId = new URLSearchParams(window.location.search).get('creator_id')
+      const params = new URLSearchParams(window.location.search)
+      const urlCreatorId = params.get('creator_id')
+      const urlTab = params.get('tab')
+      if (urlTab && ['ads', 'campaigns', 'wardrobe', 'submit', 'settings'].includes(urlTab)) {
+        setActiveTab(urlTab)
+      }
 
       let creatorData = null
       if (urlCreatorId && isAdmin) {

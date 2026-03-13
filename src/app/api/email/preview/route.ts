@@ -48,11 +48,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "to and template are required" }, { status: 400 });
     }
 
-    const subject = replacePlaceholders(template.subject, SAMPLE_VARS) + " [PREVIEW]";
+    // Use the recipient's first name from the "to" address prefix, or the logged-in user's name
+    const senderName = (user.user_metadata?.full_name || user.email?.split("@")[0] || "").split(" ")[0];
+    const vars = { ...SAMPLE_VARS, firstName: senderName || SAMPLE_VARS.firstName };
+
+    const subject = replacePlaceholders(template.subject, vars) + " [PREVIEW]";
     const html = renderEmailTemplate({
       preheader: "This is a preview email",
-      heading: replacePlaceholders(template.heading, SAMPLE_VARS),
-      bodyHtml: bodyToHtml(template.body, SAMPLE_VARS),
+      heading: replacePlaceholders(template.heading, vars),
+      bodyHtml: bodyToHtml(template.body, vars),
       ctaText: template.ctaText + " \u2192",
       ctaUrl: "https://creators.namaclo.com/creator/dashboard",
     });
