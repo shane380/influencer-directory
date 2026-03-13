@@ -1,5 +1,6 @@
 import { renderEmailTemplate } from "./email";
 import { getEmailTemplate } from "./app-settings";
+import { getUnsubscribeUrl } from "./unsubscribe";
 
 function replacePlaceholders(text: string, vars: Record<string, string>): string {
   return text.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] || "");
@@ -65,10 +66,12 @@ export async function campaignAssignedEmail({
   firstName,
   campaignName,
   description,
+  recipientEmail,
 }: {
   firstName: string;
   campaignName: string;
   description?: string;
+  recipientEmail: string;
 }): Promise<{ subject: string; html: string }> {
   const override = await getEmailTemplate("campaign_assigned");
   const tmpl = { ...DEFAULTS.campaign_assigned, ...override };
@@ -86,6 +89,7 @@ export async function campaignAssignedEmail({
       bodyHtml: bodyToHtml(tmpl.body, vars),
       ctaText: tmpl.ctaText + " \u2192",
       ctaUrl: "https://creators.namaclo.com/creator/dashboard",
+      unsubscribeUrl: getUnsubscribeUrl(recipientEmail),
     }),
   };
 }
@@ -95,11 +99,13 @@ export async function contentStatusEmail({
   campaignName,
   status,
   feedback,
+  recipientEmail,
 }: {
   firstName: string;
   campaignName: string;
   status: "approved" | "revision_requested";
   feedback?: string;
+  recipientEmail: string;
 }): Promise<{ subject: string; html: string }> {
   const templateKey = status === "approved" ? "content_approved" : "revision_requested";
   const override = await getEmailTemplate(templateKey);
@@ -120,6 +126,7 @@ export async function contentStatusEmail({
       bodyHtml: bodyToHtml(tmpl.body, vars),
       ctaText: tmpl.ctaText + " \u2192",
       ctaUrl: "https://creators.namaclo.com/creator/dashboard",
+      unsubscribeUrl: getUnsubscribeUrl(recipientEmail),
     }),
   };
 }
@@ -127,9 +134,11 @@ export async function contentStatusEmail({
 export async function inviteEmail({
   firstName,
   inviteUrl,
+  recipientEmail,
 }: {
   firstName: string;
   inviteUrl: string;
+  recipientEmail: string;
 }): Promise<{ subject: string; html: string }> {
   const override = await getEmailTemplate("partner_invite");
   const tmpl = { ...DEFAULTS.partner_invite, ...override };
@@ -143,6 +152,7 @@ export async function inviteEmail({
       bodyHtml: bodyToHtml(tmpl.body, vars),
       ctaText: tmpl.ctaText + " \u2192",
       ctaUrl: inviteUrl,
+      unsubscribeUrl: getUnsubscribeUrl(recipientEmail),
     }),
   };
 }

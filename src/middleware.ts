@@ -42,7 +42,9 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/terms') ||
     pathname.startsWith('/api/creators/signup') ||
     pathname.startsWith('/api/meta/creator-ads') ||
-    pathname.startsWith('/creator/login')
+    pathname.startsWith('/creator/login') ||
+    pathname.startsWith('/unsubscribe') ||
+    pathname.startsWith('/api/unsubscribe')
   ) {
     return supabaseResponse;
   }

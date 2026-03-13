@@ -109,6 +109,7 @@ export async function PATCH(request: NextRequest) {
           campaignName,
           status,
           feedback: status === "revision_requested" ? (admin_feedback || undefined) : undefined,
+          recipientEmail: creator.email,
         });
 
         await sendEmail({ to: creator.email, subject, html });

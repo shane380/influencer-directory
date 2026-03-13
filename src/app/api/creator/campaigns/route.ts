@@ -167,6 +167,7 @@ export async function POST(request: NextRequest) {
                 firstName,
                 campaignName: title,
                 description: description || undefined,
+                recipientEmail: creator.email,
               });
               sendEmail({ to: creator.email, subject, html }).catch((err) =>
                 console.error(`Failed to email creator ${creator.id}:`, err)
@@ -227,6 +228,7 @@ export async function PATCH(request: NextRequest) {
                 firstName,
                 campaignName: updates.title || "a new campaign",
                 description: updates.description || undefined,
+                recipientEmail: creator.email,
               });
               sendEmail({ to: creator.email, subject, html }).catch((err) =>
                 console.error(`Failed to email creator ${creator.id}:`, err)

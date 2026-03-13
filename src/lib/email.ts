@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { getUnsubscribeUrl } from "./unsubscribe";
 
 let _resend: Resend | null = null;
 
@@ -18,11 +19,16 @@ export async function sendEmail({
   subject: string;
   html: string;
 }) {
+  const unsubUrl = getUnsubscribeUrl(to);
   const { data, error } = await getResend().emails.send({
     from: "Nama Partners <partners@partners.namaclo.com>",
     to,
     subject,
     html,
+    headers: {
+      "List-Unsubscribe": `<${unsubUrl}>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    },
   });
 
   if (error) {
@@ -39,12 +45,14 @@ export function renderEmailTemplate({
   bodyHtml,
   ctaText,
   ctaUrl,
+  unsubscribeUrl,
 }: {
   preheader?: string;
   heading: string;
   bodyHtml: string;
   ctaText: string;
   ctaUrl: string;
+  unsubscribeUrl?: string;
 }): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -121,6 +129,7 @@ export function renderEmailTemplate({
               <a href="https://creators.namaclo.com/creator/dashboard" target="_blank" style="color:#999999;text-decoration:underline;">
                 Go to your dashboard &rarr;
               </a>
+              ${unsubscribeUrl ? `<br /><br /><a href="${unsubscribeUrl}" target="_blank" style="color:#bbbbbb;text-decoration:underline;font-size:12px;">Unsubscribe from emails</a>` : ""}
             </td>
           </tr>
         </table>
