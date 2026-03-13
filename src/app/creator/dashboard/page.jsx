@@ -2298,7 +2298,7 @@ export default function CreatorDashboard() {
   function getCampaignStatusInfo(status) {
     const map = {
       sent: { label: 'New Invite', cls: 'cd-campaign-status-sent' },
-      confirmed: { label: 'Order coming', cls: 'cd-campaign-status-confirmed' },
+      confirmed: { label: 'Selects coming', cls: 'cd-campaign-status-confirmed' },
       content_submitted: { label: 'Under review', cls: 'cd-campaign-status-content' },
       complete: { label: 'Complete', cls: 'cd-campaign-status-complete' },
       declined: { label: 'Declined', cls: 'cd-campaign-status-declined' },
