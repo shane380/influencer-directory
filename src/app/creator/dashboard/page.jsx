@@ -286,7 +286,7 @@ const CSS = `
   .cd-camp-step-num { width: 16px; height: 16px; font-size: 8px; }
   .cd-products { grid-template-columns: repeat(2,1fr); }
   /* Detail view mobile */
-  .cd-camp-banner { aspect-ratio: 16/9; object-fit: cover; object-position: top; margin-bottom: 20px; border-radius: 0; }
+  .cd-camp-banner { aspect-ratio: 16/9; object-fit: cover; object-position: center; margin-bottom: 20px; border-radius: 0; }
   .cd-camp-detail .cd-campaign-title { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 400; }
   .cd-camp-detail-title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
   .cd-camp-detail-badge { border: 1px solid #c4631a; color: #c4631a; border-radius: 20px; font-size: 10px; padding: 2px 8px; white-space: nowrap; flex-shrink: 0; }
