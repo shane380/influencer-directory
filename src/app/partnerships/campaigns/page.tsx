@@ -95,6 +95,7 @@ export default function CampaignsPage() {
   const [bannerImage, setBannerImage] = useState<{ url: string; drive_file_id?: string } | null>(null);
   const [bannerUploading, setBannerUploading] = useState(false);
   const [briefMediaUploading, setBriefMediaUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [availableProducts, setAvailableProducts] = useState<Product[]>([]);
   const [selectedCreators, setSelectedCreators] = useState<{ influencer_id: string | null; creator_id: string | null; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
@@ -210,6 +211,7 @@ export default function CampaignsPage() {
 
   async function uploadBanner(file: File) {
     setBannerUploading(true);
+    setUploadStatus(null);
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -217,11 +219,17 @@ export default function CampaignsPage() {
       if (res.ok) {
         const data = await res.json();
         setBannerImage({ url: data.url, drive_file_id: data.fileId });
+        setUploadStatus({ type: "success", message: "Banner uploaded" });
+      } else {
+        const err = await res.json().catch(() => ({ error: "Upload failed" }));
+        setUploadStatus({ type: "error", message: err.error || "Banner upload failed" });
       }
     } catch (err) {
       console.error("Banner upload failed:", err);
+      setUploadStatus({ type: "error", message: "Banner upload failed — check your connection" });
     }
     setBannerUploading(false);
+    setTimeout(() => setUploadStatus(null), 4000);
   }
 
   async function deleteBanner() {
@@ -239,6 +247,9 @@ export default function CampaignsPage() {
 
   async function uploadBriefMedia(files: File[]) {
     setBriefMediaUploading(true);
+    setUploadStatus(null);
+    let succeeded = 0;
+    let failed = 0;
     for (const file of files) {
       try {
         const formData = new FormData();
@@ -247,12 +258,24 @@ export default function CampaignsPage() {
         if (res.ok) {
           const data = await res.json();
           setBriefImages(prev => [...prev, { url: data.url, drive_file_id: data.fileId }]);
+          succeeded++;
+        } else {
+          failed++;
         }
       } catch (err) {
         console.error("Brief media upload failed:", err);
+        failed++;
       }
     }
     setBriefMediaUploading(false);
+    if (failed > 0 && succeeded === 0) {
+      setUploadStatus({ type: "error", message: "Content reference upload failed" });
+    } else if (failed > 0) {
+      setUploadStatus({ type: "error", message: `${succeeded} uploaded, ${failed} failed` });
+    } else {
+      setUploadStatus({ type: "success", message: `${succeeded} reference${succeeded > 1 ? "s" : ""} uploaded` });
+    }
+    setTimeout(() => setUploadStatus(null), 4000);
   }
 
   async function deleteBriefMedia(index: number) {
@@ -337,6 +360,7 @@ export default function CampaignsPage() {
     setForm({ title: "", description: "", brief_url: "", due_date: "", max_selects: 2, campaign_type: "mass", deliverables: "", go_live_date: "" });
     setBriefImages([]);
     setBannerImage(null);
+    setUploadStatus(null);
     setAvailableProducts([]);
     setSelectedCreators([]);
     setCreatorSearch("");
@@ -1264,6 +1288,13 @@ export default function CampaignsPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Upload status message */}
+                {uploadStatus && (
+                  <div className={`text-xs px-3 py-2 rounded-md ${uploadStatus.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+                    {uploadStatus.type === "success" ? "✓" : "✗"} {uploadStatus.message}
+                  </div>
+                )}
 
                 {/* Deliverables */}
                 <div>
