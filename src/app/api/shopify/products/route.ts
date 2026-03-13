@@ -78,14 +78,16 @@ async function getInventoryLevels(
     return inventoryMap;
   }
 
-  // Shopify limits to 50 inventory items per request
+  // Shopify returns max 250 results per request. Each item × location = 1 result,
+  // so chunk size must account for number of locations to avoid truncated responses.
+  const chunkSize = Math.min(50, Math.floor(250 / Math.max(locationIds.length, 1)));
   const chunks = [];
-  for (let i = 0; i < inventoryItemIds.length; i += 50) {
-    chunks.push(inventoryItemIds.slice(i, i + 50));
+  for (let i = 0; i < inventoryItemIds.length; i += chunkSize) {
+    chunks.push(inventoryItemIds.slice(i, i + chunkSize));
   }
 
   for (const chunk of chunks) {
-    const url = `https://${storeUrl}/admin/api/2024-01/inventory_levels.json?inventory_item_ids=${chunk.join(",")}&location_ids=${locationIds.join(",")}`;
+    const url = `https://${storeUrl}/admin/api/2024-01/inventory_levels.json?inventory_item_ids=${chunk.join(",")}&location_ids=${locationIds.join(",")}&limit=250`;
 
     const response = await fetch(url, {
       headers: {
