@@ -219,7 +219,8 @@ const CSS = `
 .cd-campaign-section-hdr { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
 .cd-campaign-section-hdr span:last-child { flex: 1; height: 1px; background: #e8e8e8; }
 .cd-campaign-section-count { font-size: 11px; letter-spacing: 0; text-transform: none; color: #aaa; }
-.cd-campaign-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.cd-campaign-grid { display: grid; gap: 16px; }
+@media (min-width: 768px) { .cd-campaign-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 360px)); justify-content: start; } }
 .cd-campaign-card { background: #fff; border: 0.5px solid #e0e0e0; border-radius: 12px; overflow: hidden; }
 .cd-campaign-card-status-bar { display: flex; align-items: center; justify-content: space-between; padding: 6px 16px; background: #f7f7f7; border-bottom: 0.5px solid #e0e0e0; }
 .cd-campaign-card-status-left { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #111; }
