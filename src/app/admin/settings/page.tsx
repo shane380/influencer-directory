@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowLeft, Loader2, Mail } from "lucide-react";
+import { ArrowLeft, Loader2, Mail, Globe, X, Plus } from "lucide-react";
 import Link from "next/link";
 
 interface TriggerConfig {
@@ -55,6 +55,9 @@ export default function AdminSettingsPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [triggers, setTriggers] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState<string | null>(null);
+  const [suspendedCountries, setSuspendedCountries] = useState<string[]>([]);
+  const [newCountry, setNewCountry] = useState("");
+  const [savingCountries, setSavingCountries] = useState(false);
   const supabase = createClient();
   const router = useRouter();
 
@@ -64,6 +67,7 @@ export default function AdminSettingsPage() {
       if (res.ok) {
         const data = await res.json();
         setTriggers(data.email_triggers || {});
+        setSuspendedCountries(data.suspended_shipping_countries || []);
       }
     } catch {}
   }, []);
@@ -103,6 +107,38 @@ export default function AdminSettingsPage() {
     setSaving(null);
   };
 
+  const saveCountries = async (updated: string[]) => {
+    setSavingCountries(true);
+    const previous = suspendedCountries;
+    setSuspendedCountries(updated);
+    try {
+      await fetch("/api/admin/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ suspended_shipping_countries: updated }),
+      });
+    } catch {
+      setSuspendedCountries(previous);
+    }
+    setSavingCountries(false);
+  };
+
+  const addCountry = () => {
+    const trimmed = newCountry.trim();
+    if (!trimmed) return;
+    if (suspendedCountries.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
+      setNewCountry("");
+      return;
+    }
+    const updated = [...suspendedCountries, trimmed].sort((a, b) => a.localeCompare(b));
+    setNewCountry("");
+    saveCountries(updated);
+  };
+
+  const removeCountry = (country: string) => {
+    saveCountries(suspendedCountries.filter((c) => c !== country));
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -128,6 +164,7 @@ export default function AdminSettingsPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* Email Notifications */}
         <div className="bg-white rounded-lg border">
           <div className="p-6 border-b">
             <div className="flex items-center gap-3">
@@ -191,6 +228,72 @@ export default function AdminSettingsPage() {
           <div className="p-4 bg-gray-50 border-t rounded-b-lg">
             <p className="text-xs text-gray-400">
               Emails are sent from <span className="font-medium text-gray-500">partners@namaclo.com</span> via Resend. Partners can also opt out individually from their notification preferences.
+            </p>
+          </div>
+        </div>
+
+        {/* Suspended Shipping Countries */}
+        <div className="bg-white rounded-lg border">
+          <div className="p-6 border-b">
+            <div className="flex items-center gap-3">
+              <Globe className="h-5 w-5 text-gray-700" />
+              <div>
+                <h2 className="text-lg font-medium text-gray-900">Suspended Shipping Countries</h2>
+                <p className="text-sm text-gray-500 mt-1">Countries where our couriers have suspended shipping. Draft orders to these countries will be blocked.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5">
+            <div className="flex gap-2 mb-4">
+              <input
+                type="text"
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200"
+                value={newCountry}
+                onChange={(e) => setNewCountry(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") addCountry(); }}
+                placeholder="Enter country name (e.g. Russia, Belarus)..."
+                disabled={savingCountries}
+              />
+              <button
+                onClick={addCountry}
+                disabled={!newCountry.trim() || savingCountries}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add
+              </button>
+            </div>
+
+            {suspendedCountries.length === 0 ? (
+              <div className="text-sm text-gray-400 py-4 text-center border border-dashed border-gray-200 rounded-lg">
+                No countries suspended. All shipping destinations are active.
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {suspendedCountries.map((country) => (
+                  <span
+                    key={country}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-50 text-red-700 border border-red-200 rounded-full"
+                  >
+                    {country}
+                    <button
+                      onClick={() => removeCountry(country)}
+                      className="hover:bg-red-100 rounded-full p-0.5 transition-colors"
+                      disabled={savingCountries}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 bg-gray-50 border-t rounded-b-lg">
+            <p className="text-xs text-gray-400">
+              When creating a draft order for an influencer whose Shopify address is in a suspended country, an error message will be shown and the order will be blocked.
+              Country names must match exactly how they appear in Shopify (e.g. &quot;Russia&quot; not &quot;RU&quot;).
             </p>
           </div>
         </div>

@@ -30,23 +30,38 @@ const DEFAULT_TRIGGERS = {
   partner_invite: false,
 };
 
+async function getSetting(supabase: ReturnType<typeof getAdminClient>, key: string) {
+  const { data } = await (supabase.from("app_settings") as any)
+    .select("value")
+    .eq("key", key)
+    .single();
+  if (!data?.value) return null;
+  return typeof data.value === "string" ? JSON.parse(data.value) : data.value;
+}
+
+async function setSetting(supabase: ReturnType<typeof getAdminClient>, key: string, value: unknown) {
+  const { data, error } = await (supabase.from("app_settings") as any)
+    .upsert({
+      key,
+      value: JSON.stringify(value),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "key" })
+    .select("value")
+    .single();
+  if (error) throw error;
+  return typeof data.value === "string" ? JSON.parse(data.value) : data.value;
+}
+
 // GET: Fetch app settings
 export async function GET() {
   const admin = await verifyAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
   const supabase = getAdminClient();
-  const { data } = await (supabase.from("app_settings") as any)
-    .select("value")
-    .eq("key", "email_triggers")
-    .single();
+  const triggers = (await getSetting(supabase, "email_triggers")) || DEFAULT_TRIGGERS;
+  const suspendedCountries = (await getSetting(supabase, "suspended_shipping_countries")) || [];
 
-  let triggers = DEFAULT_TRIGGERS;
-  if (data?.value) {
-    triggers = typeof data.value === "string" ? JSON.parse(data.value) : data.value;
-  }
-
-  return NextResponse.json({ email_triggers: triggers });
+  return NextResponse.json({ email_triggers: triggers, suspended_shipping_countries: suspendedCountries });
 }
 
 // PATCH: Update app settings
@@ -55,26 +70,16 @@ export async function PATCH(request: NextRequest) {
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
   const body = await request.json();
-  const { email_triggers } = body;
-
-  if (!email_triggers || typeof email_triggers !== "object") {
-    return NextResponse.json({ error: "email_triggers required" }, { status: 400 });
-  }
-
   const supabase = getAdminClient();
-  const { data, error } = await (supabase.from("app_settings") as any)
-    .upsert({
-      key: "email_triggers",
-      value: JSON.stringify(email_triggers),
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "key" })
-    .select("value")
-    .single();
+  const result: Record<string, unknown> = {};
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (body.email_triggers && typeof body.email_triggers === "object") {
+    result.email_triggers = await setSetting(supabase, "email_triggers", body.email_triggers);
   }
 
-  const result = typeof data.value === "string" ? JSON.parse(data.value) : data.value;
-  return NextResponse.json({ email_triggers: result });
+  if (Array.isArray(body.suspended_shipping_countries)) {
+    result.suspended_shipping_countries = await setSetting(supabase, "suspended_shipping_countries", body.suspended_shipping_countries);
+  }
+
+  return NextResponse.json(result);
 }

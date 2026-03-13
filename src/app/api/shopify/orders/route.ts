@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getShopifyAccessToken, getShopifyStoreUrl } from "@/lib/shopify";
+import { createClient } from "@supabase/supabase-js";
 
 interface LineItem {
   variant_id: string | number;
@@ -63,6 +64,57 @@ export async function POST(request: NextRequest) {
         { error: "At least one line item is required" },
         { status: 400 }
       );
+    }
+
+    // Check suspended shipping countries if a customer is linked
+    if (customer_id) {
+      try {
+        // Fetch customer from Shopify to get their country
+        const custRes = await fetch(
+          `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/customers/${customer_id}.json`,
+          {
+            headers: {
+              "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        if (custRes.ok) {
+          const custData = await custRes.json();
+          const address = custData.customer?.default_address;
+          const country = address?.country || address?.country_name || "";
+
+          if (country) {
+            // Fetch suspended countries from app_settings
+            const supabase = createClient(
+              process.env.NEXT_PUBLIC_SUPABASE_URL!,
+              process.env.SUPABASE_SERVICE_ROLE_KEY!
+            );
+            const { data: setting } = await (supabase.from("app_settings") as any)
+              .select("value")
+              .eq("key", "suspended_shipping_countries")
+              .single();
+
+            if (setting?.value) {
+              const suspended: string[] = typeof setting.value === "string"
+                ? JSON.parse(setting.value)
+                : setting.value;
+              const countryLower = country.toLowerCase();
+              const isSuspended = suspended.some(
+                (s) => s.toLowerCase() === countryLower
+              );
+              if (isSuspended) {
+                return NextResponse.json(
+                  { error: `We are currently not shipping to ${country}. This country has been suspended by our courier.` },
+                  { status: 400 }
+                );
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Country check failed (proceeding with order):", err);
+      }
     }
 
     // Build draft order payload
