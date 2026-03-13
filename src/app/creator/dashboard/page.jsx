@@ -219,8 +219,8 @@ const CSS = `
 .cd-campaign-section-hdr { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
 .cd-campaign-section-hdr span { flex: 1; height: 1px; background: #e8e8e8; }
 .cd-campaign-section-count { font-size: 11px; letter-spacing: 0; text-transform: none; color: #aaa; }
-.cd-campaign-card { background: #fff; border: 1px solid #e8e8e8; border-radius: 0; padding: 24px 28px; }
-.cd-campaign-card + .cd-campaign-card { border-top: none; }
+.cd-campaign-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.cd-campaign-card { background: #fff; border: 1px solid #e8e8e8; border-radius: 8px; padding: 24px 28px; }
 .cd-campaign-card.for-you { border-left: 1.5px solid #1a1a1a; }
 .cd-campaign-title { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 300; color: #111; line-height: 1.2; margin-bottom: 6px; }
 .cd-campaign-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
@@ -232,6 +232,11 @@ const CSS = `
 .cd-campaign-status-complete { color: #2e7d32; border-color: #a5d6a7; }
 .cd-campaign-status-declined { color: #888; border-color: #ccc; }
 .cd-campaign-desc { font-size: 12px; color: #888; line-height: 1.5; margin-bottom: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cd-campaign-card-thumbs { display: flex; gap: 6px; margin-top: 12px; }
+.cd-campaign-card-thumb { width: 48px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid #e8e8e8; }
+.cd-campaign-card-thumb-more { width: 48px; height: 60px; border-radius: 4px; border: 1px solid #e8e8e8; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #999; background: #f9f9f9; }
+.cd-campaign-review-btn { display: inline-block; margin-top: 14px; padding: 8px 20px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; background: #111; border: none; border-radius: 4px; cursor: pointer; transition: background 0.15s; }
+.cd-campaign-review-btn:hover { background: #333; }
 .cd-campaign-brief-link { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; color: #888; text-decoration: none; letter-spacing: 0.04em; margin-top: 8px; }
 .cd-campaign-brief-link:hover { color: #111; }
 .cd-campaign-product-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
@@ -255,7 +260,7 @@ const CSS = `
 .cd-camp-back { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #aaa; cursor: pointer; background: none; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 0; margin-bottom: 24px; transition: color 0.15s; }
 .cd-camp-back:hover { color: #111; }
 .cd-camp-detail { }
-.cd-camp-banner { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; margin-bottom: 28px; border-radius: 8px; }
+.cd-camp-banner { width: 100%; aspect-ratio: 20/17; object-fit: cover; display: block; margin-bottom: 28px; border-radius: 8px; }
 .cd-camp-steps { display: flex; align-items: center; gap: 0; margin-bottom: 32px; }
 .cd-camp-step { display: flex; align-items: center; gap: 8px; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #ccc; padding: 10px 0; flex: 1; justify-content: center; border-bottom: 2px solid #e8e8e8; transition: all 0.2s; }
 .cd-camp-step.active { color: #111; border-bottom-color: #111; font-weight: 500; }
@@ -266,13 +271,14 @@ const CSS = `
 .cd-camp-deliverables { margin-bottom: 28px; }
 .cd-camp-deliverables-label { font-size: 9px; letter-spacing: 0.38em; text-transform: uppercase; color: #aaa; margin-bottom: 10px; }
 .cd-camp-deliverables-text { font-size: 13px; color: #555; line-height: 1.7; white-space: pre-wrap; }
-.cd-camp-card-banner-wrap { margin: -24px -28px 16px; overflow: hidden; }
+.cd-camp-card-banner-wrap { margin: -24px -28px 16px; overflow: hidden; border-radius: 8px 8px 0 0; }
 .cd-camp-card-banner { width: 100%; height: 180px; object-fit: cover; display: block; }
 .cd-camp-go-live { font-size: 11px; color: #aaa; }
 @media (max-width: 768px) {
+  .cd-campaign-grid { grid-template-columns: 1fr; }
   .cd-campaign-card { padding: 20px; }
   .cd-campaign-title { font-size: 18px; }
-  .cd-camp-banner { aspect-ratio: 4/3; margin-bottom: 20px; }
+  .cd-camp-banner { aspect-ratio: 20/17; margin-bottom: 20px; }
   .cd-camp-step { font-size: 8px; letter-spacing: 0.06em; gap: 4px; }
   .cd-camp-step-num { width: 16px; height: 16px; font-size: 8px; }
   .cd-camp-card-banner-wrap { margin: -20px -20px 12px; }
@@ -2291,7 +2297,7 @@ export default function CreatorDashboard() {
 
   function getCampaignStatusInfo(status) {
     const map = {
-      sent: { label: 'Confirm', cls: 'cd-campaign-status-sent' },
+      sent: { label: 'New Invite', cls: 'cd-campaign-status-sent' },
       confirmed: { label: 'Order coming', cls: 'cd-campaign-status-confirmed' },
       content_submitted: { label: 'Under review', cls: 'cd-campaign-status-content' },
       complete: { label: 'Complete', cls: 'cd-campaign-status-complete' },
@@ -2777,6 +2783,26 @@ export default function CreatorDashboard() {
         </div>
 
         {campaign.description && <div className="cd-campaign-desc" style={{ marginTop: 8 }}>{campaign.description}</div>}
+
+        {/* Product thumbnails (up to 4, deduplicated by image) */}
+        {(() => {
+          const imgs = [...new Set((campaign.available_products || []).map(p => p.image_url).filter(Boolean))]
+          if (imgs.length === 0) return null
+          return (
+            <div className="cd-campaign-card-thumbs">
+              {imgs.slice(0, 4).map((url, i) => (
+                <img key={i} src={url} alt="" className="cd-campaign-card-thumb" />
+              ))}
+              {imgs.length > 4 && (
+                <div className="cd-campaign-card-thumb-more">+{imgs.length - 4}</div>
+              )}
+            </div>
+          )
+        })()}
+
+        {assignment.status === 'sent' && (
+          <button className="cd-campaign-review-btn">Review Details</button>
+        )}
       </div>
     )
   }
@@ -2847,8 +2873,10 @@ export default function CreatorDashboard() {
             <div className="cd-campaign-section-hdr">
               For You <span className="cd-campaign-section-count">{forYouCount}</span> <span />
             </div>
-            {forYou.map(a => renderWithChildren(a, 'forYou'))}
-            {orphanForYou.map(a => renderCampaignCard(a, 'forYou'))}
+            <div className="cd-campaign-grid">
+              {forYou.map(a => renderWithChildren(a, 'forYou'))}
+              {orphanForYou.map(a => renderCampaignCard(a, 'forYou'))}
+            </div>
           </div>
         )}
 
@@ -2858,8 +2886,10 @@ export default function CreatorDashboard() {
             <div className="cd-campaign-section-hdr">
               In Progress <span />
             </div>
-            {inProgress.map(a => renderWithChildren(a, 'inProgress'))}
-            {orphanInProgress.map(a => renderCampaignCard(a, 'inProgress'))}
+            <div className="cd-campaign-grid">
+              {inProgress.map(a => renderWithChildren(a, 'inProgress'))}
+              {orphanInProgress.map(a => renderCampaignCard(a, 'inProgress'))}
+            </div>
           </div>
         )}
       </>
