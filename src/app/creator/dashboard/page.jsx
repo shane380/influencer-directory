@@ -1189,8 +1189,8 @@ export default function CreatorDashboard() {
 
   function handleContentFileDrop(e) {
     e.preventDefault()
-    const allowed = ['video/mp4', 'video/quicktime', 'image/jpeg', 'image/png', 'image/webp']
-    const dropped = Array.from(e.dataTransfer?.files || []).filter(f => allowed.includes(f.type))
+    const allowed = ['video/mp4', 'video/quicktime', 'video/x-m4v', 'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+    const dropped = Array.from(e.dataTransfer?.files || []).filter(f => allowed.includes(f.type) || f.name.match(/\.(heic|heif|mov|mp4|m4v)$/i))
     if (dropped.length) setContentFiles(prev => [...prev, ...dropped])
   }
 
@@ -3012,7 +3012,7 @@ export default function CreatorDashboard() {
   }
 
   function getFilePreview(file) {
-    if (file.type.startsWith('image/')) {
+    if (file.type.startsWith('image/') && !file.type.includes('heic') && !file.type.includes('heif')) {
       return URL.createObjectURL(file)
     }
     return null
@@ -3083,12 +3083,12 @@ export default function CreatorDashboard() {
         >
           <div className="cd-dropzone-icon">↑</div>
           <div className="cd-dropzone-text">Drag & drop files here or click to browse</div>
-          <div className="cd-dropzone-hint">MP4, MOV, JPG, PNG, WebP</div>
+          <div className="cd-dropzone-hint">MP4, MOV, JPG, PNG, HEIC, WebP</div>
           <input
             id={mobile ? 'cd-m-file-input' : 'cd-file-input'}
             type="file"
             multiple
-            accept="video/mp4,video/quicktime,image/jpeg,image/png,image/webp"
+            accept="video/mp4,video/quicktime,video/x-m4v,image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,.mov,.mp4,.m4v"
             style={{ display: 'none' }}
             onChange={handleContentFileSelect}
           />
@@ -3106,7 +3106,9 @@ export default function CreatorDashboard() {
                       <img src={preview} alt={file.name} />
                     ) : isVideo ? (
                       <div className="cd-file-video-icon">▶</div>
-                    ) : null}
+                    ) : (
+                      <div className="cd-file-video-icon" style={{ fontSize: 14 }}>📷</div>
+                    )}
                   </div>
                   <div className="cd-file-info">
                     <div className="cd-file-name">{file.name}</div>
