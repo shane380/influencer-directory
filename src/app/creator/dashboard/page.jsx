@@ -272,7 +272,7 @@ const CSS = `
 .cd-camp-deliverables-label { font-size: 9px; letter-spacing: 0.38em; text-transform: uppercase; color: #aaa; margin-bottom: 10px; }
 .cd-camp-deliverables-text { font-size: 13px; color: #555; line-height: 1.7; white-space: pre-wrap; }
 .cd-camp-card-banner-wrap { margin: -24px -28px 16px; overflow: hidden; border-radius: 8px 8px 0 0; }
-.cd-camp-card-banner { width: 100%; height: 180px; object-fit: cover; display: block; }
+.cd-camp-card-banner { width: 100%; aspect-ratio: 20/17; object-fit: cover; display: block; }
 .cd-camp-go-live { font-size: 11px; color: #aaa; }
 @media (max-width: 768px) {
   .cd-campaign-grid { grid-template-columns: 1fr; }
@@ -282,7 +282,7 @@ const CSS = `
   .cd-camp-step { font-size: 8px; letter-spacing: 0.06em; gap: 4px; }
   .cd-camp-step-num { width: 16px; height: 16px; font-size: 8px; }
   .cd-camp-card-banner-wrap { margin: -20px -20px 12px; }
-  .cd-camp-card-banner { height: 140px; }
+  .cd-camp-card-banner { aspect-ratio: 20/17; }
 }
 
 /* PRODUCTS */
