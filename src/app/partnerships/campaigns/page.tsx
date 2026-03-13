@@ -282,30 +282,39 @@ export default function CampaignsPage() {
     let failed = 0;
     for (const file of files) {
       try {
-        // Images under 3MB: compress and upload via Drive API
-        // Videos and large files: upload directly to Supabase Storage (no size limit)
-        if (file.type.startsWith("image/") && file.size < 3 * 1024 * 1024) {
-          const compressed = await compressImage(file, 1600, 0.85);
-          const formData = new FormData();
-          formData.append("file", compressed);
-          const res = await fetch("/api/drive/banner", { method: "POST", body: formData });
-          if (res.ok) {
-            const data = await res.json();
-            setBriefImages(prev => [...prev, { url: data.url, drive_file_id: data.fileId }]);
-            succeeded++;
-          } else {
-            failed++;
-          }
-        } else {
-          // Upload to Supabase Storage for large files / videos
-          const storagePath = `campaign-references/${Date.now()}-${file.name}`;
-          const { error: storageErr } = await supabase.storage
-            .from("creator-uploads")
-            .upload(storagePath, file, { cacheControl: "3600", upsert: false });
-          if (storageErr) throw new Error(storageErr.message);
-          const { data: urlData } = supabase.storage.from("creator-uploads").getPublicUrl(storagePath);
-          setBriefImages(prev => [...prev, { url: urlData.publicUrl, storage_path: storagePath }]);
+        // Compress images client-side before staging
+        const uploadFile = file.type.startsWith("image/")
+          ? await compressImage(file, 1600, 0.85)
+          : file;
+
+        // Stage in Supabase Storage (handles any file size)
+        const storagePath = `campaign-references/${Date.now()}-${file.name}`;
+        const { error: storageErr } = await supabase.storage
+          .from("creator-uploads")
+          .upload(storagePath, uploadFile, { cacheControl: "3600", upsert: false });
+        if (storageErr) throw new Error(storageErr.message);
+
+        // Move from Storage to Google Drive (server-side)
+        const res = await fetch("/api/drive/move-to-drive", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            storage_path: storagePath,
+            file_name: file.name,
+            mime_type: file.type,
+            folder_name: "Campaign References",
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setBriefImages(prev => [...prev, { url: data.url, drive_file_id: data.fileId }]);
           succeeded++;
+        } else {
+          const err = await res.json().catch(() => ({ error: "Move to Drive failed" }));
+          console.error("Move to Drive failed:", err.error);
+          // Clean up staged file
+          await supabase.storage.from("creator-uploads").remove([storagePath]);
+          failed++;
         }
       } catch (err) {
         console.error("Brief media upload failed:", err);
