@@ -2515,7 +2515,7 @@ export default function CreatorDashboard() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 10 }}>
                   {campaign.brief_images.map((img, i) => (
                     <div key={i} style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid #e8e8e8' }}>
-                      {img.url?.includes('video') ? (
+                      {/\.(mp4|mov|m4v|webm)(\?|$)/i.test(img.url || '') ? (
                         <video src={img.url} style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} controls muted />
                       ) : (
                         <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
@@ -2626,7 +2626,7 @@ export default function CreatorDashboard() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 10 }}>
                     {campaign.brief_images.map((img, i) => (
                       <div key={i} style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid #e8e8e8' }}>
-                        {img.url?.includes('video') ? (
+                        {/\.(mp4|mov|m4v|webm)(\?|$)/i.test(img.url || '') ? (
                           <video src={img.url} style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} controls muted />
                         ) : (
                           <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />

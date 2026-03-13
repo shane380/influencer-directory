@@ -1293,7 +1293,7 @@ export default function CampaignsPage() {
                     <div className="grid grid-cols-4 gap-2 mb-2">
                       {briefImages.map((img, i) => (
                         <div key={i} className="relative border border-gray-200 rounded-lg overflow-hidden">
-                          {img.url.includes("video") ? (
+                          {/\.(mp4|mov|m4v|webm)(\?|$)/i.test(img.url) ? (
                             <video src={img.url} className="w-full h-20 object-cover" muted />
                           ) : (
                             <img src={img.url} alt="" className="w-full h-20 object-cover" />
