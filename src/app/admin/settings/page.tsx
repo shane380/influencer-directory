@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowLeft, Loader2, Mail, Globe, X, Plus, Send, CheckCircle, AlertCircle } from "lucide-react";
+import { ArrowLeft, Loader2, Mail, Globe, X, Plus, Send, CheckCircle, AlertCircle, FileText, ChevronDown, ChevronRight, Save } from "lucide-react";
 import Link from "next/link";
 
 interface TriggerConfig {
@@ -14,6 +14,74 @@ interface TriggerConfig {
   event: string;
   wiredUp: boolean;
 }
+
+interface TemplateFields {
+  subject: string;
+  heading: string;
+  body: string;
+  ctaText: string;
+}
+
+interface TemplateConfig {
+  key: string;
+  name: string;
+  description: string;
+  placeholders: string[];
+}
+
+const DEFAULT_TEMPLATES: Record<string, TemplateFields> = {
+  campaign_assigned: {
+    subject: "You have a new campaign brief",
+    heading: "New Campaign Brief",
+    body: "Hi {{firstName}},\n\nA new campaign has been assigned to you: {{campaignName}}\n\n{{description}}\n\nHead to your dashboard to view the full brief and confirm your participation.",
+    ctaText: "View Campaign",
+  },
+  content_approved: {
+    subject: "Your content has been approved",
+    heading: "Content Approved",
+    body: "Hi {{firstName}},\n\nGreat news! Your content submission for {{campaignName}} has been approved.\n\nThank you for your work on this campaign.",
+    ctaText: "View Details",
+  },
+  revision_requested: {
+    subject: "Revision requested on your submission",
+    heading: "Revision Requested",
+    body: "Hi {{firstName}},\n\nA revision has been requested on your content submission for {{campaignName}}.\n\n{{feedback}}\n\nPlease review the feedback and resubmit your content.",
+    ctaText: "View Details",
+  },
+  partner_invite: {
+    subject: "You've been invited to join Nama Partners",
+    heading: "You're Invited",
+    body: "Hi {{firstName}},\n\nWe'd love to partner with you. We've put together an offer based on your content and audience.\n\nQuestions? Reply to this email.",
+    ctaText: "View Your Offer",
+  },
+};
+
+const TEMPLATE_CONFIGS: TemplateConfig[] = [
+  {
+    key: "campaign_assigned",
+    name: "Campaign Assigned",
+    description: "Sent when a campaign is published and assigned to a partner.",
+    placeholders: ["firstName", "campaignName", "description"],
+  },
+  {
+    key: "content_approved",
+    name: "Content Approved",
+    description: "Sent when a partner's content submission is approved.",
+    placeholders: ["firstName", "campaignName"],
+  },
+  {
+    key: "revision_requested",
+    name: "Revision Requested",
+    description: "Sent when a revision is requested on a submission.",
+    placeholders: ["firstName", "campaignName", "feedback"],
+  },
+  {
+    key: "partner_invite",
+    name: "Partner Invite",
+    description: "Sent to new partners with their offer link.",
+    placeholders: ["firstName"],
+  },
+];
 
 const EMAIL_TRIGGERS: TriggerConfig[] = [
   {
@@ -61,6 +129,11 @@ export default function AdminSettingsPage() {
   const [testEmail, setTestEmail] = useState("");
   const [sendingTest, setSendingTest] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [emailTemplates, setEmailTemplates] = useState<Record<string, Partial<TemplateFields>>>({});
+  const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
+  const [templateDraft, setTemplateDraft] = useState<TemplateFields | null>(null);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [templateSaved, setTemplateSaved] = useState<string | null>(null);
   const supabase = createClient();
   const router = useRouter();
 
@@ -71,6 +144,7 @@ export default function AdminSettingsPage() {
         const data = await res.json();
         setTriggers(data.email_triggers || {});
         setSuspendedCountries(data.suspended_shipping_countries || []);
+        setEmailTemplates(data.email_templates || {});
       }
     } catch {}
   }, []);
@@ -175,6 +249,60 @@ export default function AdminSettingsPage() {
     setSendingTest(false);
   };
 
+  const openTemplateEditor = (key: string) => {
+    if (editingTemplate === key) {
+      setEditingTemplate(null);
+      setTemplateDraft(null);
+      return;
+    }
+    const saved = emailTemplates[key] || {};
+    const defaults = DEFAULT_TEMPLATES[key];
+    setTemplateDraft({
+      subject: saved.subject ?? defaults.subject,
+      heading: saved.heading ?? defaults.heading,
+      body: saved.body ?? defaults.body,
+      ctaText: saved.ctaText ?? defaults.ctaText,
+    });
+    setEditingTemplate(key);
+    setTemplateSaved(null);
+  };
+
+  const saveTemplate = async () => {
+    if (!editingTemplate || !templateDraft) return;
+    setSavingTemplate(true);
+    const defaults = DEFAULT_TEMPLATES[editingTemplate];
+    // Only save fields that differ from defaults
+    const override: Partial<TemplateFields> = {};
+    if (templateDraft.subject !== defaults.subject) override.subject = templateDraft.subject;
+    if (templateDraft.heading !== defaults.heading) override.heading = templateDraft.heading;
+    if (templateDraft.body !== defaults.body) override.body = templateDraft.body;
+    if (templateDraft.ctaText !== defaults.ctaText) override.ctaText = templateDraft.ctaText;
+
+    const updated = { ...emailTemplates };
+    if (Object.keys(override).length > 0) {
+      updated[editingTemplate] = override;
+    } else {
+      delete updated[editingTemplate];
+    }
+
+    try {
+      await fetch("/api/admin/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email_templates: updated }),
+      });
+      setEmailTemplates(updated);
+      setTemplateSaved(editingTemplate);
+      setTimeout(() => setTemplateSaved(null), 2000);
+    } catch {}
+    setSavingTemplate(false);
+  };
+
+  const resetTemplate = () => {
+    if (!editingTemplate) return;
+    setTemplateDraft({ ...DEFAULT_TEMPLATES[editingTemplate] });
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -264,6 +392,123 @@ export default function AdminSettingsPage() {
           <div className="p-4 bg-gray-50 border-t rounded-b-lg">
             <p className="text-xs text-gray-400">
               Emails are sent from <span className="font-medium text-gray-500">partners@partners.namaclo.com</span> via Resend. Partners can also opt out individually from their notification preferences.
+            </p>
+          </div>
+        </div>
+
+        {/* Email Templates */}
+        <div className="bg-white rounded-lg border">
+          <div className="p-6 border-b">
+            <div className="flex items-center gap-3">
+              <FileText className="h-5 w-5 text-gray-700" />
+              <div>
+                <h2 className="text-lg font-medium text-gray-900">Email Templates</h2>
+                <p className="text-sm text-gray-500 mt-1">Customize the subject, heading, and body text of each email. Use {"{{placeholders}}"} for dynamic content.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="divide-y divide-gray-100">
+            {TEMPLATE_CONFIGS.map((config) => {
+              const isOpen = editingTemplate === config.key;
+              const hasOverride = !!emailTemplates[config.key] && Object.keys(emailTemplates[config.key]).length > 0;
+              return (
+                <div key={config.key}>
+                  <button
+                    onClick={() => openTemplateEditor(config.key)}
+                    className="w-full p-5 flex items-center gap-4 hover:bg-gray-50 transition-colors text-left"
+                  >
+                    <div className="shrink-0">
+                      {isOpen ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-900">{config.name}</span>
+                        {hasOverride && (
+                          <span className="text-[10px] tracking-wider uppercase px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                            Customized
+                          </span>
+                        )}
+                        {templateSaved === config.key && (
+                          <span className="text-[10px] tracking-wider uppercase px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
+                            Saved
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-500 mt-0.5">{config.description}</p>
+                    </div>
+                  </button>
+
+                  {isOpen && templateDraft && (
+                    <div className="px-5 pb-5 space-y-4 border-t border-gray-50 bg-gray-50/50">
+                      <div className="pt-4">
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Subject Line</label>
+                        <input
+                          type="text"
+                          value={templateDraft.subject}
+                          onChange={(e) => setTemplateDraft({ ...templateDraft, subject: e.target.value })}
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Email Heading</label>
+                        <input
+                          type="text"
+                          value={templateDraft.heading}
+                          onChange={(e) => setTemplateDraft({ ...templateDraft, heading: e.target.value })}
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Body Text</label>
+                        <textarea
+                          value={templateDraft.body}
+                          onChange={(e) => setTemplateDraft({ ...templateDraft, body: e.target.value })}
+                          rows={6}
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 font-mono"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">
+                          Separate paragraphs with a blank line. Available placeholders:{" "}
+                          {config.placeholders.map((p) => (
+                            <code key={p} className="bg-gray-100 px-1 py-0.5 rounded text-gray-600 mx-0.5">{`{{${p}}}`}</code>
+                          ))}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Button Text</label>
+                        <input
+                          type="text"
+                          value={templateDraft.ctaText}
+                          onChange={(e) => setTemplateDraft({ ...templateDraft, ctaText: e.target.value })}
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200"
+                        />
+                      </div>
+                      <div className="flex items-center gap-3 pt-2">
+                        <button
+                          onClick={saveTemplate}
+                          disabled={savingTemplate}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50"
+                        >
+                          {savingTemplate ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                          Save Template
+                        </button>
+                        <button
+                          onClick={resetTemplate}
+                          className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                        >
+                          Reset to Default
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="p-4 bg-gray-50 border-t rounded-b-lg">
+            <p className="text-xs text-gray-400">
+              Changes apply to all future emails. The email layout (logo, footer, styling) is managed by the app and cannot be changed here.
             </p>
           </div>
         </div>

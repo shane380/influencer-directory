@@ -104,7 +104,7 @@ export async function PATCH(request: NextRequest) {
         }
 
         const firstName = (creator.creator_name || "").split(" ")[0] || "there";
-        const { subject, html } = contentStatusEmail({
+        const { subject, html } = await contentStatusEmail({
           firstName,
           campaignName,
           status,

@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
               const prefs = creator.notification_preferences as Record<string, boolean> | null;
               if (prefs && prefs.email_campaigns === false) continue;
               const firstName = (creator.creator_name || "").split(" ")[0] || "there";
-              const { subject, html } = campaignAssignedEmail({
+              const { subject, html } = await campaignAssignedEmail({
                 firstName,
                 campaignName: title,
                 description: description || undefined,
@@ -223,7 +223,7 @@ export async function PATCH(request: NextRequest) {
               const prefs = creator.notification_preferences as Record<string, boolean> | null;
               if (prefs && prefs.email_campaigns === false) continue;
               const firstName = (creator.creator_name || "").split(" ")[0] || "there";
-              const { subject, html } = campaignAssignedEmail({
+              const { subject, html } = await campaignAssignedEmail({
                 firstName,
                 campaignName: updates.title || "a new campaign",
                 description: updates.description || undefined,

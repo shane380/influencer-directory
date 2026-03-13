@@ -60,8 +60,9 @@ export async function GET() {
   const supabase = getAdminClient();
   const triggers = (await getSetting(supabase, "email_triggers")) || DEFAULT_TRIGGERS;
   const suspendedCountries = (await getSetting(supabase, "suspended_shipping_countries")) || [];
+  const emailTemplates = (await getSetting(supabase, "email_templates")) || {};
 
-  return NextResponse.json({ email_triggers: triggers, suspended_shipping_countries: suspendedCountries });
+  return NextResponse.json({ email_triggers: triggers, suspended_shipping_countries: suspendedCountries, email_templates: emailTemplates });
 }
 
 // PATCH: Update app settings
@@ -79,6 +80,10 @@ export async function PATCH(request: NextRequest) {
 
   if (Array.isArray(body.suspended_shipping_countries)) {
     result.suspended_shipping_countries = await setSetting(supabase, "suspended_shipping_countries", body.suspended_shipping_countries);
+  }
+
+  if (body.email_templates && typeof body.email_templates === "object") {
+    result.email_templates = await setSetting(supabase, "email_templates", body.email_templates);
   }
 
   return NextResponse.json(result);
