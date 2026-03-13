@@ -106,6 +106,7 @@ export default function CampaignsPage() {
   // Creator search
   const [creators, setCreators] = useState<Creator[]>([]);
   const [creatorsLoaded, setCreatorsLoaded] = useState(false);
+  const [creatorSearch, setCreatorSearch] = useState("");
 
   // Creative Invitation modal
   const [showInvitationModal, setShowInvitationModal] = useState(false);
@@ -305,6 +306,7 @@ export default function CampaignsPage() {
     setBannerImage(null);
     setAvailableProducts([]);
     setSelectedCreators([]);
+    setCreatorSearch("");
     setShowModal(true);
     setShowInvitationModal(false);
     fetchCreators();
@@ -329,6 +331,7 @@ export default function CampaignsPage() {
     setAvailableProducts(campaign.available_products || []);
     setSelectedCreators([]);
     setExistingAssignments([]);
+    setCreatorSearch("");
     setShowModal(true);
     setShowInvitationModal(false);
     fetchCreators();
@@ -697,28 +700,47 @@ export default function CampaignsPage() {
               </label>
               {!creatorsLoaded ? (
                 <div className="text-xs text-gray-400 py-2">Loading partners...</div>
-              ) : (
-                <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
-                  {creators.map(c => {
-                    const isSelected = selectedCreators.find(sc => sc.creator_id === c.id);
-                    return (
-                      <div
-                        key={c.id}
-                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50 border-b border-gray-50 last:border-b-0 ${isSelected ? "bg-blue-50" : ""}`}
-                        onClick={() => toggleCreator(c)}
-                      >
-                        <div className={`w-4 h-4 rounded border flex items-center justify-center text-xs ${isSelected ? "bg-gray-900 border-gray-900 text-white" : "border-gray-300"}`}>
-                          {isSelected && "✓"}
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium">{c.creator_name}</div>
-                          {c.influencer && <div className="text-xs text-gray-400">@{c.influencer.instagram_handle}</div>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              ) : (() => {
+                const filtered = creatorSearch.trim()
+                  ? creators.filter(c =>
+                      c.creator_name?.toLowerCase().includes(creatorSearch.toLowerCase()) ||
+                      c.influencer?.instagram_handle?.toLowerCase().includes(creatorSearch.toLowerCase())
+                    )
+                  : creators;
+                return (
+                  <>
+                    <input
+                      type="text"
+                      placeholder="Search partners..."
+                      value={creatorSearch}
+                      onChange={e => setCreatorSearch(e.target.value)}
+                      className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg mb-1 focus:outline-none focus:ring-1 focus:ring-gray-300"
+                    />
+                    <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
+                      {filtered.length === 0 ? (
+                        <div className="text-xs text-gray-400 py-3 text-center">No partners found.</div>
+                      ) : filtered.map(c => {
+                        const isSelected = selectedCreators.find(sc => sc.creator_id === c.id);
+                        return (
+                          <div
+                            key={c.id}
+                            className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50 border-b border-gray-50 last:border-b-0 ${isSelected ? "bg-blue-50" : ""}`}
+                            onClick={() => toggleCreator(c)}
+                          >
+                            <div className={`w-4 h-4 rounded border flex items-center justify-center text-xs ${isSelected ? "bg-gray-900 border-gray-900 text-white" : "border-gray-300"}`}>
+                              {isSelected && "✓"}
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium">{c.creator_name}</div>
+                              {c.influencer && <div className="text-xs text-gray-400">@{c.influencer.instagram_handle}</div>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
 
@@ -1296,28 +1318,52 @@ export default function CampaignsPage() {
                   </label>
                   {!creatorsLoaded ? (
                     <div className="text-xs text-gray-400 py-2">Loading creators...</div>
-                  ) : (
-                    <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
-                      {creators.filter(c => !existingAssignments.some(a => a.creator_id === c.id)).map(c => {
-                        const isSelected = selectedCreators.find(sc => sc.creator_id === c.id);
-                        return (
-                          <div
-                            key={c.id}
-                            className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50 border-b border-gray-50 last:border-b-0 ${isSelected ? "bg-blue-50" : ""}`}
-                            onClick={() => toggleCreator(c)}
-                          >
-                            <div className={`w-4 h-4 rounded border flex items-center justify-center text-xs ${isSelected ? "bg-gray-900 border-gray-900 text-white" : "border-gray-300"}`}>
-                              {isSelected && "✓"}
-                            </div>
-                            <div>
-                              <div className="text-sm font-medium">{c.creator_name}</div>
-                              {c.influencer && <div className="text-xs text-gray-400">@{c.influencer.instagram_handle}</div>}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                  ) : (() => {
+                    const available = creators.filter(c => !existingAssignments.some(a => a.creator_id === c.id));
+                    const filtered = creatorSearch.trim()
+                      ? available.filter(c =>
+                          c.creator_name?.toLowerCase().includes(creatorSearch.toLowerCase()) ||
+                          c.influencer?.instagram_handle?.toLowerCase().includes(creatorSearch.toLowerCase())
+                        )
+                      : available;
+                    return available.length === 0 ? (
+                      <div className="text-xs text-gray-400 py-3 text-center border border-gray-200 rounded-lg">
+                        All creators are already assigned to this campaign.
+                      </div>
+                    ) : (
+                      <>
+                        <input
+                          type="text"
+                          placeholder="Search creators..."
+                          value={creatorSearch}
+                          onChange={e => setCreatorSearch(e.target.value)}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg mb-1 focus:outline-none focus:ring-1 focus:ring-gray-300"
+                        />
+                        <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
+                          {filtered.length === 0 ? (
+                            <div className="text-xs text-gray-400 py-3 text-center">No creators match your search.</div>
+                          ) : filtered.map(c => {
+                            const isSelected = selectedCreators.find(sc => sc.creator_id === c.id);
+                            return (
+                              <div
+                                key={c.id}
+                                className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50 border-b border-gray-50 last:border-b-0 ${isSelected ? "bg-blue-50" : ""}`}
+                                onClick={() => toggleCreator(c)}
+                              >
+                                <div className={`w-4 h-4 rounded border flex items-center justify-center text-xs ${isSelected ? "bg-gray-900 border-gray-900 text-white" : "border-gray-300"}`}>
+                                  {isSelected && "✓"}
+                                </div>
+                                <div>
+                                  <div className="text-sm font-medium">{c.creator_name}</div>
+                                  {c.influencer && <div className="text-xs text-gray-400">@{c.influencer.instagram_handle}</div>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 
