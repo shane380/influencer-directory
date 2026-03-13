@@ -19,7 +19,7 @@ export async function sendEmail({
   html: string;
 }) {
   const { data, error } = await getResend().emails.send({
-    from: "Nama Partners <partners@namaclo.com>",
+    from: "Nama Partners <partners@partners.namaclo.com>",
     to,
     subject,
     html,

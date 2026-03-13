@@ -263,7 +263,7 @@ export default function AdminSettingsPage() {
 
           <div className="p-4 bg-gray-50 border-t rounded-b-lg">
             <p className="text-xs text-gray-400">
-              Emails are sent from <span className="font-medium text-gray-500">partners@namaclo.com</span> via Resend. Partners can also opt out individually from their notification preferences.
+              Emails are sent from <span className="font-medium text-gray-500">partners@partners.namaclo.com</span> via Resend. Partners can also opt out individually from their notification preferences.
             </p>
           </div>
         </div>
@@ -319,7 +319,7 @@ export default function AdminSettingsPage() {
 
           <div className="p-4 bg-gray-50 border-t rounded-b-lg">
             <p className="text-xs text-gray-400">
-              Sends from <span className="font-medium text-gray-500">partners@namaclo.com</span> via Resend. If the email doesn&apos;t arrive, check your Resend dashboard for delivery logs and domain verification.
+              Sends from <span className="font-medium text-gray-500">partners@partners.namaclo.com</span> via Resend. If the email doesn&apos;t arrive, check your Resend dashboard for delivery logs and domain verification.
             </p>
           </div>
         </div>
