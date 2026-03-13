@@ -2465,9 +2465,25 @@ export default function CreatorDashboard() {
         {/* Step 1: Accept */}
         {currentStep === 1 && (
           <div>
+            <div className="cd-camp-deliverables" style={{ marginBottom: 20 }}>
+              <div className="cd-camp-deliverables-label">Your Selects</div>
+              <div className="cd-camp-deliverables-text">You can choose up to {maxSelects} {maxSelects === 1 ? 'style' : 'styles'}</div>
+            </div>
+
+            <button
+              className="cd-campaign-btn-fill"
+              style={{ marginBottom: 28 }}
+              onClick={() => {
+                setCampaignAccepted(true)
+                fetchCampaignVariants(products)
+              }}
+            >
+              Accept Campaign
+            </button>
+
             {products.length > 0 && (
               <div style={{ marginBottom: 20 }}>
-                <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Products</div>
+                <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Style Previews</div>
                 <div className="cd-products">
                   {products.map((p, i) => (
                     <div key={i} className="cd-product" style={{ cursor: 'default' }}>
@@ -2483,15 +2499,6 @@ export default function CreatorDashboard() {
                 </div>
               </div>
             )}
-            <button
-              className="cd-campaign-btn-fill"
-              onClick={() => {
-                setCampaignAccepted(true)
-                fetchCampaignVariants(products)
-              }}
-            >
-              Accept Campaign
-            </button>
           </div>
         )}
 
