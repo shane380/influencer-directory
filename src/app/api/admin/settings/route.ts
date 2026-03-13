@@ -2,17 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
-async function verifyAdmin() {
+async function verifyAdminOrManager() {
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
   const { data: profile } = await (supabase.from("profiles") as any)
-    .select("is_admin")
+    .select("is_admin, is_manager")
     .eq("id", user.id)
     .single();
 
-  return profile?.is_admin ? user : null;
+  return (profile?.is_admin || profile?.is_manager) ? user : null;
 }
 
 function getAdminClient() {
@@ -54,7 +54,7 @@ async function setSetting(supabase: ReturnType<typeof getAdminClient>, key: stri
 
 // GET: Fetch app settings
 export async function GET() {
-  const admin = await verifyAdmin();
+  const admin = await verifyAdminOrManager();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
   const supabase = getAdminClient();
@@ -66,7 +66,7 @@ export async function GET() {
 
 // PATCH: Update app settings
 export async function PATCH(request: NextRequest) {
-  const admin = await verifyAdmin();
+  const admin = await verifyAdminOrManager();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
   const body = await request.json();

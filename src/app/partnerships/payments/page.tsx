@@ -91,13 +91,20 @@ export default function PaymentsPage() {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setCurrentUser({
-        displayName: user.user_metadata?.full_name || user.email || "Admin",
-        email: user.email || "",
-        profilePhotoUrl: user.user_metadata?.avatar_url || null,
-        isAdmin: true,
-      });
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (user) {
+        const { data: profile } = await (supabase.from("profiles") as any)
+          .select("display_name, profile_photo_url, is_admin, is_manager")
+          .eq("id", user.id)
+          .single();
+        setCurrentUser({
+          displayName: profile?.display_name || user.email?.split("@")[0] || "User",
+          email: user.email || "",
+          profilePhotoUrl: profile?.profile_photo_url || null,
+          isAdmin: profile?.is_admin || false,
+          isManager: profile?.is_manager || false,
+        });
+      }
     });
   }, []);
 

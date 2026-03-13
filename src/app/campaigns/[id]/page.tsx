@@ -236,7 +236,7 @@ export default function CampaignDetailPage() {
   const [approvalFilter, setApprovalFilter] = useState<string>("all");
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [selectedApprovalInfluencer, setSelectedApprovalInfluencer] = useState<CampaignInfluencerWithDetails | null>(null);
-  const [currentUser, setCurrentUser] = useState<{ displayName: string; email: string; profilePhotoUrl: string | null; isAdmin: boolean } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ displayName: string; email: string; profilePhotoUrl: string | null; isAdmin: boolean; isManager: boolean } | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const supabase = createClient();
@@ -254,7 +254,7 @@ export default function CampaignDetailPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       const { data: profile } = await (supabase.from("profiles") as any)
-        .select("display_name, profile_photo_url, is_admin")
+        .select("display_name, profile_photo_url, is_admin, is_manager")
         .eq("id", user.id)
         .single();
       setCurrentUser({
@@ -262,6 +262,7 @@ export default function CampaignDetailPage() {
         email: user.email || "",
         profilePhotoUrl: profile?.profile_photo_url || null,
         isAdmin: profile?.is_admin || false,
+        isManager: profile?.is_manager || false,
       });
     }
   }, [supabase]);

@@ -10,10 +10,11 @@ interface AccountDropdownProps {
   email: string;
   profilePhotoUrl?: string | null;
   isAdmin?: boolean;
+  isManager?: boolean;
   onLogout: () => void;
 }
 
-export function AccountDropdown({ displayName, email, profilePhotoUrl, isAdmin, onLogout }: AccountDropdownProps) {
+export function AccountDropdown({ displayName, email, profilePhotoUrl, isAdmin, isManager, onLogout }: AccountDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -96,28 +97,28 @@ export function AccountDropdown({ displayName, email, profilePhotoUrl, isAdmin, 
               Account Settings
             </button>
             {isAdmin && (
-              <>
-                <button
-                  onClick={() => {
-                    setIsOpen(false);
-                    router.push("/admin/users");
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  <Users className="h-4 w-4 text-gray-400" />
-                  Manage Users
-                </button>
-                <button
-                  onClick={() => {
-                    setIsOpen(false);
-                    router.push("/admin/settings");
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  <Settings className="h-4 w-4 text-gray-400" />
-                  App Settings
-                </button>
-              </>
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  router.push("/admin/users");
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <Users className="h-4 w-4 text-gray-400" />
+                Manage Users
+              </button>
+            )}
+            {(isAdmin || isManager) && (
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  router.push("/admin/settings");
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <Settings className="h-4 w-4 text-gray-400" />
+                App Settings
+              </button>
             )}
             <button
               onClick={() => {

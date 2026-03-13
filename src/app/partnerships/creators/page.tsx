@@ -80,11 +80,16 @@ export default function CreatorsListPage() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        const { data: profile } = await (supabase.from("profiles") as any)
+          .select("display_name, profile_photo_url, is_admin, is_manager")
+          .eq("id", user.id)
+          .single();
         setCurrentUser({
-          displayName: user.user_metadata?.full_name || user.email || "",
+          displayName: profile?.display_name || user.email?.split("@")[0] || "User",
           email: user.email || "",
-          profilePhotoUrl: null,
-          isAdmin: user.user_metadata?.role === "admin",
+          profilePhotoUrl: profile?.profile_photo_url || null,
+          isAdmin: profile?.is_admin || false,
+          isManager: profile?.is_manager || false,
         });
       }
 

@@ -81,11 +81,11 @@ export default function AdminSettingsPage() {
       if (!user) { router.push("/login"); return; }
 
       const { data: profile } = await (supabase.from("profiles") as any)
-        .select("is_admin")
+        .select("is_admin, is_manager")
         .eq("id", user.id)
         .single();
 
-      if (!profile?.is_admin) { router.push("/"); return; }
+      if (!profile?.is_admin && !profile?.is_manager) { router.push("/"); return; }
       setIsAdmin(true);
       await fetchSettings();
       setLoading(false);

@@ -24,6 +24,7 @@ interface EnrichedProfile {
   display_name: string;
   profile_photo_url: string | null;
   is_admin: boolean;
+  is_manager: boolean;
   created_at: string;
   last_sign_in: string | null;
 }
@@ -218,6 +219,10 @@ export default function AdminUsersPage() {
                     {user.is_admin ? (
                       <span className="inline-flex items-center gap-1 text-sm text-purple-700 bg-purple-50 px-2 py-1 rounded">
                         <Shield className="h-3 w-3" />Admin
+                      </span>
+                    ) : user.is_manager ? (
+                      <span className="inline-flex items-center gap-1 text-sm text-blue-700 bg-blue-50 px-2 py-1 rounded">
+                        <Shield className="h-3 w-3" />Manager
                       </span>
                     ) : (
                       <span className="text-sm text-gray-500">Member</span>

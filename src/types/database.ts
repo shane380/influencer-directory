@@ -29,6 +29,7 @@ export interface Profile {
   display_name: string;
   profile_photo_url: string | null;
   is_admin: boolean;
+  is_manager: boolean;
   created_at: string;
 }
 

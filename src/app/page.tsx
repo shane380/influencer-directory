@@ -159,7 +159,7 @@ function HomePageContent() {
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [assignedToFilter, setAssignedToFilter] = useState<string>("all");
-  const [currentUser, setCurrentUser] = useState<{ displayName: string; email: string; profilePhotoUrl: string | null; isAdmin: boolean } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ displayName: string; email: string; profilePhotoUrl: string | null; isAdmin: boolean; isManager: boolean } | null>(null);
   const [influencerDialogInitialTab, setInfluencerDialogInitialTab] = useState<string>("overview");
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   const [selectedOrderCollab, setSelectedOrderCollab] = useState<PaidCollabWithDetails | null>(null);
@@ -174,7 +174,7 @@ function HomePageContent() {
     if (user) {
       // Try to get display name, photo, and admin status from profile
       const { data: profile } = await (supabase.from("profiles") as any)
-        .select("display_name, profile_photo_url, is_admin")
+        .select("display_name, profile_photo_url, is_admin, is_manager")
         .eq("id", user.id)
         .single();
 
@@ -183,6 +183,7 @@ function HomePageContent() {
         email: user.email || "",
         profilePhotoUrl: profile?.profile_photo_url || null,
         isAdmin: profile?.is_admin || false,
+        isManager: profile?.is_manager || false,
       });
     }
   }, [supabase]);
