@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findOrCreateFolder, uploadFileToDrive, deleteFileFromDrive } from "@/lib/google-drive";
 
+export const maxDuration = 60;
+
 // POST: Upload a campaign banner image to Google Drive
 export async function POST(request: NextRequest) {
   const parentId = process.env.GOOGLE_DRIVE_PARENT_FOLDER_ID;
@@ -16,6 +18,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const fileSizeMB = file.size / (1024 * 1024);
+    console.log(`Banner upload: ${file.name}, ${fileSizeMB.toFixed(1)}MB, ${file.type}`);
+
     // Find or create "Campaign Banners" folder under the root Drive folder
     const folderId = await findOrCreateFolder(parentId, "Campaign Banners");
 
@@ -32,10 +37,11 @@ export async function POST(request: NextRequest) {
       ? thumbnailLink.replace(/=s\d+/, "=s1600")
       : `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`;
 
+    console.log(`Banner uploaded successfully: ${fileId}`);
     return NextResponse.json({ fileId, url, webViewLink });
   } catch (err: any) {
-    console.error("Banner upload failed:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error("Banner upload failed:", err?.message, err?.stack);
+    return NextResponse.json({ error: err.message || "Upload failed" }, { status: 500 });
   }
 }
 
