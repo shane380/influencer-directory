@@ -53,9 +53,8 @@ export async function POST(request: NextRequest) {
       // Use Google Drive preview embed URL for videos
       url = `https://drive.google.com/file/d/${fileId}/preview`;
     } else {
-      url = thumbnailLink
-        ? thumbnailLink.replace(/=s\d+/, "=s1600")
-        : `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`;
+      // Use permanent thumbnail URL (lh3 URLs expire after a few hours)
+      url = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`;
     }
 
     // Clean up temp file from Storage

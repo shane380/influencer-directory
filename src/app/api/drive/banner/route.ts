@@ -32,10 +32,8 @@ export async function POST(request: NextRequest) {
       buffer
     );
 
-    // Build a direct-view thumbnail URL from Drive
-    const url = thumbnailLink
-      ? thumbnailLink.replace(/=s\d+/, "=s1600")
-      : `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`;
+    // Use permanent thumbnail URL (lh3 URLs expire after a few hours)
+    const url = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`;
 
     console.log(`Banner uploaded successfully: ${fileId}`);
     return NextResponse.json({ fileId, url, webViewLink });
