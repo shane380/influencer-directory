@@ -209,12 +209,41 @@ export default function CampaignsPage() {
     setSearchingProducts(false);
   }
 
+  async function compressImage(file: File, maxWidth = 1600, quality = 0.85): Promise<File> {
+    if (!file.type.startsWith("image/")) return file;
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxWidth / img.width);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(
+          (blob) => {
+            if (blob && blob.size < file.size) {
+              resolve(new File([blob], file.name, { type: "image/jpeg" }));
+            } else {
+              resolve(file);
+            }
+          },
+          "image/jpeg",
+          quality
+        );
+      };
+      img.onerror = () => resolve(file);
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
   async function uploadBanner(file: File) {
     setBannerUploading(true);
     setUploadStatus(null);
     try {
+      const compressed = await compressImage(file, 1600, 0.85);
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", compressed);
       const res = await fetch("/api/drive/banner", { method: "POST", body: formData });
       if (res.ok) {
         const data = await res.json();
@@ -252,8 +281,9 @@ export default function CampaignsPage() {
     let failed = 0;
     for (const file of files) {
       try {
+        const compressed = file.type.startsWith("image/") ? await compressImage(file, 1600, 0.85) : file;
         const formData = new FormData();
-        formData.append("file", file);
+        formData.append("file", compressed);
         const res = await fetch("/api/drive/banner", { method: "POST", body: formData });
         if (res.ok) {
           const data = await res.json();
