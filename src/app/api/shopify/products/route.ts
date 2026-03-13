@@ -60,7 +60,6 @@ async function getLocations(storeUrl: string, accessToken: string): Promise<Shop
 
   const data = await response.json();
   const locations = (data.locations || []).filter((loc: ShopifyLocation) => loc.active);
-  console.log("Shopify locations:", locations.map((l: ShopifyLocation) => `${l.id}: ${l.name} (active: ${l.active})`));
 
   locationsCache = { locations, timestamp: Date.now() };
   return locations;
@@ -100,9 +99,6 @@ async function getInventoryLevels(
       for (const level of data.inventory_levels || []) {
         inventoryMap.set(`${level.inventory_item_id}-${level.location_id}`, level.available || 0);
       }
-    } else {
-      const errorText = await response.text().catch(() => "unknown");
-      console.error(`Inventory levels API failed (${response.status}): ${errorText}`);
     }
   }
 
