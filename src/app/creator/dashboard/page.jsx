@@ -3014,31 +3014,23 @@ export default function CreatorDashboard() {
           </div>
         )}
 
-        {/* Campaign + Month side by side */}
-        <div className="cd-form-row">
-          {showCampaign && (
-            <div className="cd-form-col">
-              <label className={mobile ? 'cd-m-field-label' : 'cd-field-label'}>Campaign</label>
-              <select
-                className={mobile ? 'cd-m-field-input' : 'cd-field-input'}
-                value={campaignContentTarget || ''}
-                onChange={e => setCampaignContentTarget(e.target.value || null)}
-                disabled={!!campaignContentTarget && campaignAssignments.find(a => a.id === campaignContentTarget)}
-              >
-                <option value="">Not campaign related</option>
-                {confirmedAssignments.map(a => (
-                  <option key={a.id} value={a.id}>{a.campaign?.title || 'Campaign'}</option>
-                ))}
-              </select>
-            </div>
-          )}
-          <div className="cd-form-col">
-            <label className={mobile ? 'cd-m-field-label' : 'cd-field-label'}>Month</label>
-            <select className={mobile ? 'cd-m-field-input' : 'cd-field-input'} value={contentMonth} onChange={e => setContentMonth(e.target.value)} disabled={!!resubmitTarget}>
-              {monthOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        {/* Campaign */}
+        {showCampaign && (
+          <div style={{ marginBottom: 8 }}>
+            <label className={mobile ? 'cd-m-field-label' : 'cd-field-label'}>Campaign</label>
+            <select
+              className={mobile ? 'cd-m-field-input' : 'cd-field-input'}
+              value={campaignContentTarget || ''}
+              onChange={e => setCampaignContentTarget(e.target.value || null)}
+              disabled={!!campaignContentTarget && campaignAssignments.find(a => a.id === campaignContentTarget)}
+            >
+              <option value="">Not campaign related</option>
+              {confirmedAssignments.map(a => (
+                <option key={a.id} value={a.id}>{a.campaign?.title || 'Campaign'}</option>
+              ))}
             </select>
           </div>
-        </div>
+        )}
 
         <label className={mobile ? 'cd-m-field-label' : 'cd-field-label'} style={{ marginTop: 16 }}>Files</label>
         <div
