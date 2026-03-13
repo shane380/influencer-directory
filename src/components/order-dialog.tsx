@@ -1694,13 +1694,15 @@ export function OrderDialog({
               {searchResults.length > 0 && (
                 <div className="border rounded-lg max-h-80 overflow-y-auto mb-4">
                   {searchResults.map((product) => {
-                    // Categorize inventory by region
-                    const usaStock = product.inventory_by_location?.find(loc =>
-                      loc.location_name.toLowerCase() === 'usa warehouse'
-                    );
-                    const canadaStock = product.inventory_by_location?.find(loc =>
-                      loc.location_name.toLowerCase() === 'canada warehouse'
-                    );
+                    // Categorize inventory by region (flexible matching)
+                    const usaStock = product.inventory_by_location?.find(loc => {
+                      const name = loc.location_name.toLowerCase();
+                      return name.includes('usa') || name.includes('us warehouse') || name.includes('united states');
+                    });
+                    const canadaStock = product.inventory_by_location?.find(loc => {
+                      const name = loc.location_name.toLowerCase();
+                      return name.includes('canada') || name.includes('ca warehouse');
+                    });
                     // If no specific match, show all locations
                     const hasLocationData = product.inventory_by_location && product.inventory_by_location.length > 0;
 
