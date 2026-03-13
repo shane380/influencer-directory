@@ -87,6 +87,9 @@ export async function POST(request: NextRequest) {
     status,
     created_by,
     parent_campaign_id,
+    banner_image,
+    deliverables,
+    go_live_date,
     assignments, // array of { influencer_id, creator_id }
   } = body;
 
@@ -105,6 +108,9 @@ export async function POST(request: NextRequest) {
     campaign_type: campaign_type || "mass",
     status: status || "draft",
     created_by: created_by || null,
+    banner_image: banner_image || null,
+    deliverables: deliverables || null,
+    go_live_date: go_live_date || null,
   };
   if (parent_campaign_id) {
     insertData.parent_campaign_id = parent_campaign_id;

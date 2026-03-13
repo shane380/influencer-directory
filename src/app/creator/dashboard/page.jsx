@@ -250,9 +250,33 @@ const CSS = `
 .cd-campaign-confirm-msg { font-size: 12px; color: #888; line-height: 1.5; padding-top: 10px; }
 .cd-campaign-inv-indent { margin-left: 16px; border-left: 1px solid #e8e8e8; padding-left: 16px; margin-top: 0; }
 .cd-campaign-inv-label { font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; color: #bbb; margin-bottom: 8px; margin-top: 16px; }
+
+/* CAMPAIGN DETAIL */
+.cd-camp-back { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #aaa; cursor: pointer; background: none; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 0; margin-bottom: 24px; transition: color 0.15s; }
+.cd-camp-back:hover { color: #111; }
+.cd-camp-detail { }
+.cd-camp-banner { width: 100%; aspect-ratio: 21/9; object-fit: cover; display: block; margin-bottom: 28px; }
+.cd-camp-steps { display: flex; align-items: center; gap: 0; margin-bottom: 32px; }
+.cd-camp-step { display: flex; align-items: center; gap: 8px; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #ccc; padding: 10px 0; flex: 1; justify-content: center; border-bottom: 2px solid #e8e8e8; transition: all 0.2s; }
+.cd-camp-step.active { color: #111; border-bottom-color: #111; font-weight: 500; }
+.cd-camp-step.completed { color: #2e7d32; border-bottom-color: #2e7d32; }
+.cd-camp-step-num { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid #e8e8e8; display: flex; align-items: center; justify-content: center; font-size: 9px; flex-shrink: 0; }
+.cd-camp-step.active .cd-camp-step-num { border-color: #111; color: #111; }
+.cd-camp-step.completed .cd-camp-step-num { border-color: #2e7d32; background: #2e7d32; color: #fff; }
+.cd-camp-deliverables { margin-bottom: 28px; }
+.cd-camp-deliverables-label { font-size: 9px; letter-spacing: 0.38em; text-transform: uppercase; color: #aaa; margin-bottom: 10px; }
+.cd-camp-deliverables-text { font-size: 13px; color: #555; line-height: 1.7; white-space: pre-wrap; }
+.cd-camp-card-banner-wrap { margin: -24px -28px 16px; overflow: hidden; }
+.cd-camp-card-banner { width: 100%; height: 120px; object-fit: cover; display: block; }
+.cd-camp-go-live { font-size: 11px; color: #aaa; }
 @media (max-width: 768px) {
   .cd-campaign-card { padding: 20px; }
   .cd-campaign-title { font-size: 18px; }
+  .cd-camp-banner { aspect-ratio: 16/9; margin-bottom: 20px; }
+  .cd-camp-step { font-size: 8px; letter-spacing: 0.06em; gap: 4px; }
+  .cd-camp-step-num { width: 16px; height: 16px; font-size: 8px; }
+  .cd-camp-card-banner-wrap { margin: -20px -20px 12px; }
+  .cd-camp-card-banner { height: 80px; }
 }
 
 /* PRODUCTS */
@@ -751,6 +775,10 @@ export default function CreatorDashboard() {
   const [lightboxFile, setLightboxFile] = useState(null) // { drive_file_id, name, mime_type }
   const [campaignContentTarget, setCampaignContentTarget] = useState(null) // assignment ID to tag content with
   const [resubmitTarget, setResubmitTarget] = useState(null) // submission ID being resubmitted
+  const [activeCampaignDetail, setActiveCampaignDetail] = useState(null) // assignment being viewed in detail
+  const [campaignAccepted, setCampaignAccepted] = useState(false) // local state for Accept step
+  const [campaignVariants, setCampaignVariants] = useState({}) // { [product_id]: variant[] }
+  const [campaignVariantsLoading, setCampaignVariantsLoading] = useState(false)
 
   // Payment settings
   const [paymentEditing, setPaymentEditing] = useState(false)
@@ -2307,6 +2335,387 @@ export default function CreatorDashboard() {
     setCampaignConfirming(null)
   }
 
+  async function fetchCampaignVariants(products) {
+    if (!products?.length) return
+    setCampaignVariantsLoading(true)
+    const variantMap = {}
+    for (const p of products) {
+      try {
+        const res = await fetch(`/api/shopify/products?query=${encodeURIComponent(p.product_title)}`)
+        const data = await res.json()
+        const allVariants = data.products || []
+        // Group by product_id, find matching product
+        const grouped = {}
+        for (const v of allVariants) {
+          if (!grouped[v.product_id]) grouped[v.product_id] = []
+          grouped[v.product_id].push(v)
+        }
+        // Find the best match by title
+        let bestMatch = null
+        for (const [pid, variants] of Object.entries(grouped)) {
+          if (variants[0]?.title?.toLowerCase() === p.product_title?.toLowerCase()) {
+            bestMatch = variants
+            break
+          }
+        }
+        if (!bestMatch && Object.keys(grouped).length > 0) {
+          bestMatch = Object.values(grouped)[0]
+        }
+        if (bestMatch) {
+          const pid = p.product_id || bestMatch[0]?.product_id
+          variantMap[pid] = bestMatch
+        }
+      } catch {}
+    }
+    setCampaignVariants(variantMap)
+    setCampaignVariantsLoading(false)
+  }
+
+  function getCampaignStep(assignment) {
+    if (assignment.status === 'complete') return 4
+    if (assignment.status === 'content_submitted' || assignment.status === 'confirmed') return 3
+    if (assignment.status === 'sent' && campaignAccepted) return 2
+    return 1
+  }
+
+  function renderCampaignSteps(currentStep) {
+    const steps = [
+      { num: 1, label: 'Accept' },
+      { num: 2, label: 'Selects' },
+      { num: 3, label: 'Order & Content' },
+      { num: 4, label: 'Complete' },
+    ]
+    return (
+      <div className="cd-camp-steps">
+        {steps.map(s => {
+          let cls = 'cd-camp-step'
+          if (s.num === currentStep) cls += ' active'
+          else if (s.num < currentStep) cls += ' completed'
+          return (
+            <div key={s.num} className={cls}>
+              <div className="cd-camp-step-num">{s.num < currentStep ? '✓' : s.num}</div>
+              {s.label}
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  function renderCampaignDetail(mobile) {
+    const assignment = activeCampaignDetail
+    if (!assignment) return null
+    const campaign = assignment.campaign
+    if (!campaign) return null
+
+    const currentStep = getCampaignStep(assignment)
+    const products = campaign.available_products || []
+    const maxSelects = campaign.max_selects || 2
+    const dueDate = campaign.due_date ? new Date(campaign.due_date + 'T00:00:00').toLocaleDateString('en', { month: 'long', day: 'numeric' }) : null
+    const goLiveDate = campaign.go_live_date ? new Date(campaign.go_live_date + 'T00:00:00').toLocaleDateString('en', { month: 'long', day: 'numeric' }) : null
+    const statusInfo = getCampaignStatusInfo(assignment.status)
+    const matchingOrder = assignment.order_id ? orders.find(o => String(o.shopify_order_id) === String(assignment.order_id) || String(o.id) === String(assignment.order_id)) : null
+
+    return (
+      <div className="cd-camp-detail">
+        <button className="cd-camp-back" onClick={() => { setActiveCampaignDetail(null); setCampaignAccepted(false); setCampaignVariants({}); }}>
+          ← Back to Campaigns
+        </button>
+
+        {renderCampaignSteps(currentStep)}
+
+        {campaign.banner_image?.url && (
+          <img src={campaign.banner_image.url} alt="" className="cd-camp-banner" />
+        )}
+
+        <div className="cd-campaign-title" style={{ fontSize: mobile ? 24 : 28, marginBottom: 12 }}>{campaign.title}</div>
+
+        <div className="cd-campaign-meta" style={{ marginBottom: 16 }}>
+          <span className={`cd-campaign-status ${statusInfo.cls}`}>{statusInfo.label}</span>
+          {goLiveDate && <span className="cd-camp-go-live">Go live {goLiveDate}</span>}
+          {dueDate && <span className="cd-campaign-due">Due {dueDate}</span>}
+        </div>
+
+        {campaign.description && <div style={{ fontSize: 13, color: '#666', lineHeight: 1.7, marginBottom: 20 }}>{campaign.description}</div>}
+
+        {campaign.deliverables && (
+          <div className="cd-camp-deliverables">
+            <div className="cd-camp-deliverables-label">What We're Looking For</div>
+            <div className="cd-camp-deliverables-text">{campaign.deliverables}</div>
+          </div>
+        )}
+
+        {campaign.brief_url && (
+          <a href={campaign.brief_url} target="_blank" rel="noopener noreferrer" className="cd-campaign-brief-link" style={{ marginBottom: 20, display: 'inline-flex' }}>
+            View brief →
+          </a>
+        )}
+
+        {/* Step 1: Accept */}
+        {currentStep === 1 && (
+          <div>
+            {products.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Products</div>
+                <div className="cd-products">
+                  {products.map((p, i) => (
+                    <div key={i} className="cd-product" style={{ cursor: 'default' }}>
+                      <div className="cd-product-img">
+                        {p.image_url ? <img src={p.image_url} alt={p.product_title} /> : <div style={{ color: '#ccc', fontSize: 12 }}>No image</div>}
+                      </div>
+                      <div className="cd-product-info">
+                        <div className="cd-product-name">{p.product_title}</div>
+                        {p.variant_title && <div className="cd-product-variant">{p.variant_title}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <button
+              className="cd-campaign-btn-fill"
+              onClick={() => {
+                setCampaignAccepted(true)
+                fetchCampaignVariants(products)
+              }}
+            >
+              Accept Campaign
+            </button>
+          </div>
+        )}
+
+        {/* Step 2: Make Your Selects */}
+        {currentStep === 2 && (
+          <div>
+            <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Make Your Selects</div>
+            <div className="cd-campaign-max">Select up to {maxSelects} item{maxSelects !== 1 ? 's' : ''}</div>
+
+            {campaignVariantsLoading ? (
+              <div style={{ padding: '20px 0', fontSize: 12, color: '#aaa' }}>Loading products...</div>
+            ) : (
+              <div className="cd-products" style={{ marginTop: 12 }}>
+                {products.map((p, i) => {
+                  const pid = p.product_id || i
+                  const variants = campaignVariants[pid] || []
+                  const selects = campaignSelects[assignment.id]?.products || []
+                  const selectedProduct = selects.find(s => String(s.product_id) === String(pid) || s.product_title === p.product_title)
+                  const selectedSize = campaignSelects[assignment.id]?.sizes?.[pid]
+
+                  return (
+                    <div key={i} className={`cd-product${selectedProduct ? ' selected' : ''}`} style={{ cursor: 'default', borderColor: selectedProduct ? '#1a1a1a' : undefined }}>
+                      <div className="cd-product-img">
+                        {p.image_url ? <img src={p.image_url} alt={p.product_title} /> : <div style={{ color: '#ccc', fontSize: 12 }}>No image</div>}
+                      </div>
+                      <div className="cd-product-info">
+                        <div className="cd-product-name">{p.product_title}</div>
+                        {variants.length > 0 && (
+                          <div className="cd-size-row">
+                            {variants.map(v => {
+                              if (!v.variant_title) return null
+                              const isOos = (v.inventory ?? 0) <= 0
+                              const isSelected = selectedSize === v.variant_title
+                              return (
+                                <button
+                                  key={v.variant_id}
+                                  className={`cd-size-pill${isSelected ? ' selected' : ''}${isOos ? ' oos' : ''}`}
+                                  disabled={isOos}
+                                  onClick={() => {
+                                    if (isOos) return
+                                    // Select this product with this size
+                                    setCampaignSelects(prev => {
+                                      const current = prev[assignment.id] || { products: [], sizes: {} }
+                                      const existingIdx = current.products.findIndex(s => String(s.product_id) === String(pid) || s.product_title === p.product_title)
+                                      let updatedProducts = [...current.products]
+                                      let updatedSizes = { ...current.sizes }
+
+                                      if (isSelected) {
+                                        // Deselect
+                                        if (existingIdx >= 0) updatedProducts.splice(existingIdx, 1)
+                                        delete updatedSizes[pid]
+                                      } else {
+                                        const productEntry = {
+                                          variant_id: String(v.variant_id),
+                                          product_id: String(pid),
+                                          product_title: p.product_title,
+                                          variant_title: v.variant_title,
+                                          image_url: p.image_url,
+                                        }
+                                        if (existingIdx >= 0) {
+                                          updatedProducts[existingIdx] = productEntry
+                                        } else {
+                                          if (updatedProducts.length >= maxSelects) return prev
+                                          updatedProducts.push(productEntry)
+                                        }
+                                        updatedSizes[pid] = v.variant_title
+                                      }
+                                      return { ...prev, [assignment.id]: { products: updatedProducts, sizes: updatedSizes } }
+                                    })
+                                  }}
+                                >
+                                  {v.variant_title}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )}
+                        {!variants.length && (
+                          <button
+                            className={`cd-product-cta${selectedProduct ? ' added' : ''}`}
+                            onClick={() => {
+                              if (selectedProduct) {
+                                setCampaignSelects(prev => {
+                                  const current = prev[assignment.id] || { products: [], sizes: {} }
+                                  return { ...prev, [assignment.id]: { ...current, products: current.products.filter(s => s.product_title !== p.product_title) } }
+                                })
+                              } else {
+                                setCampaignSelects(prev => {
+                                  const current = prev[assignment.id] || { products: [], sizes: {} }
+                                  if (current.products.length >= maxSelects) return prev
+                                  return { ...prev, [assignment.id]: { ...current, products: [...current.products, { variant_id: p.variant_id || `p-${i}`, product_id: String(pid), product_title: p.product_title, variant_title: p.variant_title, image_url: p.image_url }] } }
+                                })
+                              }
+                            }}
+                          >
+                            {selectedProduct ? 'Selected' : 'Select'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Cart summary */}
+            {(campaignSelects[assignment.id]?.products?.length > 0) && (
+              <div className="cd-cart" style={{ marginTop: 20 }}>
+                <div className="cd-cart-left">
+                  <div className="cd-cart-label">Your Selects ({campaignSelects[assignment.id].products.length}/{maxSelects})</div>
+                  {campaignSelects[assignment.id].products.map((p, i) => (
+                    <div key={i} className="cd-cart-item">
+                      <span>{p.product_title}{p.variant_title ? ` — ${p.variant_title}` : ''}</span>
+                      <button className="cd-cart-remove" onClick={() => {
+                        setCampaignSelects(prev => {
+                          const current = prev[assignment.id] || { products: [], sizes: {} }
+                          const updatedSizes = { ...current.sizes }
+                          if (p.product_id) delete updatedSizes[p.product_id]
+                          return { ...prev, [assignment.id]: { products: current.products.filter((_, j) => j !== i), sizes: updatedSizes } }
+                        })
+                      }}>Remove</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="cd-campaign-notes" style={{ marginBottom: 12 }}>
+              <input
+                className="cd-field-input"
+                value={campaignNotes[assignment.id] || ''}
+                onChange={e => setCampaignNotes(prev => ({ ...prev, [assignment.id]: e.target.value }))}
+                placeholder="Notes (optional)"
+              />
+            </div>
+            <button
+              className="cd-campaign-btn-fill"
+              onClick={async () => {
+                await confirmCampaignSelects(assignment)
+                // Refresh the detail view with updated assignment
+                const campRes = await fetch(`/api/creator/campaigns?creator_id=${creator.id}`)
+                const campData = await campRes.json()
+                const updated = (campData.assignments || []).find(a => a.id === assignment.id)
+                if (updated) setActiveCampaignDetail(updated)
+              }}
+              disabled={!(campaignSelects[assignment.id]?.products?.length) || campaignConfirming === assignment.id}
+            >
+              {campaignConfirming === assignment.id ? 'Confirming...' : 'Confirm Selects'}
+            </button>
+          </div>
+        )}
+
+        {/* Step 3: Order & Content */}
+        {currentStep === 3 && (
+          <div>
+            {/* Order section */}
+            <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Order Status</div>
+            {matchingOrder ? (
+              <div className="cd-order-row" style={{ background: '#fff', border: '1px solid #e8e8e8', padding: '16px 20px', marginBottom: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500 }}>Order #{matchingOrder.shopify_order_number || matchingOrder.shopify_order_id}</div>
+                  <span className={`cd-campaign-status ${matchingOrder.fulfillment_status === 'fulfilled' ? 'cd-campaign-status-complete' : 'cd-campaign-status-confirmed'}`}>
+                    {matchingOrder.fulfillment_status || 'Processing'}
+                  </span>
+                </div>
+                {matchingOrder.line_items?.map((li, j) => (
+                  <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 12, color: '#555' }}>
+                    {li.image_url && <img src={li.image_url} alt="" style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: 4 }} />}
+                    <span>{li.product_name || li.title}{li.variant_title ? ` — ${li.variant_title}` : ''}</span>
+                  </div>
+                ))}
+                {matchingOrder.tracking_url && (
+                  <a href={matchingOrder.tracking_url} target="_blank" rel="noopener noreferrer" className="cd-campaign-brief-link" style={{ marginTop: 8 }}>
+                    Track shipment →
+                  </a>
+                )}
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: '#aaa', marginBottom: 20, padding: '16px 20px', border: '1px solid #e8e8e8' }}>
+                Your order is being prepared.
+              </div>
+            )}
+
+            {/* Selected products */}
+            {assignment.selected_products?.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <div className="cd-camp-deliverables-label" style={{ marginBottom: 8 }}>Your Selects</div>
+                {renderProductChips(assignment.selected_products, assignment.id, false, 0)}
+              </div>
+            )}
+
+            {/* Submit Content */}
+            <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Submit Content</div>
+            <button
+              className="cd-campaign-btn-outline"
+              style={{ marginTop: 0 }}
+              onClick={() => { setActiveTab('submit'); setCampaignContentTarget(assignment.id); setActiveCampaignDetail(null); }}
+            >
+              Submit Content →
+            </button>
+
+            {assignment.status === 'content_submitted' && (
+              <div className="cd-campaign-confirm-msg" style={{ marginTop: 12 }}>Content submitted — under review.</div>
+            )}
+          </div>
+        )}
+
+        {/* Step 4: Complete */}
+        {currentStep === 4 && (
+          <div>
+            <div style={{ background: '#f0fdf4', border: '1px solid #a5d6a7', padding: '20px 24px', marginBottom: 20, textAlign: 'center' }}>
+              <div style={{ fontSize: 20, color: '#2e7d32', marginBottom: 4 }}>Campaign Complete</div>
+              <div style={{ fontSize: 12, color: '#555' }}>Great work! This campaign has been completed.</div>
+            </div>
+
+            {matchingOrder && (
+              <div style={{ marginBottom: 20 }}>
+                <div className="cd-camp-deliverables-label" style={{ marginBottom: 8 }}>Order</div>
+                <div style={{ fontSize: 13, color: '#555' }}>Order #{matchingOrder.shopify_order_number || matchingOrder.shopify_order_id}</div>
+              </div>
+            )}
+
+            <button
+              className="cd-campaign-btn-outline"
+              style={{ marginTop: 0 }}
+              onClick={() => { setActiveTab('submit'); setCampaignContentTarget(assignment.id); setActiveCampaignDetail(null); }}
+            >
+              Submit Additional Content →
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   function renderProductChips(products, assignmentId, selectable, maxSelects) {
     if (!products || products.length === 0) return null
     return (
@@ -2335,75 +2744,44 @@ export default function CreatorDashboard() {
     const campaign = assignment.campaign
     if (!campaign) return null
     const statusInfo = getCampaignStatusInfo(assignment.status)
-    const products = campaign.available_products || []
-    const maxSelects = campaign.max_selects || 2
     const dueDate = campaign.due_date ? new Date(campaign.due_date + 'T00:00:00').toLocaleDateString('en', { month: 'long', day: 'numeric' }) : null
+    const goLiveDate = campaign.go_live_date ? new Date(campaign.go_live_date + 'T00:00:00').toLocaleDateString('en', { month: 'long', day: 'numeric' }) : null
     const isForYou = section === 'forYou'
 
     return (
-      <div key={assignment.id} className={`cd-campaign-card${isForYou ? ' for-you' : ''}`}>
+      <div
+        key={assignment.id}
+        className={`cd-campaign-card${isForYou ? ' for-you' : ''}`}
+        style={{ cursor: 'pointer' }}
+        onClick={() => {
+          setActiveCampaignDetail(assignment)
+          setCampaignAccepted(false)
+          setCampaignVariants({})
+        }}
+      >
+        {campaign.banner_image?.url && (
+          <div className="cd-camp-card-banner-wrap">
+            <img src={campaign.banner_image.url} alt="" className="cd-camp-card-banner" />
+          </div>
+        )}
         <div className="cd-campaign-title">{campaign.title}</div>
         <div className="cd-campaign-meta">
           <span className={`cd-campaign-status ${statusInfo.cls}`}>{statusInfo.label}</span>
+          {goLiveDate && <span className="cd-camp-go-live">Go live {goLiveDate}</span>}
           {dueDate && <span className="cd-campaign-due">Due {dueDate}</span>}
         </div>
 
         {campaign.description && <div className="cd-campaign-desc" style={{ marginTop: 8 }}>{campaign.description}</div>}
-
-        {campaign.brief_url && (
-          <a href={campaign.brief_url} target="_blank" rel="noopener noreferrer" className="cd-campaign-brief-link">
-            View brief →
-          </a>
-        )}
-
-        {/* Sent — product selection */}
-        {assignment.status === 'sent' && products.length > 0 && (
-          <>
-            <div className="cd-campaign-max">Select up to {maxSelects} item{maxSelects !== 1 ? 's' : ''}</div>
-            {renderProductChips(products, assignment.id, true, maxSelects)}
-            <div className="cd-campaign-notes">
-              <input
-                className="cd-field-input"
-                value={campaignNotes[assignment.id] || ''}
-                onChange={e => setCampaignNotes(prev => ({ ...prev, [assignment.id]: e.target.value }))}
-                placeholder="Notes (optional)"
-              />
-            </div>
-            <button
-              className="cd-campaign-btn-fill"
-              onClick={() => confirmCampaignSelects(assignment)}
-              disabled={!(campaignSelects[assignment.id]?.products?.length) || campaignConfirming === assignment.id}
-            >
-              {campaignConfirming === assignment.id ? 'Confirming…' : 'Confirm Selects'}
-            </button>
-          </>
-        )}
-
-        {/* Confirmed — show selected products */}
-        {assignment.status === 'confirmed' && (
-          <>
-            <div className="cd-campaign-confirm-msg">Your order is being prepared.</div>
-            {renderProductChips(assignment.selected_products, assignment.id, false, 0)}
-            <a className="cd-campaign-btn-outline" href="#" onClick={e => { e.preventDefault(); setActiveTab('submit'); setCampaignContentTarget(assignment.id) }}>
-              Submit Content
-            </a>
-          </>
-        )}
-
-        {/* Content Submitted */}
-        {assignment.status === 'content_submitted' && (
-          <div className="cd-campaign-confirm-msg">Content submitted — under review.</div>
-        )}
-
-        {/* Complete */}
-        {assignment.status === 'complete' && (
-          <div className="cd-campaign-confirm-msg" style={{ color: '#2e7d32' }}>Campaign complete ✓</div>
-        )}
       </div>
     )
   }
 
   function renderCampaigns(mobile) {
+    // If viewing a campaign detail, show that instead
+    if (activeCampaignDetail) {
+      return renderCampaignDetail(mobile)
+    }
+
     // Collect all assignments including children
     const allAssignments = [...campaignAssignments]
     const childAssignments = allAssignments.filter(a => a.campaign?.parent_campaign_id)

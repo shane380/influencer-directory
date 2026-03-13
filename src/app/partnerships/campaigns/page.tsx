@@ -20,6 +20,9 @@ interface Campaign {
   created_by: string | null;
   created_at: string;
   parent_campaign_id: string | null;
+  banner_image: { url: string; drive_file_id?: string } | null;
+  deliverables: string | null;
+  go_live_date: string | null;
   counts: { total: number; confirmed: number; content_submitted: number; complete: number };
 }
 
@@ -85,8 +88,11 @@ export default function CampaignsPage() {
     due_date: "",
     max_selects: 2,
     campaign_type: "mass" as "mass" | "individual",
+    deliverables: "",
+    go_live_date: "",
   });
   const [briefImages, setBriefImages] = useState<{ url: string; drive_file_id?: string }[]>([]);
+  const [bannerImage, setBannerImage] = useState<{ url: string; drive_file_id?: string } | null>(null);
   const [availableProducts, setAvailableProducts] = useState<Product[]>([]);
   const [selectedCreators, setSelectedCreators] = useState<{ influencer_id: string | null; creator_id: string | null; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
@@ -259,8 +265,9 @@ export default function CampaignsPage() {
   function openCreateModal() {
     setEditingCampaign(null);
     setInvitationParentId("");
-    setForm({ title: "", description: "", brief_url: "", due_date: "", max_selects: 2, campaign_type: "mass" });
+    setForm({ title: "", description: "", brief_url: "", due_date: "", max_selects: 2, campaign_type: "mass", deliverables: "", go_live_date: "" });
     setBriefImages([]);
+    setBannerImage(null);
     setAvailableProducts([]);
     setSelectedCreators([]);
     setShowModal(true);
@@ -279,8 +286,11 @@ export default function CampaignsPage() {
       due_date: campaign.due_date || "",
       max_selects: campaign.max_selects,
       campaign_type: campaign.campaign_type as "mass" | "individual",
+      deliverables: campaign.deliverables || "",
+      go_live_date: campaign.go_live_date || "",
     });
     setBriefImages(campaign.brief_images || []);
+    setBannerImage(campaign.banner_image || null);
     setAvailableProducts(campaign.available_products || []);
     setSelectedCreators([]);
     setExistingAssignments([]);
@@ -298,7 +308,7 @@ export default function CampaignsPage() {
   function openCreateInvitation(parentId?: string) {
     setEditingCampaign(null);
     setInvitationParentId(parentId || "");
-    setForm({ title: "", description: "", brief_url: "", due_date: "", max_selects: 2, campaign_type: "mass" });
+    setForm({ title: "", description: "", brief_url: "", due_date: "", max_selects: 2, campaign_type: "mass", deliverables: "", go_live_date: "" });
     setBriefImages([]);
     setAvailableProducts([]);
     setSelectedCreators([]);
@@ -328,6 +338,9 @@ export default function CampaignsPage() {
       max_selects: form.max_selects,
       campaign_type: form.campaign_type,
       status: editingCampaign ? editingCampaign.status : (publish ? "active" : "draft"),
+      banner_image: bannerImage || null,
+      deliverables: form.deliverables || null,
+      go_live_date: form.go_live_date || null,
     };
 
     if (parentId) {
@@ -735,7 +748,26 @@ export default function CampaignsPage() {
             </button>
           </div>
 
+          {selectedCampaign.banner_image?.url && (
+            <div className="mb-4 rounded-lg overflow-hidden border border-gray-200">
+              <img src={selectedCampaign.banner_image.url} alt="Campaign banner" className="w-full h-48 object-cover" />
+            </div>
+          )}
+
           {selectedCampaign.description && <p className="text-sm text-gray-600 mb-4">{selectedCampaign.description}</p>}
+
+          {selectedCampaign.deliverables && (
+            <div className="mb-4">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Deliverables</h3>
+              <p className="text-sm text-gray-600 whitespace-pre-wrap">{selectedCampaign.deliverables}</p>
+            </div>
+          )}
+
+          {selectedCampaign.go_live_date && (
+            <div className="mb-4 text-sm text-gray-500">
+              Go live: {new Date(selectedCampaign.go_live_date + "T00:00:00").toLocaleDateString("en", { month: "long", day: "numeric", year: "numeric" })}
+            </div>
+          )}
 
           {selectedCampaign.brief_url && (
             <a href={selectedCampaign.brief_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 mb-4">
@@ -1045,8 +1077,41 @@ export default function CampaignsPage() {
                   />
                 </div>
 
-                {/* Due Date + Max Selects */}
-                <div className="grid grid-cols-2 gap-4">
+                {/* Banner Image */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Banner Image URL (optional)</label>
+                  <div className="flex gap-2">
+                    <input
+                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                      value={bannerImage?.url || ""}
+                      onChange={e => setBannerImage(e.target.value ? { url: e.target.value } : null)}
+                      placeholder="https://... (banner image URL)"
+                    />
+                    {bannerImage?.url && (
+                      <button onClick={() => setBannerImage(null)} className="px-2 text-gray-400 hover:text-gray-600">×</button>
+                    )}
+                  </div>
+                  {bannerImage?.url && (
+                    <div className="mt-2 border border-gray-200 rounded-lg overflow-hidden">
+                      <img src={bannerImage.url} alt="Banner preview" className="w-full h-32 object-cover" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Deliverables */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Deliverables (optional)</label>
+                  <textarea
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none"
+                    rows={2}
+                    value={form.deliverables}
+                    onChange={e => setForm(f => ({ ...f, deliverables: e.target.value }))}
+                    placeholder="e.g., 2 Reels, 1 Story set..."
+                  />
+                </div>
+
+                {/* Due Date + Go Live Date + Max Selects */}
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Due Date</label>
                     <input
@@ -1054,6 +1119,15 @@ export default function CampaignsPage() {
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
                       value={form.due_date}
                       onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Go Live Date</label>
+                    <input
+                      type="date"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                      value={form.go_live_date}
+                      onChange={e => setForm(f => ({ ...f, go_live_date: e.target.value }))}
                     />
                   </div>
                   <div>
