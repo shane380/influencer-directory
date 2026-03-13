@@ -129,7 +129,9 @@ export function renderEmailTemplate({
               <a href="https://creators.namaclo.com/creator/dashboard" target="_blank" style="color:#999999;text-decoration:underline;">
                 Go to your dashboard &rarr;
               </a>
-              ${unsubscribeUrl ? `<br /><br /><a href="${unsubscribeUrl}" target="_blank" style="color:#bbbbbb;text-decoration:underline;font-size:12px;">Unsubscribe from emails</a>` : ""}
+              <br /><br />
+              <span style="font-size:11px;color:#bbbbbb;">Nama, 9 Davies Ave, Unit 406, Toronto, ON M4M 1G3</span>
+              ${unsubscribeUrl ? `<br /><a href="${unsubscribeUrl}" target="_blank" style="color:#bbbbbb;text-decoration:underline;font-size:11px;">Unsubscribe from emails</a>` : ""}
             </td>
           </tr>
         </table>
