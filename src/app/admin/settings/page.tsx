@@ -126,14 +126,14 @@ export default function AdminSettingsPage() {
   const [suspendedCountries, setSuspendedCountries] = useState<string[]>([]);
   const [newCountry, setNewCountry] = useState("");
   const [savingCountries, setSavingCountries] = useState(false);
-  const [testEmail, setTestEmail] = useState("");
-  const [sendingTest, setSendingTest] = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [emailTemplates, setEmailTemplates] = useState<Record<string, Partial<TemplateFields>>>({});
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
   const [templateDraft, setTemplateDraft] = useState<TemplateFields | null>(null);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateSaved, setTemplateSaved] = useState<string | null>(null);
+  const [previewEmail, setPreviewEmail] = useState("");
+  const [sendingPreview, setSendingPreview] = useState(false);
+  const [previewResult, setPreviewResult] = useState<{ ok: boolean; message: string } | null>(null);
   const supabase = createClient();
   const router = useRouter();
 
@@ -216,38 +216,7 @@ export default function AdminSettingsPage() {
     saveCountries(suspendedCountries.filter((c) => c !== country));
   };
 
-  const sendTestEmailFn = async () => {
-    const to = testEmail.trim();
-    if (!to) return;
-    setSendingTest(true);
-    setTestResult(null);
-    try {
-      const res = await fetch("/api/email/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to,
-          subject: "Nama Partners - Test Email",
-          html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:40px 20px;">
-            <h2 style="margin:0 0 16px;font-size:20px;">Test Email</h2>
-            <p style="margin:0 0 12px;color:#333;font-size:15px;">This is a test email from your Nama Partners app.</p>
-            <p style="margin:0 0 12px;color:#333;font-size:15px;">If you're reading this, your Resend integration is working correctly.</p>
-            <hr style="border:none;border-top:1px solid #e5e5e5;margin:24px 0;" />
-            <p style="margin:0;color:#999;font-size:13px;">Sent from App Settings at ${new Date().toLocaleString()}</p>
-          </div>`,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setTestResult({ ok: true, message: `Test email sent to ${to}` });
-      } else {
-        setTestResult({ ok: false, message: data.error || "Failed to send" });
-      }
-    } catch (err) {
-      setTestResult({ ok: false, message: "Network error — could not reach server" });
-    }
-    setSendingTest(false);
-  };
+
 
   const openTemplateEditor = (key: string) => {
     if (editingTemplate === key) {
@@ -301,6 +270,29 @@ export default function AdminSettingsPage() {
   const resetTemplate = () => {
     if (!editingTemplate) return;
     setTemplateDraft({ ...DEFAULT_TEMPLATES[editingTemplate] });
+  };
+
+  const sendPreview = async () => {
+    const to = previewEmail.trim();
+    if (!to || !templateDraft) return;
+    setSendingPreview(true);
+    setPreviewResult(null);
+    try {
+      const res = await fetch("/api/email/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to, template: templateDraft }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPreviewResult({ ok: true, message: `Preview sent to ${to}` });
+      } else {
+        setPreviewResult({ ok: false, message: data.error || "Failed to send" });
+      }
+    } catch {
+      setPreviewResult({ ok: false, message: "Network error" });
+    }
+    setSendingPreview(false);
   };
 
   if (loading) {
@@ -499,6 +491,36 @@ export default function AdminSettingsPage() {
                           Reset to Default
                         </button>
                       </div>
+
+                      <div className="border-t border-gray-200 pt-4 mt-2">
+                        <label className="block text-xs font-medium text-gray-500 mb-2">Send Preview Email</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="email"
+                            value={previewEmail}
+                            onChange={(e) => { setPreviewEmail(e.target.value); setPreviewResult(null); }}
+                            onKeyDown={(e) => { if (e.key === "Enter") sendPreview(); }}
+                            placeholder="Enter email address..."
+                            disabled={sendingPreview}
+                            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200"
+                          />
+                          <button
+                            onClick={sendPreview}
+                            disabled={!previewEmail.trim() || sendingPreview}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {sendingPreview ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                            Send Preview
+                          </button>
+                        </div>
+                        {previewResult && (
+                          <div className={`mt-2 flex items-center gap-2 text-xs ${previewResult.ok ? "text-green-700" : "text-red-700"}`}>
+                            {previewResult.ok ? <CheckCircle className="h-3.5 w-3.5 shrink-0" /> : <AlertCircle className="h-3.5 w-3.5 shrink-0" />}
+                            <span>{previewResult.message}</span>
+                          </div>
+                        )}
+                        <p className="text-xs text-gray-400 mt-1.5">Sends this template with sample data so you can see how it looks. Subject will include [PREVIEW].</p>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -513,61 +535,7 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
-        {/* Send Test Email */}
-        <div className="bg-white rounded-lg border">
-          <div className="p-6 border-b">
-            <div className="flex items-center gap-3">
-              <Send className="h-5 w-5 text-gray-700" />
-              <div>
-                <h2 className="text-lg font-medium text-gray-900">Send Test Email</h2>
-                <p className="text-sm text-gray-500 mt-1">Verify that Resend is configured correctly by sending a test email.</p>
-              </div>
-            </div>
-          </div>
 
-          <div className="p-5">
-            <div className="flex gap-2">
-              <input
-                type="email"
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200"
-                value={testEmail}
-                onChange={(e) => { setTestEmail(e.target.value); setTestResult(null); }}
-                onKeyDown={(e) => { if (e.key === "Enter") sendTestEmailFn(); }}
-                placeholder="Enter email address..."
-                disabled={sendingTest}
-              />
-              <button
-                onClick={sendTestEmailFn}
-                disabled={!testEmail.trim() || sendingTest}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {sendingTest ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Send className="h-3.5 w-3.5" />
-                )}
-                Send
-              </button>
-            </div>
-
-            {testResult && (
-              <div className={`mt-3 flex items-center gap-2 text-sm ${testResult.ok ? "text-green-700" : "text-red-700"}`}>
-                {testResult.ok ? (
-                  <CheckCircle className="h-4 w-4 shrink-0" />
-                ) : (
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                )}
-                <span>{testResult.message}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="p-4 bg-gray-50 border-t rounded-b-lg">
-            <p className="text-xs text-gray-400">
-              Sends from <span className="font-medium text-gray-500">partners@partners.namaclo.com</span> via Resend. If the email doesn&apos;t arrive, check your Resend dashboard for delivery logs and domain verification.
-            </p>
-          </div>
-        </div>
 
         {/* Suspended Shipping Countries */}
         <div className="bg-white rounded-lg border">
