@@ -456,6 +456,10 @@ export function OrderDialog({
       setCustomerError("Email is required to create a Shopify customer.");
       return;
     }
+    if (!newCustomerForm.phone) {
+      setCustomerError("Phone number is required to create a Shopify customer.");
+      return;
+    }
 
     setCreatingCustomer(true);
     setCustomerError(null);
@@ -648,6 +652,11 @@ export function OrderDialog({
   const handleCreateOrder = async () => {
     if (cart.length === 0) {
       setError("Please add at least one product to the order");
+      return;
+    }
+
+    if (shopifyCustomer && !shopifyCustomer.phone) {
+      setError("Phone number is required to create a draft order. Please edit the customer to add a phone number.");
       return;
     }
 
@@ -1070,14 +1079,22 @@ export function OrderDialog({
                   Searching for customer...
                 </div>
               ) : shopifyCustomer && customerConfirmed && !showEditCustomerForm ? (
-                <div className="bg-green-50 p-3 rounded-lg">
+                <div className={`${shopifyCustomer.phone ? "bg-green-50" : "bg-yellow-50"} p-3 rounded-lg`}>
                   <div className="flex items-center gap-3">
-                    <Check className="h-5 w-5 text-green-600 flex-shrink-0" />
+                    {shopifyCustomer.phone ? (
+                      <Check className="h-5 w-5 text-green-600 flex-shrink-0" />
+                    ) : (
+                      <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0" />
+                    )}
                     <div className="flex-1">
                       <p className="font-medium">{shopifyCustomer.name}</p>
                       <p className="text-sm text-gray-600">{shopifyCustomer.email}</p>
-                      {shopifyCustomer.phone && (
+                      {shopifyCustomer.phone ? (
                         <p className="text-sm text-gray-500">{shopifyCustomer.phone}</p>
+                      ) : (
+                        <p className="text-sm text-yellow-700 font-medium mt-1">
+                          Phone number required — <button className="underline hover:text-yellow-900" onClick={handleShowEditCustomerForm}>add phone number</button>
+                        </p>
                       )}
                       {shopifyCustomer.address && (
                         <p className="text-sm text-gray-500 mt-1">
@@ -1392,7 +1409,7 @@ export function OrderDialog({
                         />
                       </div>
                       <div>
-                        <Label htmlFor="new_customer_phone" className="text-sm">Phone</Label>
+                        <Label htmlFor="new_customer_phone" className="text-sm">Phone *</Label>
                         <Input
                           id="new_customer_phone"
                           type="tel"
@@ -1867,8 +1884,8 @@ export function OrderDialog({
             </Button>
             <Button
               onClick={handleCreateOrder}
-              disabled={creatingOrder || cart.length === 0 || !shopifyCustomer || !customerConfirmed}
-              title={!shopifyCustomer || !customerConfirmed ? "Please confirm a customer first" : ""}
+              disabled={creatingOrder || cart.length === 0 || !shopifyCustomer || !customerConfirmed || !shopifyCustomer?.phone}
+              title={!shopifyCustomer || !customerConfirmed ? "Please confirm a customer first" : !shopifyCustomer?.phone ? "Phone number required — edit customer to add" : ""}
             >
               {creatingOrder ? (
                 <>
