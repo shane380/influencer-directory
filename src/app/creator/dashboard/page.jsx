@@ -298,6 +298,20 @@ const CSS = `
   .cd-camp-deliverables-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #999; }
   .cd-campaign-btn-fill { display: block; width: 100%; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; padding: 11px; border-radius: 6px; text-align: center; }
 }
+@media (min-width: 768px) {
+  .cd-camp-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; }
+  .cd-camp-detail-left img { width: 100%; aspect-ratio: 2/3; object-fit: cover; object-position: top; border-radius: 12px; display: block; }
+  .cd-camp-detail-right { position: sticky; top: 24px; }
+  .cd-camp-detail-title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  .cd-camp-detail .cd-campaign-title { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 400; }
+  .cd-camp-detail-badge { border: 1px solid #c4631a; color: #c4631a; border-radius: 20px; font-size: 10px; padding: 2px 8px; white-space: nowrap; flex-shrink: 0; }
+  .cd-camp-detail-dates { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+  .cd-camp-detail-date-box { background: #f7f7f7; border-radius: 6px; padding: 8px 10px; }
+  .cd-camp-detail-date-box label { display: block; font-size: 10px; color: #999; text-transform: uppercase; margin-bottom: 2px; }
+  .cd-camp-detail-date-box span { font-size: 13px; font-weight: 500; color: #111; }
+  .cd-camp-detail-divider { height: 0; border: none; border-top: 0.5px solid #e0e0e0; margin: 16px 0; }
+  .cd-camp-detail-right .cd-campaign-btn-fill { display: block; width: 100%; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; padding: 11px; border-radius: 6px; text-align: center; }
+}
 
 /* PRODUCTS */
 .cd-products { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
@@ -2449,123 +2463,225 @@ export default function CreatorDashboard() {
 
         {renderCampaignSteps(currentStep)}
 
-        {campaign.banner_image?.url && (
-          <img src={campaign.banner_image.url} alt="" className="cd-camp-banner" />
-        )}
-
-        {/* Title + badge row (mobile: side-by-side, desktop: stacked) */}
-        <div className="cd-camp-detail-title-row">
-          <div className="cd-campaign-title" style={{ fontSize: mobile ? undefined : 28, marginBottom: mobile ? 0 : 12 }}>{campaign.title}</div>
-          {mobile && <span className="cd-camp-detail-badge">{statusInfo.label}</span>}
-        </div>
-
-        {/* Desktop: meta row */}
-        {!mobile && (
-          <div className="cd-campaign-meta" style={{ marginBottom: 16 }}>
-            <span className={`cd-campaign-status ${statusInfo.cls}`}>{statusInfo.label}</span>
-            {goLiveDate && <span className="cd-camp-go-live">Goes live {goLiveDate}</span>}
-            {dueDate && <span className="cd-campaign-due">Content due {dueDate}</span>}
-          </div>
-        )}
-
-        {/* Mobile: date grid boxes */}
-        {mobile && (goLiveDate || dueDate) && (
-          <div className="cd-camp-detail-dates">
-            {goLiveDate && (
-              <div className="cd-camp-detail-date-box">
-                <label>Goes live</label>
-                <span>{goLiveDate}</span>
-              </div>
-            )}
-            {dueDate && (
-              <div className="cd-camp-detail-date-box">
-                <label>Content due</label>
-                <span>{dueDate}</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {campaign.description && (
+        {/* Mobile: linear layout */}
+        {mobile && (
           <>
-            {mobile && <hr className="cd-camp-detail-divider" />}
-            <div style={{ fontSize: 13, color: '#666', lineHeight: 1.7, marginBottom: 20 }}>{campaign.description}</div>
-          </>
-        )}
+            {campaign.banner_image?.url && (
+              <img src={campaign.banner_image.url} alt="" className="cd-camp-banner" />
+            )}
 
-        {campaign.deliverables && (
-          <>
-            {mobile && <hr className="cd-camp-detail-divider" />}
-            <div className="cd-camp-deliverables">
-              <div className="cd-camp-deliverables-label">What We're Looking For</div>
-              <div className="cd-camp-deliverables-text">{campaign.deliverables}</div>
+            <div className="cd-camp-detail-title-row">
+              <div className="cd-campaign-title">{campaign.title}</div>
+              <span className="cd-camp-detail-badge">{statusInfo.label}</span>
             </div>
-          </>
-        )}
 
-        {/* Content References */}
-        {campaign.brief_images?.length > 0 && (
-          <div style={{ marginBottom: 24 }}>
-            <div className="cd-camp-deliverables-label">Content References</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 10 }}>
-              {campaign.brief_images.map((img, i) => (
-                <div key={i} style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid #e8e8e8' }}>
-                  {img.url?.includes('video') ? (
-                    <video src={img.url} style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} controls muted />
-                  ) : (
-                    <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
-                  )}
+            {(goLiveDate || dueDate) && (
+              <div className="cd-camp-detail-dates">
+                {goLiveDate && (
+                  <div className="cd-camp-detail-date-box">
+                    <label>Goes live</label>
+                    <span>{goLiveDate}</span>
+                  </div>
+                )}
+                {dueDate && (
+                  <div className="cd-camp-detail-date-box">
+                    <label>Content due</label>
+                    <span>{dueDate}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {campaign.description && (
+              <>
+                <hr className="cd-camp-detail-divider" />
+                <div style={{ fontSize: 13, color: '#666', lineHeight: 1.7, marginBottom: 20 }}>{campaign.description}</div>
+              </>
+            )}
+
+            {campaign.deliverables && (
+              <>
+                <hr className="cd-camp-detail-divider" />
+                <div className="cd-camp-deliverables">
+                  <div className="cd-camp-deliverables-label">What We're Looking For</div>
+                  <div className="cd-camp-deliverables-text">{campaign.deliverables}</div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+              </>
+            )}
 
-        {campaign.brief_url && (
-          <a href={campaign.brief_url} target="_blank" rel="noopener noreferrer" className="cd-campaign-brief-link" style={{ marginBottom: 20, display: 'inline-flex' }}>
-            View brief →
-          </a>
-        )}
-
-        {/* Step 1: Accept */}
-        {currentStep === 1 && (
-          <div>
-            {mobile && <hr className="cd-camp-detail-divider" />}
-            <div className="cd-camp-deliverables" style={{ marginBottom: 20 }}>
-              <div className="cd-camp-deliverables-label">Your Selects</div>
-              <div className="cd-camp-deliverables-text">You can choose up to {maxSelects} {maxSelects === 1 ? 'style' : 'styles'}</div>
-            </div>
-
-            {mobile && <hr className="cd-camp-detail-divider" />}
-            <button
-              className="cd-campaign-btn-fill"
-              style={{ marginBottom: 28 }}
-              onClick={() => {
-                setCampaignAccepted(true)
-                fetchCampaignVariants(products)
-              }}
-            >
-              Accept Campaign
-            </button>
-
-            {products.length > 0 && (
-              <div style={{ marginBottom: 20 }}>
-                <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Style Previews</div>
-                <div className="cd-products">
-                  {products.map((p, i) => (
-                    <div key={i} className="cd-product" style={{ cursor: 'default' }}>
-                      <div className="cd-product-img">
-                        {p.image_url ? <img src={p.image_url} alt={p.product_title} /> : <div style={{ color: '#ccc', fontSize: 12 }}>No image</div>}
-                      </div>
-                      <div className="cd-product-info">
-                        <div className="cd-product-name">{p.product_title}</div>
-                        {p.variant_title && <div className="cd-product-variant">{p.variant_title}</div>}
-                      </div>
+            {campaign.brief_images?.length > 0 && (
+              <div style={{ marginBottom: 24 }}>
+                <div className="cd-camp-deliverables-label">Content References</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 10 }}>
+                  {campaign.brief_images.map((img, i) => (
+                    <div key={i} style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid #e8e8e8' }}>
+                      {img.url?.includes('video') ? (
+                        <video src={img.url} style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} controls muted />
+                      ) : (
+                        <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
             )}
+
+            {campaign.brief_url && (
+              <a href={campaign.brief_url} target="_blank" rel="noopener noreferrer" className="cd-campaign-brief-link" style={{ marginBottom: 20, display: 'inline-flex' }}>
+                View brief →
+              </a>
+            )}
+
+            {currentStep === 1 && (
+              <div>
+                <hr className="cd-camp-detail-divider" />
+                <div className="cd-camp-deliverables" style={{ marginBottom: 20 }}>
+                  <div className="cd-camp-deliverables-label">Your Selects</div>
+                  <div className="cd-camp-deliverables-text">You can choose up to {maxSelects} {maxSelects === 1 ? 'style' : 'styles'}</div>
+                </div>
+
+                <hr className="cd-camp-detail-divider" />
+                <button
+                  className="cd-campaign-btn-fill"
+                  style={{ marginBottom: 28 }}
+                  onClick={() => {
+                    setCampaignAccepted(true)
+                    fetchCampaignVariants(products)
+                  }}
+                >
+                  Accept Campaign
+                </button>
+
+                {products.length > 0 && (
+                  <div style={{ marginBottom: 20 }}>
+                    <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Style Previews</div>
+                    <div className="cd-products">
+                      {products.map((p, i) => (
+                        <div key={i} className="cd-product" style={{ cursor: 'default' }}>
+                          <div className="cd-product-img">
+                            {p.image_url ? <img src={p.image_url} alt={p.product_title} /> : <div style={{ color: '#ccc', fontSize: 12 }}>No image</div>}
+                          </div>
+                          <div className="cd-product-info">
+                            <div className="cd-product-name">{p.product_title}</div>
+                            {p.variant_title && <div className="cd-product-variant">{p.variant_title}</div>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Desktop: two-column grid */}
+        {!mobile && (
+          <div className="cd-camp-detail-grid">
+            <div className="cd-camp-detail-left">
+              {campaign.banner_image?.url && (
+                <img src={campaign.banner_image.url} alt="" />
+              )}
+            </div>
+            <div className="cd-camp-detail-right">
+              <div className="cd-camp-detail-title-row">
+                <div className="cd-campaign-title">{campaign.title}</div>
+                <span className="cd-camp-detail-badge">{statusInfo.label}</span>
+              </div>
+
+              {(goLiveDate || dueDate) && (
+                <div className="cd-camp-detail-dates">
+                  {goLiveDate && (
+                    <div className="cd-camp-detail-date-box">
+                      <label>Goes live</label>
+                      <span>{goLiveDate}</span>
+                    </div>
+                  )}
+                  {dueDate && (
+                    <div className="cd-camp-detail-date-box">
+                      <label>Content due</label>
+                      <span>{dueDate}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {campaign.description && (
+                <div style={{ fontSize: 13, color: '#666', lineHeight: 1.7, marginBottom: 20 }}>{campaign.description}</div>
+              )}
+
+              {campaign.deliverables && (
+                <>
+                  <hr className="cd-camp-detail-divider" />
+                  <div className="cd-camp-deliverables">
+                    <div className="cd-camp-deliverables-label">What We're Looking For</div>
+                    <div className="cd-camp-deliverables-text">{campaign.deliverables}</div>
+                  </div>
+                </>
+              )}
+
+              {campaign.brief_images?.length > 0 && (
+                <div style={{ marginBottom: 24 }}>
+                  <div className="cd-camp-deliverables-label">Content References</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 10 }}>
+                    {campaign.brief_images.map((img, i) => (
+                      <div key={i} style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid #e8e8e8' }}>
+                        {img.url?.includes('video') ? (
+                          <video src={img.url} style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} controls muted />
+                        ) : (
+                          <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {campaign.brief_url && (
+                <a href={campaign.brief_url} target="_blank" rel="noopener noreferrer" className="cd-campaign-brief-link" style={{ marginBottom: 20, display: 'inline-flex' }}>
+                  View brief →
+                </a>
+              )}
+
+              {currentStep === 1 && (
+                <div>
+                  <div className="cd-camp-deliverables" style={{ marginBottom: 20 }}>
+                    <div className="cd-camp-deliverables-label">Your Selects</div>
+                    <div className="cd-camp-deliverables-text">You can choose up to {maxSelects} {maxSelects === 1 ? 'style' : 'styles'}</div>
+                  </div>
+
+                  <button
+                    className="cd-campaign-btn-fill"
+                    style={{ marginBottom: 28 }}
+                    onClick={() => {
+                      setCampaignAccepted(true)
+                      fetchCampaignVariants(products)
+                    }}
+                  >
+                    Accept Campaign
+                  </button>
+
+                  {products.length > 0 && (
+                    <div style={{ marginBottom: 20 }}>
+                      <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Style Previews</div>
+                      <div className="cd-products">
+                        {products.map((p, i) => (
+                          <div key={i} className="cd-product" style={{ cursor: 'default' }}>
+                            <div className="cd-product-img">
+                              {p.image_url ? <img src={p.image_url} alt={p.product_title} /> : <div style={{ color: '#ccc', fontSize: 12 }}>No image</div>}
+                            </div>
+                            <div className="cd-product-info">
+                              <div className="cd-product-name">{p.product_title}</div>
+                              {p.variant_title && <div className="cd-product-variant">{p.variant_title}</div>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
