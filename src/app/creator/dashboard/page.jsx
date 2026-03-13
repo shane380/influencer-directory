@@ -2515,8 +2515,8 @@ export default function CreatorDashboard() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 10 }}>
                   {campaign.brief_images.map((img, i) => (
                     <div key={i} style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid #e8e8e8' }}>
-                      {/\.(mp4|mov|m4v|webm)(\?|$)/i.test(img.url || '') ? (
-                        <a href={img.url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', width: '100%', aspectRatio: '4/5', background: '#111', position: 'relative', cursor: 'pointer', textDecoration: 'none' }}>
+                      {(img.is_video || /\.(mp4|mov|m4v|webm)(\?|$)/i.test(img.url || '') || /drive\.google\.com\/file\/d\//.test(img.url || '')) ? (
+                        <a href={(img.url || '').replace('/preview', '/view')} target="_blank" rel="noopener noreferrer" style={{ display: 'block', width: '100%', aspectRatio: '4/5', background: '#111', position: 'relative', cursor: 'pointer', textDecoration: 'none' }}>
                           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 6 }}>
                             <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#fff' }}>▶</div>
                             <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.05em' }}>TAP TO VIEW</div>

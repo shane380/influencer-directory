@@ -46,11 +46,12 @@ export async function POST(request: NextRequest) {
       buffer
     );
 
-    // Build URL — use thumbnail for images, webViewLink for videos
-    const isVideo = /\.(mp4|mov|m4v|webm)$/i.test(file_name);
+    // Build URL — use thumbnail for images, preview link for videos
+    const isVideo = /\.(mp4|mov|m4v|webm)$/i.test(file_name) || (mime_type && mime_type.startsWith("video/"));
     let url: string;
     if (isVideo) {
-      url = webViewLink;
+      // Use Google Drive preview embed URL for videos
+      url = `https://drive.google.com/file/d/${fileId}/preview`;
     } else {
       url = thumbnailLink
         ? thumbnailLink.replace(/=s\d+/, "=s1600")
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
     // Clean up temp file from Storage
     await supabase.storage.from("creator-uploads").remove([storage_path]);
 
-    return NextResponse.json({ fileId, url, webViewLink });
+    return NextResponse.json({ fileId, url, webViewLink, isVideo });
   } catch (err: any) {
     console.error("Move to Drive failed:", err?.message, err?.stack);
     return NextResponse.json({ error: err.message || "Upload failed" }, { status: 500 });

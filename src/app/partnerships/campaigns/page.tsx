@@ -91,7 +91,7 @@ export default function CampaignsPage() {
     deliverables: "",
     go_live_date: "",
   });
-  const [briefImages, setBriefImages] = useState<{ url: string; drive_file_id?: string; storage_path?: string }[]>([]);
+  const [briefImages, setBriefImages] = useState<{ url: string; drive_file_id?: string; storage_path?: string; is_video?: boolean }[]>([]);
   const [bannerImage, setBannerImage] = useState<{ url: string; drive_file_id?: string } | null>(null);
   const [bannerUploading, setBannerUploading] = useState(false);
   const [briefMediaUploading, setBriefMediaUploading] = useState(false);
@@ -307,7 +307,7 @@ export default function CampaignsPage() {
         });
         if (res.ok) {
           const data = await res.json();
-          setBriefImages(prev => [...prev, { url: data.url, drive_file_id: data.fileId }]);
+          setBriefImages(prev => [...prev, { url: data.url, drive_file_id: data.fileId, is_video: data.isVideo || false }]);
           succeeded++;
         } else {
           const err = await res.json().catch(() => ({ error: "Move to Drive failed" }));
