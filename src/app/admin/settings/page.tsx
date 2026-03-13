@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowLeft, Loader2, Mail, Globe, X, Plus } from "lucide-react";
+import { ArrowLeft, Loader2, Mail, Globe, X, Plus, Send, CheckCircle, AlertCircle } from "lucide-react";
 import Link from "next/link";
 
 interface TriggerConfig {
@@ -58,6 +58,9 @@ export default function AdminSettingsPage() {
   const [suspendedCountries, setSuspendedCountries] = useState<string[]>([]);
   const [newCountry, setNewCountry] = useState("");
   const [savingCountries, setSavingCountries] = useState(false);
+  const [testEmail, setTestEmail] = useState("");
+  const [sendingTest, setSendingTest] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const supabase = createClient();
   const router = useRouter();
 
@@ -137,6 +140,39 @@ export default function AdminSettingsPage() {
 
   const removeCountry = (country: string) => {
     saveCountries(suspendedCountries.filter((c) => c !== country));
+  };
+
+  const sendTestEmailFn = async () => {
+    const to = testEmail.trim();
+    if (!to) return;
+    setSendingTest(true);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to,
+          subject: "Nama Partners - Test Email",
+          html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:40px 20px;">
+            <h2 style="margin:0 0 16px;font-size:20px;">Test Email</h2>
+            <p style="margin:0 0 12px;color:#333;font-size:15px;">This is a test email from your Nama Partners app.</p>
+            <p style="margin:0 0 12px;color:#333;font-size:15px;">If you're reading this, your Resend integration is working correctly.</p>
+            <hr style="border:none;border-top:1px solid #e5e5e5;margin:24px 0;" />
+            <p style="margin:0;color:#999;font-size:13px;">Sent from App Settings at ${new Date().toLocaleString()}</p>
+          </div>`,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTestResult({ ok: true, message: `Test email sent to ${to}` });
+      } else {
+        setTestResult({ ok: false, message: data.error || "Failed to send" });
+      }
+    } catch (err) {
+      setTestResult({ ok: false, message: "Network error — could not reach server" });
+    }
+    setSendingTest(false);
   };
 
   if (loading) {
@@ -228,6 +264,62 @@ export default function AdminSettingsPage() {
           <div className="p-4 bg-gray-50 border-t rounded-b-lg">
             <p className="text-xs text-gray-400">
               Emails are sent from <span className="font-medium text-gray-500">partners@namaclo.com</span> via Resend. Partners can also opt out individually from their notification preferences.
+            </p>
+          </div>
+        </div>
+
+        {/* Send Test Email */}
+        <div className="bg-white rounded-lg border">
+          <div className="p-6 border-b">
+            <div className="flex items-center gap-3">
+              <Send className="h-5 w-5 text-gray-700" />
+              <div>
+                <h2 className="text-lg font-medium text-gray-900">Send Test Email</h2>
+                <p className="text-sm text-gray-500 mt-1">Verify that Resend is configured correctly by sending a test email.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5">
+            <div className="flex gap-2">
+              <input
+                type="email"
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200"
+                value={testEmail}
+                onChange={(e) => { setTestEmail(e.target.value); setTestResult(null); }}
+                onKeyDown={(e) => { if (e.key === "Enter") sendTestEmailFn(); }}
+                placeholder="Enter email address..."
+                disabled={sendingTest}
+              />
+              <button
+                onClick={sendTestEmailFn}
+                disabled={!testEmail.trim() || sendingTest}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sendingTest ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Send className="h-3.5 w-3.5" />
+                )}
+                Send
+              </button>
+            </div>
+
+            {testResult && (
+              <div className={`mt-3 flex items-center gap-2 text-sm ${testResult.ok ? "text-green-700" : "text-red-700"}`}>
+                {testResult.ok ? (
+                  <CheckCircle className="h-4 w-4 shrink-0" />
+                ) : (
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                )}
+                <span>{testResult.message}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 bg-gray-50 border-t rounded-b-lg">
+            <p className="text-xs text-gray-400">
+              Sends from <span className="font-medium text-gray-500">partners@namaclo.com</span> via Resend. If the email doesn&apos;t arrive, check your Resend dashboard for delivery logs and domain verification.
             </p>
           </div>
         </div>
