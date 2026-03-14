@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
-import {
-  createInfluencerFolder,
-  uploadFileToDrive,
-  getFolderUrl,
-} from "@/lib/google-drive";
+import mux from "@/lib/mux";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -55,84 +51,37 @@ export async function POST(request: NextRequest) {
     infId = invite?.influencer_id || null;
   }
 
-  let influencer: { id: string; name: string; instagram_handle: string; google_drive_folder_id: string | null } | null = null;
-  if (infId) {
-    const { data } = await supabase
-      .from("influencers")
-      .select("id, name, instagram_handle, google_drive_folder_id")
-      .eq("id", infId)
-      .single();
-    influencer = data;
-  }
-
   try {
-    // Ensure Google Drive folder exists
-    let folderId = influencer?.google_drive_folder_id || null;
-    if (!folderId && influencer) {
-      folderId = await createInfluencerFolder(
-        influencer.name,
-        influencer.instagram_handle
-      );
-      await supabase
-        .from("influencers")
-        .update({ google_drive_folder_id: folderId } as any)
-        .eq("id", influencer.id);
-    }
+    // Files are already uploaded to R2 by the client.
+    // Each file has: { name, r2_key, r2_url, mime_type, size }
+    const uploadedFiles = files.map((file: any) => ({
+      name: file.name,
+      r2_key: file.r2_key,
+      r2_url: file.r2_url,
+      mime_type: file.mime_type,
+      size: file.size,
+      uploaded_at: new Date().toISOString(),
+    }));
 
-    const uploadedFiles: Array<{
-      name: string;
-      drive_file_id: string;
-      drive_url: string;
-      mime_type: string;
-      size: number;
-      uploaded_at: string;
-    }> = [];
+    // Check if any file is a video — if so, create Mux asset for the first video
+    let originalVideoUrl: string | null = null;
+    let muxPlaybackId: string | null = null;
 
-    // Download each file from Supabase Storage and upload to Google Drive
-    for (const file of files) {
-      const { data: fileData, error: dlErr } = await supabase.storage
-        .from("creator-uploads")
-        .download(file.storage_path);
-
-      if (dlErr || !fileData) {
-        console.error("Storage download failed:", dlErr);
-        throw new Error(`Failed to retrieve ${file.name} from storage`);
+    for (const file of uploadedFiles) {
+      if (file.mime_type?.startsWith("video/")) {
+        originalVideoUrl = file.r2_url;
+        try {
+          const asset = await mux.video.assets.create({
+            inputs: [{ url: file.r2_url }],
+            playback_policies: ["public"],
+          });
+          muxPlaybackId = asset.playback_ids?.[0]?.id || null;
+        } catch (muxErr) {
+          console.error("Mux asset creation failed (non-fatal):", muxErr);
+        }
+        break; // Only process first video for Mux
       }
-
-      const buffer = Buffer.from(await fileData.arrayBuffer());
-
-      if (folderId) {
-        const { fileId, webViewLink } = await uploadFileToDrive(
-          folderId,
-          file.name,
-          file.mime_type,
-          buffer
-        );
-        uploadedFiles.push({
-          name: file.name,
-          drive_file_id: fileId,
-          drive_url: webViewLink,
-          mime_type: file.mime_type,
-          size: file.size,
-          uploaded_at: new Date().toISOString(),
-        });
-      } else {
-        // No Drive folder — store metadata without Drive link
-        uploadedFiles.push({
-          name: file.name,
-          drive_file_id: "",
-          drive_url: "",
-          mime_type: file.mime_type,
-          size: file.size,
-          uploaded_at: new Date().toISOString(),
-        });
-      }
-
-      // Clean up storage file after successful Drive upload
-      await supabase.storage.from("creator-uploads").remove([file.storage_path]);
     }
-
-    const folderUrl = folderId ? getFolderUrl(folderId) : null;
 
     let submission: Record<string, unknown> | null = null;
 
@@ -159,8 +108,8 @@ export async function POST(request: NextRequest) {
           reviewed_by: null,
           reviewed_at: null,
           submitted_at: new Date().toISOString(),
-          drive_folder_id: folderId || null,
-          drive_folder_url: folderUrl,
+          original_video_url: originalVideoUrl,
+          mux_playback_id: muxPlaybackId,
         })
         .eq("id", submission_id)
         .select()
@@ -175,13 +124,13 @@ export async function POST(request: NextRequest) {
       // New submission
       const insertData: Record<string, unknown> = {
         creator_id: creator.id,
-        influencer_id: influencer?.id || null,
+        influencer_id: infId || null,
         month,
-        drive_folder_id: folderId || null,
-        drive_folder_url: folderUrl,
         files: uploadedFiles,
         notes: notes || null,
         status: "pending",
+        original_video_url: originalVideoUrl,
+        mux_playback_id: muxPlaybackId,
       };
       if (campaign_assignment_id) {
         insertData.campaign_assignment_id = campaign_assignment_id;

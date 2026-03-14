@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { uploadToR2 } from "@/lib/r2-upload";
 import { Sidebar } from "@/components/sidebar";
 import { Plus, Search, ChevronDown, ChevronRight, ExternalLink, X, Pencil } from "lucide-react";
 
@@ -11,7 +12,7 @@ interface Campaign {
   title: string;
   description: string | null;
   brief_url: string | null;
-  brief_images: { url: string; drive_file_id?: string }[];
+  brief_images: { url: string; r2_key?: string; is_video?: boolean }[];
   due_date: string | null;
   available_products: Product[];
   max_selects: number;
@@ -20,7 +21,7 @@ interface Campaign {
   created_by: string | null;
   created_at: string;
   parent_campaign_id: string | null;
-  banner_image: { url: string; drive_file_id?: string } | null;
+  banner_image: { url: string; r2_key?: string } | null;
   deliverables: string | null;
   go_live_date: string | null;
   counts: { total: number; confirmed: number; content_submitted: number; complete: number };
@@ -91,8 +92,8 @@ export default function CampaignsPage() {
     deliverables: "",
     go_live_date: "",
   });
-  const [briefImages, setBriefImages] = useState<{ url: string; drive_file_id?: string; storage_path?: string; is_video?: boolean }[]>([]);
-  const [bannerImage, setBannerImage] = useState<{ url: string; drive_file_id?: string } | null>(null);
+  const [briefImages, setBriefImages] = useState<{ url: string; r2_key?: string; is_video?: boolean }[]>([]);
+  const [bannerImage, setBannerImage] = useState<{ url: string; r2_key?: string } | null>(null);
   const [bannerUploading, setBannerUploading] = useState(false);
   const [briefMediaUploading, setBriefMediaUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -242,17 +243,14 @@ export default function CampaignsPage() {
     setUploadStatus(null);
     try {
       const compressed = await compressImage(file, 1600, 0.85);
-      const formData = new FormData();
-      formData.append("file", compressed);
-      const res = await fetch("/api/drive/banner", { method: "POST", body: formData });
-      if (res.ok) {
-        const data = await res.json();
-        setBannerImage({ url: data.url, drive_file_id: data.fileId });
-        setUploadStatus({ type: "success", message: "Banner uploaded" });
-      } else {
-        const err = await res.json().catch(() => ({ error: "Upload failed" }));
-        setUploadStatus({ type: "error", message: err.error || "Banner upload failed" });
-      }
+      const r2Key = `campaigns/${Date.now()}-banner-${file.name}`;
+      const { url: r2Url, key } = await uploadToR2({
+        key: r2Key,
+        contentType: file.type,
+        body: compressed,
+      });
+      setBannerImage({ url: r2Url, r2_key: key });
+      setUploadStatus({ type: "success", message: "Banner uploaded" });
     } catch (err) {
       console.error("Banner upload failed:", err);
       setUploadStatus({ type: "error", message: "Banner upload failed — check your connection" });
@@ -262,60 +260,33 @@ export default function CampaignsPage() {
   }
 
   async function deleteBanner() {
-    if (bannerImage?.drive_file_id) {
-      try {
-        await fetch("/api/drive/banner", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fileId: bannerImage.drive_file_id }),
-        });
-      } catch {}
-    }
     setBannerImage(null);
   }
 
   async function uploadBriefMedia(files: File[]) {
     setBriefMediaUploading(true);
     setUploadStatus(null);
-    const supabase = createClient();
     let succeeded = 0;
     let failed = 0;
     for (const file of files) {
       try {
-        // Compress images client-side before staging
+        const isVideo = file.type.startsWith("video/");
         const uploadFile = file.type.startsWith("image/")
           ? await compressImage(file, 1600, 0.85)
           : file;
 
-        // Stage in Supabase Storage (handles any file size)
-        const storagePath = `campaign-references/${Date.now()}-${file.name}`;
-        const { error: storageErr } = await supabase.storage
-          .from("creator-uploads")
-          .upload(storagePath, uploadFile, { cacheControl: "3600", upsert: false });
-        if (storageErr) throw new Error(storageErr.message);
-
-        // Move from Storage to Google Drive (server-side)
-        const res = await fetch("/api/drive/move-to-drive", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            storage_path: storagePath,
-            file_name: file.name,
-            mime_type: file.type,
-            folder_name: "Campaign References",
-          }),
+        const r2Key = `campaigns/references/${Date.now()}-${file.name}`;
+        const { url: r2Url, key } = await uploadToR2({
+          key: r2Key,
+          contentType: file.type,
+          body: uploadFile,
         });
-        if (res.ok) {
-          const data = await res.json();
-          setBriefImages(prev => [...prev, { url: data.url, drive_file_id: data.fileId, is_video: data.isVideo || false }]);
-          succeeded++;
-        } else {
-          const err = await res.json().catch(() => ({ error: "Move to Drive failed" }));
-          console.error("Move to Drive failed:", err.error);
-          // Clean up staged file
-          await supabase.storage.from("creator-uploads").remove([storagePath]);
-          failed++;
-        }
+        setBriefImages(prev => [...prev, {
+          url: r2Url,
+          r2_key: key,
+          is_video: isVideo,
+        }]);
+        succeeded++;
       } catch (err) {
         console.error("Brief media upload failed:", err);
         failed++;
@@ -333,21 +304,6 @@ export default function CampaignsPage() {
   }
 
   async function deleteBriefMedia(index: number) {
-    const item = briefImages[index];
-    if (item?.drive_file_id) {
-      try {
-        await fetch("/api/drive/banner", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fileId: item.drive_file_id }),
-        });
-      } catch {}
-    } else if (item?.storage_path) {
-      try {
-        const supabase = createClient();
-        await supabase.storage.from("creator-uploads").remove([item.storage_path]);
-      } catch {}
-    }
     setBriefImages(prev => prev.filter((_, i) => i !== index));
   }
 
@@ -1302,8 +1258,8 @@ export default function CampaignsPage() {
                     <div className="grid grid-cols-4 gap-2 mb-2">
                       {briefImages.map((img, i) => (
                         <div key={i} className="relative border border-gray-200 rounded-lg overflow-hidden">
-                          {/\.(mp4|mov|m4v|webm)(\?|$)/i.test(img.url) ? (
-                            <video src={img.url} className="w-full h-20 object-cover" muted />
+                          {(img.is_video || /\.(mp4|mov|m4v|webm)(\?|$)/i.test(img.url)) ? (
+                            <video src={img.url} className="w-full h-20 object-cover" muted playsInline preload="metadata" />
                           ) : (
                             <img src={img.url} alt="" className="w-full h-20 object-cover" />
                           )}

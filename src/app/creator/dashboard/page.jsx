@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { uploadToR2 } from '@/lib/r2-upload'
 
 const CSS = `
 .cd-wrap { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #111; margin: 0; padding: 0; }
@@ -770,7 +771,7 @@ export default function CreatorDashboard() {
   const [contentNotes, setContentNotes] = useState('')
   const [contentSubmitting, setContentSubmitting] = useState(false)
   const [contentProgress, setContentProgress] = useState(0)
-  const [contentSuccess, setContentSuccess] = useState(null) // null | { folderUrl }
+  const [contentSuccess, setContentSuccess] = useState(null) // null | { submitted: true }
   const [contentSubTab, setContentSubTab] = useState('submit') // 'submit' | 'history'
   const [notifOpen, setNotifOpen] = useState(false)
   const [lastSeenNotif, setLastSeenNotif] = useState(() => {
@@ -806,7 +807,7 @@ export default function CreatorDashboard() {
   const [campaignNotes, setCampaignNotes] = useState({})
   const [campaignConfirming, setCampaignConfirming] = useState(null)
   const [showPastCampaigns, setShowPastCampaigns] = useState(false)
-  const [lightboxFile, setLightboxFile] = useState(null) // { drive_file_id, name, mime_type }
+  const [lightboxFile, setLightboxFile] = useState(null) // { r2_url, name, mime_type, mux_playback_id? }
   const [campaignContentTarget, setCampaignContentTarget] = useState(null) // assignment ID to tag content with
   const [resubmitTarget, setResubmitTarget] = useState(null) // submission ID being resubmitted
   const [activeCampaignDetail, setActiveCampaignDetail] = useState(null) // assignment being viewed in detail
@@ -1150,30 +1151,34 @@ export default function CreatorDashboard() {
     setContentSubmitting(true)
     setContentProgress(0)
     try {
-      const totalSize = contentFiles.reduce((s, f) => s + f.size, 0)
-      let uploaded = 0
       const uploadedFiles = []
+      const totalFiles = contentFiles.length
 
-      for (let i = 0; i < contentFiles.length; i++) {
+      for (let i = 0; i < totalFiles; i++) {
         const file = contentFiles[i]
-        // Step 1: Upload to Supabase Storage (supports large files from client)
-        const storagePath = `submissions/${creator.id}/${Date.now()}-${file.name}`
-        const { error: storageErr } = await supabase.storage
-          .from('creator-uploads')
-          .upload(storagePath, file, { cacheControl: '3600', upsert: false })
-        if (storageErr) throw new Error(`Storage upload failed for ${file.name}: ${storageErr.message}`)
-        setContentProgress(Math.round(((i + 1) / contentFiles.length) * 50)) // 0-50% for uploads
+        const r2Key = `submissions/${creator.id}/${campaignContentTarget || 'general'}/${Date.now()}-${file.name}`
+
+        const result = await uploadToR2({
+          key: r2Key,
+          contentType: file.type,
+          body: file,
+          onProgress: (filePercent) => {
+            // Overall progress: combine completed files + current file progress, scale to 0-80%
+            const overallPercent = Math.round(((i + filePercent / 100) / totalFiles) * 80)
+            setContentProgress(overallPercent)
+          },
+        })
 
         uploadedFiles.push({
           name: file.name,
-          storage_path: storagePath,
+          r2_key: result.key,
+          r2_url: result.url,
           mime_type: file.type,
           size: file.size,
         })
       }
 
-      setContentProgress(60) // Files uploaded, now processing
-      // Step 2: Tell server to move files from Storage to Google Drive and create submission
+      setContentProgress(85) // Files uploaded, now processing
       const res = await fetch('/api/creator/submit-content', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1192,7 +1197,7 @@ export default function CreatorDashboard() {
       }
       const result = await res.json()
 
-      setContentSuccess({ folderUrl: result.submission?.drive_folder_url })
+      setContentSuccess({ submitted: true })
       setContentFiles([])
       setContentNotes('')
       setCampaignContentTarget(null)
@@ -2515,13 +2520,8 @@ export default function CreatorDashboard() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 10 }}>
                   {campaign.brief_images.map((img, i) => (
                     <div key={i} style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid #e8e8e8' }}>
-                      {(img.is_video || /\.(mp4|mov|m4v|webm)(\?|$)/i.test(img.url || '') || /drive\.google\.com\/file\/d\//.test(img.url || '')) ? (
-                        <a href={(img.url || '').replace('/preview', '/view')} target="_blank" rel="noopener noreferrer" style={{ display: 'block', width: '100%', aspectRatio: '4/5', background: '#111', position: 'relative', cursor: 'pointer', textDecoration: 'none' }}>
-                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 6 }}>
-                            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#fff' }}>▶</div>
-                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.05em' }}>TAP TO VIEW</div>
-                          </div>
-                        </a>
+                      {(img.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(img.url || '')) ? (
+                        <video src={img.url} controls playsInline preload="metadata" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block', background: '#111' }} />
                       ) : (
                         <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
                       )}
@@ -2631,13 +2631,8 @@ export default function CreatorDashboard() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 10 }}>
                     {campaign.brief_images.map((img, i) => (
                       <div key={i} style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid #e8e8e8' }}>
-                        {(img.is_video || /\.(mp4|mov|m4v|webm)(\?|$)/i.test(img.url || '') || /drive\.google\.com\/file\/d\//.test(img.url || '')) ? (
-                          <a href={(img.url || '').replace('/preview', '/view')} target="_blank" rel="noopener noreferrer" style={{ display: 'block', width: '100%', aspectRatio: '4/5', background: '#111', position: 'relative', cursor: 'pointer', textDecoration: 'none' }}>
-                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 6 }}>
-                              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#fff' }}>▶</div>
-                              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.05em' }}>TAP TO VIEW</div>
-                            </div>
-                          </a>
+                        {(img.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(img.url || '')) ? (
+                          <video src={img.url} controls playsInline preload="metadata" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block', background: '#111' }} />
                         ) : (
                           <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
                         )}
@@ -3265,6 +3260,9 @@ export default function CreatorDashboard() {
             onChange={handleContentFileSelect}
           />
         </div>
+        <div style={{ fontSize: 11, color: '#999', marginTop: 6, lineHeight: 1.5 }}>
+          Upload the original file from your camera roll for best quality. Avoid re-exporting or compressing before uploading.
+        </div>
 
         {contentFiles.length > 0 && (
           <div className="cd-file-list">
@@ -3351,13 +3349,20 @@ export default function CreatorDashboard() {
               {files.map((file, fi) => {
                 const isImage = file.mime_type?.startsWith('image/')
                 const isVideo = file.mime_type?.startsWith('video/')
-                const previewUrl = `/api/drive/preview/${file.drive_file_id}`
+                const mediaUrl = file.r2_url || file.media_url || file.url
                 return (
                   <div key={fi} className="cd-sub-preview-wrap">
                     {isImage ? (
-                      <img src={previewUrl} alt={file.name} className="cd-sub-preview-img" onClick={() => setLightboxFile(file)} />
+                      <img src={mediaUrl} alt={file.name} className="cd-sub-preview-img" onClick={() => setLightboxFile(file)} />
                     ) : isVideo ? (
-                      <video controls preload="metadata" src={previewUrl} className="cd-sub-preview-video" />
+                      file.mux_playback_id ? (
+                        <video controls preload="metadata" className="cd-sub-preview-video">
+                          <source src={`https://stream.mux.com/${file.mux_playback_id}.m3u8`} type="application/x-mpegURL" />
+                          <source src={mediaUrl} type={file.mime_type || 'video/mp4'} />
+                        </video>
+                      ) : (
+                        <video controls preload="metadata" src={mediaUrl} className="cd-sub-preview-video" />
+                      )
                     ) : (
                       <div style={{ width: 48, height: 48, background: '#f5f5f5', border: '1px solid #eee', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#ccc' }}>FILE</div>
                     )}
@@ -4002,9 +4007,14 @@ export default function CreatorDashboard() {
         <div className="cd-lightbox" onClick={() => setLightboxFile(null)}>
           <button className="cd-lightbox-close" onClick={() => setLightboxFile(null)}>×</button>
           {lightboxFile.mime_type?.startsWith('image/') ? (
-            <img src={`/api/drive/preview/${lightboxFile.drive_file_id}`} alt={lightboxFile.name} onClick={e => e.stopPropagation()} />
+            <img src={lightboxFile.r2_url || lightboxFile.media_url || lightboxFile.url} alt={lightboxFile.name} onClick={e => e.stopPropagation()} />
+          ) : lightboxFile.mux_playback_id ? (
+            <video controls autoPlay onClick={e => e.stopPropagation()}>
+              <source src={`https://stream.mux.com/${lightboxFile.mux_playback_id}.m3u8`} type="application/x-mpegURL" />
+              <source src={lightboxFile.r2_url || lightboxFile.media_url || lightboxFile.url} type={lightboxFile.mime_type || 'video/mp4'} />
+            </video>
           ) : (
-            <video controls autoPlay src={`/api/drive/preview/${lightboxFile.drive_file_id}`} onClick={e => e.stopPropagation()} />
+            <video controls autoPlay src={lightboxFile.r2_url || lightboxFile.media_url || lightboxFile.url} onClick={e => e.stopPropagation()} />
           )}
         </div>
       )}
