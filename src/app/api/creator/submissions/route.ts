@@ -95,13 +95,11 @@ export async function PATCH(request: NextRequest) {
 
         const { data: creator } = await supabase
           .from("creators")
-          .select("id, creator_name, email, notification_preferences")
+          .select("id, creator_name, email")
           .eq("id", creatorId)
           .single();
 
         if (!creator?.email) return;
-        const prefs = creator.notification_preferences as Record<string, boolean> | null;
-        if (prefs && prefs.email_content_status === false) return;
 
         // Try to get campaign name from the linked assignment
         let campaignName = "your campaign";
