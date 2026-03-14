@@ -2740,7 +2740,7 @@ export default function CreatorDashboard() {
             {campaignVariantsLoading ? (
               <div style={{ padding: '20px 0', fontSize: 12, color: '#aaa' }}>Loading products...</div>
             ) : (
-              <div className="cd-products" style={{ marginTop: 12 }}>
+              <div className={mobile ? 'cd-m-products' : 'cd-products'} style={{ marginTop: 12 }}>
                 {products.map((p, i) => {
                   const pid = p.product_id || i
                   const variants = campaignVariants[pid] || []
@@ -2749,12 +2749,12 @@ export default function CreatorDashboard() {
                   const selectedSize = campaignSelects[assignment.id]?.sizes?.[pid]
 
                   return (
-                    <div key={i} className={`cd-product${selectedProduct ? ' selected' : ''}`} style={{ cursor: 'default', borderColor: selectedProduct ? '#1a1a1a' : undefined }}>
-                      <div className="cd-product-img">
+                    <div key={i} className={`${mobile ? 'cd-m-product' : 'cd-product'}${selectedProduct ? ' selected' : ''}`} style={{ cursor: 'default', borderColor: selectedProduct ? '#1a1a1a' : undefined }}>
+                      <div className={mobile ? 'cd-m-product-img' : 'cd-product-img'}>
                         {p.image_url ? <img src={p.image_url} alt={p.product_title} /> : <div style={{ color: '#ccc', fontSize: 12 }}>No image</div>}
                       </div>
-                      <div className="cd-product-info">
-                        <div className="cd-product-name">{p.product_title}</div>
+                      <div className={mobile ? 'cd-m-product-info' : 'cd-product-info'}>
+                        <div className={mobile ? 'cd-m-product-name' : 'cd-product-name'}>{p.product_title}</div>
                         {variants.length > 0 && (
                           <div className="cd-size-row">
                             {variants.map(v => {
@@ -2768,7 +2768,6 @@ export default function CreatorDashboard() {
                                   disabled={isOos}
                                   onClick={() => {
                                     if (isOos) return
-                                    // Select this product with this size
                                     setCampaignSelects(prev => {
                                       const current = prev[assignment.id] || { products: [], sizes: {} }
                                       const existingIdx = current.products.findIndex(s => String(s.product_id) === String(pid))
@@ -2776,7 +2775,6 @@ export default function CreatorDashboard() {
                                       let updatedSizes = { ...current.sizes }
 
                                       if (isSelected) {
-                                        // Deselect
                                         if (existingIdx >= 0) updatedProducts.splice(existingIdx, 1)
                                         delete updatedSizes[pid]
                                       } else {
@@ -2806,8 +2804,8 @@ export default function CreatorDashboard() {
                           </div>
                         )}
                         {!variants.length && (
-                          <button
-                            className={`cd-product-cta${selectedProduct ? ' added' : ''}`}
+                          <div
+                            className={`${mobile ? 'cd-m-product-cta' : 'cd-product-cta'}${selectedProduct ? ' added' : ''}`}
                             onClick={() => {
                               if (selectedProduct) {
                                 setCampaignSelects(prev => {
@@ -2823,8 +2821,8 @@ export default function CreatorDashboard() {
                               }
                             }}
                           >
-                            {selectedProduct ? 'Selected' : 'Select'}
-                          </button>
+                            {selectedProduct ? '✓ Added' : 'Add'}
+                          </div>
                         )}
                       </div>
                     </div>
