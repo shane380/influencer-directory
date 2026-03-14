@@ -187,7 +187,7 @@ const CSS = `
 .cd-card-content .cd-card-body { padding: 0; }
 .cd-content-split { display: flex; min-height: 400px; }
 .cd-content-left { flex: 1; padding: 0 36px 36px; }
-.cd-content-right { width: 340px; background: #fafafa; border-left: 1px solid #e8e8e8; display: flex; flex-direction: column; }
+.cd-content-right { flex: 1; background: #fafafa; border-left: 1px solid #e8e8e8; display: flex; flex-direction: column; }
 .cd-content-right-eyebrow { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; padding: 24px 24px 16px; }
 .cd-content-right-scroll { flex: 1; overflow-y: auto; padding: 0 24px 24px; max-height: 600px; }
 .cd-form-row { display: flex; gap: 12px; margin-bottom: 0; }
