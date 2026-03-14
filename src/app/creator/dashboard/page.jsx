@@ -2417,18 +2417,21 @@ export default function CreatorDashboard() {
         const res = await fetch(`/api/shopify/products?query=${encodeURIComponent(p.product_title)}`)
         const data = await res.json()
         const allVariants = data.products || []
-        // Group by product_id, find matching product
+        // Group by product_id, match by the exact product_id from the campaign
         const grouped = {}
         for (const v of allVariants) {
           if (!grouped[v.product_id]) grouped[v.product_id] = []
           grouped[v.product_id].push(v)
         }
-        // Find the best match by title
-        let bestMatch = null
-        for (const [pid, variants] of Object.entries(grouped)) {
-          if (variants[0]?.title?.toLowerCase() === p.product_title?.toLowerCase()) {
-            bestMatch = variants
-            break
+        // Prefer exact product_id match (avoids wrong color with same title)
+        let bestMatch = p.product_id && grouped[p.product_id] ? grouped[p.product_id] : null
+        if (!bestMatch) {
+          // Fallback: match by title
+          for (const [pid, variants] of Object.entries(grouped)) {
+            if (variants[0]?.title?.toLowerCase() === p.product_title?.toLowerCase()) {
+              bestMatch = variants
+              break
+            }
           }
         }
         if (!bestMatch && Object.keys(grouped).length > 0) {
