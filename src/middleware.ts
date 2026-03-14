@@ -32,6 +32,12 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
+  const hostname = request.headers.get('host') || '';
+
+  // creators.namaclo.com: redirect root and /login to creator login
+  if (hostname === 'creators.namaclo.com' && (pathname === '/' || pathname === '/login')) {
+    return NextResponse.redirect('https://creators.namaclo.com/creator/login');
+  }
 
   // Public routes — no auth required
   if (
