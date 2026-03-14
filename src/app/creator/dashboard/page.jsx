@@ -771,7 +771,14 @@ export default function CreatorDashboard() {
   const [invite, setInvite] = useState(null)
   const [influencer, setInfluencer] = useState(null)
   const [orders, setOrders] = useState([])
-  const [activeTab, setActiveTab] = useState('ads')
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const tab = params.get('tab')
+      if (tab && ['ads', 'campaigns', 'wardrobe', 'submit', 'settings'].includes(tab)) return tab
+    }
+    return 'ads'
+  })
 
   // Request styles
   const [searchQuery, setSearchQuery] = useState('')

@@ -125,7 +125,7 @@ export async function contentStatusEmail({
       heading: replacePlaceholders(tmpl.heading, vars),
       bodyHtml: bodyToHtml(tmpl.body, vars),
       ctaText: tmpl.ctaText + " \u2192",
-      ctaUrl: "https://creators.namaclo.com/creator/dashboard?tab=submit",
+      ctaUrl: "https://creators.namaclo.com/creator/dashboard?tab=campaigns",
       unsubscribeUrl: getUnsubscribeUrl(recipientEmail),
     }),
   };
