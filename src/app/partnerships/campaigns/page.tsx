@@ -533,18 +533,36 @@ export default function CampaignsPage() {
   }
 
   async function openContentReview(assignment: Assignment) {
-    if (!assignment.content_submission_id) return;
     setReviewLoading(true);
     setReviewSubmission(null);
     setReviewFeedback("");
     setReviewFeedbackMode(null);
     try {
-      const res = await fetch(`/api/creator/submissions?id=${assignment.content_submission_id}`);
-      const data = await res.json();
-      const sub = data.submission || data.submissions?.[0] || null;
-      setReviewSubmission(sub);
+      let sub = null;
+      // Try by content_submission_id first
+      if (assignment.content_submission_id) {
+        const res = await fetch(`/api/creator/submissions?id=${assignment.content_submission_id}`);
+        if (res.ok) {
+          const data = await res.json();
+          sub = data.submission || null;
+        }
+      }
+      // Fallback: fetch by influencer_id and find matching assignment
+      if (!sub && assignment.influencer_id) {
+        const res = await fetch(`/api/creator/submissions?influencer_id=${assignment.influencer_id}`);
+        if (res.ok) {
+          const data = await res.json();
+          sub = (data.submissions || []).find((s: any) => s.campaign_assignment_id === assignment.id) || null;
+        }
+      }
+      if (sub) {
+        setReviewSubmission(sub);
+      } else {
+        setReviewSubmission({ _notFound: true, status: "not_found", files: [], notes: null });
+      }
     } catch (err) {
       console.error("Failed to fetch submission:", err);
+      setReviewSubmission({ _notFound: true, status: "error", files: [], notes: null });
     }
     setReviewLoading(false);
   }
@@ -1030,7 +1048,7 @@ export default function CampaignsPage() {
                         ) : "—"}
                       </td>
                       <td className="px-4 py-3 text-xs">
-                        {a.content_submission_id ? (
+                        {(a.content_submission_id || a.status === "content_submitted") ? (
                           <button
                             onClick={() => openContentReview(a)}
                             className="text-blue-600 hover:text-blue-800 underline font-medium"
@@ -1605,6 +1623,11 @@ export default function CampaignsPage() {
 
               {reviewLoading ? (
                 <div className="flex items-center justify-center py-16 text-gray-400 text-sm">Loading submission...</div>
+              ) : reviewSubmission?._notFound ? (
+                <div className="p-5 text-center text-sm text-gray-500 py-12">
+                  <p className="mb-2">Submission not found.</p>
+                  <p className="text-xs text-gray-400">The content may have been submitted before the review system was set up, or the submission record is missing.</p>
+                </div>
               ) : reviewSubmission ? (
                 <div className="p-5 space-y-4">
                   {/* Status */}
