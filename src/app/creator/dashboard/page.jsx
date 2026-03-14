@@ -346,14 +346,15 @@ const CSS = `
   .cd-step3-divider { height: 0; border: none; border-top: 0.5px solid #e0e0e0; margin: 20px 0; }
   /* Revision state — desktop overrides */
   .cd-rev-grid { grid-template-columns: 1fr 1fr; }
-  .cd-rev-media { max-height: 400px; aspect-ratio: 9/16; width: auto; margin: 0 auto; }
+  .cd-rev-media-card { max-width: 280px; }
+  .cd-rev-media { aspect-ratio: 9/16; }
 }
 
 /* Revision state layout — global (mobile-first) */
 .cd-rev-grid { display: grid; grid-template-columns: 1fr; gap: 20px; margin-bottom: 20px; }
 .cd-rev-label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #aaa; margin-bottom: 8px; }
 .cd-rev-media-card { border: 0.5px solid #e0e0e0; border-radius: 10px; overflow: hidden; }
-.cd-rev-media { position: relative; aspect-ratio: 9/16; background: #111; }
+.cd-rev-media { position: relative; aspect-ratio: 9/16; background: #111; width: 100%; overflow: hidden; border-radius: 10px 10px 0 0; }
 .cd-rev-media img, .cd-rev-media video { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
 .cd-rev-media-info { padding: 10px 12px; }
 .cd-rev-media-name { font-size: 12px; font-weight: 500; color: #333; margin-bottom: 2px; }
@@ -3018,8 +3019,8 @@ export default function CreatorDashboard() {
               const revFiles = isRevision ? (Array.isArray(latestSub.files) ? latestSub.files : []) : []
               const revFile = revFiles[0]
               const revMediaUrl = revFile ? (revFile.r2_url || revFile.media_url || revFile.url) : null
-              const revIsVideo = revFile?.mime_type?.startsWith('video/')
-              const revIsImage = revFile?.mime_type?.startsWith('image/')
+              const revIsVideo = revFile?.mime_type?.startsWith('video/') || /\.(mp4|mov|m4v|webm|qt)$/i.test(revFile?.name || '')
+              const revIsImage = revFile?.mime_type?.startsWith('image/') || /\.(jpg|jpeg|png|webp|heic)$/i.test(revFile?.name || '')
               if (isRevision) {
                 // Auto-set resubmit target
                 if (!resubmitTarget) {
@@ -3035,12 +3036,12 @@ export default function CreatorDashboard() {
                           <div className="cd-rev-media">
                             {revIsVideo ? (
                               revFile.mux_playback_id ? (
-                                <video controls preload="metadata" playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }}>
+                                <video controls preload="metadata" playsInline>
                                   <source src={`https://stream.mux.com/${revFile.mux_playback_id}.m3u8`} type="application/x-mpegURL" />
                                   <source src={revMediaUrl} type={revFile.mime_type || 'video/mp4'} />
                                 </video>
                               ) : (
-                                <video controls preload="metadata" playsInline src={revMediaUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                <video controls preload="metadata" playsInline src={revMediaUrl} />
                               )
                             ) : revIsImage ? (
                               <img src={revMediaUrl} alt="" />
@@ -3232,8 +3233,8 @@ export default function CreatorDashboard() {
               const revFiles = isRevision ? (Array.isArray(latestSub.files) ? latestSub.files : []) : []
               const revFile = revFiles[0]
               const revMediaUrl = revFile ? (revFile.r2_url || revFile.media_url || revFile.url) : null
-              const revIsVideo = revFile?.mime_type?.startsWith('video/')
-              const revIsImage = revFile?.mime_type?.startsWith('image/')
+              const revIsVideo = revFile?.mime_type?.startsWith('video/') || /\.(mp4|mov|m4v|webm|qt)$/i.test(revFile?.name || '')
+              const revIsImage = revFile?.mime_type?.startsWith('image/') || /\.(jpg|jpeg|png|webp|heic)$/i.test(revFile?.name || '')
               if (isRevision) {
                 // Auto-set resubmit target
                 if (!resubmitTarget) {
@@ -3261,12 +3262,12 @@ export default function CreatorDashboard() {
                             <div className="cd-rev-media">
                               {revIsVideo ? (
                                 revFile.mux_playback_id ? (
-                                  <video controls preload="metadata" playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }}>
+                                  <video controls preload="metadata" playsInline>
                                     <source src={`https://stream.mux.com/${revFile.mux_playback_id}.m3u8`} type="application/x-mpegURL" />
                                     <source src={revMediaUrl} type={revFile.mime_type || 'video/mp4'} />
                                   </video>
                                 ) : (
-                                  <video controls preload="metadata" playsInline src={revMediaUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  <video controls preload="metadata" playsInline src={revMediaUrl} />
                                 )
                               ) : revIsImage ? (
                                 <img src={revMediaUrl} alt="" />
@@ -3917,8 +3918,13 @@ export default function CreatorDashboard() {
 
   function cleanFileName(name, mimeType) {
     if (!name) return mimeType?.startsWith('video/') ? 'Video file' : mimeType?.startsWith('image/') ? 'Image file' : 'File'
-    const cleaned = name.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i, '').replace(/^[-_.]/, '').trim()
-    if (!cleaned || cleaned === '') {
+    // Strip UUID (8-4-4-4-12) or plain hex hash (32 chars) from start of filename
+    const cleaned = name
+      .replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i, '')
+      .replace(/^[0-9a-f]{32}/i, '')
+      .replace(/^[-_.\s]+/, '')
+      .trim()
+    if (!cleaned || /^\.[a-z0-9]+$/i.test(cleaned)) {
       return mimeType?.startsWith('video/') ? 'Video file' : mimeType?.startsWith('image/') ? 'Image file' : 'File'
     }
     return cleaned
