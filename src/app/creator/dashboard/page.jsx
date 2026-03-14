@@ -168,10 +168,11 @@ const CSS = `
 /* SUBMISSION PREVIEWS */
 .cd-sub-previews { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; margin-bottom: 4px; }
 .cd-sub-preview-wrap { position: relative; width: 100px; }
-.cd-sub-preview-ratio { aspect-ratio: 9/16; overflow: hidden; border-radius: 8px; background: #f0f0f0; }
+.cd-sub-preview-ratio { position: relative; aspect-ratio: 9/16; overflow: hidden; border-radius: 8px; background: #f0f0f0; }
 .cd-sub-preview-ratio img, .cd-sub-preview-ratio video { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
 .cd-sub-preview-img { cursor: pointer; }
 .cd-sub-preview-name { font-size: 10px; color: #aaa; margin-top: 3px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cd-sub-play-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 36px; height: 36px; background: rgba(0,0,0,0.5); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; pointer-events: none; }
 .cd-sub-drive-link { font-size: 10px; color: #888; text-decoration: none; }
 .cd-sub-drive-link:hover { text-decoration: underline; }
 
@@ -3015,14 +3016,10 @@ export default function CreatorDashboard() {
                                       {isImage ? (
                                         <img src={mediaUrl} alt={file.name} className="cd-sub-preview-img" onClick={() => setLightboxFile(file)} />
                                       ) : isVideo ? (
-                                        file.mux_playback_id ? (
-                                          <video controls preload="metadata">
-                                            <source src={`https://stream.mux.com/${file.mux_playback_id}.m3u8`} type="application/x-mpegURL" />
-                                            <source src={mediaUrl} type={file.mime_type || 'video/mp4'} />
-                                          </video>
-                                        ) : (
-                                          <video controls preload="metadata" src={mediaUrl} />
-                                        )
+                                        <>
+                                          <video preload="metadata" src={mediaUrl} style={{ pointerEvents: 'none' }} />
+                                          <div className="cd-sub-play-overlay">▶</div>
+                                        </>
                                       ) : (
                                         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#ccc' }}>FILE</div>
                                       )}
@@ -3247,7 +3244,10 @@ export default function CreatorDashboard() {
                               {isImage ? (
                                 <img src={mediaUrl} alt={file.name} onClick={() => setLightboxFile(file)} style={{ cursor: 'pointer' }} />
                               ) : isVideo ? (
-                                <video src={mediaUrl} preload="metadata" style={{ background: '#111' }} />
+                                <>
+                                  <video src={mediaUrl} preload="metadata" style={{ background: '#111', pointerEvents: 'none' }} />
+                                  <div className="cd-sub-play-overlay">▶</div>
+                                </>
                               ) : (
                                 <div style={{ width: '100%', height: '100%', background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#ccc' }}>FILE</div>
                               )}
@@ -3577,8 +3577,8 @@ export default function CreatorDashboard() {
 
   function cleanFileName(name, mimeType) {
     if (!name) return mimeType?.startsWith('video/') ? 'Video file' : mimeType?.startsWith('image/') ? 'Image file' : 'File'
-    const cleaned = name.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[-_]?/i, '')
-    if (!cleaned || cleaned === '.' || /^\.[a-z0-9]+$/i.test(cleaned)) {
+    const cleaned = name.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i, '').replace(/^[-_.]/, '').trim()
+    if (!cleaned || cleaned === '') {
       return mimeType?.startsWith('video/') ? 'Video file' : mimeType?.startsWith('image/') ? 'Image file' : 'File'
     }
     return cleaned
@@ -3762,14 +3762,10 @@ export default function CreatorDashboard() {
                       {isImage ? (
                         <img src={mediaUrl} alt={file.name} className="cd-sub-preview-img" onClick={() => setLightboxFile(file)} />
                       ) : isVideo ? (
-                        file.mux_playback_id ? (
-                          <video controls preload="metadata">
-                            <source src={`https://stream.mux.com/${file.mux_playback_id}.m3u8`} type="application/x-mpegURL" />
-                            <source src={mediaUrl} type={file.mime_type || 'video/mp4'} />
-                          </video>
-                        ) : (
-                          <video controls preload="metadata" src={mediaUrl} />
-                        )
+                        <>
+                          <video preload="metadata" src={mediaUrl} style={{ pointerEvents: 'none' }} />
+                          <div className="cd-sub-play-overlay">▶</div>
+                        </>
                       ) : (
                         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#ccc' }}>FILE</div>
                       )}
