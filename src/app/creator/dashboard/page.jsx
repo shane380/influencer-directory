@@ -345,8 +345,8 @@ const CSS = `
   .cd-step3-past-badge { position: absolute; bottom: 6px; right: 6px; }
   .cd-step3-divider { height: 0; border: none; border-top: 0.5px solid #e0e0e0; margin: 20px 0; }
   /* Revision state — desktop overrides */
-  .cd-rev-layout { display: grid; grid-template-columns: 140px 1fr; gap: 20px; }
-  .cd-rev-layout-left { width: 140px; }
+  .cd-rev-layout { display: grid; grid-template-columns: 240px 1fr; gap: 24px; }
+  .cd-rev-layout-left { width: 240px; }
   .cd-rev-refs-grid { max-width: 280px; gap: 4px; }
   .cd-rev-refs-grid-item { border-radius: 5px; }
 }
