@@ -2517,16 +2517,19 @@ export default function CreatorDashboard() {
             {campaign.brief_images?.length > 0 && (
               <div style={{ marginBottom: 24 }}>
                 <div className="cd-camp-deliverables-label">Content References</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginTop: 10 }}>
-                  {campaign.brief_images.map((img, i) => (
-                    <div key={i} style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid #e8e8e8' }}>
-                      {(img.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(img.url || '')) ? (
-                        <video src={img.url} controls playsInline preload="metadata" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block', background: '#111' }} />
-                      ) : (
-                        <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
-                      )}
-                    </div>
-                  ))}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginTop: 10, alignItems: 'start' }}>
+                  {campaign.brief_images.map((img, i) => {
+                    const isVideo = img.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(img.url || '')
+                    return (
+                      <div key={i} style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid #e8e8e8' }}>
+                        {isVideo ? (
+                          <video src={img.url} controls playsInline preload="metadata" style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block', background: '#111' }} />
+                        ) : (
+                          <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -2628,16 +2631,19 @@ export default function CreatorDashboard() {
               {campaign.brief_images?.length > 0 && (
                 <div style={{ marginBottom: 24 }}>
                   <div className="cd-camp-deliverables-label">Content References</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginTop: 10 }}>
-                    {campaign.brief_images.map((img, i) => (
-                      <div key={i} style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid #e8e8e8' }}>
-                        {(img.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(img.url || '')) ? (
-                          <video src={img.url} controls playsInline preload="metadata" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block', background: '#111' }} />
-                        ) : (
-                          <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
-                        )}
-                      </div>
-                    ))}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginTop: 10, alignItems: 'start' }}>
+                    {campaign.brief_images.map((img, i) => {
+                      const isVideo = img.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(img.url || '')
+                      return (
+                        <div key={i} style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid #e8e8e8' }}>
+                          {isVideo ? (
+                            <video src={img.url} controls playsInline preload="metadata" style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block', background: '#111' }} />
+                          ) : (
+                            <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               )}
