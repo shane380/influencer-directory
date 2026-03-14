@@ -2559,7 +2559,7 @@ export default function CreatorDashboard() {
               <span className="cd-camp-detail-badge">{statusInfo.label}</span>
             </div>
 
-            {(goLiveDate || dueDate) && (
+            {currentStep < 3 && (goLiveDate || dueDate) && (
               <div className="cd-camp-detail-dates">
                 {goLiveDate && (
                   <div className="cd-camp-detail-date-box">
@@ -2576,7 +2576,7 @@ export default function CreatorDashboard() {
               </div>
             )}
 
-            {campaign.description && (
+            {currentStep < 3 && campaign.description && (
               <>
                 <hr className="cd-camp-detail-divider" />
                 <div style={{ fontSize: 13, color: '#666', lineHeight: 1.7, marginBottom: 20 }}>{campaign.description}</div>
@@ -3031,6 +3031,17 @@ export default function CreatorDashboard() {
                 }
                 return (
                   <div>
+                    {/* Feedback — top on mobile */}
+                    {latestSub.admin_feedback && (
+                      <div style={{ marginBottom: 20 }}>
+                        <div className="cd-rev-label">Feedback</div>
+                        <div className="cd-rev-feedback">
+                          <span className="cd-rev-feedback-tag">Revision requested</span>
+                          <div className="cd-rev-feedback-text">{latestSub.admin_feedback}</div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Their submission */}
                     {revFile && (
                       <div style={{ marginBottom: 20 }}>
@@ -3055,17 +3066,6 @@ export default function CreatorDashboard() {
                             {revFile.size && <div className="cd-rev-media-size">{formatFileSize(revFile.size)}</div>}
                             {latestSub.notes && <div className="cd-rev-media-notes">{latestSub.notes}</div>}
                           </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Feedback */}
-                    {latestSub.admin_feedback && (
-                      <div style={{ marginBottom: 20 }}>
-                        <div className="cd-rev-label">Feedback</div>
-                        <div className="cd-rev-feedback">
-                          <span className="cd-rev-feedback-tag">Revision requested</span>
-                          <div className="cd-rev-feedback-text">{latestSub.admin_feedback}</div>
                         </div>
                       </div>
                     )}
