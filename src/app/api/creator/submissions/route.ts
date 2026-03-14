@@ -80,6 +80,14 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // When a submission is approved, mark the campaign assignment as complete
+  if (data && status === "approved" && data.campaign_assignment_id) {
+    await supabase
+      .from("campaign_assignments")
+      .update({ status: "complete" })
+      .eq("id", data.campaign_assignment_id);
+  }
+
   // Fire-and-forget: send content status email for approved/revision_requested
   if (data && (status === "approved" || status === "revision_requested")) {
     (async () => {
