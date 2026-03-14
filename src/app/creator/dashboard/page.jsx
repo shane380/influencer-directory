@@ -328,8 +328,8 @@ const CSS = `
 .cd-load-more:hover { border-color: #111; color: #111; }
 .cd-product-cta { display: inline-block; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; margin-top: 10px; cursor: pointer; padding: 7px 16px; background: #111; color: #fff; border: 1px solid #111; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
 .cd-product-cta.added { background: transparent; color: #ccc; border-color: #e8e8e8; cursor: default; }
-.cd-size-row { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
-.cd-size-pill { padding: 3px 10px; border: 1px solid #e8e8e8; background: #fff; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #555; cursor: pointer; border-radius: 100px; transition: all 0.15s; letter-spacing: 0.04em; }
+.cd-size-row { display: flex; gap: 4px; margin-top: 8px; flex-wrap: nowrap; }
+.cd-size-pill { padding: 3px 7px; border: 1px solid #e8e8e8; background: #fff; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #555; cursor: pointer; border-radius: 100px; transition: all 0.15s; letter-spacing: 0.02em; min-width: 0; }
 .cd-size-pill:hover { border-color: #aaa; }
 .cd-size-pill.selected { background: #111; color: white; border-color: #111; }
 .cd-size-pill.oos { opacity: 0.35; text-decoration: line-through; cursor: not-allowed; }
@@ -807,6 +807,7 @@ export default function CreatorDashboard() {
   const [campaignSelects, setCampaignSelects] = useState({}) // { [assignmentId]: { sizes: {}, products: [] } }
   const [campaignNotes, setCampaignNotes] = useState({})
   const [campaignConfirming, setCampaignConfirming] = useState(null)
+  const [campaignSelectError, setCampaignSelectError] = useState(null)
   const [showPastCampaigns, setShowPastCampaigns] = useState(false)
   const [lightboxFile, setLightboxFile] = useState(null) // { r2_url, name, mime_type, mux_playback_id? }
   const [campaignContentTarget, setCampaignContentTarget] = useState(null) // assignment ID to tag content with
@@ -2737,6 +2738,12 @@ export default function CreatorDashboard() {
             <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Make Your Selects</div>
             <div className="cd-campaign-max">Select up to {maxSelects} item{maxSelects !== 1 ? 's' : ''}</div>
 
+            {campaignSelectError && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#b91c1c', padding: '10px 14px', borderRadius: 6, fontSize: 12, marginTop: 10 }}>
+                {campaignSelectError}
+              </div>
+            )}
+
             {campaignVariantsLoading ? (
               <div style={{ padding: '20px 0', fontSize: 12, color: '#aaa' }}>Loading products...</div>
             ) : (
@@ -2788,7 +2795,11 @@ export default function CreatorDashboard() {
                                         if (existingIdx >= 0) {
                                           updatedProducts[existingIdx] = productEntry
                                         } else {
-                                          if (updatedProducts.length >= maxSelects) return prev
+                                          if (updatedProducts.length >= maxSelects) {
+                                            setCampaignSelectError(`You can only select up to ${maxSelects} ${maxSelects === 1 ? 'style' : 'styles'}. Please remove one before adding another.`)
+                                            setTimeout(() => setCampaignSelectError(null), 4000)
+                                            return prev
+                                          }
                                           updatedProducts.push(productEntry)
                                         }
                                         updatedSizes[pid] = v.variant_title
@@ -2815,7 +2826,11 @@ export default function CreatorDashboard() {
                               } else {
                                 setCampaignSelects(prev => {
                                   const current = prev[assignment.id] || { products: [], sizes: {} }
-                                  if (current.products.length >= maxSelects) return prev
+                                  if (current.products.length >= maxSelects) {
+                                    setCampaignSelectError(`You can only select up to ${maxSelects} ${maxSelects === 1 ? 'style' : 'styles'}. Please remove one before adding another.`)
+                                    setTimeout(() => setCampaignSelectError(null), 4000)
+                                    return prev
+                                  }
                                   return { ...prev, [assignment.id]: { ...current, products: [...current.products, { variant_id: p.variant_id || `p-${i}`, product_id: String(pid), product_title: p.product_title, variant_title: p.variant_title, image_url: p.image_url }] } }
                                 })
                               }
