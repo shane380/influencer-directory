@@ -141,7 +141,7 @@ export default function CreatorLoginPage() {
     setError(null)
     setLoading(true)
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${window.location.origin}/reset-password?from=creator`,
     })
     if (resetError) {
       setError(resetError.message)

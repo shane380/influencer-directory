@@ -44,7 +44,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/api/meta/creator-ads') ||
     pathname.startsWith('/creator/login') ||
     pathname.startsWith('/unsubscribe') ||
-    pathname.startsWith('/api/unsubscribe')
+    pathname.startsWith('/api/unsubscribe') ||
+    pathname.startsWith('/reset-password')
   ) {
     return supabaseResponse;
   }

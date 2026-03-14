@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,8 @@ export default function ResetPasswordPage() {
   const [checkingSession, setCheckingSession] = useState(true);
   const [hasValidSession, setHasValidSession] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isCreatorFlow = searchParams.get("from") === "creator";
   const supabase = createClient();
 
   useEffect(() => {
@@ -70,9 +72,11 @@ export default function ResetPasswordPage() {
     setSuccess(true);
     setLoading(false);
 
-    // Redirect to home after 2 seconds
+    // Redirect based on user role after 2 seconds
+    const { data: { user } } = await supabase.auth.getUser();
+    const isCreator = user?.user_metadata?.role === "creator";
     setTimeout(() => {
-      router.push("/");
+      router.push(isCreator ? "/creator/dashboard" : "/");
     }, 2000);
   };
 
@@ -99,7 +103,7 @@ export default function ResetPasswordPage() {
               <AlertCircle className="h-5 w-5" />
               <span>Please request a new password reset link.</span>
             </div>
-            <Button className="w-full" onClick={() => router.push("/login")}>
+            <Button className="w-full" onClick={() => router.push(isCreatorFlow ? "/creator/login" : "/login")}>
               Go to Login
             </Button>
           </CardContent>
