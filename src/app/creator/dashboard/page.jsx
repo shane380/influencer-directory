@@ -2926,21 +2926,83 @@ export default function CreatorDashboard() {
           </div>
         )}
 
-        {/* Step 3: Content */}
+        {/* Step 3: Content — inline upload form */}
         {currentStep === 3 && (
           <div>
-            {/* Submit Content */}
             <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Submit Content</div>
-            <button
-              className="cd-campaign-btn-outline"
-              style={{ marginTop: 0 }}
-              onClick={() => { setActiveTab('submit'); setCampaignContentTarget(assignment.id); setActiveCampaignDetail(null); }}
-            >
-              Submit Content →
-            </button>
+            {(() => {
+              // Auto-set the campaign content target to this assignment
+              if (campaignContentTarget !== assignment.id) {
+                setTimeout(() => setCampaignContentTarget(assignment.id), 0)
+              }
+              return null
+            })()}
+            {renderUploadForm(mobile)}
 
-            {assignment.status === 'content_submitted' && (
-              <div className="cd-campaign-confirm-msg" style={{ marginTop: 12 }}>Content submitted — under review.</div>
+            {/* Past submissions for this campaign */}
+            {submissions.filter(s => s.campaign_assignment_id === assignment.id).length > 0 && (
+              <div style={{ marginTop: 28 }}>
+                <hr className="cd-camp-detail-divider" />
+                <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Past Submissions</div>
+                {submissions.filter(s => s.campaign_assignment_id === assignment.id).map(sub => {
+                  const files = Array.isArray(sub.files) ? sub.files : []
+                  const statusLabel = sub.status === 'pending' ? 'in review' : (sub.status || '').replace(/_/g, ' ')
+                  return (
+                    <div key={sub.id} className="cd-hist-card" style={{ marginBottom: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                        <div className="cd-past-label">{files.length} file{files.length !== 1 ? 's' : ''}</div>
+                        <span className={`cd-badge${getStatusBadgeClass(sub.status)}`}>{statusLabel}</span>
+                      </div>
+                      {files.length > 0 && (
+                        <div className="cd-sub-previews">
+                          {files.map((file, fi) => {
+                            const isImage = file.mime_type?.startsWith('image/')
+                            const isVideo = file.mime_type?.startsWith('video/')
+                            const mediaUrl = file.r2_url || file.media_url || file.url
+                            return (
+                              <div key={fi} className="cd-sub-preview-wrap">
+                                {isImage ? (
+                                  <img src={mediaUrl} alt={file.name} className="cd-sub-preview-img" onClick={() => setLightboxFile(file)} />
+                                ) : isVideo ? (
+                                  file.mux_playback_id ? (
+                                    <video controls preload="metadata" className="cd-sub-preview-video">
+                                      <source src={`https://stream.mux.com/${file.mux_playback_id}.m3u8`} type="application/x-mpegURL" />
+                                      <source src={mediaUrl} type={file.mime_type || 'video/mp4'} />
+                                    </video>
+                                  ) : (
+                                    <video controls preload="metadata" src={mediaUrl} className="cd-sub-preview-video" />
+                                  )
+                                ) : (
+                                  <div style={{ width: 48, height: 48, background: '#f5f5f5', border: '1px solid #eee', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#ccc' }}>FILE</div>
+                                )}
+                                <div className="cd-sub-preview-name">{file.name}</div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                      {sub.notes && <div className="cd-past-notes">{sub.notes}</div>}
+                      {sub.admin_feedback && (
+                        <div className="cd-hist-feedback">Feedback: {sub.admin_feedback}</div>
+                      )}
+                      {sub.status === 'revision_requested' && (
+                        <button
+                          className="cd-resubmit-btn"
+                          onClick={() => {
+                            setResubmitTarget(sub.id)
+                            setContentMonth(sub.month)
+                            setContentFiles([])
+                            setContentNotes('')
+                            setContentSuccess(null)
+                          }}
+                        >
+                          Resubmit Content →
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             )}
           </div>
         )}
@@ -2960,13 +3022,14 @@ export default function CreatorDashboard() {
               </div>
             )}
 
-            <button
-              className="cd-campaign-btn-outline"
-              style={{ marginTop: 0 }}
-              onClick={() => { setActiveTab('submit'); setCampaignContentTarget(assignment.id); setActiveCampaignDetail(null); }}
-            >
-              Submit Additional Content →
-            </button>
+            <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Submit Additional Content</div>
+            {(() => {
+              if (campaignContentTarget !== assignment.id) {
+                setTimeout(() => setCampaignContentTarget(assignment.id), 0)
+              }
+              return null
+            })()}
+            {renderUploadForm(mobile)}
           </div>
         )}
       </div>
