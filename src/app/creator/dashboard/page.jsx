@@ -2566,11 +2566,11 @@ export default function CreatorDashboard() {
                       {campaign.brief_images.map((img, i) => {
                         const isVideo = img.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(img.url || '')
                         return (
-                          <div key={i} style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid #e8e8e8' }}>
+                          <div key={i} style={{ aspectRatio: '9/16', overflow: 'hidden', borderRadius: 6, border: '1px solid #e8e8e8' }}>
                             {isVideo ? (
-                              <video src={img.url} controls playsInline preload="metadata" style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block', background: '#111' }} />
+                              <video src={img.url} controls playsInline preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', background: '#111' }} />
                             ) : (
-                              <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
+                              <img src={img.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
                             )}
                           </div>
                         )
@@ -2696,11 +2696,11 @@ export default function CreatorDashboard() {
                         {campaign.brief_images.map((img, i) => {
                           const isVideo = img.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(img.url || '')
                           return (
-                            <div key={i} style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid #e8e8e8' }}>
+                            <div key={i} style={{ aspectRatio: '9/16', overflow: 'hidden', borderRadius: 6, border: '1px solid #e8e8e8' }}>
                               {isVideo ? (
-                                <video src={img.url} controls playsInline preload="metadata" style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block', background: '#111' }} />
+                                <video src={img.url} controls playsInline preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', background: '#111' }} />
                               ) : (
-                                <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
+                                <img src={img.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
                               )}
                             </div>
                           )
