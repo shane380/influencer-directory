@@ -248,9 +248,11 @@ export default function CreatorLoginPage() {
             </>
           )}
 
-          <p style={S.note}>
-            Don&apos;t have an account? You need an invite from Nama.
-          </p>
+          {!resetSent && (
+            <p style={S.note}>
+              Don&apos;t have an account? You need an invite from Nama.
+            </p>
+          )}
         </div>
       </div>
     </>
