@@ -39,6 +39,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect('https://creators.namaclo.com/creator/login');
   }
 
+  // Vercel URL: bounce creators to creators.namaclo.com
+  if (hostname === 'influencer-directory-self.vercel.app' && user?.user_metadata?.role === 'creator') {
+    return NextResponse.redirect('https://creators.namaclo.com/creator/dashboard');
+  }
+
   // Public routes — no auth required
   if (
     pathname.startsWith('/api/shopify/webhooks') ||
