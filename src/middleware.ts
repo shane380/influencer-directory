@@ -63,10 +63,13 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // Block creator accounts from accessing admin routes
-  if (isCreator && !pathname.startsWith('/login') && !pathname.startsWith('/creator')) {
+  // Role-based route siloing
+  if (isCreator && !pathname.startsWith('/creator') && !pathname.startsWith('/reset-password') && !pathname.startsWith('/api/creator') && !pathname.startsWith('/login')) {
+    return NextResponse.redirect('https://creators.namaclo.com');
+  }
+  if (userRole === 'admin' && pathname.startsWith('/creator')) {
     const url = request.nextUrl.clone();
-    url.pathname = '/creator/dashboard';
+    url.pathname = '/';
     return NextResponse.redirect(url);
   }
 
