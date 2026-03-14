@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { uploadToR2 } from "@/lib/r2-upload";
@@ -396,6 +395,8 @@ export default function CampaignsPage() {
   async function openEditModal(campaign: Campaign) {
     setEditingCampaign(campaign);
     setSelectedCampaign(null);
+    setReviewSubmission(null);
+    setReviewLoading(false);
     setInvitationParentId("");
     setForm({
       title: campaign.title,
@@ -534,43 +535,32 @@ export default function CampaignsPage() {
   }
 
   async function openContentReview(assignment: Assignment) {
-    console.log("[ContentReview] clicked, assignment:", assignment.id, "content_submission_id:", assignment.content_submission_id, "influencer_id:", assignment.influencer_id);
     setReviewLoading(true);
     setReviewSubmission(null);
     setReviewFeedback("");
     setReviewFeedbackMode(null);
     try {
       let sub = null;
-      // Try by content_submission_id first
       if (assignment.content_submission_id) {
-        console.log("[ContentReview] fetching by submission id:", assignment.content_submission_id);
         const res = await fetch(`/api/creator/submissions?id=${assignment.content_submission_id}`);
-        console.log("[ContentReview] response status:", res.status);
         const data = await res.json();
-        console.log("[ContentReview] response data:", data);
         if (res.ok) {
           sub = data.submission || null;
         }
       }
-      // Fallback: fetch by influencer_id and find matching assignment
       if (!sub && assignment.influencer_id) {
-        console.log("[ContentReview] fallback: fetching by influencer_id:", assignment.influencer_id);
         const res = await fetch(`/api/creator/submissions?influencer_id=${assignment.influencer_id}`);
-        console.log("[ContentReview] fallback response status:", res.status);
         if (res.ok) {
           const data = await res.json();
-          console.log("[ContentReview] fallback submissions count:", (data.submissions || []).length);
           sub = (data.submissions || []).find((s: any) => s.campaign_assignment_id === assignment.id) || null;
         }
       }
-      console.log("[ContentReview] final sub:", sub ? "found" : "null");
       if (sub) {
         setReviewSubmission(sub);
       } else {
         setReviewSubmission({ _notFound: true, status: "not_found", files: [], notes: null });
       }
     } catch (err) {
-      console.error("[ContentReview] error:", err);
       setReviewSubmission({ _notFound: true, status: "error", files: [], notes: null });
     }
     setReviewLoading(false);
@@ -922,6 +912,119 @@ export default function CampaignsPage() {
   if (selectedCampaign) {
     return (
       <div className="flex h-screen bg-white">
+        {/* Content Review Modal */}
+        {(reviewSubmission || reviewLoading) && (
+          <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999}} onClick={() => { setReviewSubmission(null); setReviewFeedbackMode(null); setReviewFeedback(""); }}>
+            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <h3 className="text-sm font-semibold text-gray-800">Content Review</h3>
+                <button onClick={() => { setReviewSubmission(null); setReviewFeedbackMode(null); setReviewFeedback(""); }} className="text-gray-400 hover:text-gray-600 text-lg">×</button>
+              </div>
+              {reviewLoading ? (
+                <div className="flex items-center justify-center py-16 text-gray-400 text-sm">Loading submission...</div>
+              ) : reviewSubmission?._notFound ? (
+                <div className="p-5 text-center text-sm text-gray-500 py-12">
+                  <p className="mb-2">Submission not found.</p>
+                  <p className="text-xs text-gray-400">The submission record is missing.</p>
+                </div>
+              ) : reviewSubmission ? (
+                <div className="p-5 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                      reviewSubmission.status === "approved" ? "bg-green-100 text-green-800" :
+                      reviewSubmission.status === "revision_requested" ? "bg-amber-100 text-amber-800" :
+                      reviewSubmission.status === "rejected" ? "bg-red-100 text-red-800" :
+                      "bg-gray-100 text-gray-700"
+                    }`}>
+                      {reviewSubmission.status === "revision_requested" ? "Revision Requested" : (reviewSubmission.status || "pending").replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      {(reviewSubmission.files || []).length} file{(reviewSubmission.files || []).length !== 1 ? "s" : ""}
+                    </span>
+                    {reviewSubmission.submitted_at && (
+                      <span className="text-xs text-gray-400">
+                        · {new Date(reviewSubmission.submitted_at).toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" })}
+                      </span>
+                    )}
+                  </div>
+                  {(reviewSubmission.files || []).map((file: any, i: number) => {
+                    const isImage = file.mime_type?.startsWith("image/");
+                    const isVideo = file.mime_type?.startsWith("video/");
+                    const url = file.r2_url || file.url;
+                    return (
+                      <div key={i} className="space-y-1">
+                        {isImage ? (
+                          <img src={url} alt={file.name} className="max-w-full max-h-80 rounded border border-gray-200 object-contain" />
+                        ) : isVideo ? (
+                          <video controls preload="metadata" src={url} className="max-w-full max-h-[400px] rounded border border-gray-200" />
+                        ) : (
+                          <div className="w-16 h-16 rounded bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400 text-[10px]">FILE</div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-gray-400 truncate">{file.name}</span>
+                          {file.size && <span className="text-[10px] text-gray-300">{(file.size / (1024 * 1024)).toFixed(1)} MB</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {reviewSubmission.notes && (
+                    <p className="text-xs text-gray-500 italic">&ldquo;{reviewSubmission.notes}&rdquo;</p>
+                  )}
+                  {reviewSubmission.admin_feedback && (
+                    <div className="text-xs bg-gray-50 border border-gray-100 rounded p-2">
+                      <span className="font-medium text-gray-600">Feedback:</span>{" "}
+                      <span className="text-gray-500">{reviewSubmission.admin_feedback}</span>
+                    </div>
+                  )}
+                  {reviewFeedbackMode && (
+                    <div className="space-y-2">
+                      <textarea
+                        className="w-full text-sm border border-gray-200 rounded p-2 resize-none"
+                        rows={2}
+                        placeholder={reviewFeedbackMode === "revision_requested" ? "What changes are needed?" : "Reason for rejection..."}
+                        value={reviewFeedback}
+                        onChange={e => setReviewFeedback(e.target.value)}
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => updateSubmissionStatus(reviewSubmission.id, reviewFeedbackMode, reviewFeedback)}
+                          disabled={reviewUpdating}
+                          className={`text-xs px-3 py-1.5 rounded text-white ${reviewFeedbackMode === "rejected" ? "bg-red-600 hover:bg-red-700" : "bg-amber-600 hover:bg-amber-700"}`}
+                        >
+                          {reviewUpdating ? "Saving..." : reviewFeedbackMode === "revision_requested" ? "Request Revision" : "Reject"}
+                        </button>
+                        <button onClick={() => { setReviewFeedbackMode(null); setReviewFeedback(""); }} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+                      </div>
+                    </div>
+                  )}
+                  {!reviewFeedbackMode && (
+                    <div className="flex gap-2 pt-2 border-t border-gray-100">
+                      <button
+                        onClick={() => updateSubmissionStatus(reviewSubmission.id, "approved")}
+                        disabled={reviewUpdating}
+                        className="text-xs bg-green-600 text-white px-3 py-1.5 rounded hover:bg-green-700 flex items-center gap-1"
+                      >
+                        ✓ Approve
+                      </button>
+                      <button
+                        onClick={() => setReviewFeedbackMode("revision_requested")}
+                        className="text-xs border border-gray-200 text-gray-600 px-3 py-1.5 rounded hover:bg-gray-50 flex items-center gap-1"
+                      >
+                        ↻ Request Revision
+                      </button>
+                      <button
+                        onClick={() => setReviewFeedbackMode("rejected")}
+                        className="text-xs border border-gray-200 text-red-600 px-3 py-1.5 rounded hover:bg-red-50 flex items-center gap-1"
+                      >
+                        ✕ Reject
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        )}
         <Sidebar activeTab="partners" onTabChange={(tab) => { if (tab !== "partners") router.push(`/?tab=${tab}`); }} currentUser={currentUser} onLogout={async () => { await supabase.auth.signOut(); router.push("/login"); }} />
         <div className="flex-1 ml-48 overflow-y-auto p-8">
           <button onClick={() => {
@@ -930,6 +1033,8 @@ export default function CampaignsPage() {
               if (parent) { openDetail(parent); return; }
             }
             setSelectedCampaign(null);
+            setReviewSubmission(null);
+            setReviewLoading(false);
           }} className="text-sm text-gray-500 hover:text-gray-800 mb-4 flex items-center gap-1">
             ← {selectedCampaign.parent_campaign_id ? "Back to Campaign" : "Back to Campaigns"}
           </button>
@@ -1622,148 +1727,6 @@ export default function CampaignsPage() {
         {renderInvitationModal()}
 
       </div>
-
-      {/* Content Review Modal — rendered via portal to escape any CSS containment */}
-      {(reviewSubmission || reviewLoading) && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center" style={{ zIndex: 9999 }} onClick={() => { setReviewSubmission(null); setReviewFeedbackMode(null); setReviewFeedback(""); }}>
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-800">Content Review</h3>
-              <button onClick={() => { setReviewSubmission(null); setReviewFeedbackMode(null); setReviewFeedback(""); }} className="text-gray-400 hover:text-gray-600 text-lg">×</button>
-            </div>
-
-            {reviewLoading ? (
-              <div className="flex items-center justify-center py-16 text-gray-400 text-sm">Loading submission...</div>
-            ) : reviewSubmission?._notFound ? (
-              <div className="p-5 text-center text-sm text-gray-500 py-12">
-                <p className="mb-2">Submission not found.</p>
-                <p className="text-xs text-gray-400">The content may have been submitted before the review system was set up, or the submission record is missing.</p>
-              </div>
-            ) : reviewSubmission ? (
-              <div className="p-5 space-y-4">
-                {/* Status */}
-                <div className="flex items-center gap-2">
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                    reviewSubmission.status === "approved" ? "bg-green-100 text-green-800" :
-                    reviewSubmission.status === "revision_requested" ? "bg-amber-100 text-amber-800" :
-                    reviewSubmission.status === "rejected" ? "bg-red-100 text-red-800" :
-                    "bg-gray-100 text-gray-700"
-                  }`}>
-                    {reviewSubmission.status === "revision_requested" ? "Revision Requested" : (reviewSubmission.status || "pending").replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
-                  </span>
-                  <span className="text-xs text-gray-400">
-                    {(reviewSubmission.files || []).length} file{(reviewSubmission.files || []).length !== 1 ? "s" : ""}
-                  </span>
-                  {reviewSubmission.submitted_at && (
-                    <span className="text-xs text-gray-400">
-                      · {new Date(reviewSubmission.submitted_at).toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" })}
-                    </span>
-                  )}
-                </div>
-
-                {/* Files */}
-                {(reviewSubmission.files || []).map((file: any, i: number) => {
-                  const isImage = file.mime_type?.startsWith("image/");
-                  const isVideo = file.mime_type?.startsWith("video/");
-                  const url = file.r2_url || file.url;
-                  return (
-                    <div key={i} className="space-y-1">
-                      {isImage ? (
-                        <img src={url} alt={file.name} className="max-w-full max-h-80 rounded border border-gray-200 object-contain" />
-                      ) : isVideo ? (
-                        reviewSubmission.mux_playback_id ? (
-                          <video controls preload="metadata" className="max-w-full max-h-[400px] rounded border border-gray-200">
-                            <source src={`https://stream.mux.com/${reviewSubmission.mux_playback_id}.m3u8`} type="application/x-mpegURL" />
-                            <source src={url} type={file.mime_type || "video/mp4"} />
-                          </video>
-                        ) : (
-                          <video controls preload="metadata" src={url} className="max-w-full max-h-[400px] rounded border border-gray-200" />
-                        )
-                      ) : (
-                        <div className="w-16 h-16 rounded bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400 text-[10px]">FILE</div>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-gray-400 truncate">{file.name}</span>
-                        {file.size && <span className="text-[10px] text-gray-300">{(file.size / (1024 * 1024)).toFixed(1)} MB</span>}
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {/* Creator notes */}
-                {reviewSubmission.notes && (
-                  <p className="text-xs text-gray-500 italic">&ldquo;{reviewSubmission.notes}&rdquo;</p>
-                )}
-
-                {/* Existing feedback */}
-                {reviewSubmission.admin_feedback && (
-                  <div className="text-xs bg-gray-50 border border-gray-100 rounded p-2">
-                    <span className="font-medium text-gray-600">Feedback:</span>{" "}
-                    <span className="text-gray-500">{reviewSubmission.admin_feedback}</span>
-                  </div>
-                )}
-
-                {reviewSubmission.reviewed_at && (
-                  <p className="text-[10px] text-gray-400">
-                    Reviewed by {reviewSubmission.reviewed_by || "Admin"} on {new Date(reviewSubmission.reviewed_at).toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" })}
-                  </p>
-                )}
-
-                {/* Feedback input */}
-                {reviewFeedbackMode && (
-                  <div className="space-y-2">
-                    <textarea
-                      className="w-full text-sm border border-gray-200 rounded p-2 resize-none"
-                      rows={2}
-                      placeholder={reviewFeedbackMode === "revision_requested" ? "What changes are needed?" : "Reason for rejection..."}
-                      value={reviewFeedback}
-                      onChange={e => setReviewFeedback(e.target.value)}
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => updateSubmissionStatus(reviewSubmission.id, reviewFeedbackMode, reviewFeedback)}
-                        disabled={reviewUpdating}
-                        className={`text-xs px-3 py-1.5 rounded text-white ${reviewFeedbackMode === "rejected" ? "bg-red-600 hover:bg-red-700" : "bg-amber-600 hover:bg-amber-700"}`}
-                      >
-                        {reviewUpdating ? "Saving..." : reviewFeedbackMode === "revision_requested" ? "Request Revision" : "Reject"}
-                      </button>
-                      <button onClick={() => { setReviewFeedbackMode(null); setReviewFeedback(""); }} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Action buttons */}
-                {!reviewFeedbackMode && (
-                  <div className="flex gap-2 pt-2 border-t border-gray-100">
-                    <button
-                      onClick={() => updateSubmissionStatus(reviewSubmission.id, "approved")}
-                      disabled={reviewUpdating}
-                      className="text-xs bg-green-600 text-white px-3 py-1.5 rounded hover:bg-green-700 flex items-center gap-1"
-                    >
-                      ✓ Approve
-                    </button>
-                    <button
-                      onClick={() => setReviewFeedbackMode("revision_requested")}
-                      className="text-xs border border-gray-200 text-gray-600 px-3 py-1.5 rounded hover:bg-gray-50 flex items-center gap-1"
-                    >
-                      ↻ Request Revision
-                    </button>
-                    <button
-                      onClick={() => setReviewFeedbackMode("rejected")}
-                      className="text-xs border border-gray-200 text-red-600 px-3 py-1.5 rounded hover:bg-red-50 flex items-center gap-1"
-                    >
-                      ✕ Reject
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center justify-center py-16 text-gray-400 text-sm">Submission not found</div>
-            )}
-          </div>
-        </div>,
-        document.body
-      )}
     </div>
   );
 }
