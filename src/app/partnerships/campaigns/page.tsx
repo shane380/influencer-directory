@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { uploadToR2 } from "@/lib/r2-upload";
@@ -1622,9 +1623,9 @@ export default function CampaignsPage() {
 
       </div>
 
-      {/* Content Review Modal — outside scroll container */}
-      {(reviewSubmission || reviewLoading) && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]" onClick={() => { setReviewSubmission(null); setReviewFeedbackMode(null); setReviewFeedback(""); }}>
+      {/* Content Review Modal — rendered via portal to escape any CSS containment */}
+      {(reviewSubmission || reviewLoading) && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center" style={{ zIndex: 9999 }} onClick={() => { setReviewSubmission(null); setReviewFeedbackMode(null); setReviewFeedback(""); }}>
           <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <h3 className="text-sm font-semibold text-gray-800">Content Review</h3>
@@ -1760,7 +1761,8 @@ export default function CampaignsPage() {
               <div className="flex items-center justify-center py-16 text-gray-400 text-sm">Submission not found</div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
