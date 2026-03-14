@@ -3078,9 +3078,11 @@ export default function CreatorDashboard() {
                           {campaign.brief_images.map((img, i) => {
                             const isVid = img.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(img.url || '')
                             return (
-                              <div key={i} className="cd-rev-refs-grid-item">
+                              <div key={i} className="cd-rev-refs-grid-item" onClick={() => setLightboxFile({ r2_url: img.url, url: img.url, name: '', mime_type: isVid ? 'video/mp4' : 'image/jpeg' })} style={{ cursor: 'pointer' }}>
                                 {isVid ? (
-                                  <video src={img.url} preload="metadata" style={{ pointerEvents: 'none' }} />
+                                  <div style={{ width: '100%', height: '100%', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <span style={{ color: '#fff', fontSize: 20, opacity: 0.7 }}>▶</span>
+                                  </div>
                                 ) : (
                                   <img src={img.url} alt="" />
                                 )}
@@ -3302,9 +3304,11 @@ export default function CreatorDashboard() {
                               {campaign.brief_images.map((img, i) => {
                                 const isVid = img.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(img.url || '')
                                 return (
-                                  <div key={i} className="cd-rev-refs-grid-item">
+                                  <div key={i} className="cd-rev-refs-grid-item" onClick={() => setLightboxFile({ r2_url: img.url, url: img.url, name: '', mime_type: isVid ? 'video/mp4' : 'image/jpeg' })} style={{ cursor: 'pointer' }}>
                                     {isVid ? (
-                                      <video src={img.url} preload="metadata" style={{ pointerEvents: 'none' }} />
+                                      <div style={{ width: '100%', height: '100%', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <span style={{ color: '#fff', fontSize: 20, opacity: 0.7 }}>▶</span>
+                                      </div>
                                     ) : (
                                       <img src={img.url} alt="" />
                                     )}
