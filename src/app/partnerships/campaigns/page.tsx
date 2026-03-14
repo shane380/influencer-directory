@@ -533,6 +533,7 @@ export default function CampaignsPage() {
   }
 
   async function openContentReview(assignment: Assignment) {
+    console.log("[ContentReview] clicked, assignment:", assignment.id, "content_submission_id:", assignment.content_submission_id, "influencer_id:", assignment.influencer_id);
     setReviewLoading(true);
     setReviewSubmission(null);
     setReviewFeedback("");
@@ -541,27 +542,34 @@ export default function CampaignsPage() {
       let sub = null;
       // Try by content_submission_id first
       if (assignment.content_submission_id) {
+        console.log("[ContentReview] fetching by submission id:", assignment.content_submission_id);
         const res = await fetch(`/api/creator/submissions?id=${assignment.content_submission_id}`);
+        console.log("[ContentReview] response status:", res.status);
+        const data = await res.json();
+        console.log("[ContentReview] response data:", data);
         if (res.ok) {
-          const data = await res.json();
           sub = data.submission || null;
         }
       }
       // Fallback: fetch by influencer_id and find matching assignment
       if (!sub && assignment.influencer_id) {
+        console.log("[ContentReview] fallback: fetching by influencer_id:", assignment.influencer_id);
         const res = await fetch(`/api/creator/submissions?influencer_id=${assignment.influencer_id}`);
+        console.log("[ContentReview] fallback response status:", res.status);
         if (res.ok) {
           const data = await res.json();
+          console.log("[ContentReview] fallback submissions count:", (data.submissions || []).length);
           sub = (data.submissions || []).find((s: any) => s.campaign_assignment_id === assignment.id) || null;
         }
       }
+      console.log("[ContentReview] final sub:", sub ? "found" : "null");
       if (sub) {
         setReviewSubmission(sub);
       } else {
         setReviewSubmission({ _notFound: true, status: "not_found", files: [], notes: null });
       }
     } catch (err) {
-      console.error("Failed to fetch submission:", err);
+      console.error("[ContentReview] error:", err);
       setReviewSubmission({ _notFound: true, status: "error", files: [], notes: null });
     }
     setReviewLoading(false);
