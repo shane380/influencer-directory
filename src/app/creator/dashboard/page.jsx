@@ -352,7 +352,6 @@ const CSS = `
 }
 
 /* Revision state layout — global (mobile-first) */
-.cd-rev-layout { display: block; }
 .cd-rev-label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #aaa; margin-bottom: 8px; }
 .cd-rev-media-card { border: 0.5px solid #e0e0e0; border-radius: 10px; overflow: hidden; }
 .cd-rev-media { position: relative; aspect-ratio: 9/16; background: #111; width: 100%; overflow: hidden; border-radius: 10px 10px 0 0; }
