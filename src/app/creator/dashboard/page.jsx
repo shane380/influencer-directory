@@ -2426,7 +2426,7 @@ export default function CreatorDashboard() {
     const steps = [
       { num: 1, label: 'Accept' },
       { num: 2, label: 'Selects' },
-      { num: 3, label: 'Order & Content' },
+      { num: 3, label: 'Content' },
       { num: 4, label: 'Complete' },
     ]
     return (
@@ -2836,48 +2836,45 @@ export default function CreatorDashboard() {
             >
               {campaignConfirming === assignment.id ? 'Confirming...' : 'Confirm Selects'}
             </button>
+
+            {/* Order details — shown after selects confirmed */}
+            {assignment.selected_products?.length > 0 && (
+              <div style={{ marginTop: 28 }}>
+                <hr className="cd-camp-detail-divider" />
+                <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Order Status</div>
+                {matchingOrder ? (
+                  <div className="cd-order-row" style={{ background: '#fff', border: '1px solid #e8e8e8', padding: '16px 20px', marginBottom: 20 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>Order #{matchingOrder.shopify_order_number || matchingOrder.shopify_order_id}</div>
+                      <span className={`cd-campaign-status ${matchingOrder.fulfillment_status === 'fulfilled' ? 'cd-campaign-status-complete' : 'cd-campaign-status-confirmed'}`}>
+                        {matchingOrder.fulfillment_status || 'Processing'}
+                      </span>
+                    </div>
+                    {matchingOrder.line_items?.map((li, j) => (
+                      <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 12, color: '#555' }}>
+                        {li.image_url && <img src={li.image_url} alt="" style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: 4 }} />}
+                        <span>{li.product_name || li.title}{li.variant_title ? ` — ${li.variant_title}` : ''}</span>
+                      </div>
+                    ))}
+                    {matchingOrder.tracking_url && (
+                      <a href={matchingOrder.tracking_url} target="_blank" rel="noopener noreferrer" className="cd-campaign-brief-link" style={{ marginTop: 8 }}>
+                        Track shipment →
+                      </a>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 13, color: '#aaa', marginBottom: 20, padding: '16px 20px', border: '1px solid #e8e8e8' }}>
+                    Your order is being prepared.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
-        {/* Step 3: Order & Content */}
+        {/* Step 3: Content */}
         {currentStep === 3 && (
           <div>
-            {/* Order section */}
-            <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Order Status</div>
-            {matchingOrder ? (
-              <div className="cd-order-row" style={{ background: '#fff', border: '1px solid #e8e8e8', padding: '16px 20px', marginBottom: 20 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>Order #{matchingOrder.shopify_order_number || matchingOrder.shopify_order_id}</div>
-                  <span className={`cd-campaign-status ${matchingOrder.fulfillment_status === 'fulfilled' ? 'cd-campaign-status-complete' : 'cd-campaign-status-confirmed'}`}>
-                    {matchingOrder.fulfillment_status || 'Processing'}
-                  </span>
-                </div>
-                {matchingOrder.line_items?.map((li, j) => (
-                  <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 12, color: '#555' }}>
-                    {li.image_url && <img src={li.image_url} alt="" style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: 4 }} />}
-                    <span>{li.product_name || li.title}{li.variant_title ? ` — ${li.variant_title}` : ''}</span>
-                  </div>
-                ))}
-                {matchingOrder.tracking_url && (
-                  <a href={matchingOrder.tracking_url} target="_blank" rel="noopener noreferrer" className="cd-campaign-brief-link" style={{ marginTop: 8 }}>
-                    Track shipment →
-                  </a>
-                )}
-              </div>
-            ) : (
-              <div style={{ fontSize: 13, color: '#aaa', marginBottom: 20, padding: '16px 20px', border: '1px solid #e8e8e8' }}>
-                Your order is being prepared.
-              </div>
-            )}
-
-            {/* Selected products */}
-            {assignment.selected_products?.length > 0 && (
-              <div style={{ marginBottom: 20 }}>
-                <div className="cd-camp-deliverables-label" style={{ marginBottom: 8 }}>Your Selects</div>
-                {renderProductChips(assignment.selected_products, assignment.id, false, 0)}
-              </div>
-            )}
-
             {/* Submit Content */}
             <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Submit Content</div>
             <button
