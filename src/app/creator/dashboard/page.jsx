@@ -2628,7 +2628,7 @@ export default function CreatorDashboard() {
               {campaign.brief_images?.length > 0 && (
                 <div style={{ marginBottom: 24 }}>
                   <div className="cd-camp-deliverables-label">Content References</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 10 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginTop: 10 }}>
                     {campaign.brief_images.map((img, i) => (
                       <div key={i} style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid #e8e8e8' }}>
                         {(img.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(img.url || '')) ? (
