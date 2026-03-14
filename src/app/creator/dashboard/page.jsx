@@ -2511,7 +2511,7 @@ export default function CreatorDashboard() {
         {/* Mobile: linear layout */}
         {mobile && (
           <>
-            {campaign.banner_image?.url && (
+            {currentStep <= 1 && campaign.banner_image?.url && (
               <img src={campaign.banner_image.url} alt="" className="cd-camp-banner" />
             )}
 
@@ -2640,7 +2640,7 @@ export default function CreatorDashboard() {
         )}
 
         {/* Desktop: two-column grid (steps 1 & 2 only — steps 3 & 4 have their own header) */}
-        {!mobile && currentStep <= 2 && (
+        {!mobile && currentStep <= 1 && (
           <div className="cd-camp-detail-grid">
             <div className="cd-camp-detail-left">
               {campaign.banner_image?.url && (
