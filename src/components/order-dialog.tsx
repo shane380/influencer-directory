@@ -712,6 +712,11 @@ export function OrderDialog({
             product_selections: productSelectionsForDB,
           })
           .eq("id", campaignInfluencer.id);
+
+        // Also update campaign_assignments if this ID matches one
+        await (supabase.from("campaign_assignments") as any)
+          .update({ order_id: String(data.order.id) })
+          .eq("id", campaignInfluencer.id);
       }
 
       setOrderCreated(true);

@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { uploadToR2 } from "@/lib/r2-upload";
 import { Sidebar } from "@/components/sidebar";
 import { Plus, Search, ChevronDown, ChevronRight, ExternalLink, X, Pencil } from "lucide-react";
+import { OrderDialog } from "@/components/order-dialog";
+import type { Influencer, CampaignInfluencer } from "@/types/database";
 
 interface Campaign {
   id: string;
@@ -129,6 +131,11 @@ export default function CampaignsPage() {
   const [loadingAssignments, setLoadingAssignments] = useState(false);
   const [editingNote, setEditingNote] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
+
+  // Order dialog
+  const [orderDialogOpen, setOrderDialogOpen] = useState(false);
+  const [orderDialogInfluencer, setOrderDialogInfluencer] = useState<Influencer | null>(null);
+  const [orderDialogAssignment, setOrderDialogAssignment] = useState<Assignment | null>(null);
 
   // Content review modal
   const [reviewSubmission, setReviewSubmission] = useState<any>(null);
@@ -592,24 +599,19 @@ export default function CampaignsPage() {
     setReviewUpdating(false);
   }
 
-  async function createGiftedOrder(assignment: Assignment) {
-    if (!assignment.selected_products?.length) return;
+  async function openOrderDialog(assignment: Assignment) {
+    if (!assignment.influencer_id) return;
     try {
-      const lineItems = assignment.selected_products.map(p => ({
-        variant_id: p.variant_id,
-        quantity: 1,
-      }));
-      const res = await fetch("/api/shopify/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ line_items: lineItems, note: `Campaign: ${selectedCampaign?.title}` }),
-      });
-      const data = await res.json();
-      if (data.order?.id) {
-        await updateAssignment(assignment.id, { order_id: String(data.order.id) });
-      }
+      const { data: inf } = await (supabase.from("influencers") as any)
+        .select("*")
+        .eq("id", assignment.influencer_id)
+        .single();
+      if (!inf) return;
+      setOrderDialogInfluencer(inf);
+      setOrderDialogAssignment(assignment);
+      setOrderDialogOpen(true);
     } catch (err) {
-      console.error("Order creation failed:", err);
+      console.error("Failed to fetch influencer:", err);
     }
   }
 
@@ -1025,6 +1027,52 @@ export default function CampaignsPage() {
             </div>
           </div>
         )}
+        {/* Order Dialog */}
+        {orderDialogInfluencer && orderDialogAssignment && (
+          <OrderDialog
+            open={orderDialogOpen}
+            onClose={() => { setOrderDialogOpen(false); setOrderDialogInfluencer(null); setOrderDialogAssignment(null); }}
+            onSave={async () => {
+              setOrderDialogOpen(false);
+              setOrderDialogInfluencer(null);
+              setOrderDialogAssignment(null);
+              if (selectedCampaign) {
+                const res = await fetch(`/api/creator/campaigns/assignments?campaign_id=${selectedCampaign.id}`);
+                const data = await res.json();
+                setAssignments(data.assignments || []);
+              }
+            }}
+            influencer={orderDialogInfluencer}
+            campaignInfluencer={{
+              id: orderDialogAssignment.id,
+              campaign_id: orderDialogAssignment.campaign_id,
+              influencer_id: orderDialogAssignment.influencer_id || "",
+              product_selections: (orderDialogAssignment.selected_products || []).map(p => ({
+                sku: "",
+                variant_id: String(p.variant_id),
+                quantity: 1,
+                title: p.product_title + (p.variant_title ? ` - ${p.variant_title}` : ""),
+                price: "",
+              })),
+              shopify_order_id: orderDialogAssignment.order_id,
+              shopify_order_status: null,
+              tracking_number: null,
+              tracking_url: null,
+              order_status_updated_at: null,
+              shopify_real_order_id: null,
+              compensation: null,
+              notes: orderDialogAssignment.admin_notes,
+              added_at: orderDialogAssignment.sent_at,
+              status: "Order Placed" as any,
+              partnership_type: "Gifted" as any,
+              content_posted: "No" as any,
+              approval_status: null,
+              approval_note: null,
+              approved_at: null,
+              approved_by: null,
+            }}
+          />
+        )}
         <Sidebar activeTab="partners" onTabChange={(tab) => { if (tab !== "partners") router.push(`/?tab=${tab}`); }} currentUser={currentUser} onLogout={async () => { await supabase.auth.signOut(); router.push("/login"); }} />
         <div className="flex-1 ml-48 overflow-y-auto p-8">
           <button onClick={() => {
@@ -1154,9 +1202,9 @@ export default function CampaignsPage() {
                       </td>
                       <td className="px-4 py-3 text-xs">
                         {a.order_id ? (
-                          <span className="text-green-600">#{a.order_id}</span>
+                          <a href={`https://namasletica.myshopify.com/admin/draft_orders/${a.order_id}`} target="_blank" rel="noopener noreferrer" className="text-green-600 hover:underline">Draft order ↗</a>
                         ) : (a.status === "confirmed" || a.status === "content_submitted" || a.status === "complete") ? (
-                          <button onClick={() => createGiftedOrder(a)} className="text-blue-600 hover:text-blue-800 underline">
+                          <button onClick={() => openOrderDialog(a)} className="text-blue-600 hover:text-blue-800 underline">
                             Create order
                           </button>
                         ) : "—"}
