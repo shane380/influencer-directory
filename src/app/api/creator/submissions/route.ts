@@ -7,14 +7,28 @@ import { isEmailTriggerEnabled } from "@/lib/app-settings";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-// GET: Fetch submissions for an influencer (admin use)
+// GET: Fetch submissions for an influencer or a single submission by ID (admin use)
 export async function GET(request: NextRequest) {
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const submissionId = request.nextUrl.searchParams.get("id");
   const influencerId = request.nextUrl.searchParams.get("influencer_id");
-  if (!influencerId) {
-    return NextResponse.json({ error: "influencer_id required" }, { status: 400 });
+
+  if (submissionId) {
+    const { data, error } = await supabase
+      .from("creator_content_submissions")
+      .select("*")
+      .eq("id", submissionId)
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ submission: data });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  if (!influencerId) {
+    return NextResponse.json({ error: "influencer_id or id required" }, { status: 400 });
+  }
 
   const { data, error } = await supabase
     .from("creator_content_submissions")
