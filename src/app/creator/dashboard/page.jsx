@@ -4518,23 +4518,21 @@ export default function CreatorDashboard() {
               })()}
 
               {affiliateCode && invite?.has_affiliate && (
-                <div className="cd-aff-wrap">
-                  <div className="cd-aff-block">
-                    <div className="cd-aff-top">
-                      <div className="cd-aff-label">Your Affiliate Code</div>
-                      <button className="cd-aff-copy" onClick={copyCode}>{copied ? 'Copied' : 'Copy'}</button>
+                <div style={{ padding: '10px 16px', borderTop: '0.5px solid #e8e8e8' }}>
+                  <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#999', marginBottom: 2 }}>Affiliate code</div>
+                      <div style={{ fontSize: 12, fontWeight: 500, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{affiliateCode.toUpperCase()}</div>
                     </div>
-                    <div className="cd-aff-code">{affiliateCode.toUpperCase()}</div>
-                    <hr className="cd-aff-divider" />
-                    <div className="cd-aff-link-row">
-                      <div>
-                        <div className="cd-aff-link-label">Your Link</div>
-                        <div className="cd-aff-link-url">namaclo.com/discount/{affiliateCode.toLowerCase()}</div>
-                      </div>
-                      <button className="cd-aff-copy" onClick={copyLink}>{copiedLink ? 'Copied' : 'Copy'}</button>
-                    </div>
+                    <button onClick={copyCode} style={{ fontSize: 9, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#999', border: '0.5px solid #ddd', borderRadius: 4, padding: '2px 6px', cursor: 'pointer', background: 'transparent', flexShrink: 0 }}>{copied ? 'Copied' : 'Copy'}</button>
                   </div>
-                  {renderCodeChangeSection()}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#999', marginBottom: 2 }}>Your link</div>
+                      <div style={{ fontSize: 10, color: '#999', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>namaclo.com/discount/{affiliateCode.toLowerCase()}</div>
+                    </div>
+                    <button onClick={copyLink} style={{ fontSize: 9, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#999', border: '0.5px solid #ddd', borderRadius: 4, padding: '2px 6px', cursor: 'pointer', background: 'transparent', flexShrink: 0 }}>{copiedLink ? 'Copied' : 'Copy'}</button>
+                  </div>
                 </div>
               )}
             </div>
@@ -4634,27 +4632,6 @@ export default function CreatorDashboard() {
             <div className="cd-m-stat"><div className="cd-m-stat-l">Ads Live</div><div className="cd-m-stat-v">{adsLoading ? <span className="cd-skel cd-skel-stat" style={{ display: 'inline-block' }} /> : adsRunning}</div></div>
           </div>
 
-          {affiliateCode && invite?.has_affiliate && (
-            <div className="cd-m-aff-wrap">
-              <div className="cd-m-aff">
-                <div className="cd-m-aff-top">
-                  <div className="cd-m-aff-label">Affiliate Code</div>
-                  <button className="cd-m-aff-copy" onClick={copyCode}>{copied ? 'Copied' : 'Copy'}</button>
-                </div>
-                <div className="cd-m-aff-code">{affiliateCode.toUpperCase()}</div>
-                <hr className="cd-m-aff-divider" />
-                <div className="cd-m-aff-link-row">
-                  <div>
-                    <div className="cd-m-aff-link-label">Your Link</div>
-                    <div className="cd-m-aff-link-url">namaclo.com/discount/{affiliateCode.toLowerCase()}</div>
-                  </div>
-                  <button className="cd-m-aff-copy" onClick={copyLink}>{copiedLink ? 'Copied' : 'Copy'}</button>
-                </div>
-              </div>
-              {renderCodeChangeSection()}
-            </div>
-          )}
-
           <div className="cd-m-sections">
             {/* Campaigns */}
             <div className="cd-m-section" style={activeTab !== 'campaigns' ? { display: 'none' } : undefined}>
@@ -4724,7 +4701,27 @@ export default function CreatorDashboard() {
                 <div className="cd-m-section-eyebrow">Account</div>
                 <div className="cd-m-section-title">Payment Info</div>
               </div>
-              <div className="cd-m-section-body">{renderSettings(true)}</div>
+              <div className="cd-m-section-body">
+                {affiliateCode && invite?.has_affiliate && (
+                  <div style={{ background: '#f9f9f9', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
+                    <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#999', marginBottom: 2 }}>Affiliate code</div>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{affiliateCode.toUpperCase()}</div>
+                      </div>
+                      <button onClick={copyCode} style={{ fontSize: 9, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#999', border: '0.5px solid #ddd', borderRadius: 4, padding: '2px 6px', cursor: 'pointer', background: 'transparent', flexShrink: 0 }}>{copied ? 'Copied' : 'Copy'}</button>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#999', marginBottom: 2 }}>Your link</div>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>namaclo.com/discount/{affiliateCode.toLowerCase()}</div>
+                      </div>
+                      <button onClick={copyLink} style={{ fontSize: 9, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#999', border: '0.5px solid #ddd', borderRadius: 4, padding: '2px 6px', cursor: 'pointer', background: 'transparent', flexShrink: 0 }}>{copiedLink ? 'Copied' : 'Copy'}</button>
+                    </div>
+                  </div>
+                )}
+                {renderSettings(true)}
+              </div>
             </div>
           </div>
 
