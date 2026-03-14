@@ -344,23 +344,28 @@ const CSS = `
   .cd-step3-past-thumb img, .cd-step3-past-thumb video { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
   .cd-step3-past-badge { position: absolute; bottom: 6px; right: 6px; }
   .cd-step3-divider { height: 0; border: none; border-top: 0.5px solid #e0e0e0; margin: 20px 0; }
-  /* Revision state layout */
-  .cd-rev-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-  .cd-rev-label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #aaa; margin-bottom: 8px; }
-  .cd-rev-media-card { border: 0.5px solid #e0e0e0; border-radius: 10px; overflow: hidden; }
-  .cd-rev-media { position: relative; aspect-ratio: 9/16; background: #111; }
-  .cd-rev-media img, .cd-rev-media video { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
-  .cd-rev-media-info { padding: 10px 12px; }
-  .cd-rev-media-name { font-size: 12px; font-weight: 500; color: #333; margin-bottom: 2px; }
-  .cd-rev-media-size { font-size: 11px; color: #999; }
-  .cd-rev-media-notes { font-size: 12px; color: #666; font-style: italic; margin-top: 6px; }
-  .cd-rev-right { display: flex; flex-direction: column; gap: 14px; }
-  .cd-rev-feedback { border-left: 3px solid #e8a24a; background: #fdf8f0; padding: 12px 14px; border-radius: 0 6px 6px 0; }
-  .cd-rev-feedback-tag { font-size: 10px; text-transform: uppercase; color: #c4631a; display: block; margin-bottom: 5px; letter-spacing: 0.06em; font-weight: 600; }
-  .cd-rev-feedback-text { font-size: 13px; color: #333; line-height: 1.5; }
-  .cd-rev-ref { aspect-ratio: 9/16; border-radius: 10px; overflow: hidden; width: 100%; }
-  .cd-rev-ref img, .cd-rev-ref video { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
+  /* Revision state — desktop overrides */
+  .cd-rev-grid { grid-template-columns: 1fr 1fr; }
+  .cd-rev-media { max-height: 400px; aspect-ratio: 9/16; width: auto; margin: 0 auto; }
 }
+
+/* Revision state layout — global (mobile-first) */
+.cd-rev-grid { display: grid; grid-template-columns: 1fr; gap: 20px; margin-bottom: 20px; }
+.cd-rev-label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #aaa; margin-bottom: 8px; }
+.cd-rev-media-card { border: 0.5px solid #e0e0e0; border-radius: 10px; overflow: hidden; }
+.cd-rev-media { position: relative; aspect-ratio: 9/16; background: #111; }
+.cd-rev-media img, .cd-rev-media video { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
+.cd-rev-media-info { padding: 10px 12px; }
+.cd-rev-media-name { font-size: 12px; font-weight: 500; color: #333; margin-bottom: 2px; }
+.cd-rev-media-size { font-size: 11px; color: #999; }
+.cd-rev-media-notes { font-size: 12px; color: #666; font-style: italic; margin-top: 6px; }
+.cd-rev-right { display: flex; flex-direction: column; gap: 14px; }
+.cd-rev-feedback { border-left: 3px solid #e8a24a; background: #fdf8f0; padding: 12px 14px; border-radius: 0 6px 6px 0; }
+.cd-rev-feedback-tag { font-size: 10px; text-transform: uppercase; color: #c4631a; display: block; margin-bottom: 5px; letter-spacing: 0.06em; font-weight: 600; }
+.cd-rev-feedback-text { font-size: 13px; color: #333; line-height: 1.5; }
+.cd-rev-refs-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.cd-rev-refs-grid-item { aspect-ratio: 9/16; border-radius: 6px; overflow: hidden; }
+.cd-rev-refs-grid-item img, .cd-rev-refs-grid-item video { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
 
 /* PRODUCTS */
 .cd-products { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
@@ -3015,9 +3020,6 @@ export default function CreatorDashboard() {
               const revMediaUrl = revFile ? (revFile.r2_url || revFile.media_url || revFile.url) : null
               const revIsVideo = revFile?.mime_type?.startsWith('video/')
               const revIsImage = revFile?.mime_type?.startsWith('image/')
-              const firstRef = campaign.brief_images?.[0]
-              const firstRefIsVideo = firstRef && (firstRef.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(firstRef.url || ''))
-
               if (isRevision) {
                 // Auto-set resubmit target
                 if (!resubmitTarget) {
@@ -3032,10 +3034,14 @@ export default function CreatorDashboard() {
                         <div className="cd-rev-media-card">
                           <div className="cd-rev-media">
                             {revIsVideo ? (
-                              <>
-                                <video src={revMediaUrl} preload="metadata" style={{ pointerEvents: 'none' }} />
-                                <div className="cd-sub-play-overlay">▶</div>
-                              </>
+                              revFile.mux_playback_id ? (
+                                <video controls preload="metadata" playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }}>
+                                  <source src={`https://stream.mux.com/${revFile.mux_playback_id}.m3u8`} type="application/x-mpegURL" />
+                                  <source src={revMediaUrl} type={revFile.mime_type || 'video/mp4'} />
+                                </video>
+                              ) : (
+                                <video controls preload="metadata" playsInline src={revMediaUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              )
                             ) : revIsImage ? (
                               <img src={revMediaUrl} alt="" />
                             ) : null}
@@ -3060,16 +3066,23 @@ export default function CreatorDashboard() {
                       </div>
                     )}
 
-                    {/* First content reference */}
-                    {firstRef && (
+                    {/* Content references grid */}
+                    {campaign.brief_images?.length > 0 && (
                       <div style={{ marginBottom: 20 }}>
-                        <div className="cd-rev-label">Reference</div>
-                        <div className="cd-rev-ref">
-                          {firstRefIsVideo ? (
-                            <video src={firstRef.url} preload="metadata" style={{ pointerEvents: 'none' }} />
-                          ) : (
-                            <img src={firstRef.url} alt="" />
-                          )}
+                        <div className="cd-rev-label">References</div>
+                        <div className="cd-rev-refs-grid">
+                          {campaign.brief_images.map((img, i) => {
+                            const isVid = img.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(img.url || '')
+                            return (
+                              <div key={i} className="cd-rev-refs-grid-item">
+                                {isVid ? (
+                                  <video src={img.url} preload="metadata" style={{ pointerEvents: 'none' }} />
+                                ) : (
+                                  <img src={img.url} alt="" />
+                                )}
+                              </div>
+                            )
+                          })}
                         </div>
                       </div>
                     )}
@@ -3221,9 +3234,6 @@ export default function CreatorDashboard() {
               const revMediaUrl = revFile ? (revFile.r2_url || revFile.media_url || revFile.url) : null
               const revIsVideo = revFile?.mime_type?.startsWith('video/')
               const revIsImage = revFile?.mime_type?.startsWith('image/')
-              const firstRef = campaign.brief_images?.[0]
-              const firstRefIsVideo = firstRef && (firstRef.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(firstRef.url || ''))
-
               if (isRevision) {
                 // Auto-set resubmit target
                 if (!resubmitTarget) {
@@ -3250,10 +3260,14 @@ export default function CreatorDashboard() {
                           <div className="cd-rev-media-card">
                             <div className="cd-rev-media">
                               {revIsVideo ? (
-                                <>
-                                  <video src={revMediaUrl} preload="metadata" style={{ pointerEvents: 'none' }} />
-                                  <div className="cd-sub-play-overlay">▶</div>
-                                </>
+                                revFile.mux_playback_id ? (
+                                  <video controls preload="metadata" playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }}>
+                                    <source src={`https://stream.mux.com/${revFile.mux_playback_id}.m3u8`} type="application/x-mpegURL" />
+                                    <source src={revMediaUrl} type={revFile.mime_type || 'video/mp4'} />
+                                  </video>
+                                ) : (
+                                  <video controls preload="metadata" playsInline src={revMediaUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                )
                               ) : revIsImage ? (
                                 <img src={revMediaUrl} alt="" />
                               ) : null}
@@ -3267,7 +3281,7 @@ export default function CreatorDashboard() {
                         )}
                       </div>
 
-                      {/* Right — feedback + reference */}
+                      {/* Right — feedback + references */}
                       <div className="cd-rev-right">
                         {latestSub.admin_feedback && (
                           <div>
@@ -3278,15 +3292,22 @@ export default function CreatorDashboard() {
                             </div>
                           </div>
                         )}
-                        {firstRef && (
+                        {campaign.brief_images?.length > 0 && (
                           <div>
-                            <div className="cd-rev-label">Reference</div>
-                            <div className="cd-rev-ref">
-                              {firstRefIsVideo ? (
-                                <video src={firstRef.url} preload="metadata" style={{ pointerEvents: 'none' }} />
-                              ) : (
-                                <img src={firstRef.url} alt="" />
-                              )}
+                            <div className="cd-rev-label">References</div>
+                            <div className="cd-rev-refs-grid">
+                              {campaign.brief_images.map((img, i) => {
+                                const isVid = img.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(img.url || '')
+                                return (
+                                  <div key={i} className="cd-rev-refs-grid-item">
+                                    {isVid ? (
+                                      <video src={img.url} preload="metadata" style={{ pointerEvents: 'none' }} />
+                                    ) : (
+                                      <img src={img.url} alt="" />
+                                    )}
+                                  </div>
+                                )
+                              })}
                             </div>
                           </div>
                         )}
