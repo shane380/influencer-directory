@@ -166,17 +166,18 @@ const CSS = `
 .cd-upload-success-link:hover { text-decoration: underline; }
 
 /* SUBMISSION PREVIEWS */
-.cd-sub-previews { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; margin-bottom: 4px; }
-.cd-sub-preview-wrap { position: relative; }
-.cd-sub-preview-img { max-height: 120px; border: 1px solid #eee; object-fit: contain; cursor: pointer; display: block; }
-.cd-sub-preview-video { max-height: 180px; max-width: 100%; border: 1px solid #eee; display: block; }
+.cd-sub-previews { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; margin-bottom: 4px; }
+.cd-sub-preview-wrap { position: relative; width: 100px; }
+.cd-sub-preview-ratio { aspect-ratio: 9/16; overflow: hidden; border-radius: 8px; background: #f0f0f0; }
+.cd-sub-preview-ratio img, .cd-sub-preview-ratio video { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
+.cd-sub-preview-img { cursor: pointer; }
 .cd-sub-preview-name { font-size: 10px; color: #aaa; margin-top: 3px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cd-sub-drive-link { font-size: 10px; color: #888; text-decoration: none; }
 .cd-sub-drive-link:hover { text-decoration: underline; }
 
 /* RESUBMIT */
-.cd-resubmit-btn { display: inline-block; margin-top: 10px; padding: 8px 20px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: #111; background: #fff; border: 1px solid #111; cursor: pointer; transition: all 0.15s; }
-.cd-resubmit-btn:hover { background: #111; color: #fff; }
+.cd-resubmit-btn { display: block; width: 100%; margin-top: 10px; padding: 12px; font-size: 12px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #fff; background: #111; border: none; border-radius: 6px; cursor: pointer; transition: all 0.15s; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+.cd-resubmit-btn:hover { background: #333; }
 .cd-resubmit-banner { background: #fefce8; border: 1px solid #e5d78e; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; color: #333; }
 .cd-resubmit-cancel { background: none; border: 1px solid #ccc; padding: 4px 14px; font-size: 12px; color: #666; cursor: pointer; }
 .cd-resubmit-cancel:hover { border-color: #999; color: #333; }
@@ -193,7 +194,9 @@ const CSS = `
 .cd-hist-card { padding: 16px 0; border-bottom: 1px solid #eee; }
 .cd-hist-card:first-child { padding-top: 0; }
 .cd-hist-card:last-child { border-bottom: none; }
-.cd-hist-feedback { font-size: 11px; color: #a68307; background: #fefce8; border-left: 3px solid #e5d78e; padding: 8px 12px; margin-top: 8px; line-height: 1.5; }
+.cd-hist-feedback { border-left: 3px solid #e8a24a; background: #fdf8f0; padding: 12px 14px; border-radius: 0 6px 6px 0; margin-top: 8px; margin-bottom: 14px; line-height: 1.5; }
+.cd-hist-feedback-label { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #c4631a; display: block; margin-bottom: 4px; }
+.cd-hist-feedback-text { font-size: 13px; color: #111; }
 
 /* CONTENT MOBILE TABS */
 .cd-content-tabs { display: flex; border-bottom: 1px solid #e8e8e8; margin-bottom: 20px; }
@@ -327,7 +330,7 @@ const CSS = `
   .cd-step3-refs-label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #aaa; margin-bottom: 10px; }
   .cd-step3-refs-scroll { display: flex; gap: 12px; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
   .cd-step3-refs-scroll::-webkit-scrollbar { display: none; }
-  .cd-step3-refs-card { flex: 0 0 160px; width: 160px; aspect-ratio: 9/16; border-radius: 10px; overflow: hidden; }
+  .cd-step3-refs-card { flex: 0 0 140px; width: 140px; aspect-ratio: 9/16; border-radius: 8px; overflow: hidden; border: 0.5px solid #e0e0e0; }
   .cd-step3-refs-card img, .cd-step3-refs-card video { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
   .cd-step3-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
   .cd-step3-form-grid .cd-dropzone { margin-bottom: 0; }
@@ -337,7 +340,7 @@ const CSS = `
   .cd-step3-submit-btn:disabled { background: #ccc; cursor: not-allowed; }
   .cd-step3-past-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
   .cd-step3-past-thumb { position: relative; aspect-ratio: 9/16; border-radius: 8px; overflow: hidden; }
-  .cd-step3-past-thumb img, .cd-step3-past-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .cd-step3-past-thumb img, .cd-step3-past-thumb video { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
   .cd-step3-past-badge { position: absolute; bottom: 6px; right: 6px; }
   .cd-step3-divider { height: 0; border: none; border-top: 0.5px solid #e0e0e0; margin: 20px 0; }
 }
@@ -3008,21 +3011,23 @@ export default function CreatorDashboard() {
                                 const mediaUrl = file.r2_url || file.media_url || file.url
                                 return (
                                   <div key={fi} className="cd-sub-preview-wrap">
-                                    {isImage ? (
-                                      <img src={mediaUrl} alt={file.name} className="cd-sub-preview-img" onClick={() => setLightboxFile(file)} />
-                                    ) : isVideo ? (
-                                      file.mux_playback_id ? (
-                                        <video controls preload="metadata" className="cd-sub-preview-video">
-                                          <source src={`https://stream.mux.com/${file.mux_playback_id}.m3u8`} type="application/x-mpegURL" />
-                                          <source src={mediaUrl} type={file.mime_type || 'video/mp4'} />
-                                        </video>
+                                    <div className="cd-sub-preview-ratio">
+                                      {isImage ? (
+                                        <img src={mediaUrl} alt={file.name} className="cd-sub-preview-img" onClick={() => setLightboxFile(file)} />
+                                      ) : isVideo ? (
+                                        file.mux_playback_id ? (
+                                          <video controls preload="metadata">
+                                            <source src={`https://stream.mux.com/${file.mux_playback_id}.m3u8`} type="application/x-mpegURL" />
+                                            <source src={mediaUrl} type={file.mime_type || 'video/mp4'} />
+                                          </video>
+                                        ) : (
+                                          <video controls preload="metadata" src={mediaUrl} />
+                                        )
                                       ) : (
-                                        <video controls preload="metadata" src={mediaUrl} className="cd-sub-preview-video" />
-                                      )
-                                    ) : (
-                                      <div style={{ width: 48, height: 48, background: '#f5f5f5', border: '1px solid #eee', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#ccc' }}>FILE</div>
-                                    )}
-                                    <div className="cd-sub-preview-name">{file.name}</div>
+                                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#ccc' }}>FILE</div>
+                                      )}
+                                    </div>
+                                    <div className="cd-sub-preview-name">{cleanFileName(file.name, file.mime_type)}</div>
                                   </div>
                                 )
                               })}
@@ -3030,7 +3035,10 @@ export default function CreatorDashboard() {
                           )}
                           {sub.notes && <div className="cd-past-notes">{sub.notes}</div>}
                           {sub.admin_feedback && (
-                            <div className="cd-hist-feedback">Feedback: {sub.admin_feedback}</div>
+                            <div className="cd-hist-feedback">
+                              <span className="cd-hist-feedback-label">Feedback</span>
+                              <span className="cd-hist-feedback-text">{sub.admin_feedback}</span>
+                            </div>
                           )}
                           {sub.status === 'revision_requested' && (
                             <button
@@ -3177,7 +3185,7 @@ export default function CreatorDashboard() {
                                     {preview ? <img src={preview} alt={file.name} /> : isVid ? <div className="cd-file-video-icon">▶</div> : <div className="cd-file-video-icon" style={{ fontSize: 14 }}>📷</div>}
                                   </div>
                                   <div className="cd-file-info">
-                                    <div className="cd-file-name">{file.name}</div>
+                                    <div className="cd-file-name">{cleanFileName(file.name, file.type)}</div>
                                     <div className="cd-file-size">{formatFileSize(file.size)}</div>
                                   </div>
                                   <button className="cd-file-remove" onClick={() => removeContentFile(i)}>×</button>
@@ -3567,6 +3575,15 @@ export default function CreatorDashboard() {
     return ' cd-badge-pending'
   }
 
+  function cleanFileName(name, mimeType) {
+    if (!name) return mimeType?.startsWith('video/') ? 'Video file' : mimeType?.startsWith('image/') ? 'Image file' : 'File'
+    const cleaned = name.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[-_]?/i, '')
+    if (!cleaned || cleaned === '.' || /^\.[a-z0-9]+$/i.test(cleaned)) {
+      return mimeType?.startsWith('video/') ? 'Video file' : mimeType?.startsWith('image/') ? 'Image file' : 'File'
+    }
+    return cleaned
+  }
+
   function getFilePreview(file) {
     if (file.type.startsWith('image/') && !file.type.includes('heic') && !file.type.includes('heif')) {
       return URL.createObjectURL(file)
@@ -3670,7 +3687,7 @@ export default function CreatorDashboard() {
                     )}
                   </div>
                   <div className="cd-file-info">
-                    <div className="cd-file-name">{file.name}</div>
+                    <div className="cd-file-name">{cleanFileName(file.name, file.type)}</div>
                     <div className="cd-file-size">{formatFileSize(file.size)}</div>
                   </div>
                   <button className="cd-file-remove" onClick={() => removeContentFile(i)}>×</button>
@@ -3741,21 +3758,23 @@ export default function CreatorDashboard() {
                 const mediaUrl = file.r2_url || file.media_url || file.url
                 return (
                   <div key={fi} className="cd-sub-preview-wrap">
-                    {isImage ? (
-                      <img src={mediaUrl} alt={file.name} className="cd-sub-preview-img" onClick={() => setLightboxFile(file)} />
-                    ) : isVideo ? (
-                      file.mux_playback_id ? (
-                        <video controls preload="metadata" className="cd-sub-preview-video">
-                          <source src={`https://stream.mux.com/${file.mux_playback_id}.m3u8`} type="application/x-mpegURL" />
-                          <source src={mediaUrl} type={file.mime_type || 'video/mp4'} />
-                        </video>
+                    <div className="cd-sub-preview-ratio">
+                      {isImage ? (
+                        <img src={mediaUrl} alt={file.name} className="cd-sub-preview-img" onClick={() => setLightboxFile(file)} />
+                      ) : isVideo ? (
+                        file.mux_playback_id ? (
+                          <video controls preload="metadata">
+                            <source src={`https://stream.mux.com/${file.mux_playback_id}.m3u8`} type="application/x-mpegURL" />
+                            <source src={mediaUrl} type={file.mime_type || 'video/mp4'} />
+                          </video>
+                        ) : (
+                          <video controls preload="metadata" src={mediaUrl} />
+                        )
                       ) : (
-                        <video controls preload="metadata" src={mediaUrl} className="cd-sub-preview-video" />
-                      )
-                    ) : (
-                      <div style={{ width: 48, height: 48, background: '#f5f5f5', border: '1px solid #eee', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#ccc' }}>FILE</div>
-                    )}
-                    <div className="cd-sub-preview-name">{file.name}</div>
+                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#ccc' }}>FILE</div>
+                      )}
+                    </div>
+                    <div className="cd-sub-preview-name">{cleanFileName(file.name, file.mime_type)}</div>
                   </div>
                 )
               })}
@@ -3764,7 +3783,8 @@ export default function CreatorDashboard() {
           {sub.notes && <div className="cd-past-notes">{sub.notes}</div>}
           {sub.admin_feedback && (
             <div className="cd-hist-feedback">
-              Feedback: {sub.admin_feedback}
+              <span className="cd-hist-feedback-label">Feedback</span>
+              <span className="cd-hist-feedback-text">{sub.admin_feedback}</span>
             </div>
           )}
           {sub.status === 'revision_requested' && (
