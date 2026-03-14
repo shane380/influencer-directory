@@ -2981,12 +2981,8 @@ export default function CreatorDashboard() {
             {/* Mobile step 3 — original layout */}
             {mobile && (
               <div>
-                <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Submit Content</div>
-                {renderUploadForm(true)}
-
                 {submissions.filter(s => s.campaign_assignment_id === assignment.id).length > 0 && (
-                  <div style={{ marginTop: 28 }}>
-                    <hr className="cd-camp-detail-divider" />
+                  <div style={{ marginBottom: 28 }}>
                     <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Past Submissions</div>
                     {submissions.filter(s => s.campaign_assignment_id === assignment.id).map(sub => {
                       const files = Array.isArray(sub.files) ? sub.files : []
@@ -3048,6 +3044,10 @@ export default function CreatorDashboard() {
                     })}
                   </div>
                 )}
+
+                <hr className="cd-camp-detail-divider" />
+                <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Submit Content</div>
+                {renderUploadForm(true)}
               </div>
             )}
 
@@ -3312,6 +3312,10 @@ export default function CreatorDashboard() {
     const goLiveDate = campaign.go_live_date ? new Date(campaign.go_live_date + 'T00:00:00').toLocaleDateString('en', { month: 'long', day: 'numeric' }) : null
     const sectionLabel = section === 'forYou' ? 'New' : section === 'inProgress' ? 'In progress' : ''
 
+    // Check if there's a revision requested or rejected submission for this assignment
+    const revisionSub = submissions.find(s => s.campaign_assignment_id === assignment.id && (s.status === 'revision_requested' || s.status === 'rejected'))
+    const hasRevision = !!revisionSub
+
     return (
       <div
         key={assignment.id}
@@ -3319,65 +3323,82 @@ export default function CreatorDashboard() {
         style={{ cursor: 'pointer' }}
         onClick={() => {
           setActiveCampaignDetail(assignment)
-          setCampaignAccepted(false)
+          setCampaignAccepted(true)
           setCampaignVariants({})
         }}
       >
         {/* Status bar */}
         <div className="cd-campaign-card-status-bar">
           <div className="cd-campaign-card-status-left">
-            <span className={`cd-campaign-card-status-dot ${statusInfo.dot}`} />
-            {statusInfo.label}
+            <span className={`cd-campaign-card-status-dot ${hasRevision ? 'sent' : statusInfo.dot}`} />
+            {hasRevision ? (revisionSub.status === 'revision_requested' ? 'Revision requested' : 'Content declined') : statusInfo.label}
           </div>
           {sectionLabel && <div className="cd-campaign-card-status-right">{sectionLabel}</div>}
         </div>
 
-        {/* Hero image */}
-        {campaign.banner_image?.url && (
-          <img src={campaign.banner_image.url} alt="" className="cd-camp-card-banner" style={{ width: '100%', display: 'block' }} />
-        )}
-
-        {/* Card body */}
-        <div className="cd-campaign-card-body">
-          <div className="cd-campaign-title">{campaign.title}</div>
-          {campaign.description && <div className="cd-campaign-desc">{campaign.description}</div>}
-
-          {/* Date fields */}
-          {(goLiveDate || dueDate) && (
-            <div className="cd-campaign-dates">
-              {goLiveDate && (
-                <div className="cd-campaign-date-col">
-                  <label>Goes live</label>
-                  <span>{goLiveDate}</span>
-                </div>
-              )}
-              {dueDate && (
-                <div className="cd-campaign-date-col">
-                  <label>Content due</label>
-                  <span>{dueDate}</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Product thumbnails */}
-          {(() => {
-            const imgs = [...new Set((campaign.available_products || []).map(p => p.image_url).filter(Boolean))]
-            if (imgs.length === 0) return null
-            return (
-              <div className="cd-campaign-card-thumbs">
-                {imgs.slice(0, 4).map((url, i) => (
-                  <img key={i} src={url} alt="" className="cd-campaign-card-thumb" />
-                ))}
-                {imgs.length > 4 && (
-                  <div className="cd-campaign-card-thumb-more">+{imgs.length - 4}</div>
-                )}
+        {hasRevision ? (
+          /* Revision/declined card body */
+          <div className="cd-campaign-card-body">
+            <div className="cd-campaign-title">{campaign.title}</div>
+            {revisionSub.admin_feedback && (
+              <div style={{ fontSize: 13, color: '#666', lineHeight: 1.6, marginTop: 8, fontStyle: 'italic' }}>
+                &ldquo;{revisionSub.admin_feedback}&rdquo;
               </div>
-            )
-          })()}
+            )}
+            <button className="cd-campaign-card-cta" style={{ background: '#b45309', color: '#fff', border: 'none' }}>
+              {revisionSub.status === 'revision_requested' ? 'View Revision Request' : 'View Feedback'}
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Hero image */}
+            {campaign.banner_image?.url && (
+              <img src={campaign.banner_image.url} alt="" className="cd-camp-card-banner" style={{ width: '100%', display: 'block' }} />
+            )}
 
-          <button className="cd-campaign-card-cta">View details</button>
-        </div>
+            {/* Card body */}
+            <div className="cd-campaign-card-body">
+              <div className="cd-campaign-title">{campaign.title}</div>
+              {campaign.description && <div className="cd-campaign-desc">{campaign.description}</div>}
+
+              {/* Date fields */}
+              {(goLiveDate || dueDate) && (
+                <div className="cd-campaign-dates">
+                  {goLiveDate && (
+                    <div className="cd-campaign-date-col">
+                      <label>Goes live</label>
+                      <span>{goLiveDate}</span>
+                    </div>
+                  )}
+                  {dueDate && (
+                    <div className="cd-campaign-date-col">
+                      <label>Content due</label>
+                      <span>{dueDate}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Product thumbnails */}
+              {(() => {
+                const imgs = [...new Set((campaign.available_products || []).map(p => p.image_url).filter(Boolean))]
+                if (imgs.length === 0) return null
+                return (
+                  <div className="cd-campaign-card-thumbs">
+                    {imgs.slice(0, 4).map((url, i) => (
+                      <img key={i} src={url} alt="" className="cd-campaign-card-thumb" />
+                    ))}
+                    {imgs.length > 4 && (
+                      <div className="cd-campaign-card-thumb-more">+{imgs.length - 4}</div>
+                    )}
+                  </div>
+                )
+              })()}
+
+              <button className="cd-campaign-card-cta">View details</button>
+            </div>
+          </>
+        )}
       </div>
     )
   }
@@ -3479,12 +3500,15 @@ export default function CreatorDashboard() {
         const [yr, mo] = (s.month || '').split('-')
         const monthLabel = yr && mo ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString('en', { month: 'short', year: 'numeric' }) : s.month
         const statusLabel = s.status === 'approved' ? 'Content Approved' : s.status === 'revision_requested' ? 'Revision Requested' : 'Content Rejected'
+        // If linked to a campaign assignment, navigate to campaign detail
+        const linkedAssignment = s.campaign_assignment_id ? campaignAssignments.find(a => a.id === s.campaign_assignment_id) : null
         items.push({
           id: 'sub-' + s.id,
           title: statusLabel,
-          meta: monthLabel + ' submission',
+          meta: linkedAssignment?.campaign?.title || (monthLabel + ' submission'),
           feedback: s.admin_feedback || null,
-          tab: 'submit',
+          tab: linkedAssignment ? 'campaigns' : 'submit',
+          campaignAssignment: linkedAssignment || null,
           timestamp: s.reviewed_at || s.created_at || '1970-01-01T00:00:00Z',
         })
       }
@@ -4109,7 +4133,7 @@ export default function CreatorDashboard() {
                           <div className="cd-notif-empty">No notifications</div>
                         ) : (
                           notifs.slice(0, 8).map(n => (
-                            <button key={n.id} className="cd-notif-item" onClick={() => { setNotifOpen(false); setActiveTab(n.tab) }}>
+                            <button key={n.id} className="cd-notif-item" onClick={() => { setNotifOpen(false); setActiveTab(n.tab); if (n.campaignAssignment) { setActiveCampaignDetail(n.campaignAssignment); setCampaignAccepted(true); } }}>
                               <div className="cd-notif-item-title">{n.title}</div>
                               <div className="cd-notif-item-meta">{n.meta}</div>
                               {n.feedback && <div className="cd-notif-item-feedback">&ldquo;{n.feedback}&rdquo;</div>}
