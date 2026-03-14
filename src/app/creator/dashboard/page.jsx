@@ -2359,8 +2359,8 @@ export default function CreatorDashboard() {
 
   function getCampaignStatusInfo(status) {
     const map = {
-      sent: { label: 'New Invite', cls: 'cd-campaign-status-sent', dot: 'sent' },
-      confirmed: { label: 'Selects coming', cls: 'cd-campaign-status-confirmed', dot: 'confirmed' },
+      sent: { label: 'New invite', cls: 'cd-campaign-status-sent', dot: 'sent' },
+      confirmed: { label: 'Submit content', cls: 'cd-campaign-status-confirmed', dot: 'confirmed' },
       content_submitted: { label: 'Under review', cls: 'cd-campaign-status-content', dot: 'content' },
       complete: { label: 'Complete', cls: 'cd-campaign-status-complete', dot: 'complete' },
       declined: { label: 'Declined', cls: 'cd-campaign-status-declined', dot: 'declined' },
@@ -2486,7 +2486,18 @@ export default function CreatorDashboard() {
     const maxSelects = campaign.max_selects || 2
     const dueDate = campaign.due_date ? new Date(campaign.due_date + 'T00:00:00').toLocaleDateString('en', { month: 'long', day: 'numeric' }) : null
     const goLiveDate = campaign.go_live_date ? new Date(campaign.go_live_date + 'T00:00:00').toLocaleDateString('en', { month: 'long', day: 'numeric' }) : null
-    const statusInfo = getCampaignStatusInfo(assignment.status)
+    const baseStatusInfo = getCampaignStatusInfo(assignment.status)
+    // Step-aware badge for detail view
+    const stepLabels = {
+      1: { label: 'New invite', dot: 'sent' },
+      2: { label: 'Selects needed', dot: 'confirmed' },
+      3: { label: 'Submit content', dot: 'confirmed' },
+      4: { label: 'Complete', dot: 'complete' },
+    }
+    const stepOverride = stepLabels[currentStep] || {}
+    const statusInfo = assignment.status === 'content_submitted'
+      ? { ...baseStatusInfo, label: 'Under review', dot: 'content' }
+      : { ...baseStatusInfo, ...stepOverride }
     const matchingOrder = assignment.order_id ? orders.find(o => String(o.shopify_order_id) === String(assignment.order_id) || String(o.id) === String(assignment.order_id)) : null
 
     return (
