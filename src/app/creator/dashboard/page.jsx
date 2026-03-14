@@ -267,6 +267,7 @@ const CSS = `
 .cd-camp-back:hover { color: #111; }
 .cd-camp-detail { }
 .cd-camp-banner { width: 100%; aspect-ratio: 20/17; object-fit: cover; display: block; margin-bottom: 28px; border-radius: 8px; }
+.cd-style-gallery::-webkit-scrollbar { display: none; }
 .cd-camp-steps { display: flex; align-items: center; gap: 0; margin-bottom: 32px; }
 .cd-camp-step { display: flex; align-items: center; gap: 8px; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #ccc; padding: 10px 0; flex: 1; justify-content: center; border-bottom: 2px solid #e8e8e8; transition: all 0.2s; }
 .cd-camp-step.active { color: #111; border-bottom-color: #111; font-weight: 500; }
@@ -2504,42 +2505,6 @@ export default function CreatorDashboard() {
               </>
             )}
 
-            {campaign.deliverables && (
-              <>
-                <hr className="cd-camp-detail-divider" />
-                <div className="cd-camp-deliverables">
-                  <div className="cd-camp-deliverables-label">What We're Looking For</div>
-                  <div className="cd-camp-deliverables-text">{campaign.deliverables}</div>
-                </div>
-              </>
-            )}
-
-            {campaign.brief_images?.length > 0 && (
-              <div style={{ marginBottom: 24 }}>
-                <div className="cd-camp-deliverables-label">Content References</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginTop: 10, alignItems: 'start' }}>
-                  {campaign.brief_images.map((img, i) => {
-                    const isVideo = img.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(img.url || '')
-                    return (
-                      <div key={i} style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid #e8e8e8' }}>
-                        {isVideo ? (
-                          <video src={img.url} controls playsInline preload="metadata" style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block', background: '#111' }} />
-                        ) : (
-                          <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-
-            {campaign.brief_url && (
-              <a href={campaign.brief_url} target="_blank" rel="noopener noreferrer" className="cd-campaign-brief-link" style={{ marginBottom: 20, display: 'inline-flex' }}>
-                View brief →
-              </a>
-            )}
-
             {currentStep === 1 && (
               <div>
                 <hr className="cd-camp-detail-divider" />
@@ -2548,7 +2513,78 @@ export default function CreatorDashboard() {
                   <div className="cd-camp-deliverables-text">You can choose up to {maxSelects} {maxSelects === 1 ? 'style' : 'styles'}</div>
                 </div>
 
-                <hr className="cd-camp-detail-divider" />
+                {products.length > 0 && (
+                  <div style={{ marginBottom: 24, position: 'relative' }}>
+                    <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Style Previews</div>
+                    <div style={{ position: 'relative' }}>
+                      <div
+                        className="cd-style-gallery"
+                        style={{ display: 'flex', gap: 12, overflowX: 'auto', scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none', paddingBottom: 4 }}
+                      >
+                        {products.map((p, i) => (
+                          <div key={i} style={{ flex: '0 0 140px', borderRadius: 8, overflow: 'hidden', border: '1px solid #e8e8e8', background: '#fafafa' }}>
+                            <div style={{ aspectRatio: '4/5', overflow: 'hidden' }}>
+                              {p.image_url ? <img src={p.image_url} alt={p.product_title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ccc', fontSize: 12 }}>No image</div>}
+                            </div>
+                            <div style={{ padding: '8px 10px' }}>
+                              <div style={{ fontSize: 11, fontWeight: 500, color: '#1a1a1a', lineHeight: 1.3 }}>{p.product_title}</div>
+                              {p.variant_title && <div style={{ fontSize: 10, color: '#999', marginTop: 2 }}>{p.variant_title}</div>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {products.length > 2 && (
+                        <>
+                          <button
+                            onClick={(e) => { const g = e.currentTarget.parentElement.querySelector('.cd-style-gallery'); g.scrollBy({ left: -160, behavior: 'smooth' }) }}
+                            style={{ position: 'absolute', left: -6, top: '50%', transform: 'translateY(-50%)', width: 28, height: 28, borderRadius: '50%', background: '#fff', border: '1px solid #ddd', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 14, color: '#555', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', zIndex: 2 }}
+                          >←</button>
+                          <button
+                            onClick={(e) => { const g = e.currentTarget.parentElement.querySelector('.cd-style-gallery'); g.scrollBy({ left: 160, behavior: 'smooth' }) }}
+                            style={{ position: 'absolute', right: -6, top: '50%', transform: 'translateY(-50%)', width: 28, height: 28, borderRadius: '50%', background: '#fff', border: '1px solid #ddd', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 14, color: '#555', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', zIndex: 2 }}
+                          >→</button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {campaign.deliverables && (
+                  <>
+                    <hr className="cd-camp-detail-divider" />
+                    <div className="cd-camp-deliverables">
+                      <div className="cd-camp-deliverables-label">What We're Looking For</div>
+                      <div className="cd-camp-deliverables-text">{campaign.deliverables}</div>
+                    </div>
+                  </>
+                )}
+
+                {campaign.brief_images?.length > 0 && (
+                  <div style={{ marginBottom: 24 }}>
+                    <div className="cd-camp-deliverables-label">Content References</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginTop: 10, alignItems: 'start' }}>
+                      {campaign.brief_images.map((img, i) => {
+                        const isVideo = img.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(img.url || '')
+                        return (
+                          <div key={i} style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid #e8e8e8' }}>
+                            {isVideo ? (
+                              <video src={img.url} controls playsInline preload="metadata" style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block', background: '#111' }} />
+                            ) : (
+                              <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {campaign.brief_url && (
+                  <a href={campaign.brief_url} target="_blank" rel="noopener noreferrer" className="cd-campaign-brief-link" style={{ marginBottom: 20, display: 'inline-flex' }}>
+                    View brief →
+                  </a>
+                )}
+
                 <button
                   className="cd-campaign-btn-fill"
                   style={{ marginBottom: 28 }}
@@ -2559,25 +2595,6 @@ export default function CreatorDashboard() {
                 >
                   Accept Campaign
                 </button>
-
-                {products.length > 0 && (
-                  <div style={{ marginBottom: 20 }}>
-                    <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Style Previews</div>
-                    <div className="cd-products">
-                      {products.map((p, i) => (
-                        <div key={i} className="cd-product" style={{ cursor: 'default' }}>
-                          <div className="cd-product-img">
-                            {p.image_url ? <img src={p.image_url} alt={p.product_title} /> : <div style={{ color: '#ccc', fontSize: 12 }}>No image</div>}
-                          </div>
-                          <div className="cd-product-info">
-                            <div className="cd-product-name">{p.product_title}</div>
-                            {p.variant_title && <div className="cd-product-variant">{p.variant_title}</div>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
           </>
@@ -2618,48 +2635,85 @@ export default function CreatorDashboard() {
                 <div style={{ fontSize: 13, color: '#666', lineHeight: 1.7, marginBottom: 20 }}>{campaign.description}</div>
               )}
 
-              {campaign.deliverables && (
-                <>
-                  <hr className="cd-camp-detail-divider" />
-                  <div className="cd-camp-deliverables">
-                    <div className="cd-camp-deliverables-label">What We're Looking For</div>
-                    <div className="cd-camp-deliverables-text">{campaign.deliverables}</div>
-                  </div>
-                </>
-              )}
-
-              {campaign.brief_images?.length > 0 && (
-                <div style={{ marginBottom: 24 }}>
-                  <div className="cd-camp-deliverables-label">Content References</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginTop: 10, alignItems: 'start' }}>
-                    {campaign.brief_images.map((img, i) => {
-                      const isVideo = img.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(img.url || '')
-                      return (
-                        <div key={i} style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid #e8e8e8' }}>
-                          {isVideo ? (
-                            <video src={img.url} controls playsInline preload="metadata" style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block', background: '#111' }} />
-                          ) : (
-                            <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {campaign.brief_url && (
-                <a href={campaign.brief_url} target="_blank" rel="noopener noreferrer" className="cd-campaign-brief-link" style={{ marginBottom: 20, display: 'inline-flex' }}>
-                  View brief →
-                </a>
-              )}
-
               {currentStep === 1 && (
                 <div>
+                  <hr className="cd-camp-detail-divider" />
                   <div className="cd-camp-deliverables" style={{ marginBottom: 20 }}>
                     <div className="cd-camp-deliverables-label">Your Selects</div>
                     <div className="cd-camp-deliverables-text">You can choose up to {maxSelects} {maxSelects === 1 ? 'style' : 'styles'}</div>
                   </div>
+
+                  {products.length > 0 && (
+                    <div style={{ marginBottom: 24, position: 'relative' }}>
+                      <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Style Previews</div>
+                      <div style={{ position: 'relative' }}>
+                        <div
+                          className="cd-style-gallery"
+                          style={{ display: 'flex', gap: 12, overflowX: 'auto', scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none', paddingBottom: 4 }}
+                        >
+                          {products.map((p, i) => (
+                            <div key={i} style={{ flex: '0 0 160px', borderRadius: 8, overflow: 'hidden', border: '1px solid #e8e8e8', background: '#fafafa' }}>
+                              <div style={{ aspectRatio: '4/5', overflow: 'hidden' }}>
+                                {p.image_url ? <img src={p.image_url} alt={p.product_title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ccc', fontSize: 12 }}>No image</div>}
+                              </div>
+                              <div style={{ padding: '8px 10px' }}>
+                                <div style={{ fontSize: 11, fontWeight: 500, color: '#1a1a1a', lineHeight: 1.3 }}>{p.product_title}</div>
+                                {p.variant_title && <div style={{ fontSize: 10, color: '#999', marginTop: 2 }}>{p.variant_title}</div>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        {products.length > 3 && (
+                          <>
+                            <button
+                              onClick={(e) => { const g = e.currentTarget.parentElement.querySelector('.cd-style-gallery'); g.scrollBy({ left: -180, behavior: 'smooth' }) }}
+                              style={{ position: 'absolute', left: -12, top: '50%', transform: 'translateY(-50%)', width: 32, height: 32, borderRadius: '50%', background: '#fff', border: '1px solid #ddd', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 16, color: '#555', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', zIndex: 2 }}
+                            >←</button>
+                            <button
+                              onClick={(e) => { const g = e.currentTarget.parentElement.querySelector('.cd-style-gallery'); g.scrollBy({ left: 180, behavior: 'smooth' }) }}
+                              style={{ position: 'absolute', right: -12, top: '50%', transform: 'translateY(-50%)', width: 32, height: 32, borderRadius: '50%', background: '#fff', border: '1px solid #ddd', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 16, color: '#555', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', zIndex: 2 }}
+                            >→</button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {campaign.deliverables && (
+                    <>
+                      <hr className="cd-camp-detail-divider" />
+                      <div className="cd-camp-deliverables">
+                        <div className="cd-camp-deliverables-label">What We're Looking For</div>
+                        <div className="cd-camp-deliverables-text">{campaign.deliverables}</div>
+                      </div>
+                    </>
+                  )}
+
+                  {campaign.brief_images?.length > 0 && (
+                    <div style={{ marginBottom: 24 }}>
+                      <div className="cd-camp-deliverables-label">Content References</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginTop: 10, alignItems: 'start' }}>
+                        {campaign.brief_images.map((img, i) => {
+                          const isVideo = img.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(img.url || '')
+                          return (
+                            <div key={i} style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid #e8e8e8' }}>
+                              {isVideo ? (
+                                <video src={img.url} controls playsInline preload="metadata" style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block', background: '#111' }} />
+                              ) : (
+                                <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {campaign.brief_url && (
+                    <a href={campaign.brief_url} target="_blank" rel="noopener noreferrer" className="cd-campaign-brief-link" style={{ marginBottom: 20, display: 'inline-flex' }}>
+                      View brief →
+                    </a>
+                  )}
 
                   <button
                     className="cd-campaign-btn-fill"
@@ -2671,25 +2725,6 @@ export default function CreatorDashboard() {
                   >
                     Accept Campaign
                   </button>
-
-                  {products.length > 0 && (
-                    <div style={{ marginBottom: 20 }}>
-                      <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Style Previews</div>
-                      <div className="cd-products">
-                        {products.map((p, i) => (
-                          <div key={i} className="cd-product" style={{ cursor: 'default' }}>
-                            <div className="cd-product-img">
-                              {p.image_url ? <img src={p.image_url} alt={p.product_title} /> : <div style={{ color: '#ccc', fontSize: 12 }}>No image</div>}
-                            </div>
-                            <div className="cd-product-info">
-                              <div className="cd-product-name">{p.product_title}</div>
-                              {p.variant_title && <div className="cd-product-variant">{p.variant_title}</div>}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
