@@ -344,6 +344,22 @@ const CSS = `
   .cd-step3-past-thumb img, .cd-step3-past-thumb video { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
   .cd-step3-past-badge { position: absolute; bottom: 6px; right: 6px; }
   .cd-step3-divider { height: 0; border: none; border-top: 0.5px solid #e0e0e0; margin: 20px 0; }
+  /* Revision state layout */
+  .cd-rev-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  .cd-rev-label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #aaa; margin-bottom: 8px; }
+  .cd-rev-media-card { border: 0.5px solid #e0e0e0; border-radius: 10px; overflow: hidden; }
+  .cd-rev-media { position: relative; aspect-ratio: 9/16; background: #111; }
+  .cd-rev-media img, .cd-rev-media video { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
+  .cd-rev-media-info { padding: 10px 12px; }
+  .cd-rev-media-name { font-size: 12px; font-weight: 500; color: #333; margin-bottom: 2px; }
+  .cd-rev-media-size { font-size: 11px; color: #999; }
+  .cd-rev-media-notes { font-size: 12px; color: #666; font-style: italic; margin-top: 6px; }
+  .cd-rev-right { display: flex; flex-direction: column; gap: 14px; }
+  .cd-rev-feedback { border-left: 3px solid #e8a24a; background: #fdf8f0; padding: 12px 14px; border-radius: 0 6px 6px 0; }
+  .cd-rev-feedback-tag { font-size: 10px; text-transform: uppercase; color: #c4631a; display: block; margin-bottom: 5px; letter-spacing: 0.06em; font-weight: 600; }
+  .cd-rev-feedback-text { font-size: 13px; color: #333; line-height: 1.5; }
+  .cd-rev-ref { aspect-ratio: 9/16; border-radius: 10px; overflow: hidden; width: 100%; }
+  .cd-rev-ref img, .cd-rev-ref video { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
 }
 
 /* PRODUCTS */
@@ -2989,280 +3005,583 @@ export default function CreatorDashboard() {
               return null
             })()}
 
-            {/* Mobile step 3 — original layout */}
-            {mobile && (
-              <div>
-                {submissions.filter(s => s.campaign_assignment_id === assignment.id).length > 0 && (
-                  <div style={{ marginBottom: 28 }}>
-                    <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Past Submissions</div>
-                    {submissions.filter(s => s.campaign_assignment_id === assignment.id).map(sub => {
-                      const files = Array.isArray(sub.files) ? sub.files : []
-                      const statusLabel = sub.status === 'pending' ? 'in review' : (sub.status || '').replace(/_/g, ' ')
-                      return (
-                        <div key={sub.id} className="cd-hist-card" style={{ marginBottom: 12 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                            <div className="cd-past-label">{files.length} file{files.length !== 1 ? 's' : ''}</div>
-                            <span className={`cd-badge${getStatusBadgeClass(sub.status)}`}>{statusLabel}</span>
+            {/* Mobile step 3 */}
+            {mobile && (() => {
+              const campSubs = submissions.filter(s => s.campaign_assignment_id === assignment.id)
+              const latestSub = campSubs.sort((a, b) => (b.submitted_at || b.created_at || '').localeCompare(a.submitted_at || a.created_at || ''))[0]
+              const isRevision = latestSub?.status === 'revision_requested'
+              const revFiles = isRevision ? (Array.isArray(latestSub.files) ? latestSub.files : []) : []
+              const revFile = revFiles[0]
+              const revMediaUrl = revFile ? (revFile.r2_url || revFile.media_url || revFile.url) : null
+              const revIsVideo = revFile?.mime_type?.startsWith('video/')
+              const revIsImage = revFile?.mime_type?.startsWith('image/')
+              const firstRef = campaign.brief_images?.[0]
+              const firstRefIsVideo = firstRef && (firstRef.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(firstRef.url || ''))
+
+              if (isRevision) {
+                // Auto-set resubmit target
+                if (!resubmitTarget) {
+                  setTimeout(() => { setResubmitTarget(latestSub.id); setContentMonth(latestSub.month); }, 0)
+                }
+                return (
+                  <div>
+                    {/* Their submission */}
+                    {revFile && (
+                      <div style={{ marginBottom: 20 }}>
+                        <div className="cd-rev-label">Your submission</div>
+                        <div className="cd-rev-media-card">
+                          <div className="cd-rev-media">
+                            {revIsVideo ? (
+                              <>
+                                <video src={revMediaUrl} preload="metadata" style={{ pointerEvents: 'none' }} />
+                                <div className="cd-sub-play-overlay">▶</div>
+                              </>
+                            ) : revIsImage ? (
+                              <img src={revMediaUrl} alt="" />
+                            ) : null}
                           </div>
-                          {files.length > 0 && (
-                            <div className="cd-sub-previews">
-                              {files.map((file, fi) => {
-                                const isImage = file.mime_type?.startsWith('image/')
-                                const isVideo = file.mime_type?.startsWith('video/')
-                                const mediaUrl = file.r2_url || file.media_url || file.url
-                                return (
-                                  <div key={fi} className="cd-sub-preview-wrap">
-                                    <div className="cd-sub-preview-ratio">
-                                      {isImage ? (
-                                        <img src={mediaUrl} alt={file.name} className="cd-sub-preview-img" onClick={() => setLightboxFile(file)} />
-                                      ) : isVideo ? (
-                                        <>
-                                          <video preload="metadata" src={mediaUrl} style={{ pointerEvents: 'none' }} />
-                                          <div className="cd-sub-play-overlay">▶</div>
-                                        </>
-                                      ) : (
-                                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#ccc' }}>FILE</div>
-                                      )}
+                          <div className="cd-rev-media-info">
+                            <div className="cd-rev-media-name">{cleanFileName(revFile.name, revFile.mime_type)}</div>
+                            {revFile.size && <div className="cd-rev-media-size">{formatFileSize(revFile.size)}</div>}
+                            {latestSub.notes && <div className="cd-rev-media-notes">{latestSub.notes}</div>}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Feedback */}
+                    {latestSub.admin_feedback && (
+                      <div style={{ marginBottom: 20 }}>
+                        <div className="cd-rev-label">Feedback</div>
+                        <div className="cd-rev-feedback">
+                          <span className="cd-rev-feedback-tag">Revision requested</span>
+                          <div className="cd-rev-feedback-text">{latestSub.admin_feedback}</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* First content reference */}
+                    {firstRef && (
+                      <div style={{ marginBottom: 20 }}>
+                        <div className="cd-rev-label">Reference</div>
+                        <div className="cd-rev-ref">
+                          {firstRefIsVideo ? (
+                            <video src={firstRef.url} preload="metadata" style={{ pointerEvents: 'none' }} />
+                          ) : (
+                            <img src={firstRef.url} alt="" />
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Upload zone */}
+                    <div style={{ marginBottom: 16 }}>
+                      <div className="cd-rev-label">Resubmit content</div>
+                      <div
+                        className="cd-dropzone"
+                        onDragOver={e => e.preventDefault()}
+                        onDrop={handleContentFileDrop}
+                        onClick={() => document.getElementById('cd-rev-m-file-input')?.click()}
+                      >
+                        <div className="cd-dropzone-icon">↑</div>
+                        <div className="cd-dropzone-text">Drag & drop files here or click to browse</div>
+                        <div className="cd-dropzone-hint">MP4, MOV, JPG, PNG, HEIC, WebP</div>
+                        <input
+                          id="cd-rev-m-file-input"
+                          type="file"
+                          multiple
+                          accept="video/mp4,video/quicktime,video/x-m4v,image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,.mov,.mp4,.m4v"
+                          style={{ display: 'none' }}
+                          onChange={handleContentFileSelect}
+                        />
+                      </div>
+                      {contentFiles.length > 0 && (
+                        <div className="cd-file-list" style={{ marginTop: 12 }}>
+                          {contentFiles.map((file, i) => {
+                            const preview = getFilePreview(file)
+                            const isVid = file.type.startsWith('video/')
+                            return (
+                              <div key={i} className="cd-file-item">
+                                <div className="cd-file-thumb">
+                                  {preview ? <img src={preview} alt={file.name} /> : isVid ? <div className="cd-file-video-icon">▶</div> : <div className="cd-file-video-icon" style={{ fontSize: 14 }}>📷</div>}
+                                </div>
+                                <div className="cd-file-info">
+                                  <div className="cd-file-name">{cleanFileName(file.name, file.type)}</div>
+                                  <div className="cd-file-size">{formatFileSize(file.size)}</div>
+                                </div>
+                                <button className="cd-file-remove" onClick={() => removeContentFile(i)}>×</button>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {contentSubmitting && (
+                      <div className="cd-upload-progress" style={{ marginBottom: 12 }}>
+                        <div className="cd-upload-progress-bar" style={{ width: `${contentProgress}%` }} />
+                        <div className="cd-upload-progress-text">Uploading… {contentProgress}%</div>
+                      </div>
+                    )}
+
+                    <button
+                      className="cd-step3-submit-btn"
+                      style={{ borderRadius: 6 }}
+                      onClick={submitContent}
+                      disabled={!contentFiles.length || contentSubmitting}
+                    >
+                      {contentSubmitting ? 'Uploading…' : 'Resubmit Content →'}
+                    </button>
+                  </div>
+                )
+              }
+
+              // Default mobile step 3
+              return (
+                <div>
+                  {campSubs.length > 0 && (
+                    <div style={{ marginBottom: 28 }}>
+                      <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Past Submissions</div>
+                      {campSubs.map(sub => {
+                        const files = Array.isArray(sub.files) ? sub.files : []
+                        const statusLabel = sub.status === 'pending' ? 'in review' : (sub.status || '').replace(/_/g, ' ')
+                        return (
+                          <div key={sub.id} className="cd-hist-card" style={{ marginBottom: 12 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                              <div className="cd-past-label">{files.length} file{files.length !== 1 ? 's' : ''}</div>
+                              <span className={`cd-badge${getStatusBadgeClass(sub.status)}`}>{statusLabel}</span>
+                            </div>
+                            {files.length > 0 && (
+                              <div className="cd-sub-previews">
+                                {files.map((file, fi) => {
+                                  const isImage = file.mime_type?.startsWith('image/')
+                                  const isVideo = file.mime_type?.startsWith('video/')
+                                  const mediaUrl = file.r2_url || file.media_url || file.url
+                                  return (
+                                    <div key={fi} className="cd-sub-preview-wrap">
+                                      <div className="cd-sub-preview-ratio">
+                                        {isImage ? (
+                                          <img src={mediaUrl} alt={file.name} className="cd-sub-preview-img" onClick={() => setLightboxFile(file)} />
+                                        ) : isVideo ? (
+                                          <>
+                                            <video preload="metadata" src={mediaUrl} style={{ pointerEvents: 'none' }} />
+                                            <div className="cd-sub-play-overlay">▶</div>
+                                          </>
+                                        ) : (
+                                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#ccc' }}>FILE</div>
+                                        )}
+                                      </div>
+                                      <div className="cd-sub-preview-name">{cleanFileName(file.name, file.mime_type)}</div>
                                     </div>
-                                    <div className="cd-sub-preview-name">{cleanFileName(file.name, file.mime_type)}</div>
+                                  )
+                                })}
+                              </div>
+                            )}
+                            {sub.notes && <div className="cd-past-notes">{sub.notes}</div>}
+                            {sub.admin_feedback && (
+                              <div className="cd-hist-feedback">
+                                <span className="cd-hist-feedback-label">Feedback</span>
+                                <span className="cd-hist-feedback-text">{sub.admin_feedback}</span>
+                              </div>
+                            )}
+                            {sub.status === 'revision_requested' && (
+                              <button
+                                className="cd-resubmit-btn"
+                                onClick={() => {
+                                  setResubmitTarget(sub.id)
+                                  setContentMonth(sub.month)
+                                  setContentFiles([])
+                                  setContentNotes('')
+                                  setContentSuccess(null)
+                                }}
+                              >
+                                Resubmit Content →
+                              </button>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  <hr className="cd-camp-detail-divider" />
+                  <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Submit Content</div>
+                  {renderUploadForm(true)}
+                </div>
+              )
+            })()}
+
+            {/* Desktop step 3 — redesigned layout */}
+            {!mobile && (() => {
+              const campSubs = submissions.filter(s => s.campaign_assignment_id === assignment.id)
+              const latestSub = [...campSubs].sort((a, b) => (b.submitted_at || b.created_at || '').localeCompare(a.submitted_at || a.created_at || ''))[0]
+              const isRevision = latestSub?.status === 'revision_requested'
+              const revFiles = isRevision ? (Array.isArray(latestSub.files) ? latestSub.files : []) : []
+              const revFile = revFiles[0]
+              const revMediaUrl = revFile ? (revFile.r2_url || revFile.media_url || revFile.url) : null
+              const revIsVideo = revFile?.mime_type?.startsWith('video/')
+              const revIsImage = revFile?.mime_type?.startsWith('image/')
+              const firstRef = campaign.brief_images?.[0]
+              const firstRefIsVideo = firstRef && (firstRef.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(firstRef.url || ''))
+
+              if (isRevision) {
+                // Auto-set resubmit target
+                if (!resubmitTarget) {
+                  setTimeout(() => { setResubmitTarget(latestSub.id); setContentMonth(latestSub.month); }, 0)
+                }
+                return (
+                  <div className="cd-step3-desktop">
+                    {/* Meta header */}
+                    <div className="cd-step3-meta">
+                      <div className="cd-step3-meta-row1">
+                        <div className="cd-step3-meta-title">{campaign.title}</div>
+                        <span className="cd-camp-detail-badge">{statusInfo.label}</span>
+                      </div>
+                    </div>
+
+                    <hr className="cd-step3-divider" />
+
+                    {/* Two-column: submission + feedback/reference */}
+                    <div className="cd-rev-grid">
+                      {/* Left — their submission */}
+                      <div>
+                        <div className="cd-rev-label">Your submission</div>
+                        {revFile && (
+                          <div className="cd-rev-media-card">
+                            <div className="cd-rev-media">
+                              {revIsVideo ? (
+                                <>
+                                  <video src={revMediaUrl} preload="metadata" style={{ pointerEvents: 'none' }} />
+                                  <div className="cd-sub-play-overlay">▶</div>
+                                </>
+                              ) : revIsImage ? (
+                                <img src={revMediaUrl} alt="" />
+                              ) : null}
+                            </div>
+                            <div className="cd-rev-media-info">
+                              <div className="cd-rev-media-name">{cleanFileName(revFile.name, revFile.mime_type)}</div>
+                              {revFile.size && <div className="cd-rev-media-size">{formatFileSize(revFile.size)}</div>}
+                              {latestSub.notes && <div className="cd-rev-media-notes">{latestSub.notes}</div>}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Right — feedback + reference */}
+                      <div className="cd-rev-right">
+                        {latestSub.admin_feedback && (
+                          <div>
+                            <div className="cd-rev-label">Feedback</div>
+                            <div className="cd-rev-feedback">
+                              <span className="cd-rev-feedback-tag">Revision requested</span>
+                              <div className="cd-rev-feedback-text">{latestSub.admin_feedback}</div>
+                            </div>
+                          </div>
+                        )}
+                        {firstRef && (
+                          <div>
+                            <div className="cd-rev-label">Reference</div>
+                            <div className="cd-rev-ref">
+                              {firstRefIsVideo ? (
+                                <video src={firstRef.url} preload="metadata" style={{ pointerEvents: 'none' }} />
+                              ) : (
+                                <img src={firstRef.url} alt="" />
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <hr className="cd-step3-divider" />
+
+                    {/* Resubmit section */}
+                    <div className="cd-rev-label">Resubmit content</div>
+
+                    {contentSuccess ? (
+                      <div className="cd-upload-success">
+                        <div className="cd-upload-success-icon">✓</div>
+                        <div className="cd-upload-success-title">Submitted</div>
+                        <div className="cd-upload-success-sub">We&apos;ll review within 48 hours.</div>
+                        <button className="cd-step3-submit-btn" style={{ marginTop: 20, maxWidth: 240, margin: '20px auto 0' }} onClick={() => setContentSuccess(null)}>
+                          Submit More Content
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="cd-step3-form-grid">
+                          <div>
+                            <div
+                              className="cd-dropzone"
+                              onDragOver={e => e.preventDefault()}
+                              onDrop={handleContentFileDrop}
+                              onClick={() => document.getElementById('cd-step3-file-input')?.click()}
+                            >
+                              <div className="cd-dropzone-icon">↑</div>
+                              <div className="cd-dropzone-text">Drag & drop files here or click to browse</div>
+                              <div className="cd-dropzone-hint">MP4, MOV, JPG, PNG, HEIC, WebP</div>
+                              <input
+                                id="cd-step3-file-input"
+                                type="file"
+                                multiple
+                                accept="video/mp4,video/quicktime,video/x-m4v,image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,.mov,.mp4,.m4v"
+                                style={{ display: 'none' }}
+                                onChange={handleContentFileSelect}
+                              />
+                            </div>
+                            {contentFiles.length > 0 && (
+                              <div className="cd-file-list" style={{ marginTop: 12 }}>
+                                {contentFiles.map((file, i) => {
+                                  const preview = getFilePreview(file)
+                                  const isVid = file.type.startsWith('video/')
+                                  return (
+                                    <div key={i} className="cd-file-item">
+                                      <div className="cd-file-thumb">
+                                        {preview ? <img src={preview} alt={file.name} /> : isVid ? <div className="cd-file-video-icon">▶</div> : <div className="cd-file-video-icon" style={{ fontSize: 14 }}>📷</div>}
+                                      </div>
+                                      <div className="cd-file-info">
+                                        <div className="cd-file-name">{cleanFileName(file.name, file.type)}</div>
+                                        <div className="cd-file-size">{formatFileSize(file.size)}</div>
+                                      </div>
+                                      <button className="cd-file-remove" onClick={() => removeContentFile(i)}>×</button>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
+                          <div className="cd-step3-form-right">
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                              <label className="cd-field-label">Notes (optional)</label>
+                              <textarea
+                                className="cd-field-textarea"
+                                value={contentNotes}
+                                onChange={e => setContentNotes(e.target.value)}
+                                placeholder="Anything we should know about these videos?"
+                              />
+                            </div>
+                            {contentSubmitting && (
+                              <div className="cd-upload-progress">
+                                <div className="cd-upload-progress-bar" style={{ width: `${contentProgress}%` }} />
+                                <div className="cd-upload-progress-text">Uploading… {contentProgress}%</div>
+                              </div>
+                            )}
+                            <button
+                              className="cd-step3-submit-btn"
+                              onClick={submitContent}
+                              disabled={!contentFiles.length || contentSubmitting}
+                            >
+                              {contentSubmitting ? 'Uploading…' : 'Resubmit Content →'}
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )
+              }
+
+              // Default desktop step 3
+              return (
+                <div className="cd-step3-desktop">
+                  {/* Compact meta header */}
+                  <div className="cd-step3-meta">
+                    <div className="cd-step3-meta-row1">
+                      <div className="cd-step3-meta-title">{campaign.title}</div>
+                      <span className="cd-camp-detail-badge">{statusInfo.label}</span>
+                    </div>
+                    {campaign.description && (
+                      <div className="cd-step3-meta-desc">{campaign.description}</div>
+                    )}
+                  </div>
+
+                  <hr className="cd-step3-divider" />
+
+                  {/* Info bar — 4 columns */}
+                  <div className="cd-step3-info-bar">
+                    <div className="cd-step3-info-col">
+                      <label>Goes live</label>
+                      <span>{goLiveDate || '—'}</span>
+                    </div>
+                    <div className="cd-step3-info-col">
+                      <label>Content due</label>
+                      <span>{dueDate || '—'}</span>
+                    </div>
+                    <div className="cd-step3-info-col">
+                      <label>Looking for</label>
+                      <span>{campaign.deliverables || '—'}</span>
+                    </div>
+                    <div className="cd-step3-info-col">
+                      <label>Your selects</label>
+                      <span>{assignment.selected_products?.length || 0} style{(assignment.selected_products?.length || 0) !== 1 ? 's' : ''}</span>
+                    </div>
+                  </div>
+
+                  {/* Content references horizontal scroll */}
+                  {campaign.brief_images?.length > 0 && (
+                    <>
+                      <hr className="cd-step3-divider" />
+                      <div className="cd-step3-refs">
+                        <div className="cd-step3-refs-label">Content references</div>
+                        <div className="cd-step3-refs-scroll">
+                          {campaign.brief_images.map((img, i) => {
+                            const isVideo = img.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(img.url || '')
+                            return (
+                              <div key={i} className="cd-step3-refs-card">
+                                {isVideo ? (
+                                  <video src={img.url} controls playsInline preload="metadata" />
+                                ) : (
+                                  <img src={img.url} alt="" />
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  <hr className="cd-step3-divider" />
+
+                  {/* Submit content form — two-column grid */}
+                  {contentSuccess ? (
+                    <div className="cd-upload-success">
+                      <div className="cd-upload-success-icon">✓</div>
+                      <div className="cd-upload-success-title">Submitted</div>
+                      <div className="cd-upload-success-sub">We&apos;ll review within 48 hours.</div>
+                      <button className="cd-step3-submit-btn" style={{ marginTop: 20, maxWidth: 240, margin: '20px auto 0' }} onClick={() => setContentSuccess(null)}>
+                        Submit More Content
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {resubmitTarget && (
+                        <div className="cd-resubmit-banner" style={{ marginBottom: 16 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                              <strong>Resubmitting content</strong>
+                              <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>Upload your revised files below.</div>
+                            </div>
+                            <button className="cd-resubmit-cancel" onClick={() => { setResubmitTarget(null); setContentFiles([]); setContentNotes(''); }}>Cancel</button>
+                          </div>
+                        </div>
+                      )}
+                      <div className="cd-step3-form-grid">
+                        <div>
+                          <div
+                            className="cd-dropzone"
+                            onDragOver={e => e.preventDefault()}
+                            onDrop={handleContentFileDrop}
+                            onClick={() => document.getElementById('cd-step3-file-input')?.click()}
+                          >
+                            <div className="cd-dropzone-icon">↑</div>
+                            <div className="cd-dropzone-text">Drag & drop files here or click to browse</div>
+                            <div className="cd-dropzone-hint">MP4, MOV, JPG, PNG, HEIC, WebP</div>
+                            <input
+                              id="cd-step3-file-input"
+                              type="file"
+                              multiple
+                              accept="video/mp4,video/quicktime,video/x-m4v,image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,.mov,.mp4,.m4v"
+                              style={{ display: 'none' }}
+                              onChange={handleContentFileSelect}
+                            />
+                          </div>
+                          <div style={{ fontSize: 11, color: '#999', marginTop: 6, lineHeight: 1.5 }}>
+                            Upload original file from camera roll for best quality
+                          </div>
+                          {contentFiles.length > 0 && (
+                            <div className="cd-file-list" style={{ marginTop: 12 }}>
+                              {contentFiles.map((file, i) => {
+                                const preview = getFilePreview(file)
+                                const isVid = file.type.startsWith('video/')
+                                return (
+                                  <div key={i} className="cd-file-item">
+                                    <div className="cd-file-thumb">
+                                      {preview ? <img src={preview} alt={file.name} /> : isVid ? <div className="cd-file-video-icon">▶</div> : <div className="cd-file-video-icon" style={{ fontSize: 14 }}>📷</div>}
+                                    </div>
+                                    <div className="cd-file-info">
+                                      <div className="cd-file-name">{cleanFileName(file.name, file.type)}</div>
+                                      <div className="cd-file-size">{formatFileSize(file.size)}</div>
+                                    </div>
+                                    <button className="cd-file-remove" onClick={() => removeContentFile(i)}>×</button>
                                   </div>
                                 )
                               })}
                             </div>
                           )}
-                          {sub.notes && <div className="cd-past-notes">{sub.notes}</div>}
-                          {sub.admin_feedback && (
-                            <div className="cd-hist-feedback">
-                              <span className="cd-hist-feedback-label">Feedback</span>
-                              <span className="cd-hist-feedback-text">{sub.admin_feedback}</span>
-                            </div>
-                          )}
-                          {sub.status === 'revision_requested' && (
-                            <button
-                              className="cd-resubmit-btn"
-                              onClick={() => {
-                                setResubmitTarget(sub.id)
-                                setContentMonth(sub.month)
-                                setContentFiles([])
-                                setContentNotes('')
-                                setContentSuccess(null)
-                              }}
-                            >
-                              Resubmit Content →
-                            </button>
-                          )}
                         </div>
-                      )
-                    })}
-                  </div>
-                )}
-
-                <hr className="cd-camp-detail-divider" />
-                <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Submit Content</div>
-                {renderUploadForm(true)}
-              </div>
-            )}
-
-            {/* Desktop step 3 — redesigned layout */}
-            {!mobile && (
-              <div className="cd-step3-desktop">
-                {/* Compact meta header */}
-                <div className="cd-step3-meta">
-                  <div className="cd-step3-meta-row1">
-                    <div className="cd-step3-meta-title">{campaign.title}</div>
-                    <span className="cd-camp-detail-badge">{statusInfo.label}</span>
-                  </div>
-                  {campaign.description && (
-                    <div className="cd-step3-meta-desc">{campaign.description}</div>
-                  )}
-                </div>
-
-                <hr className="cd-step3-divider" />
-
-                {/* Info bar — 4 columns */}
-                <div className="cd-step3-info-bar">
-                  <div className="cd-step3-info-col">
-                    <label>Goes live</label>
-                    <span>{goLiveDate || '—'}</span>
-                  </div>
-                  <div className="cd-step3-info-col">
-                    <label>Content due</label>
-                    <span>{dueDate || '—'}</span>
-                  </div>
-                  <div className="cd-step3-info-col">
-                    <label>Looking for</label>
-                    <span>{campaign.deliverables || '—'}</span>
-                  </div>
-                  <div className="cd-step3-info-col">
-                    <label>Your selects</label>
-                    <span>{assignment.selected_products?.length || 0} style{(assignment.selected_products?.length || 0) !== 1 ? 's' : ''}</span>
-                  </div>
-                </div>
-
-                {/* Content references horizontal scroll */}
-                {campaign.brief_images?.length > 0 && (
-                  <>
-                    <hr className="cd-step3-divider" />
-                    <div className="cd-step3-refs">
-                      <div className="cd-step3-refs-label">Content references</div>
-                      <div className="cd-step3-refs-scroll">
-                        {campaign.brief_images.map((img, i) => {
-                          const isVideo = img.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(img.url || '')
-                          return (
-                            <div key={i} className="cd-step3-refs-card">
-                              {isVideo ? (
-                                <video src={img.url} controls playsInline preload="metadata" />
-                              ) : (
-                                <img src={img.url} alt="" />
-                              )}
+                        <div className="cd-step3-form-right">
+                          <div>
+                            <label className="cd-field-label">Campaign</label>
+                            <select className="cd-field-input" value={assignment.id} disabled>
+                              <option value={assignment.id}>{campaign.title}</option>
+                            </select>
+                          </div>
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                            <label className="cd-field-label">Notes (optional)</label>
+                            <textarea
+                              className="cd-field-textarea"
+                              value={contentNotes}
+                              onChange={e => setContentNotes(e.target.value)}
+                              placeholder="Anything we should know about these videos?"
+                            />
+                          </div>
+                          {contentSubmitting && (
+                            <div className="cd-upload-progress">
+                              <div className="cd-upload-progress-bar" style={{ width: `${contentProgress}%` }} />
+                              <div className="cd-upload-progress-text">Uploading… {contentProgress}%</div>
                             </div>
-                          )
+                          )}
+                          <button
+                            className="cd-step3-submit-btn"
+                            onClick={submitContent}
+                            disabled={!contentFiles.length || contentSubmitting}
+                          >
+                            {contentSubmitting ? 'Uploading…' : resubmitTarget ? 'Resubmit Content →' : 'Submit Content →'}
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Past submissions — thumbnail grid */}
+                  {campSubs.length > 0 && (
+                    <>
+                      <hr className="cd-step3-divider" />
+                      <div className="cd-step3-refs-label" style={{ marginBottom: 12 }}>Past Submissions</div>
+                      <div className="cd-step3-past-grid">
+                        {campSubs.flatMap(sub => {
+                          const files = Array.isArray(sub.files) ? sub.files : []
+                          const statusLabel = sub.status === 'pending' ? 'in review' : (sub.status || '').replace(/_/g, ' ')
+                          return files.map((file, fi) => {
+                            const isImage = file.mime_type?.startsWith('image/')
+                            const isVideo = file.mime_type?.startsWith('video/')
+                            const mediaUrl = file.r2_url || file.media_url || file.url
+                            return (
+                              <div key={`${sub.id}-${fi}`} className="cd-step3-past-thumb">
+                                {isImage ? (
+                                  <img src={mediaUrl} alt={file.name} onClick={() => setLightboxFile(file)} style={{ cursor: 'pointer' }} />
+                                ) : isVideo ? (
+                                  <>
+                                    <video src={mediaUrl} preload="metadata" style={{ background: '#111', pointerEvents: 'none' }} />
+                                    <div className="cd-sub-play-overlay">▶</div>
+                                  </>
+                                ) : (
+                                  <div style={{ width: '100%', height: '100%', background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#ccc' }}>FILE</div>
+                                )}
+                                <div className="cd-step3-past-badge">
+                                  <span className={`cd-badge${getStatusBadgeClass(sub.status)}`} style={{ fontSize: 8, padding: '2px 6px' }}>{statusLabel}</span>
+                                </div>
+                              </div>
+                            )
+                          })
                         })}
                       </div>
-                    </div>
-                  </>
-                )}
-
-                <hr className="cd-step3-divider" />
-
-                {/* Submit content form — two-column grid */}
-                {contentSuccess ? (
-                  <div className="cd-upload-success">
-                    <div className="cd-upload-success-icon">✓</div>
-                    <div className="cd-upload-success-title">Submitted</div>
-                    <div className="cd-upload-success-sub">We&apos;ll review within 48 hours.</div>
-                    <button className="cd-step3-submit-btn" style={{ marginTop: 20, maxWidth: 240, margin: '20px auto 0' }} onClick={() => setContentSuccess(null)}>
-                      Submit More Content
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    {resubmitTarget && (
-                      <div className="cd-resubmit-banner" style={{ marginBottom: 16 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <div>
-                            <strong>Resubmitting content</strong>
-                            <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>Upload your revised files below.</div>
-                          </div>
-                          <button className="cd-resubmit-cancel" onClick={() => { setResubmitTarget(null); setContentFiles([]); setContentNotes(''); }}>Cancel</button>
-                        </div>
-                      </div>
-                    )}
-                    <div className="cd-step3-form-grid">
-                      <div>
-                        <div
-                          className="cd-dropzone"
-                          onDragOver={e => e.preventDefault()}
-                          onDrop={handleContentFileDrop}
-                          onClick={() => document.getElementById('cd-step3-file-input')?.click()}
-                        >
-                          <div className="cd-dropzone-icon">↑</div>
-                          <div className="cd-dropzone-text">Drag & drop files here or click to browse</div>
-                          <div className="cd-dropzone-hint">MP4, MOV, JPG, PNG, HEIC, WebP</div>
-                          <input
-                            id="cd-step3-file-input"
-                            type="file"
-                            multiple
-                            accept="video/mp4,video/quicktime,video/x-m4v,image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,.mov,.mp4,.m4v"
-                            style={{ display: 'none' }}
-                            onChange={handleContentFileSelect}
-                          />
-                        </div>
-                        <div style={{ fontSize: 11, color: '#999', marginTop: 6, lineHeight: 1.5 }}>
-                          Upload original file from camera roll for best quality
-                        </div>
-                        {contentFiles.length > 0 && (
-                          <div className="cd-file-list" style={{ marginTop: 12 }}>
-                            {contentFiles.map((file, i) => {
-                              const preview = getFilePreview(file)
-                              const isVid = file.type.startsWith('video/')
-                              return (
-                                <div key={i} className="cd-file-item">
-                                  <div className="cd-file-thumb">
-                                    {preview ? <img src={preview} alt={file.name} /> : isVid ? <div className="cd-file-video-icon">▶</div> : <div className="cd-file-video-icon" style={{ fontSize: 14 }}>📷</div>}
-                                  </div>
-                                  <div className="cd-file-info">
-                                    <div className="cd-file-name">{cleanFileName(file.name, file.type)}</div>
-                                    <div className="cd-file-size">{formatFileSize(file.size)}</div>
-                                  </div>
-                                  <button className="cd-file-remove" onClick={() => removeContentFile(i)}>×</button>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        )}
-                      </div>
-                      <div className="cd-step3-form-right">
-                        <div>
-                          <label className="cd-field-label">Campaign</label>
-                          <select className="cd-field-input" value={assignment.id} disabled>
-                            <option value={assignment.id}>{campaign.title}</option>
-                          </select>
-                        </div>
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                          <label className="cd-field-label">Notes (optional)</label>
-                          <textarea
-                            className="cd-field-textarea"
-                            value={contentNotes}
-                            onChange={e => setContentNotes(e.target.value)}
-                            placeholder="Anything we should know about these videos?"
-                          />
-                        </div>
-                        {contentSubmitting && (
-                          <div className="cd-upload-progress">
-                            <div className="cd-upload-progress-bar" style={{ width: `${contentProgress}%` }} />
-                            <div className="cd-upload-progress-text">Uploading… {contentProgress}%</div>
-                          </div>
-                        )}
-                        <button
-                          className="cd-step3-submit-btn"
-                          onClick={submitContent}
-                          disabled={!contentFiles.length || contentSubmitting}
-                        >
-                          {contentSubmitting ? 'Uploading…' : resubmitTarget ? 'Resubmit Content →' : 'Submit Content →'}
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {/* Past submissions — thumbnail grid */}
-                {submissions.filter(s => s.campaign_assignment_id === assignment.id).length > 0 && (
-                  <>
-                    <hr className="cd-step3-divider" />
-                    <div className="cd-step3-refs-label" style={{ marginBottom: 12 }}>Past Submissions</div>
-                    <div className="cd-step3-past-grid">
-                      {submissions.filter(s => s.campaign_assignment_id === assignment.id).flatMap(sub => {
-                        const files = Array.isArray(sub.files) ? sub.files : []
-                        const statusLabel = sub.status === 'pending' ? 'in review' : (sub.status || '').replace(/_/g, ' ')
-                        return files.map((file, fi) => {
-                          const isImage = file.mime_type?.startsWith('image/')
-                          const isVideo = file.mime_type?.startsWith('video/')
-                          const mediaUrl = file.r2_url || file.media_url || file.url
-                          return (
-                            <div key={`${sub.id}-${fi}`} className="cd-step3-past-thumb">
-                              {isImage ? (
-                                <img src={mediaUrl} alt={file.name} onClick={() => setLightboxFile(file)} style={{ cursor: 'pointer' }} />
-                              ) : isVideo ? (
-                                <>
-                                  <video src={mediaUrl} preload="metadata" style={{ background: '#111', pointerEvents: 'none' }} />
-                                  <div className="cd-sub-play-overlay">▶</div>
-                                </>
-                              ) : (
-                                <div style={{ width: '100%', height: '100%', background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#ccc' }}>FILE</div>
-                              )}
-                              <div className="cd-step3-past-badge">
-                                <span className={`cd-badge${getStatusBadgeClass(sub.status)}`} style={{ fontSize: 8, padding: '2px 6px' }}>{statusLabel}</span>
-                              </div>
-                            </div>
-                          )
-                        })
-                      })}
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
+                    </>
+                  )}
+                </div>
+              )
+            })()}
           </>
         )}
 
