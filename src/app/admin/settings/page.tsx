@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowLeft, Loader2, Mail, Globe, X, Plus, Send, CheckCircle, AlertCircle, FileText, ChevronDown, ChevronRight, Save } from "lucide-react";
+import { ArrowLeft, Loader2, Mail, Globe, X, Plus, Send, CheckCircle, AlertCircle, FileText, ChevronDown, ChevronRight, Save, RefreshCw, BarChart3 } from "lucide-react";
 import Link from "next/link";
 
 interface TriggerConfig {
@@ -134,6 +134,9 @@ export default function AdminSettingsPage() {
   const [previewEmail, setPreviewEmail] = useState("");
   const [sendingPreview, setSendingPreview] = useState(false);
   const [previewResult, setPreviewResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [metaSyncStatus, setMetaSyncStatus] = useState<any>(null);
+  const [metaSyncing, setMetaSyncing] = useState(false);
+  const [metaSyncResult, setMetaSyncResult] = useState<{ ok: boolean; message: string } | null>(null);
   const supabase = createClient();
   const router = useRouter();
 
@@ -145,6 +148,7 @@ export default function AdminSettingsPage() {
         setTriggers(data.email_triggers || {});
         setSuspendedCountries(data.suspended_shipping_countries || []);
         setEmailTemplates(data.email_templates || {});
+        setMetaSyncStatus(data.meta_sync_status || null);
       }
     } catch {}
   }, []);
@@ -536,6 +540,90 @@ export default function AdminSettingsPage() {
         </div>
 
 
+
+        {/* Meta Ad Sync */}
+        <div className="bg-white rounded-lg border">
+          <div className="p-6 border-b">
+            <div className="flex items-center gap-3">
+              <BarChart3 className="h-5 w-5 text-gray-700" />
+              <div>
+                <h2 className="text-lg font-medium text-gray-900">Meta Ad Sync</h2>
+                <p className="text-sm text-gray-500 mt-1">Ad performance data is synced daily at 6 AM UTC. You can also trigger a manual sync.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                {metaSyncStatus?.last_synced_at ? (
+                  <>
+                    <p className="text-sm text-gray-900">
+                      Last synced: <span className="font-medium">{new Date(metaSyncStatus.last_synced_at).toLocaleString()}</span>
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {metaSyncStatus.creators_synced} of {metaSyncStatus.total_creators} creators synced
+                      {metaSyncStatus.creators_failed > 0 && (
+                        <span className="text-amber-600"> ({metaSyncStatus.creators_failed} failed)</span>
+                      )}
+                      {metaSyncStatus.stopped_early && (
+                        <span className="text-amber-600"> — stopped early (rate limit)</span>
+                      )}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-gray-500">No sync has been run yet.</p>
+                )}
+              </div>
+              <button
+                onClick={async () => {
+                  setMetaSyncing(true);
+                  setMetaSyncResult(null);
+                  try {
+                    const res = await fetch("/api/meta/sync", { method: "POST" });
+                    const data = await res.json();
+                    if (res.ok) {
+                      setMetaSyncResult({
+                        ok: true,
+                        message: `Synced ${data.synced} creators${data.failed > 0 ? `, ${data.failed} failed` : ""} in ${(data.duration_ms / 1000).toFixed(1)}s`,
+                      });
+                      // Refresh the status
+                      await fetchSettings();
+                    } else {
+                      setMetaSyncResult({ ok: false, message: data.error || "Sync failed" });
+                    }
+                  } catch {
+                    setMetaSyncResult({ ok: false, message: "Network error" });
+                  }
+                  setMetaSyncing(false);
+                }}
+                disabled={metaSyncing}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {metaSyncing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3.5 w-3.5" />
+                )}
+                {metaSyncing ? "Syncing..." : "Sync Now"}
+              </button>
+            </div>
+
+            {metaSyncResult && (
+              <div className={`flex items-center gap-2 text-xs ${metaSyncResult.ok ? "text-green-700" : "text-red-700"}`}>
+                {metaSyncResult.ok ? <CheckCircle className="h-3.5 w-3.5 shrink-0" /> : <AlertCircle className="h-3.5 w-3.5 shrink-0" />}
+                <span>{metaSyncResult.message}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 bg-gray-50 border-t rounded-b-lg">
+            <p className="text-xs text-gray-400">
+              Syncs ad data from Meta for all creators with ad spend deals. Data is cached in the database — page loads never call the Meta API directly.
+              Rate limited to 200 API calls per hour with automatic retry on rate limit errors.
+            </p>
+          </div>
+        </div>
 
         {/* Suspended Shipping Countries */}
         <div className="bg-white rounded-lg border">

@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/sync-order-status",
       "schedule": "0 */2 * * *"
+    },
+    {
+      "path": "/api/cron/meta-sync",
+      "schedule": "0 6 * * *"
     }
   ]
 }

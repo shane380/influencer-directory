@@ -52,7 +52,6 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/invite') ||
     pathname.startsWith('/terms') ||
     pathname.startsWith('/api/creators/signup') ||
-    pathname.startsWith('/api/meta/creator-ads') ||
     pathname.startsWith('/creator/login') ||
     pathname.startsWith('/unsubscribe') ||
     pathname.startsWith('/api/unsubscribe') ||
@@ -75,7 +74,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Role-based route siloing
-  if (isCreator && !pathname.startsWith('/creator') && !pathname.startsWith('/reset-password') && !pathname.startsWith('/api/creator') && !pathname.startsWith('/login')) {
+  if (isCreator && !pathname.startsWith('/creator') && !pathname.startsWith('/reset-password') && !pathname.startsWith('/api/creator') && !pathname.startsWith('/api/meta') && !pathname.startsWith('/login')) {
     return NextResponse.redirect('https://creators.namaclo.com');
   }
   if (userRole === 'admin' && pathname.startsWith('/creator')) {

@@ -61,8 +61,9 @@ export async function GET() {
   const triggers = (await getSetting(supabase, "email_triggers")) || DEFAULT_TRIGGERS;
   const suspendedCountries = (await getSetting(supabase, "suspended_shipping_countries")) || [];
   const emailTemplates = (await getSetting(supabase, "email_templates")) || {};
+  const metaSyncStatus = (await getSetting(supabase, "meta_sync_status")) || null;
 
-  return NextResponse.json({ email_triggers: triggers, suspended_shipping_countries: suspendedCountries, email_templates: emailTemplates });
+  return NextResponse.json({ email_triggers: triggers, suspended_shipping_countries: suspendedCountries, email_templates: emailTemplates, meta_sync_status: metaSyncStatus });
 }
 
 // PATCH: Update app settings

@@ -14,15 +14,15 @@ function getBaseUrl(): string {
     : "http://localhost:3000");
 }
 
-async function getMetaSpendForMonth(handle: string, month: string): Promise<number> {
-  const baseUrl = getBaseUrl();
-
+async function getMetaSpendForMonth(handle: string, month: string, supabase: ReturnType<typeof getSupabase>): Promise<number> {
   try {
-    const res = await fetch(`${baseUrl}/api/meta/creator-ads?handle=${encodeURIComponent(handle)}`, {
-      headers: { "Content-Type": "application/json" },
-    });
-    const data = await res.json();
-    const monthData = (data.monthly || []).find((m: any) => m.month === month);
+    const { data } = await (supabase.from("creator_ad_performance") as any)
+      .select("monthly")
+      .eq("instagram_handle", handle)
+      .single();
+    if (!data?.monthly) return 0;
+    const monthly = typeof data.monthly === "string" ? JSON.parse(data.monthly) : data.monthly;
+    const monthData = monthly.find((m: any) => m.month === month);
     return monthData?.spend || 0;
   } catch (err) {
     console.error(`Failed to fetch Meta spend for ${handle}:`, err);
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
 
     // Ad spend commission
     if (invite.has_ad_spend && !existingTypes.has("ad_spend_commission")) {
-      const spend = await getMetaSpendForMonth(handle, month);
+      const spend = await getMetaSpendForMonth(handle, month, supabase);
       const rate = (invite.ad_spend_percentage || 10) / 100;
       const amount = Math.round(spend * rate * 100) / 100;
       rowsToInsert.push({
