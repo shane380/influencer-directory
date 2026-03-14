@@ -112,6 +112,8 @@ export default function CreatorLoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [forgotMode, setForgotMode] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
 
   async function handleLogin(e) {
     e.preventDefault()
@@ -131,6 +133,22 @@ export default function CreatorLoginPage() {
 
     router.push('/creator/dashboard')
     router.refresh()
+  }
+
+  async function handleResetPassword(e) {
+    e.preventDefault()
+    if (!email) { setError('Please enter your email'); return }
+    setError(null)
+    setLoading(true)
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+    if (resetError) {
+      setError(resetError.message)
+    } else {
+      setResetSent(true)
+    }
+    setLoading(false)
   }
 
   return (
@@ -153,43 +171,85 @@ export default function CreatorLoginPage() {
           <h1 style={S.headline}>Welcome back.</h1>
           <p style={S.intro}>Sign in to your creator dashboard.</p>
 
-          <form style={S.form} onSubmit={handleLogin}>
-            <div style={S.inputWrap}>
-              <label style={S.inputLabel}>Email</label>
-              <input
-                style={S.input}
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="you@email.com"
-                required
-              />
-            </div>
-            <div style={S.inputWrap}>
-              <label style={S.inputLabel}>Password</label>
-              <input
-                style={S.input}
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="Your password"
-                required
-              />
-            </div>
+          {forgotMode ? (
+            resetSent ? (
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 14, color: '#111', marginBottom: 8 }}>Check your email</div>
+                <div style={{ fontSize: 13, color: '#888', lineHeight: 1.6, marginBottom: 20 }}>We sent a password reset link to <strong>{email}</strong></div>
+                <button style={S.btn} onClick={() => { setForgotMode(false); setResetSent(false); setError(null) }}>Back to Sign In</button>
+              </div>
+            ) : (
+              <form style={S.form} onSubmit={handleResetPassword}>
+                <div style={S.inputWrap}>
+                  <label style={S.inputLabel}>Email</label>
+                  <input
+                    style={S.input}
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="you@email.com"
+                    required
+                  />
+                </div>
 
-            {error && <div style={S.error}>{error}</div>}
+                {error && <div style={S.error}>{error}</div>}
 
-            <button
-              type="submit"
-              style={loading ? { ...S.btn, ...S.btnDisabled } : S.btn}
-              disabled={loading}
-            >
-              {loading ? 'Signing in...' : 'Sign In'}
-            </button>
-          </form>
+                <button
+                  type="submit"
+                  style={loading ? { ...S.btn, ...S.btnDisabled } : S.btn}
+                  disabled={loading}
+                >
+                  {loading ? 'Sending...' : 'Send Reset Link'}
+                </button>
+                <button type="button" onClick={() => { setForgotMode(false); setError(null) }} style={{ background: 'none', border: 'none', fontSize: 12, color: '#888', cursor: 'pointer', marginTop: 8, textAlign: 'center' }}>
+                  Back to Sign In
+                </button>
+              </form>
+            )
+          ) : (
+            <>
+              <form style={S.form} onSubmit={handleLogin}>
+                <div style={S.inputWrap}>
+                  <label style={S.inputLabel}>Email</label>
+                  <input
+                    style={S.input}
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="you@email.com"
+                    required
+                  />
+                </div>
+                <div style={S.inputWrap}>
+                  <label style={S.inputLabel}>Password</label>
+                  <input
+                    style={S.input}
+                    type="password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="Your password"
+                    required
+                  />
+                </div>
+
+                {error && <div style={S.error}>{error}</div>}
+
+                <button
+                  type="submit"
+                  style={loading ? { ...S.btn, ...S.btnDisabled } : S.btn}
+                  disabled={loading}
+                >
+                  {loading ? 'Signing in...' : 'Sign In'}
+                </button>
+              </form>
+              <button onClick={() => { setForgotMode(true); setError(null) }} style={{ background: 'none', border: 'none', fontSize: 12, color: '#888', cursor: 'pointer', marginTop: 12, textAlign: 'center', width: '100%' }}>
+                Forgot your password?
+              </button>
+            </>
+          )}
 
           <p style={S.note}>
-            Don't have an account? You need an invite from Nama.
+            Don&apos;t have an account? You need an invite from Nama.
           </p>
         </div>
       </div>
