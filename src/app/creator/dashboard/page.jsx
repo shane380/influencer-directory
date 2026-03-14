@@ -3042,6 +3042,63 @@ export default function CreatorDashboard() {
                       </div>
                     )}
 
+                    {/* Upload zone + button — right after feedback on mobile */}
+                    <div style={{ marginBottom: 20 }}>
+                      <div className="cd-rev-label">Resubmit content</div>
+                      <div
+                        className="cd-dropzone"
+                        onDragOver={e => e.preventDefault()}
+                        onDrop={handleContentFileDrop}
+                        onClick={() => document.getElementById('cd-rev-m-file-input')?.click()}
+                      >
+                        <div className="cd-dropzone-icon">↑</div>
+                        <div className="cd-dropzone-text">Drag & drop files here or click to browse</div>
+                        <div className="cd-dropzone-hint">MP4, MOV, JPG, PNG, HEIC, WebP</div>
+                        <input
+                          id="cd-rev-m-file-input"
+                          type="file"
+                          multiple
+                          accept="video/mp4,video/quicktime,video/x-m4v,image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,.mov,.mp4,.m4v"
+                          style={{ display: 'none' }}
+                          onChange={handleContentFileSelect}
+                        />
+                      </div>
+                      {contentFiles.length > 0 && (
+                        <div className="cd-file-list" style={{ marginTop: 12 }}>
+                          {contentFiles.map((file, i) => {
+                            const preview = getFilePreview(file)
+                            const isVid = file.type.startsWith('video/')
+                            return (
+                              <div key={i} className="cd-file-item">
+                                <div className="cd-file-thumb">
+                                  {preview ? <img src={preview} alt={file.name} /> : isVid ? <div className="cd-file-video-icon">▶</div> : <div className="cd-file-video-icon" style={{ fontSize: 14 }}>📷</div>}
+                                </div>
+                                <div className="cd-file-info">
+                                  <div className="cd-file-name">{cleanFileName(file.name, file.type)}</div>
+                                  <div className="cd-file-size">{formatFileSize(file.size)}</div>
+                                </div>
+                                <button className="cd-file-remove" onClick={() => removeContentFile(i)}>×</button>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                      {contentSubmitting && (
+                        <div className="cd-upload-progress" style={{ marginTop: 12 }}>
+                          <div className="cd-upload-progress-bar" style={{ width: `${contentProgress}%` }} />
+                          <div className="cd-upload-progress-text">Uploading… {contentProgress}%</div>
+                        </div>
+                      )}
+                      <button
+                        className="cd-rev-submit-btn"
+                        style={{ marginTop: 12 }}
+                        onClick={submitContent}
+                        disabled={!contentFiles.length || contentSubmitting}
+                      >
+                        {contentSubmitting ? 'Uploading…' : 'Resubmit Content →'}
+                      </button>
+                    </div>
+
                     {/* Their submission */}
                     {revFile && (
                       <div style={{ marginBottom: 20 }}>
@@ -3093,63 +3150,6 @@ export default function CreatorDashboard() {
                       </div>
                     )}
 
-                    {/* Upload zone */}
-                    <div style={{ marginBottom: 16 }}>
-                      <div className="cd-rev-label">Resubmit content</div>
-                      <div
-                        className="cd-dropzone"
-                        onDragOver={e => e.preventDefault()}
-                        onDrop={handleContentFileDrop}
-                        onClick={() => document.getElementById('cd-rev-m-file-input')?.click()}
-                      >
-                        <div className="cd-dropzone-icon">↑</div>
-                        <div className="cd-dropzone-text">Drag & drop files here or click to browse</div>
-                        <div className="cd-dropzone-hint">MP4, MOV, JPG, PNG, HEIC, WebP</div>
-                        <input
-                          id="cd-rev-m-file-input"
-                          type="file"
-                          multiple
-                          accept="video/mp4,video/quicktime,video/x-m4v,image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,.mov,.mp4,.m4v"
-                          style={{ display: 'none' }}
-                          onChange={handleContentFileSelect}
-                        />
-                      </div>
-                      {contentFiles.length > 0 && (
-                        <div className="cd-file-list" style={{ marginTop: 12 }}>
-                          {contentFiles.map((file, i) => {
-                            const preview = getFilePreview(file)
-                            const isVid = file.type.startsWith('video/')
-                            return (
-                              <div key={i} className="cd-file-item">
-                                <div className="cd-file-thumb">
-                                  {preview ? <img src={preview} alt={file.name} /> : isVid ? <div className="cd-file-video-icon">▶</div> : <div className="cd-file-video-icon" style={{ fontSize: 14 }}>📷</div>}
-                                </div>
-                                <div className="cd-file-info">
-                                  <div className="cd-file-name">{cleanFileName(file.name, file.type)}</div>
-                                  <div className="cd-file-size">{formatFileSize(file.size)}</div>
-                                </div>
-                                <button className="cd-file-remove" onClick={() => removeContentFile(i)}>×</button>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-
-                    {contentSubmitting && (
-                      <div className="cd-upload-progress" style={{ marginBottom: 12 }}>
-                        <div className="cd-upload-progress-bar" style={{ width: `${contentProgress}%` }} />
-                        <div className="cd-upload-progress-text">Uploading… {contentProgress}%</div>
-                      </div>
-                    )}
-
-                    <button
-                      className="cd-rev-submit-btn"
-                      onClick={submitContent}
-                      disabled={!contentFiles.length || contentSubmitting}
-                    >
-                      {contentSubmitting ? 'Uploading…' : 'Resubmit Content →'}
-                    </button>
                   </div>
                 )
               }
