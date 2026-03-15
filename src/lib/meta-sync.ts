@@ -1,4 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
+import { r2Client, R2_BUCKET, getPublicUrl } from "./r2";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -48,6 +50,50 @@ async function metaFetch(url: string, retries = 3): Promise<any> {
   }
 }
 
+/**
+ * Download an image from a URL and upload it to R2.
+ * Returns the public R2 URL, or null if anything fails.
+ */
+async function mirrorImageToR2(
+  imageUrl: string,
+  r2Key: string
+): Promise<string | null> {
+  try {
+    const res = await fetch(imageUrl);
+    if (!res.ok) return null;
+
+    const buffer = Buffer.from(await res.arrayBuffer());
+    const contentType = res.headers.get("content-type") || "image/jpeg";
+
+    await r2Client.send(
+      new PutObjectCommand({
+        Bucket: R2_BUCKET,
+        Key: r2Key,
+        Body: buffer,
+        ContentType: contentType,
+      })
+    );
+
+    return getPublicUrl(r2Key);
+  } catch (err) {
+    console.warn(`[meta-sync] Failed to mirror image to R2 (${r2Key}):`, err);
+    return null;
+  }
+}
+
+/**
+ * Pick the best available image URL from a Meta ad creative.
+ * Priority: video cover > full-res static > thumbnail fallback.
+ */
+function getBestImageUrl(ad: any): string | null {
+  return (
+    ad.creative?.object_story_spec?.video_data?.image_url ||
+    ad.creative?.image_url ||
+    ad.creative?.thumbnail_url ||
+    null
+  );
+}
+
 interface AdResult {
   name: string;
   status: string;
@@ -67,19 +113,18 @@ interface SyncResult {
 async function fetchAdsForHandle(
   handle: string,
   accessToken: string,
-  actId: string
+  actId: string,
+  influencerId: string | null
 ): Promise<SyncResult> {
   const filtering = JSON.stringify([
     { field: "name", operator: "CONTAIN", value: handle },
   ]);
 
-  const fields = "name,status,creative{thumbnail_url,image_url},insights.date_preset(maximum){spend,impressions}";
+  const fields = "name,status,creative{thumbnail_url,image_url,object_story_spec{video_data{image_url}}},insights.date_preset(maximum){spend,impressions}";
   const listUrl =
     `https://graph.facebook.com/${META_API_VERSION}/${actId}/ads?` +
     `fields=${fields}` +
     `&filtering=${encodeURIComponent(filtering)}` +
-    `&thumbnail_width=600` +
-    `&thumbnail_height=600` +
     `&limit=50` +
     `&access_token=${accessToken}`;
 
@@ -165,11 +210,15 @@ async function fetchAdsForHandle(
     .sort(([a], [b]) => b.localeCompare(a))
     .map(([month, vals]) => ({ month, ...vals }));
 
-  // Build ads array
+  // Build ads array — download thumbnails to R2
   let totalSpend = 0;
   let totalImpressions = 0;
+  const r2Enabled = !!(process.env.R2_ACCOUNT_ID && process.env.R2_BUCKET_NAME);
+  const creatorFolder = influencerId || handle;
 
-  const ads: AdResult[] = rawAds.map((ad: any) => {
+  const ads: AdResult[] = [];
+
+  for (const ad of rawAds) {
     let displayName = ad.name || "";
     displayName = displayName
       .replace(new RegExp(`@?${handle}\\s*\\/\\/\\s*`, "i"), "")
@@ -182,14 +231,26 @@ async function fetchAdsForHandle(
     totalSpend += spend;
     totalImpressions += impressions;
 
-    return {
+    // Get best available image and mirror to R2
+    const metaImageUrl = getBestImageUrl(ad);
+    let thumbnailUrl = metaImageUrl;
+
+    if (r2Enabled && metaImageUrl) {
+      const r2Key = `ads/${creatorFolder}/${ad.id}/thumbnail.jpg`;
+      const r2Url = await mirrorImageToR2(metaImageUrl, r2Key);
+      if (r2Url) {
+        thumbnailUrl = r2Url;
+      }
+    }
+
+    ads.push({
       name: displayName,
       status: ad.status,
       spend: spend.toFixed(2),
       impressions: String(impressions),
-      thumbnailUrl: ad.creative?.image_url || ad.creative?.thumbnail_url || null,
-    };
-  });
+      thumbnailUrl,
+    });
+  }
 
   return {
     ads,
@@ -222,7 +283,7 @@ export async function syncCreator(
   const actId = adAccountId.startsWith("act_") ? adAccountId : `act_${adAccountId}`;
 
   try {
-    const result = await fetchAdsForHandle(handle, accessToken, actId);
+    const result = await fetchAdsForHandle(handle, accessToken, actId, influencerId);
 
     await (db.from("creator_ad_performance") as any).upsert(
       {
