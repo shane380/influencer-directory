@@ -2490,7 +2490,7 @@ export default function CreatorDashboard() {
     return 1
   }
 
-  function renderCampaignSteps(currentStep, skipSelects) {
+  function renderCampaignSteps(currentStep, skipSelects, isWardrobeInvite) {
     const steps = skipSelects
       ? [
           { num: 1, label: 'Accept', step: 1 },
@@ -2499,7 +2499,7 @@ export default function CreatorDashboard() {
         ]
       : [
           { num: 1, label: 'Accept', step: 1 },
-          { num: 2, label: 'Selects', step: 2 },
+          { num: 2, label: isWardrobeInvite ? 'Outfit' : 'Selects', step: 2 },
           { num: 3, label: 'Content', step: 3 },
           { num: 4, label: 'Complete', step: 4 },
         ]
@@ -2526,9 +2526,11 @@ export default function CreatorDashboard() {
     const campaign = assignment.campaign
     if (!campaign) return null
 
-    const skipSelects = campaign.max_selects === 0
-    const currentStep = getCampaignStep(assignment, skipSelects)
     const products = campaign.available_products || []
+    const isCreativeInvitation = !!campaign.parent_campaign_id
+    const isWardrobeInvite = isCreativeInvitation && campaign.max_selects === 0 && products.length > 0
+    const skipSelects = campaign.max_selects === 0 && !isWardrobeInvite
+    const currentStep = getCampaignStep(assignment, skipSelects)
     const maxSelects = campaign.max_selects || 2
     const dueDate = campaign.due_date ? new Date(campaign.due_date + 'T00:00:00').toLocaleDateString('en', { month: 'long', day: 'numeric' }) : null
     const goLiveDate = campaign.go_live_date ? new Date(campaign.go_live_date + 'T00:00:00').toLocaleDateString('en', { month: 'long', day: 'numeric' }) : null
@@ -2536,7 +2538,7 @@ export default function CreatorDashboard() {
     // Step-aware badge for detail view
     const stepLabels = {
       1: { label: 'New invite', dot: 'sent' },
-      2: { label: 'Selects needed', dot: 'confirmed' },
+      2: { label: isWardrobeInvite ? 'Review outfit' : 'Selects needed', dot: 'confirmed' },
       3: { label: 'Submit content', dot: 'confirmed' },
       4: { label: 'Complete', dot: 'complete' },
     }
@@ -2552,7 +2554,7 @@ export default function CreatorDashboard() {
           ← Back to Campaigns
         </button>
 
-        {renderCampaignSteps(currentStep, skipSelects)}
+        {renderCampaignSteps(currentStep, skipSelects, isWardrobeInvite)}
 
         {/* Mobile: linear layout */}
         {mobile && (
@@ -2594,15 +2596,19 @@ export default function CreatorDashboard() {
 
             {currentStep === 1 && (
               <div>
-                <hr className="cd-camp-detail-divider" />
-                <div className="cd-camp-deliverables" style={{ marginBottom: 20 }}>
-                  <div className="cd-camp-deliverables-label">Your Selects</div>
-                  <div className="cd-camp-deliverables-text">You can choose up to {maxSelects} {maxSelects === 1 ? 'style' : 'styles'}</div>
-                </div>
+                {!isWardrobeInvite && !skipSelects && (
+                  <>
+                    <hr className="cd-camp-detail-divider" />
+                    <div className="cd-camp-deliverables" style={{ marginBottom: 20 }}>
+                      <div className="cd-camp-deliverables-label">Your Selects</div>
+                      <div className="cd-camp-deliverables-text">You can choose up to {maxSelects} {maxSelects === 1 ? 'style' : 'styles'}</div>
+                    </div>
+                  </>
+                )}
 
                 {products.length > 0 && (
                   <div style={{ marginBottom: 24, position: 'relative' }}>
-                    <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Style Previews</div>
+                    <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>{isWardrobeInvite ? 'Your Outfit' : 'Style Previews'}</div>
                     <div style={{ position: 'relative' }}>
                       <div
                         className="cd-style-gallery"
@@ -2678,7 +2684,6 @@ export default function CreatorDashboard() {
                   onClick={async () => {
                     setCampaignAccepted(true)
                     if (skipSelects) {
-                      // Auto-confirm without selects
                       try {
                         await fetch('/api/creator/campaigns/assignments', {
                           method: 'PATCH',
@@ -2691,7 +2696,7 @@ export default function CreatorDashboard() {
                       } catch (err) {
                         console.error('Auto-confirm error:', err)
                       }
-                    } else {
+                    } else if (!isWardrobeInvite) {
                       fetchCampaignVariants(products)
                     }
                   }}
@@ -2740,15 +2745,19 @@ export default function CreatorDashboard() {
 
               {currentStep === 1 && (
                 <div>
-                  <hr className="cd-camp-detail-divider" />
-                  <div className="cd-camp-deliverables" style={{ marginBottom: 20 }}>
-                    <div className="cd-camp-deliverables-label">Your Selects</div>
-                    <div className="cd-camp-deliverables-text">You can choose up to {maxSelects} {maxSelects === 1 ? 'style' : 'styles'}</div>
-                  </div>
+                  {!isWardrobeInvite && !skipSelects && (
+                    <>
+                      <hr className="cd-camp-detail-divider" />
+                      <div className="cd-camp-deliverables" style={{ marginBottom: 20 }}>
+                        <div className="cd-camp-deliverables-label">Your Selects</div>
+                        <div className="cd-camp-deliverables-text">You can choose up to {maxSelects} {maxSelects === 1 ? 'style' : 'styles'}</div>
+                      </div>
+                    </>
+                  )}
 
                   {products.length > 0 && (
                     <div style={{ marginBottom: 24, position: 'relative' }}>
-                      <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Style Previews</div>
+                      <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>{isWardrobeInvite ? 'Your Outfit' : 'Style Previews'}</div>
                       <div style={{ position: 'relative' }}>
                         <div
                           className="cd-style-gallery"
@@ -2836,12 +2845,12 @@ export default function CreatorDashboard() {
                         } catch (err) {
                           console.error('Auto-confirm error:', err)
                         }
-                      } else {
+                      } else if (!isWardrobeInvite) {
                         fetchCampaignVariants(products)
                       }
                     }}
                   >
-                    Accept Campaign
+                    {campaign.parent_campaign_id ? 'Accept Invite' : 'Accept Campaign'}
                   </button>
                 </div>
               )}
@@ -2849,8 +2858,84 @@ export default function CreatorDashboard() {
           </div>
         )}
 
-        {/* Step 2: Make Your Selects */}
-        {currentStep === 2 && (
+        {/* Step 2: Make Your Selects / Wardrobe Outfit */}
+        {currentStep === 2 && isWardrobeInvite && (
+          <div>
+            <div className="cd-camp-deliverables-label" style={{ marginBottom: 8 }}>Your Outfit</div>
+            <div style={{ fontSize: 13, color: '#666', marginBottom: 20, lineHeight: 1.5 }}>
+              Here are the pieces selected for this shoot. Please use these items from your wardrobe.
+            </div>
+
+            <div className={mobile ? 'cd-m-products' : 'cd-products'}>
+              {products.map((p, i) => (
+                <div key={i} className={mobile ? 'cd-m-product' : 'cd-product'} style={{ cursor: 'default' }}>
+                  <div className={mobile ? 'cd-m-product-img' : 'cd-product-img'}>
+                    {p.image_url ? <img src={p.image_url} alt={p.product_title} /> : <div style={{ color: '#ccc', fontSize: 12 }}>No image</div>}
+                  </div>
+                  <div className={mobile ? 'cd-m-product-info' : 'cd-product-info'}>
+                    <div className={mobile ? 'cd-m-product-name' : 'cd-product-name'}>{p.product_title}</div>
+                    {p.variant_title && <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>{p.variant_title}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {campaign.deliverables && (
+              <>
+                <hr className="cd-camp-detail-divider" style={{ marginTop: 24 }} />
+                <div className="cd-camp-deliverables">
+                  <div className="cd-camp-deliverables-label">What We're Looking For</div>
+                  <div className="cd-camp-deliverables-text">{campaign.deliverables}</div>
+                </div>
+              </>
+            )}
+
+            {campaign.brief_images?.length > 0 && (
+              <div style={{ marginTop: 20, marginBottom: 24 }}>
+                <div className="cd-camp-deliverables-label">Content References</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginTop: 10, alignItems: 'start' }}>
+                  {campaign.brief_images.map((img, i) => {
+                    const isVideo = img.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(img.url || '')
+                    return (
+                      <div key={i} style={{ aspectRatio: '9/16', overflow: 'hidden', borderRadius: 6, border: '1px solid #e8e8e8' }}>
+                        {isVideo ? (
+                          <video src={img.url} controls playsInline preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', background: '#111' }} />
+                        ) : (
+                          <img src={img.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            <button
+              className="cd-campaign-btn-fill"
+              style={{ marginTop: 20 }}
+              onClick={async () => {
+                try {
+                  await fetch('/api/creator/campaigns/assignments', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: assignment.id, status: 'confirmed', selected_products: products, creator_notes: null }),
+                  })
+                  const campRes = await fetch(`/api/creator/campaigns?creator_id=${creator.id}`)
+                  const campData = await campRes.json()
+                  setCampaignAssignments(campData.assignments || [])
+                  const updated = (campData.assignments || []).find(a => a.id === assignment.id)
+                  if (updated) setActiveCampaignDetail(updated)
+                } catch (err) {
+                  console.error('Auto-confirm error:', err)
+                }
+              }}
+            >
+              Continue
+            </button>
+          </div>
+        )}
+
+        {currentStep === 2 && !isWardrobeInvite && (
           <div>
             <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Make Your Selects</div>
             <div className="cd-campaign-max">Select up to {maxSelects} item{maxSelects !== 1 ? 's' : ''}</div>
