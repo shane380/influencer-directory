@@ -2554,10 +2554,12 @@ export default function CreatorDashboard() {
               <img src={campaign.banner_image.url} alt="" className="cd-camp-banner" />
             )}
 
-            <div className="cd-camp-detail-title-row">
-              <div className="cd-campaign-title">{campaign.title}</div>
-              <span className="cd-camp-detail-badge">{statusInfo.label}</span>
-            </div>
+            {!(currentStep === 3 && assignment.status === 'content_submitted') && (
+              <div className="cd-camp-detail-title-row">
+                <div className="cd-campaign-title">{campaign.title}</div>
+                <span className="cd-camp-detail-badge">{statusInfo.label}</span>
+              </div>
+            )}
 
             {currentStep < 3 && (goLiveDate || dueDate) && (
               <div className="cd-camp-detail-dates">
@@ -3155,10 +3157,30 @@ export default function CreatorDashboard() {
               }
 
               // Default mobile step 3
+              const hasSubmitted = assignment.status === 'content_submitted'
               return (
                 <div>
+                  {hasSubmitted && contentSuccess !== false && (
+                    <div className="cd-upload-success">
+                      <div className="cd-upload-success-icon">✓</div>
+                      <div className="cd-upload-success-title">Submitted</div>
+                      <div className="cd-upload-success-sub">We&apos;ll review within 48 hours.</div>
+                      <button className="cd-rev-submit-btn" style={{ marginTop: 20, maxWidth: 240, margin: '20px auto 0' }} onClick={() => setContentSuccess(false)}>
+                        Submit More Content
+                      </button>
+                    </div>
+                  )}
+
+                  {(!hasSubmitted || contentSuccess === false) && (
+                    <>
+                      <hr className="cd-camp-detail-divider" />
+                      <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Submit Content</div>
+                      {renderUploadForm(true)}
+                    </>
+                  )}
+
                   {campSubs.length > 0 && (
-                    <div style={{ marginBottom: 28 }}>
+                    <div style={{ marginTop: 28 }}>
                       <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Past Submissions</div>
                       {campSubs.map(sub => {
                         const files = Array.isArray(sub.files) ? sub.files : []
@@ -3221,10 +3243,6 @@ export default function CreatorDashboard() {
                       })}
                     </div>
                   )}
-
-                  <hr className="cd-camp-detail-divider" />
-                  <div className="cd-camp-deliverables-label" style={{ marginBottom: 14 }}>Submit Content</div>
-                  {renderUploadForm(true)}
                 </div>
               )
             })()}
@@ -3406,74 +3424,88 @@ export default function CreatorDashboard() {
               }
 
               // Default desktop step 3
+              const hasSubmitted = assignment.status === 'content_submitted'
               return (
                 <div className="cd-step3-desktop">
-                  {/* Compact meta header */}
-                  <div className="cd-step3-meta">
-                    <div className="cd-step3-meta-row1">
-                      <div className="cd-step3-meta-title">{campaign.title}</div>
-                      <span className="cd-camp-detail-badge">{statusInfo.label}</span>
-                    </div>
-                    {campaign.description && (
-                      <div className="cd-step3-meta-desc">{campaign.description}</div>
-                    )}
-                  </div>
-
-                  <hr className="cd-step3-divider" />
-
-                  {/* Info bar — 4 columns */}
-                  <div className="cd-step3-info-bar">
-                    <div className="cd-step3-info-col">
-                      <label>Goes live</label>
-                      <span>{goLiveDate || '—'}</span>
-                    </div>
-                    <div className="cd-step3-info-col">
-                      <label>Content due</label>
-                      <span>{dueDate || '—'}</span>
-                    </div>
-                    <div className="cd-step3-info-col">
-                      <label>Looking for</label>
-                      <span>{campaign.deliverables || '—'}</span>
-                    </div>
-                    <div className="cd-step3-info-col">
-                      <label>Your selects</label>
-                      <span>{assignment.selected_products?.length || 0} style{(assignment.selected_products?.length || 0) !== 1 ? 's' : ''}</span>
-                    </div>
-                  </div>
-
-                  {/* Content references horizontal scroll */}
-                  {campaign.brief_images?.length > 0 && (
+                  {!hasSubmitted && (
                     <>
+                      {/* Compact meta header */}
+                      <div className="cd-step3-meta">
+                        <div className="cd-step3-meta-row1">
+                          <div className="cd-step3-meta-title">{campaign.title}</div>
+                          <span className="cd-camp-detail-badge">{statusInfo.label}</span>
+                        </div>
+                        {campaign.description && (
+                          <div className="cd-step3-meta-desc">{campaign.description}</div>
+                        )}
+                      </div>
+
                       <hr className="cd-step3-divider" />
-                      <div className="cd-step3-refs">
-                        <div className="cd-step3-refs-label">Content references</div>
-                        <div className="cd-step3-refs-scroll">
-                          {campaign.brief_images.map((img, i) => {
-                            const isVideo = img.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(img.url || '')
-                            return (
-                              <div key={i} className="cd-step3-refs-card">
-                                {isVideo ? (
-                                  <video src={img.url} controls playsInline preload="metadata" />
-                                ) : (
-                                  <img src={img.url} alt="" />
-                                )}
-                              </div>
-                            )
-                          })}
+
+                      {/* Info bar — 4 columns */}
+                      <div className="cd-step3-info-bar">
+                        <div className="cd-step3-info-col">
+                          <label>Goes live</label>
+                          <span>{goLiveDate || '—'}</span>
+                        </div>
+                        <div className="cd-step3-info-col">
+                          <label>Content due</label>
+                          <span>{dueDate || '—'}</span>
+                        </div>
+                        <div className="cd-step3-info-col">
+                          <label>Looking for</label>
+                          <span>{campaign.deliverables || '—'}</span>
+                        </div>
+                        <div className="cd-step3-info-col">
+                          <label>Your selects</label>
+                          <span>{assignment.selected_products?.length || 0} style{(assignment.selected_products?.length || 0) !== 1 ? 's' : ''}</span>
                         </div>
                       </div>
+
+                      {/* Content references horizontal scroll */}
+                      {campaign.brief_images?.length > 0 && (
+                        <>
+                          <hr className="cd-step3-divider" />
+                          <div className="cd-step3-refs">
+                            <div className="cd-step3-refs-label">Content references</div>
+                            <div className="cd-step3-refs-scroll">
+                              {campaign.brief_images.map((img, i) => {
+                                const isVideo = img.is_video || /\.(mp4|mov|m4v|webm|qt)(\?|$)/i.test(img.url || '')
+                                return (
+                                  <div key={i} className="cd-step3-refs-card">
+                                    {isVideo ? (
+                                      <video src={img.url} controls playsInline preload="metadata" />
+                                    ) : (
+                                      <img src={img.url} alt="" />
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                      <hr className="cd-step3-divider" />
                     </>
                   )}
 
-                  <hr className="cd-step3-divider" />
-
                   {/* Submit content form — two-column grid */}
-                  {contentSuccess ? (
+                  {hasSubmitted && contentSuccess !== false ? (
                     <div className="cd-upload-success">
                       <div className="cd-upload-success-icon">✓</div>
                       <div className="cd-upload-success-title">Submitted</div>
                       <div className="cd-upload-success-sub">We&apos;ll review within 48 hours.</div>
-                      <button className="cd-step3-submit-btn" style={{ marginTop: 20, maxWidth: 240, margin: '20px auto 0' }} onClick={() => setContentSuccess(null)}>
+                      <button className="cd-step3-submit-btn" style={{ marginTop: 20, maxWidth: 240, margin: '20px auto 0' }} onClick={() => setContentSuccess(false)}>
+                        Submit More Content
+                      </button>
+                    </div>
+                  ) : contentSuccess ? (
+                    <div className="cd-upload-success">
+                      <div className="cd-upload-success-icon">✓</div>
+                      <div className="cd-upload-success-title">Submitted</div>
+                      <div className="cd-upload-success-sub">We&apos;ll review within 48 hours.</div>
+                      <button className="cd-step3-submit-btn" style={{ marginTop: 20, maxWidth: 240, margin: '20px auto 0' }} onClick={() => setContentSuccess(false)}>
                         Submit More Content
                       </button>
                     </div>
