@@ -3751,7 +3751,7 @@ export default function CreatorDashboard() {
         style={{ cursor: 'pointer' }}
         onClick={() => {
           setActiveCampaignDetail(assignment)
-          setCampaignAccepted(true)
+          setCampaignAccepted(assignment.status !== 'sent')
           setCampaignVariants({})
         }}
       >
@@ -3884,10 +3884,11 @@ export default function CreatorDashboard() {
       )
     }
 
-    // Orphan children (parent not assigned to this creator)
-    const parentCampaignIds = new Set(parentAssignments.map(a => a.campaign?.id).filter(Boolean))
-    const orphanForYou = forYouChildren.filter(a => !parentCampaignIds.has(a.campaign.parent_campaign_id))
-    const orphanInProgress = inProgressChildren.filter(a => !parentCampaignIds.has(a.campaign.parent_campaign_id))
+    // Orphan children: parent not assigned OR parent is in a different section
+    const forYouParentIds = new Set(forYou.map(a => a.campaign?.id).filter(Boolean))
+    const inProgressParentIds = new Set(inProgress.map(a => a.campaign?.id).filter(Boolean))
+    const orphanForYou = forYouChildren.filter(a => !forYouParentIds.has(a.campaign.parent_campaign_id))
+    const orphanInProgress = inProgressChildren.filter(a => !inProgressParentIds.has(a.campaign.parent_campaign_id))
 
     return (
       <>
