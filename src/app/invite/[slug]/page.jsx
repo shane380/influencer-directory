@@ -57,6 +57,7 @@ const CSS = `
 .ni-option-rate sup { font-size: 15px; font-style: italic; vertical-align: super; color: #888; }
 .ni-option-name { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #888; margin-bottom: 0; font-weight: 400; }
 .ni-option-summary { font-size: 11.5px; color: #777; font-weight: 300; margin-top: 12px; }
+.ni-option-desc { font-size: 11.5px; color: #999; font-weight: 300; margin-top: 10px; font-style: italic; }
 
 /* TERM ROWS */
 .ni-term-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 22px 0; border-bottom: 1px solid #e8e8e8; }
@@ -186,6 +187,7 @@ const CSS = `
 .ni-m-option-rate sup { font-size: 14px; font-style: italic; vertical-align: super; color: #888; }
 .ni-m-option-name { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #888; margin-bottom: 0; }
 .ni-m-option-summary { font-size: 11.5px; color: #777; font-weight: 300; margin-top: 12px; }
+.ni-m-option-desc { font-size: 11.5px; color: #999; font-weight: 300; margin-top: 10px; font-style: italic; }
 
 .ni-m-term-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 22px 0; border-bottom: 1px solid #e8e8e8; }
 .ni-m-term-row:last-child { border-bottom: none; }
@@ -490,8 +492,8 @@ export default function InvitePage() {
             <div className="ni-m-check">✓</div>
             <div className="ni-m-option-tag">Monthly Retainer</div>
             <div className="ni-m-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
-            <div className="ni-m-option-name">Guaranteed Monthly</div>
             {summary && <div className="ni-m-option-summary">{summary}</div>}
+            <div className="ni-m-option-desc">Best for consistent monthly partnership</div>
           </div>
         </div>
       )
@@ -502,8 +504,8 @@ export default function InvitePage() {
           <div className="ni-check">✓</div>
           <div className="ni-option-tag">Monthly Retainer</div>
           <div className="ni-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
-          <div className="ni-option-name">Guaranteed Monthly</div>
           {summary && <div className="ni-option-summary">{summary}</div>}
+          <div className="ni-option-desc">Best for consistent monthly partnership</div>
         </div>
       </div>
     )
@@ -518,9 +520,9 @@ export default function InvitePage() {
           <div className={`ni-m-option-card${sel ? ' selected' : ''}`} onClick={() => { setSelectedDeal('ad_spend'); setAgreed(false) }}>
             <div className="ni-m-check">✓</div>
             <div className="ni-m-option-tag">Performance-Based</div>
-            <div className="ni-m-option-rate">{adSpendPct}<sup>%</sup></div>
-            <div className="ni-m-option-name">Ad Spend Share</div>
+            <div className="ni-m-option-rate">{adSpendPct}<sup>%</sup><span style={{ fontSize: 14, fontFamily: 'Inter, sans-serif', fontStyle: 'normal', fontWeight: 400, color: '#888', marginLeft: 4 }}>of ad spend</span></div>
             {summary && <div className="ni-m-option-summary">{summary}</div>}
+            <div className="ni-m-option-desc">Best if you prefer earnings tied to paid media spend</div>
           </div>
         </div>
       )
@@ -530,9 +532,9 @@ export default function InvitePage() {
         <div className={`ni-option-card${sel ? ' selected' : ''}`} onClick={() => { setSelectedDeal('ad_spend'); setAgreed(false) }}>
           <div className="ni-check">✓</div>
           <div className="ni-option-tag">Performance-Based</div>
-          <div className="ni-option-rate">{adSpendPct}<sup>%</sup></div>
-          <div className="ni-option-name">Ad Spend Share</div>
+          <div className="ni-option-rate">{adSpendPct}<sup>%</sup><span style={{ fontSize: 14, fontFamily: 'Inter, sans-serif', fontStyle: 'normal', fontWeight: 400, color: '#888', marginLeft: 4 }}>of ad spend</span></div>
           {summary && <div className="ni-option-summary">{summary}</div>}
+          <div className="ni-option-desc">Best if you prefer earnings tied to paid media spend</div>
         </div>
       </div>
     )
