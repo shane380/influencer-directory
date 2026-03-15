@@ -78,6 +78,8 @@ async function fetchAdsForHandle(
     `https://graph.facebook.com/${META_API_VERSION}/${actId}/ads?` +
     `fields=${fields}` +
     `&filtering=${encodeURIComponent(filtering)}` +
+    `&thumbnail_width=600` +
+    `&thumbnail_height=600` +
     `&limit=50` +
     `&access_token=${accessToken}`;
 
