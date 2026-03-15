@@ -222,7 +222,7 @@ const CSS = `
 .ni-m-btn-outline { width: 100%; padding: 14px; background: transparent; color: #aaa; border: 1.5px solid #e8e8e8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: 400; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; border-radius: 6px; margin-top: 10px; }
 .ni-m-form-group { margin-bottom: 16px; }
 .ni-m-form-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #bbb; display: block; margin-bottom: 7px; }
-.ni-m-form-input { width: 100%; padding: 13px 16px; border: 1.5px solid #e8e8e8; background: #fafafa; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #111; outline: none; border-radius: 8px; box-sizing: border-box; }
+.ni-m-form-input { width: 100%; padding: 13px 16px; border: 1.5px solid #e8e8e8; background: #fafafa; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; color: #111; outline: none; border-radius: 8px; box-sizing: border-box; }
 .ni-m-form-input:focus { border-color: #aaa; background: white; }
 .ni-m-success-badge { display: inline-flex; align-items: center; gap: 7px; background: #f5f5f5; border: 1px solid #e8e8e8; padding: 6px 14px; border-radius: 100px; margin-bottom: 22px; font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: #888; }
 .ni-m-success-title { font-family: 'Playfair Display', serif; font-size: 38px; font-weight: 300; color: #111; line-height: 1.05; margin-bottom: 12px; }
