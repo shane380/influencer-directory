@@ -573,7 +573,7 @@ export default function InvitePage() {
             <div className="ni-m-option-tag">Performance-Based</div>
             <div className="ni-m-option-rate">{adSpendPct}<sup>%</sup><span style={{ fontSize: 14, fontFamily: 'Inter, sans-serif', fontStyle: 'normal', fontWeight: 400, color: '#888', marginLeft: 4 }}>of ad spend</span></div>
             {summary && <div className="ni-m-option-summary">{summary}</div>}
-            <div className="ni-m-option-desc">Best if you prefer earnings tied to paid media spend</div>
+            <div className="ni-m-option-desc">Best for creators looking for higher earning potential</div>
           </div>
         </div>
       )
@@ -585,7 +585,7 @@ export default function InvitePage() {
           <div className="ni-option-tag">Performance-Based</div>
           <div className="ni-option-rate">{adSpendPct}<sup>%</sup><span style={{ fontSize: 14, fontFamily: 'Inter, sans-serif', fontStyle: 'normal', fontWeight: 400, color: '#888', marginLeft: 4 }}>of ad spend</span></div>
           {summary && <div className="ni-option-summary">{summary}</div>}
-          <div className="ni-option-desc">Best if you prefer earnings tied to paid media spend</div>
+          <div className="ni-option-desc">Best for creators looking for higher earning potential</div>
         </div>
       </div>
     )
