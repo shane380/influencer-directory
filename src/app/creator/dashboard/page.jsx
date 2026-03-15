@@ -3908,7 +3908,17 @@ export default function CreatorDashboard() {
                 )
               })()}
 
-              <button className="cd-campaign-card-cta">View details</button>
+              {assignment.status === 'complete' ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 0', color: '#16a34a', fontSize: 13, fontWeight: 500, letterSpacing: '0.02em' }}>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+                    <circle cx="8" cy="8" r="8" fill="#16a34a"/>
+                    <path d="M5 8.5L7 10.5L11 6" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  Complete
+                </div>
+              ) : (
+                <button className="cd-campaign-card-cta">View details</button>
+              )}
             </div>
           </>
         )}
