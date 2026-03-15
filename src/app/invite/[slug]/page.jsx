@@ -1104,7 +1104,7 @@ export default function InvitePage() {
       return (
         <>
           <div className="ni-m-eyebrow">{defaultEyebrow}</div>
-          <div className="ni-m-headline">Hi {firstName},<br /><em>let&apos;s make it<br />official.</em></div>
+          <div className="ni-m-headline">{defaultHeadline}</div>
           <p className="ni-m-intro">{defaultIntro}</p>
         </>
       )
