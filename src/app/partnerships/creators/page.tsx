@@ -64,6 +64,7 @@ export default function CreatorsListPage() {
   const [secondDealType, setSecondDealType] = useState<"affiliate" | "ad_spend" | "retainer" | "none">("ad_spend");
   const [secondAddAffiliate, setSecondAddAffiliate] = useState(false);
   const [isExistingCreator, setIsExistingCreator] = useState(false);
+  const [existingHasAdSpend, setExistingHasAdSpend] = useState(false);
   const [minimumCommitment, setMinimumCommitment] = useState<number | null>(null);
   const [submittingInvite, setSubmittingInvite] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
@@ -214,6 +215,7 @@ export default function CreatorsListPage() {
     setSecondDealType("ad_spend");
     setSecondAddAffiliate(false);
     setIsExistingCreator(false);
+    setExistingHasAdSpend(false);
     setMinimumCommitment(null);
     setGeneratedUrl(null);
     setCopied(false);
@@ -257,7 +259,7 @@ export default function CreatorsListPage() {
     }
 
     const hasRetainer = retainerAmount != null && retainerAmount > 0;
-    const hasAdSpend = adSpendPercentage != null && adSpendPercentage > 0;
+    const hasAdSpend = (adSpendPercentage != null && adSpendPercentage > 0) || (isExistingCreator && existingHasAdSpend);
     const hasAffiliate = commissionRate > 0;
 
     return { retainerAmount, adSpendPercentage, adSpendMinimum, commissionRate, hasRetainer, hasAdSpend, hasAffiliate };
@@ -712,12 +714,25 @@ export default function CreatorsListPage() {
                         if (e.target.checked) {
                           setDealType("none");
                           setOfferChoice(false);
+                        } else {
+                          setExistingHasAdSpend(false);
                         }
                       }}
                       className="rounded border-gray-300"
                     />
                     <span className="text-sm text-gray-700">Existing creator</span>
                   </label>
+                  {isExistingCreator && dealType === "none" && (
+                    <label className="flex items-center gap-2 cursor-pointer ml-6">
+                      <input
+                        type="checkbox"
+                        checked={existingHasAdSpend}
+                        onChange={(e) => setExistingHasAdSpend(e.target.checked)}
+                        className="rounded border-gray-300"
+                      />
+                      <span className="text-sm text-gray-700">Has active ad spend</span>
+                    </label>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Minimum commitment (months)</label>
                     <input

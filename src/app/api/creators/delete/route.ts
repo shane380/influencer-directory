@@ -24,19 +24,28 @@ export async function DELETE(request: NextRequest) {
   }
 
   // Delete related data in order (foreign key constraints)
-  // 1. Submissions linked to this creator
-  await supabase.from("submissions").delete().eq("creator_id", creator_id);
+  // 1. Content submissions
+  await (supabase.from("creator_content_submissions") as any).delete().eq("creator_id", creator_id);
 
-  // 2. Campaign assignments
-  await supabase.from("campaign_assignments").delete().eq("creator_id", creator_id);
+  // 2. Sample requests
+  await (supabase.from("creator_sample_requests") as any).delete().eq("creator_id", creator_id);
 
-  // 3. Content
-  await supabase.from("content").delete().eq("creator_id", creator_id);
+  // 3. Product feedback
+  await (supabase.from("creator_product_feedback") as any).delete().eq("creator_id", creator_id);
 
-  // 4. Creator ad performance (if linked via influencer)
-  // Skip — linked by influencer_id, not creator_id
+  // 4. Code change requests
+  await (supabase.from("creator_code_change_requests") as any).delete().eq("creator_id", creator_id);
 
-  // 5. Delete the creator record
+  // 5. Campaign assignments
+  await (supabase.from("campaign_assignments") as any).delete().eq("creator_id", creator_id);
+
+  // 6. Submissions (legacy)
+  await (supabase.from("submissions") as any).delete().eq("creator_id", creator_id);
+
+  // 7. Content
+  await (supabase.from("content") as any).delete().eq("creator_id", creator_id);
+
+  // 8. Delete the creator record
   const { error: deleteError } = await supabase
     .from("creators")
     .delete()
@@ -46,7 +55,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: deleteError.message }, { status: 500 });
   }
 
-  // 6. Reset invite status so it can be reused
+  // 9. Reset invite status so it can be reused
   if (creator.invite_id) {
     await supabase
       .from("creator_invites")
@@ -54,7 +63,7 @@ export async function DELETE(request: NextRequest) {
       .eq("id", creator.invite_id);
   }
 
-  // 7. Delete auth user if exists
+  // 10. Delete auth user if exists
   if (creator.user_id) {
     await supabase.auth.admin.deleteUser(creator.user_id);
   }

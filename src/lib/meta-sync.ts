@@ -73,7 +73,7 @@ async function fetchAdsForHandle(
     { field: "name", operator: "CONTAIN", value: handle },
   ]);
 
-  const fields = "name,status,creative{thumbnail_url},insights.date_preset(maximum){spend,impressions}";
+  const fields = "name,status,creative{thumbnail_url,image_url},insights.date_preset(maximum){spend,impressions}";
   const listUrl =
     `https://graph.facebook.com/${META_API_VERSION}/${actId}/ads?` +
     `fields=${fields}` +
@@ -185,7 +185,7 @@ async function fetchAdsForHandle(
       status: ad.status,
       spend: spend.toFixed(2),
       impressions: String(impressions),
-      thumbnailUrl: ad.creative?.thumbnail_url || null,
+      thumbnailUrl: ad.creative?.image_url || ad.creative?.thumbnail_url || null,
     };
   });
 
