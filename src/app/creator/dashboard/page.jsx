@@ -2696,7 +2696,7 @@ export default function CreatorDashboard() {
                     }
                   }}
                 >
-                  Accept Campaign
+                  {campaign.parent_campaign_id ? 'Accept Invite' : 'Accept Campaign'}
                 </button>
               </div>
             )}
