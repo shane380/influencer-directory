@@ -95,18 +95,18 @@ const CSS = `
 .ni-faq-item { padding: 0; border-bottom: 1px solid #e8e8e8; }
 .ni-faq-item:last-child { border-bottom: none; }
 .ni-faq-q { display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 18px 0; }
-.ni-faq-q-text { font-size: 11px; letter-spacing: 0; text-transform: none; color: #333; font-weight: 600; line-height: 1.6; padding-right: 12px; }
+.ni-faq-q-text { font-size: 13px; letter-spacing: 0; text-transform: none; color: #333; font-weight: 400; line-height: 1.6; padding-right: 12px; }
 .ni-faq-icon { font-size: 14px; color: #bbb; flex-shrink: 0; transition: transform 0.2s; font-weight: 300; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1; }
 .ni-faq-icon.open { transform: rotate(45deg); }
-.ni-faq-a { font-size: 12px; color: #777; font-weight: 300; line-height: 1.7; padding: 0 0 18px; }
+.ni-faq-a { font-size: 12px; color: #444; font-weight: 300; line-height: 1.7; padding: 0 0 18px; }
 .ni-m-faq { margin-bottom: 24px; }
 .ni-m-faq-item { padding: 0; border-bottom: 1px solid #e8e8e8; }
 .ni-m-faq-item:last-child { border-bottom: none; }
 .ni-m-faq-q { display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 16px 0; }
-.ni-m-faq-q-text { font-size: 11px; letter-spacing: 0; text-transform: none; color: #333; font-weight: 600; line-height: 1.6; padding-right: 12px; }
+.ni-m-faq-q-text { font-size: 13px; letter-spacing: 0; text-transform: none; color: #333; font-weight: 400; line-height: 1.6; padding-right: 12px; }
 .ni-m-faq-icon { font-size: 14px; color: #bbb; flex-shrink: 0; transition: transform 0.2s; font-weight: 300; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1; }
 .ni-m-faq-icon.open { transform: rotate(45deg); }
-.ni-m-faq-a { font-size: 12px; color: #777; font-weight: 300; line-height: 1.7; padding: 0 0 16px; }
+.ni-m-faq-a { font-size: 12px; color: #444; font-weight: 300; line-height: 1.7; padding: 0 0 16px; }
 
 /* AGREE */
 .ni-agree-row { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 24px; }
