@@ -41,7 +41,7 @@ const CSS = `
 
 /* LAYOUT */
 .cd-layout { display: grid; grid-template-columns: 300px 1fr; min-height: 100vh; }
-.cd-page { background: #f7f7f7; min-height: 100vh; }
+.cd-page { background: #f7f7f7; min-height: 100vh; min-width: 0; overflow: hidden; }
 
 /* SIDEBAR */
 .cd-sidebar { background: #fff; border-right: 1px solid #e8e8e8; position: sticky; top: 0; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; }
@@ -120,7 +120,7 @@ const CSS = `
 .cd-notif-item-feedback { font-size: 10px; color: #666; margin-top: 3px; font-style: italic; }
 
 /* CONTENT */
-.cd-content { padding: 40px 48px 80px; display: flex; flex-direction: column; gap: 20px; }
+.cd-content { padding: 40px 48px 80px; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
 
 /* CARDS */
 .cd-card { background: #fff; border: 1px solid #e8e8e8; }
@@ -460,7 +460,7 @@ const CSS = `
 .cd-aff-order-comm { font-family: 'Playfair Display', serif; font-size: 17px; color: #111; }
 
 /* MOMENTUM / LIVE ADS CARD */
-.cd-momentum { background: #fff; border: 1px solid #e8e8e8; }
+.cd-momentum { background: #fff; border: 1px solid #e8e8e8; min-width: 0; }
 .cd-momentum-head { padding: 32px 36px 0; margin-bottom: 24px; display: flex; align-items: flex-start; justify-content: space-between; }
 .cd-momentum-title { font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 300; color: #111; line-height: 1; }
 .cd-momentum-eyebrow { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
