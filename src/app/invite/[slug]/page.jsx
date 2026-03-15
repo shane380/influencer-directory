@@ -492,7 +492,7 @@ export default function InvitePage() {
     ? "We've truly loved working with you — now we want to make it official."
     : hasMultipleOffers
       ? "We've loved the content you've created with Nama and would love to build a more consistent partnership together. Choose your preferred compensation plan below to continue."
-      : "Your Nama partnership offer is ready."
+      : "We've loved the content you've created with Nama and would love to make this a more consistent partnership. We've put together an offer below for you."
 
   // Left panel content per step
   function getLeftContent() {
