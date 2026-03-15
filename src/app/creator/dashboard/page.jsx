@@ -3166,7 +3166,7 @@ export default function CreatorDashboard() {
                       <div className="cd-upload-success-title">Submitted</div>
                       <div className="cd-upload-success-sub">We&apos;ll review within 48 hours.</div>
                       <button className="cd-rev-submit-btn" style={{ marginTop: 20, maxWidth: 240, margin: '20px auto 0' }} onClick={() => setContentSuccess(false)}>
-                        Submit More Content
+                        Add More Content
                       </button>
                     </div>
                   )}
@@ -3348,7 +3348,7 @@ export default function CreatorDashboard() {
                               <div className="cd-upload-success-title">Submitted</div>
                               <div className="cd-upload-success-sub">We&apos;ll review within 48 hours.</div>
                               <button className="cd-rev-submit-btn" style={{ marginTop: 20, maxWidth: 240, margin: '20px auto 0' }} onClick={() => setContentSuccess(null)}>
-                                Submit More Content
+                                Add More Content
                               </button>
                             </div>
                           ) : (
@@ -3497,7 +3497,7 @@ export default function CreatorDashboard() {
                       <div className="cd-upload-success-title">Submitted</div>
                       <div className="cd-upload-success-sub">We&apos;ll review within 48 hours.</div>
                       <button className="cd-step3-submit-btn" style={{ marginTop: 20, maxWidth: 240, margin: '20px auto 0' }} onClick={() => setContentSuccess(false)}>
-                        Submit More Content
+                        Add More Content
                       </button>
                     </div>
                   ) : contentSuccess ? (
@@ -3506,7 +3506,7 @@ export default function CreatorDashboard() {
                       <div className="cd-upload-success-title">Submitted</div>
                       <div className="cd-upload-success-sub">We&apos;ll review within 48 hours.</div>
                       <button className="cd-step3-submit-btn" style={{ marginTop: 20, maxWidth: 240, margin: '20px auto 0' }} onClick={() => setContentSuccess(false)}>
-                        Submit More Content
+                        Add More Content
                       </button>
                     </div>
                   ) : (
