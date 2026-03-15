@@ -440,7 +440,7 @@ export default function InvitePage() {
   const defaultIntro = isExisting
     ? "We've truly loved working with you — now we want to make it official."
     : hasMultipleOffers
-      ? "We've loved working with you. Choose your preferred compensation plan below to continue."
+      ? "We've loved the content you've created with Nama and would love to build a more consistent partnership together. Choose your preferred compensation plan below to continue."
       : "Your Nama partnership offer is ready."
 
   // Left panel content per step
