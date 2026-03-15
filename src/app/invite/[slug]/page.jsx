@@ -488,9 +488,9 @@ export default function InvitePage() {
         <div>
           <div className={`ni-m-option-card${sel ? ' selected' : ''}`} onClick={() => { setSelectedDeal('retainer'); setAgreed(false) }}>
             <div className="ni-m-check">✓</div>
-            <div className="ni-m-option-tag">Option A</div>
+            <div className="ni-m-option-tag">Monthly Retainer</div>
             <div className="ni-m-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
-            <div className="ni-m-option-name">Monthly Retainer</div>
+            <div className="ni-m-option-name">Guaranteed Monthly</div>
             {summary && <div className="ni-m-option-summary">{summary}</div>}
           </div>
         </div>
@@ -500,9 +500,9 @@ export default function InvitePage() {
       <div>
         <div className={`ni-option-card${sel ? ' selected' : ''}`} onClick={() => { setSelectedDeal('retainer'); setAgreed(false) }}>
           <div className="ni-check">✓</div>
-          <div className="ni-option-tag">Option A</div>
+          <div className="ni-option-tag">Monthly Retainer</div>
           <div className="ni-option-rate">${retainerAmount?.toLocaleString()}<sub> /mo</sub></div>
-          <div className="ni-option-name">Monthly Retainer</div>
+          <div className="ni-option-name">Guaranteed Monthly</div>
           {summary && <div className="ni-option-summary">{summary}</div>}
         </div>
       </div>
@@ -517,9 +517,9 @@ export default function InvitePage() {
         <div>
           <div className={`ni-m-option-card${sel ? ' selected' : ''}`} onClick={() => { setSelectedDeal('ad_spend'); setAgreed(false) }}>
             <div className="ni-m-check">✓</div>
-            <div className="ni-m-option-tag">Option B</div>
+            <div className="ni-m-option-tag">Performance-Based</div>
             <div className="ni-m-option-rate">{adSpendPct}<sup>%</sup></div>
-            <div className="ni-m-option-name">% of Ad Spend</div>
+            <div className="ni-m-option-name">Ad Spend Share</div>
             {summary && <div className="ni-m-option-summary">{summary}</div>}
           </div>
         </div>
@@ -529,9 +529,9 @@ export default function InvitePage() {
       <div>
         <div className={`ni-option-card${sel ? ' selected' : ''}`} onClick={() => { setSelectedDeal('ad_spend'); setAgreed(false) }}>
           <div className="ni-check">✓</div>
-          <div className="ni-option-tag">Option B</div>
+          <div className="ni-option-tag">Performance-Based</div>
           <div className="ni-option-rate">{adSpendPct}<sup>%</sup></div>
-          <div className="ni-option-name">% of Ad Spend</div>
+          <div className="ni-option-name">Ad Spend Share</div>
           {summary && <div className="ni-option-summary">{summary}</div>}
         </div>
       </div>
