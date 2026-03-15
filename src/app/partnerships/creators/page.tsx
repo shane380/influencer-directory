@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { createInvite } from "@/lib/invites";
 import { Sidebar } from "@/components/sidebar";
-import { X, Search, Copy, Check, Settings, ExternalLink } from "lucide-react";
+import { X, Search, Copy, Check, Settings, ExternalLink, Trash2 } from "lucide-react";
 import { EditTermsModal } from "@/components/edit-terms-modal";
 
 interface Creator {
@@ -496,6 +496,28 @@ export default function CreatorsListPage() {
                               )}
                             </button>
                           )}
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (!confirm(`Delete ${creator.creator_name}? This will remove their account, submissions, and all related data. Their invite link will be reset so it can be reused.`)) return;
+                              try {
+                                const res = await fetch("/api/creators/delete", {
+                                  method: "DELETE",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ creator_id: creator.id }),
+                                });
+                                if (!res.ok) throw new Error("Failed to delete");
+                                setCreators(prev => prev.filter(c => c.id !== creator.id));
+                              } catch (err) {
+                                console.error("Delete error:", err);
+                                alert("Failed to delete partner. Please try again.");
+                              }
+                            }}
+                            className="text-gray-400 hover:text-red-500 transition-colors"
+                            title="Delete Partner"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>
