@@ -2693,6 +2693,8 @@ export default function CreatorDashboard() {
                         const campRes = await fetch(`/api/creator/campaigns?creator_id=${creator.id}`)
                         const campData = await campRes.json()
                         setCampaignAssignments(campData.assignments || [])
+                        const updated = (campData.assignments || []).find(a => a.id === assignment.id)
+                        if (updated) setActiveCampaignDetail(updated)
                       } catch (err) {
                         console.error('Auto-confirm error:', err)
                       }
@@ -2842,6 +2844,8 @@ export default function CreatorDashboard() {
                           const campRes = await fetch(`/api/creator/campaigns?creator_id=${creator.id}`)
                           const campData = await campRes.json()
                           setCampaignAssignments(campData.assignments || [])
+                          const updated = (campData.assignments || []).find(a => a.id === assignment.id)
+                          if (updated) setActiveCampaignDetail(updated)
                         } catch (err) {
                           console.error('Auto-confirm error:', err)
                         }
