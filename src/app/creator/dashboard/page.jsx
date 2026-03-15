@@ -3875,7 +3875,7 @@ export default function CreatorDashboard() {
 
             {/* Card body */}
             <div className="cd-campaign-card-body">
-              <div className="cd-campaign-title">{campaign.title}</div>
+              <div className="cd-campaign-title" style={!campaign.description ? { marginBottom: 16 } : undefined}>{campaign.title}</div>
               {campaign.description && <div className="cd-campaign-desc">{campaign.description}</div>}
 
               {/* Date fields */}
