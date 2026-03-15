@@ -434,9 +434,12 @@ export default function InvitePage() {
   const defaultHeadline = isExisting
     ? <>Hi {firstName},<br /><em>let&apos;s make it<br />official.</em></>
     : <>Hi {firstName},<br /><em style={{ fontSize: '0.7em' }}>your partnership offer is ready.</em></>
+  const hasMultipleOffers = availableDeals.length > 1
   const defaultIntro = isExisting
     ? "We've truly loved working with you — now we want to make it official."
-    : "Your Nama partnership offer is ready."
+    : hasMultipleOffers
+      ? "We've loved working with you. Choose your preferred compensation plan below to continue."
+      : "Your Nama partnership offer is ready."
 
   // Left panel content per step
   function getLeftContent() {
