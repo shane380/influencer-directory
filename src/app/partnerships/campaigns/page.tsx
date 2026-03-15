@@ -1155,12 +1155,45 @@ export default function CampaignsPage() {
                 {selectedCampaign.due_date && <span className="text-sm text-gray-500">Due {new Date(selectedCampaign.due_date + "T00:00:00").toLocaleDateString("en", { month: "long", day: "numeric" })}</span>}
               </div>
             </div>
-            <button
-              onClick={() => openEditModal(selectedCampaign)}
-              className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50"
-            >
-              Edit Campaign
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => openEditModal(selectedCampaign)}
+                className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50"
+              >
+                Edit {selectedCampaign.parent_campaign_id ? "Invitation" : "Campaign"}
+              </button>
+              <button
+                onClick={async () => {
+                  const label = selectedCampaign.parent_campaign_id ? "creative invitation" : "campaign";
+                  if (!confirm(`Delete this ${label}? This will also remove all assignments${!selectedCampaign.parent_campaign_id ? " and creative invitations" : ""}.`)) return;
+                  try {
+                    const res = await fetch("/api/creator/campaigns", {
+                      method: "DELETE",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ id: selectedCampaign.id }),
+                    });
+                    if (!res.ok) throw new Error("Failed to delete");
+                    // Navigate back
+                    if (selectedCampaign.parent_campaign_id) {
+                      const parent = campaigns.find(c => c.id === selectedCampaign.parent_campaign_id);
+                      if (parent) { openDetail(parent); } else { setSelectedCampaign(null); }
+                    } else {
+                      setSelectedCampaign(null);
+                    }
+                    // Refresh campaigns list
+                    const listRes = await fetch("/api/creator/campaigns");
+                    const listData = await listRes.json();
+                    setCampaigns(listData.campaigns || []);
+                  } catch (err) {
+                    console.error("Delete error:", err);
+                    alert("Failed to delete. Please try again.");
+                  }
+                }}
+                className="px-4 py-2 text-sm border border-red-200 text-red-600 rounded-lg hover:bg-red-50"
+              >
+                Delete
+              </button>
+            </div>
           </div>
 
           {selectedCampaign.banner_image?.url && (

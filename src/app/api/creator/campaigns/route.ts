@@ -256,3 +256,33 @@ export async function PATCH(request: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ campaign: data });
 }
+
+export async function DELETE(request: NextRequest) {
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const { id } = await request.json();
+
+  if (!id) {
+    return NextResponse.json({ error: "id required" }, { status: 400 });
+  }
+
+  // Delete assignments first (foreign key constraint)
+  await supabase.from("campaign_assignments").delete().eq("campaign_id", id);
+
+  // Delete child campaigns (creative invitations) and their assignments
+  const { data: children } = await supabase
+    .from("creator_campaigns")
+    .select("id")
+    .eq("parent_campaign_id", id);
+
+  if (children && children.length > 0) {
+    const childIds = children.map((c: any) => c.id);
+    await supabase.from("campaign_assignments").delete().in("campaign_id", childIds);
+    await supabase.from("creator_campaigns").delete().in("id", childIds);
+  }
+
+  // Delete the campaign itself
+  const { error } = await supabase.from("creator_campaigns").delete().eq("id", id);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ success: true });
+}
