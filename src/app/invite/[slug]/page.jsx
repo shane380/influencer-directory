@@ -269,8 +269,17 @@ export default function InvitePage() {
   const [openFaqIndex, setOpenFaqIndex] = useState(null)
 
   // Payment step
+  const [paymentCountry, setPaymentCountry] = useState(null)
   const [paymentMethod, setPaymentMethod] = useState(null)
-  const [paymentForm, setPaymentForm] = useState({ paypalEmail: '', bankName: '', bankInstitution: '', bankAccount: '', bankRouting: '' })
+  const [paymentForm, setPaymentForm] = useState({
+    paypalEmail: '',
+    // US ACH
+    achName: '', achRouting: '', achAccount: '', achAccountType: 'checking',
+    // Canada EFT
+    eftName: '', eftTransit: '', eftInstitution: '', eftAccount: '',
+    // International Wire
+    wireName: '', wireAddress: '', wireBankName: '', wireBankAddress: '', wireAccount: '', wireSwift: '', wireRoutingCode: '',
+  })
   const [paymentSubmitting, setPaymentSubmitting] = useState(false)
 
   useEffect(() => {
@@ -350,14 +359,30 @@ export default function InvitePage() {
   async function handlePaymentSubmit() {
     setPaymentSubmitting(true)
     try {
-      const body = { payment_method: paymentMethod }
+      const body = { payment_method: paymentMethod, payout_country: paymentCountry }
       if (paymentMethod === 'paypal') {
-        body.paypal_email = paymentForm.paypalEmail
-      } else {
-        body.bank_account_name = paymentForm.bankName
-        body.bank_institution = paymentForm.bankInstitution
-        body.bank_account_number = paymentForm.bankAccount
-        body.bank_routing_number = paymentForm.bankRouting
+        body.paypal_email = paymentForm.paypalEmail.trim()
+      } else if (paymentMethod === 'us_ach') {
+        body.bank_account_name = paymentForm.achName.trim()
+        body.bank_routing_number = paymentForm.achRouting.trim()
+        body.bank_account_number = paymentForm.achAccount.trim()
+        body.bank_institution = paymentForm.achAccountType
+      } else if (paymentMethod === 'ca_eft') {
+        body.bank_account_name = paymentForm.eftName.trim()
+        body.bank_routing_number = paymentForm.eftTransit.trim()
+        body.bank_institution = paymentForm.eftInstitution.trim()
+        body.bank_account_number = paymentForm.eftAccount.trim()
+      } else if (paymentMethod === 'intl_wire') {
+        body.bank_account_name = paymentForm.wireName.trim()
+        body.bank_institution = JSON.stringify({
+          beneficiary_address: paymentForm.wireAddress.trim(),
+          bank_name: paymentForm.wireBankName.trim(),
+          bank_address: paymentForm.wireBankAddress.trim(),
+          swift: paymentForm.wireSwift.trim().toUpperCase(),
+          routing_code: paymentForm.wireRoutingCode.trim(),
+        })
+        body.bank_account_number = paymentForm.wireAccount.trim()
+        body.bank_routing_number = paymentForm.wireSwift.trim().toUpperCase()
       }
       await fetch('/api/creators/payment', {
         method: 'PATCH',
@@ -369,10 +394,36 @@ export default function InvitePage() {
     setStep('done')
   }
 
+  function getPaymentMethods() {
+    if (paymentCountry === 'US') return [{ key: 'paypal', label: 'PayPal', desc: 'Send payments directly to your PayPal account' }, { key: 'us_ach', label: 'Direct Deposit', desc: 'ACH transfer to your US bank account' }]
+    if (paymentCountry === 'CA') return [{ key: 'paypal', label: 'PayPal', desc: 'Send payments directly to your PayPal account' }, { key: 'ca_eft', label: 'Direct Deposit', desc: 'EFT transfer to your Canadian bank account' }]
+    if (paymentCountry) return [{ key: 'paypal', label: 'PayPal', desc: 'Send payments directly to your PayPal account' }, { key: 'intl_wire', label: 'International Wire', desc: 'Wire transfer using your bank details' }]
+    return []
+  }
+
   function isPaymentValid() {
-    if (!paymentMethod) return false
+    if (!paymentMethod || !paymentCountry) return false
     if (paymentMethod === 'paypal') return paymentForm.paypalEmail.trim().length > 0
-    return paymentForm.bankName.trim().length > 0 && paymentForm.bankAccount.trim().length > 0 && paymentForm.bankRouting.trim().length > 0
+    if (paymentMethod === 'us_ach') {
+      return paymentForm.achName.trim().length > 0 &&
+        /^\d{9}$/.test(paymentForm.achRouting.trim()) &&
+        paymentForm.achAccount.trim().length > 0
+    }
+    if (paymentMethod === 'ca_eft') {
+      return paymentForm.eftName.trim().length > 0 &&
+        /^\d{5}$/.test(paymentForm.eftTransit.trim()) &&
+        /^\d{3}$/.test(paymentForm.eftInstitution.trim()) &&
+        paymentForm.eftAccount.trim().length > 0
+    }
+    if (paymentMethod === 'intl_wire') {
+      return paymentForm.wireName.trim().length > 0 &&
+        paymentForm.wireAddress.trim().length > 0 &&
+        paymentForm.wireBankName.trim().length > 0 &&
+        paymentForm.wireBankAddress.trim().length > 0 &&
+        paymentForm.wireAccount.trim().length > 0 &&
+        paymentForm.wireSwift.trim().length > 0
+    }
+    return false
   }
 
   function copyCode() {
@@ -814,41 +865,118 @@ export default function InvitePage() {
     }
 
     if (step === 'payment') {
+      const methods = getPaymentMethods()
       return (
         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '100%' }}>
-          <div className="ni-sec-label">Select Payment Method</div>
-          <div className="ni-option-cards" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: 24 }}>
-            <div className={`ni-option-card${paymentMethod === 'paypal' ? ' selected' : ''}`} onClick={() => setPaymentMethod('paypal')}>
-              <div className="ni-check">✓</div>
-              <div className="ni-option-name">PayPal</div>
-              <div className="ni-option-rule" />
-              <div className="ni-option-detail">Fast, simple. We send directly to your PayPal account.</div>
-            </div>
-            <div className={`ni-option-card${paymentMethod === 'bank' ? ' selected' : ''}`} onClick={() => setPaymentMethod('bank')}>
-              <div className="ni-check">✓</div>
-              <div className="ni-option-name">Bank Transfer</div>
-              <div className="ni-option-rule" />
-              <div className="ni-option-detail">Direct deposit to your bank account.</div>
-            </div>
+          <div className="ni-form-group">
+            <label className="ni-form-label">Payout Country</label>
+            <select className="ni-form-input" value={paymentCountry || ''} onChange={e => { setPaymentCountry(e.target.value || null); setPaymentMethod(null) }} style={{ cursor: 'pointer' }}>
+              <option value="">Select your country</option>
+              <option value="US">United States</option>
+              <option value="CA">Canada</option>
+              <option value="GB">United Kingdom</option>
+              <option value="AU">Australia</option>
+              <option value="DE">Germany</option>
+              <option value="FR">France</option>
+              <option value="OTHER">Other</option>
+            </select>
           </div>
+
+          {paymentCountry && (
+            <>
+              <div className="ni-sec-label" style={{ marginTop: 8 }}>Select Payment Method</div>
+              <div className="ni-option-cards" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: 24 }}>
+                {methods.map(m => (
+                  <div key={m.key} className={`ni-option-card${paymentMethod === m.key ? ' selected' : ''}`} onClick={() => setPaymentMethod(m.key)}>
+                    <div className="ni-check">✓</div>
+                    <div className="ni-option-name">{m.label}</div>
+                    <div className="ni-option-rule" />
+                    <div className="ni-option-detail">{m.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
           {paymentMethod === 'paypal' && (
             <div className="ni-form-group">
               <label className="ni-form-label">PayPal Email Address</label>
               <input className="ni-form-input" type="email" value={paymentForm.paypalEmail} onChange={e => setPaymentForm(f => ({ ...f, paypalEmail: e.target.value }))} placeholder="your@paypal.com" />
             </div>
           )}
-          {paymentMethod === 'bank' && (
+
+          {paymentMethod === 'us_ach' && (
             <>
-              <div className="ni-form-group"><label className="ni-form-label">Account Holder Name</label><input className="ni-form-input" value={paymentForm.bankName} onChange={e => setPaymentForm(f => ({ ...f, bankName: e.target.value }))} /></div>
-              <div className="ni-form-group"><label className="ni-form-label">Institution Name</label><input className="ni-form-input" value={paymentForm.bankInstitution} onChange={e => setPaymentForm(f => ({ ...f, bankInstitution: e.target.value }))} placeholder="e.g. TD Bank" /></div>
-              <div className="ni-form-group"><label className="ni-form-label">Account Number</label><input className="ni-form-input" value={paymentForm.bankAccount} onChange={e => setPaymentForm(f => ({ ...f, bankAccount: e.target.value }))} /></div>
-              <div className="ni-form-group" style={{ marginBottom: 28 }}><label className="ni-form-label">Routing / Transit Number</label><input className="ni-form-input" value={paymentForm.bankRouting} onChange={e => setPaymentForm(f => ({ ...f, bankRouting: e.target.value }))} /></div>
+              <div className="ni-form-group"><label className="ni-form-label">Account Holder Full Legal Name</label><input className="ni-form-input" value={paymentForm.achName} onChange={e => setPaymentForm(f => ({ ...f, achName: e.target.value }))} /></div>
+              <div className="ni-form-group">
+                <label className="ni-form-label">Routing Number</label>
+                <input className="ni-form-input" value={paymentForm.achRouting} onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 9); setPaymentForm(f => ({ ...f, achRouting: v })) }} placeholder="9-digit routing number" inputMode="numeric" />
+                {paymentForm.achRouting.length > 0 && paymentForm.achRouting.length < 9 && <div style={{ fontSize: 11, color: '#c87533', marginTop: 4 }}>Must be 9 digits</div>}
+              </div>
+              <div className="ni-form-group"><label className="ni-form-label">Account Number</label><input className="ni-form-input" value={paymentForm.achAccount} onChange={e => setPaymentForm(f => ({ ...f, achAccount: e.target.value }))} /></div>
+              <div className="ni-form-group" style={{ marginBottom: 28 }}>
+                <label className="ni-form-label">Account Type</label>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  {['checking', 'savings'].map(t => (
+                    <div key={t} onClick={() => setPaymentForm(f => ({ ...f, achAccountType: t }))} style={{ flex: 1, padding: '12px 16px', border: paymentForm.achAccountType === t ? '1.5px solid #1a1a1a' : '1.5px solid #e8e8e8', borderRadius: 8, cursor: 'pointer', textAlign: 'center', fontSize: 13, color: paymentForm.achAccountType === t ? '#1a1a1a' : '#888', fontWeight: paymentForm.achAccountType === t ? 500 : 400, background: paymentForm.achAccountType === t ? '#fafafa' : '#fff', transition: 'all 0.15s' }}>
+                      {t.charAt(0).toUpperCase() + t.slice(1)}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </>
           )}
-          <button className="ni-btn" onClick={handlePaymentSubmit} disabled={paymentSubmitting || !isPaymentValid()}>
-            {paymentSubmitting ? 'Saving…' : 'Save & Continue →'}
-          </button>
-          <p style={{ fontSize: 12, color: '#ccc', textAlign: 'center', marginTop: 14, cursor: 'pointer' }} onClick={() => setStep('done')}>Skip for now</p>
+
+          {paymentMethod === 'ca_eft' && (
+            <>
+              <div className="ni-form-group"><label className="ni-form-label">Account Holder Full Legal Name</label><input className="ni-form-input" value={paymentForm.eftName} onChange={e => setPaymentForm(f => ({ ...f, eftName: e.target.value }))} /></div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div className="ni-form-group">
+                  <label className="ni-form-label">Transit Number</label>
+                  <input className="ni-form-input" value={paymentForm.eftTransit} onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 5); setPaymentForm(f => ({ ...f, eftTransit: v })) }} placeholder="5 digits" inputMode="numeric" />
+                  {paymentForm.eftTransit.length > 0 && paymentForm.eftTransit.length < 5 && <div style={{ fontSize: 11, color: '#c87533', marginTop: 4 }}>Must be 5 digits</div>}
+                </div>
+                <div className="ni-form-group">
+                  <label className="ni-form-label">Institution Number</label>
+                  <input className="ni-form-input" value={paymentForm.eftInstitution} onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 3); setPaymentForm(f => ({ ...f, eftInstitution: v })) }} placeholder="3 digits" inputMode="numeric" />
+                  {paymentForm.eftInstitution.length > 0 && paymentForm.eftInstitution.length < 3 && <div style={{ fontSize: 11, color: '#c87533', marginTop: 4 }}>Must be 3 digits</div>}
+                </div>
+              </div>
+              <div className="ni-form-group" style={{ marginBottom: 28 }}><label className="ni-form-label">Account Number</label><input className="ni-form-input" value={paymentForm.eftAccount} onChange={e => setPaymentForm(f => ({ ...f, eftAccount: e.target.value }))} /></div>
+            </>
+          )}
+
+          {paymentMethod === 'intl_wire' && (
+            <>
+              <div className="ni-form-group"><label className="ni-form-label">Beneficiary Full Legal Name</label><input className="ni-form-input" value={paymentForm.wireName} onChange={e => setPaymentForm(f => ({ ...f, wireName: e.target.value }))} /></div>
+              <div className="ni-form-group"><label className="ni-form-label">Beneficiary Address</label><input className="ni-form-input" value={paymentForm.wireAddress} onChange={e => setPaymentForm(f => ({ ...f, wireAddress: e.target.value }))} placeholder="Full mailing address" /></div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div className="ni-form-group"><label className="ni-form-label">Bank Name</label><input className="ni-form-input" value={paymentForm.wireBankName} onChange={e => setPaymentForm(f => ({ ...f, wireBankName: e.target.value }))} /></div>
+                <div className="ni-form-group"><label className="ni-form-label">Bank Address</label><input className="ni-form-input" value={paymentForm.wireBankAddress} onChange={e => setPaymentForm(f => ({ ...f, wireBankAddress: e.target.value }))} /></div>
+              </div>
+              <div className="ni-form-group"><label className="ni-form-label">Account Number / IBAN</label><input className="ni-form-input" value={paymentForm.wireAccount} onChange={e => setPaymentForm(f => ({ ...f, wireAccount: e.target.value }))} /></div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div className="ni-form-group">
+                  <label className="ni-form-label">SWIFT / BIC</label>
+                  <input className="ni-form-input" value={paymentForm.wireSwift} onChange={e => setPaymentForm(f => ({ ...f, wireSwift: e.target.value.toUpperCase() }))} style={{ textTransform: 'uppercase' }} />
+                  <div style={{ fontSize: 10, color: '#aaa', marginTop: 4 }}>Required for international wire payments</div>
+                </div>
+                <div className="ni-form-group">
+                  <label className="ni-form-label">Local Routing Code</label>
+                  <input className="ni-form-input" value={paymentForm.wireRoutingCode} onChange={e => setPaymentForm(f => ({ ...f, wireRoutingCode: e.target.value }))} placeholder="Optional" />
+                </div>
+              </div>
+            </>
+          )}
+
+          {paymentCountry && (
+            <>
+              <button className="ni-btn" onClick={handlePaymentSubmit} disabled={paymentSubmitting || !isPaymentValid()}>
+                {paymentSubmitting ? 'Saving…' : 'Save & Continue →'}
+              </button>
+              <p style={{ fontSize: 12, color: '#ccc', textAlign: 'center', marginTop: 14, cursor: 'pointer' }} onClick={() => setStep('done')}>Skip for now</p>
+            </>
+          )}
         </div>
       )
     }
@@ -1056,41 +1184,112 @@ export default function InvitePage() {
     }
 
     if (step === 'payment') {
+      const methods = getPaymentMethods()
       return (
         <>
-          <div className="ni-m-sec-label">Select Payment Method</div>
-          <div className="ni-m-option-cards" style={{ marginBottom: 20 }}>
-            <div className={`ni-m-option-card${paymentMethod === 'paypal' ? ' selected' : ''}`} onClick={() => setPaymentMethod('paypal')}>
-              <div className="ni-m-check">✓</div>
-              <div className="ni-m-option-name">PayPal</div>
-              <div className="ni-m-option-rule" />
-              <div className="ni-m-option-detail">Fast, simple. We send directly to your PayPal account.</div>
-            </div>
-            <div className={`ni-m-option-card${paymentMethod === 'bank' ? ' selected' : ''}`} onClick={() => setPaymentMethod('bank')}>
-              <div className="ni-m-check">✓</div>
-              <div className="ni-m-option-name">Bank Transfer</div>
-              <div className="ni-m-option-rule" />
-              <div className="ni-m-option-detail">Direct deposit to your bank account.</div>
-            </div>
+          <div className="ni-m-form-group">
+            <label className="ni-m-form-label">Payout Country</label>
+            <select className="ni-m-form-input" value={paymentCountry || ''} onChange={e => { setPaymentCountry(e.target.value || null); setPaymentMethod(null) }} style={{ cursor: 'pointer' }}>
+              <option value="">Select your country</option>
+              <option value="US">United States</option>
+              <option value="CA">Canada</option>
+              <option value="GB">United Kingdom</option>
+              <option value="AU">Australia</option>
+              <option value="DE">Germany</option>
+              <option value="FR">France</option>
+              <option value="OTHER">Other</option>
+            </select>
           </div>
+
+          {paymentCountry && (
+            <>
+              <div className="ni-m-sec-label" style={{ marginTop: 8 }}>Select Payment Method</div>
+              <div className="ni-m-option-cards" style={{ marginBottom: 20 }}>
+                {methods.map(m => (
+                  <div key={m.key} className={`ni-m-option-card${paymentMethod === m.key ? ' selected' : ''}`} onClick={() => setPaymentMethod(m.key)}>
+                    <div className="ni-m-check">✓</div>
+                    <div className="ni-m-option-name">{m.label}</div>
+                    <div className="ni-m-option-rule" />
+                    <div className="ni-m-option-detail">{m.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
           {paymentMethod === 'paypal' && (
             <div className="ni-m-form-group">
               <label className="ni-m-form-label">PayPal Email Address</label>
               <input className="ni-m-form-input" type="email" value={paymentForm.paypalEmail} onChange={e => setPaymentForm(f => ({ ...f, paypalEmail: e.target.value }))} placeholder="your@paypal.com" />
             </div>
           )}
-          {paymentMethod === 'bank' && (
+
+          {paymentMethod === 'us_ach' && (
             <>
-              <div className="ni-m-form-group"><label className="ni-m-form-label">Account Holder Name</label><input className="ni-m-form-input" value={paymentForm.bankName} onChange={e => setPaymentForm(f => ({ ...f, bankName: e.target.value }))} /></div>
-              <div className="ni-m-form-group"><label className="ni-m-form-label">Institution Name</label><input className="ni-m-form-input" value={paymentForm.bankInstitution} onChange={e => setPaymentForm(f => ({ ...f, bankInstitution: e.target.value }))} placeholder="e.g. TD Bank" /></div>
-              <div className="ni-m-form-group"><label className="ni-m-form-label">Account Number</label><input className="ni-m-form-input" value={paymentForm.bankAccount} onChange={e => setPaymentForm(f => ({ ...f, bankAccount: e.target.value }))} /></div>
-              <div className="ni-m-form-group" style={{ marginBottom: 24 }}><label className="ni-m-form-label">Routing / Transit Number</label><input className="ni-m-form-input" value={paymentForm.bankRouting} onChange={e => setPaymentForm(f => ({ ...f, bankRouting: e.target.value }))} /></div>
+              <div className="ni-m-form-group"><label className="ni-m-form-label">Account Holder Full Legal Name</label><input className="ni-m-form-input" value={paymentForm.achName} onChange={e => setPaymentForm(f => ({ ...f, achName: e.target.value }))} /></div>
+              <div className="ni-m-form-group">
+                <label className="ni-m-form-label">Routing Number</label>
+                <input className="ni-m-form-input" value={paymentForm.achRouting} onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 9); setPaymentForm(f => ({ ...f, achRouting: v })) }} placeholder="9-digit routing number" inputMode="numeric" />
+                {paymentForm.achRouting.length > 0 && paymentForm.achRouting.length < 9 && <div style={{ fontSize: 11, color: '#c87533', marginTop: 4 }}>Must be 9 digits</div>}
+              </div>
+              <div className="ni-m-form-group"><label className="ni-m-form-label">Account Number</label><input className="ni-m-form-input" value={paymentForm.achAccount} onChange={e => setPaymentForm(f => ({ ...f, achAccount: e.target.value }))} /></div>
+              <div className="ni-m-form-group" style={{ marginBottom: 24 }}>
+                <label className="ni-m-form-label">Account Type</label>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  {['checking', 'savings'].map(t => (
+                    <div key={t} onClick={() => setPaymentForm(f => ({ ...f, achAccountType: t }))} style={{ flex: 1, padding: '12px 16px', border: paymentForm.achAccountType === t ? '1.5px solid #1a1a1a' : '1.5px solid #e8e8e8', borderRadius: 8, cursor: 'pointer', textAlign: 'center', fontSize: 13, color: paymentForm.achAccountType === t ? '#1a1a1a' : '#888', fontWeight: paymentForm.achAccountType === t ? 500 : 400, background: paymentForm.achAccountType === t ? '#fafafa' : '#fff', transition: 'all 0.15s' }}>
+                      {t.charAt(0).toUpperCase() + t.slice(1)}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </>
           )}
-          <button className="ni-m-btn" onClick={handlePaymentSubmit} disabled={paymentSubmitting || !isPaymentValid()}>
-            {paymentSubmitting ? 'Saving…' : 'Save & Continue →'}
-          </button>
-          <p style={{ fontSize: 12, color: '#ccc', textAlign: 'center', marginTop: 14, cursor: 'pointer' }} onClick={() => setStep('done')}>Skip for now</p>
+
+          {paymentMethod === 'ca_eft' && (
+            <>
+              <div className="ni-m-form-group"><label className="ni-m-form-label">Account Holder Full Legal Name</label><input className="ni-m-form-input" value={paymentForm.eftName} onChange={e => setPaymentForm(f => ({ ...f, eftName: e.target.value }))} /></div>
+              <div className="ni-m-form-group">
+                <label className="ni-m-form-label">Transit Number</label>
+                <input className="ni-m-form-input" value={paymentForm.eftTransit} onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 5); setPaymentForm(f => ({ ...f, eftTransit: v })) }} placeholder="5-digit branch transit number" inputMode="numeric" />
+                {paymentForm.eftTransit.length > 0 && paymentForm.eftTransit.length < 5 && <div style={{ fontSize: 11, color: '#c87533', marginTop: 4 }}>Must be 5 digits</div>}
+              </div>
+              <div className="ni-m-form-group">
+                <label className="ni-m-form-label">Institution Number</label>
+                <input className="ni-m-form-input" value={paymentForm.eftInstitution} onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 3); setPaymentForm(f => ({ ...f, eftInstitution: v })) }} placeholder="3-digit institution number" inputMode="numeric" />
+                {paymentForm.eftInstitution.length > 0 && paymentForm.eftInstitution.length < 3 && <div style={{ fontSize: 11, color: '#c87533', marginTop: 4 }}>Must be 3 digits</div>}
+              </div>
+              <div className="ni-m-form-group" style={{ marginBottom: 24 }}><label className="ni-m-form-label">Account Number</label><input className="ni-m-form-input" value={paymentForm.eftAccount} onChange={e => setPaymentForm(f => ({ ...f, eftAccount: e.target.value }))} /></div>
+            </>
+          )}
+
+          {paymentMethod === 'intl_wire' && (
+            <>
+              <div className="ni-m-form-group"><label className="ni-m-form-label">Beneficiary Full Legal Name</label><input className="ni-m-form-input" value={paymentForm.wireName} onChange={e => setPaymentForm(f => ({ ...f, wireName: e.target.value }))} /></div>
+              <div className="ni-m-form-group"><label className="ni-m-form-label">Beneficiary Address</label><input className="ni-m-form-input" value={paymentForm.wireAddress} onChange={e => setPaymentForm(f => ({ ...f, wireAddress: e.target.value }))} placeholder="Full mailing address" /></div>
+              <div className="ni-m-form-group"><label className="ni-m-form-label">Bank Name</label><input className="ni-m-form-input" value={paymentForm.wireBankName} onChange={e => setPaymentForm(f => ({ ...f, wireBankName: e.target.value }))} /></div>
+              <div className="ni-m-form-group"><label className="ni-m-form-label">Bank Address</label><input className="ni-m-form-input" value={paymentForm.wireBankAddress} onChange={e => setPaymentForm(f => ({ ...f, wireBankAddress: e.target.value }))} /></div>
+              <div className="ni-m-form-group"><label className="ni-m-form-label">Account Number / IBAN</label><input className="ni-m-form-input" value={paymentForm.wireAccount} onChange={e => setPaymentForm(f => ({ ...f, wireAccount: e.target.value }))} /></div>
+              <div className="ni-m-form-group">
+                <label className="ni-m-form-label">SWIFT / BIC</label>
+                <input className="ni-m-form-input" value={paymentForm.wireSwift} onChange={e => setPaymentForm(f => ({ ...f, wireSwift: e.target.value.toUpperCase() }))} style={{ textTransform: 'uppercase' }} />
+                <div style={{ fontSize: 10, color: '#aaa', marginTop: 4 }}>Required for international wire payments</div>
+              </div>
+              <div className="ni-m-form-group" style={{ marginBottom: 24 }}>
+                <label className="ni-m-form-label">Local Routing Code</label>
+                <input className="ni-m-form-input" value={paymentForm.wireRoutingCode} onChange={e => setPaymentForm(f => ({ ...f, wireRoutingCode: e.target.value }))} placeholder="Optional" />
+              </div>
+            </>
+          )}
+
+          {paymentCountry && (
+            <>
+              <button className="ni-m-btn" onClick={handlePaymentSubmit} disabled={paymentSubmitting || !isPaymentValid()}>
+                {paymentSubmitting ? 'Saving…' : 'Save & Continue →'}
+              </button>
+              <p style={{ fontSize: 12, color: '#ccc', textAlign: 'center', marginTop: 14, cursor: 'pointer' }} onClick={() => setStep('done')}>Skip for now</p>
+            </>
+          )}
         </>
       )
     }
