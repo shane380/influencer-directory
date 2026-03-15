@@ -2483,29 +2483,35 @@ export default function CreatorDashboard() {
     setCampaignVariantsLoading(false)
   }
 
-  function getCampaignStep(assignment) {
+  function getCampaignStep(assignment, skipSelects) {
     if (assignment.status === 'complete') return 4
     if (assignment.status === 'content_submitted' || assignment.status === 'confirmed') return 3
-    if (assignment.status === 'sent' && campaignAccepted) return 2
+    if (assignment.status === 'sent' && campaignAccepted) return skipSelects ? 3 : 2
     return 1
   }
 
-  function renderCampaignSteps(currentStep) {
-    const steps = [
-      { num: 1, label: 'Accept' },
-      { num: 2, label: 'Selects' },
-      { num: 3, label: 'Content' },
-      { num: 4, label: 'Complete' },
-    ]
+  function renderCampaignSteps(currentStep, skipSelects) {
+    const steps = skipSelects
+      ? [
+          { num: 1, label: 'Accept', step: 1 },
+          { num: 2, label: 'Content', step: 3 },
+          { num: 3, label: 'Complete', step: 4 },
+        ]
+      : [
+          { num: 1, label: 'Accept', step: 1 },
+          { num: 2, label: 'Selects', step: 2 },
+          { num: 3, label: 'Content', step: 3 },
+          { num: 4, label: 'Complete', step: 4 },
+        ]
     return (
       <div className="cd-camp-steps">
         {steps.map(s => {
           let cls = 'cd-camp-step'
-          if (s.num === currentStep) cls += ' active'
-          else if (s.num < currentStep) cls += ' completed'
+          if (s.step === currentStep) cls += ' active'
+          else if (s.step < currentStep) cls += ' completed'
           return (
             <div key={s.num} className={cls}>
-              <div className="cd-camp-step-num">{s.num < currentStep ? '✓' : s.num}</div>
+              <div className="cd-camp-step-num">{s.step < currentStep ? '✓' : s.num}</div>
               {s.label}
             </div>
           )
@@ -2520,7 +2526,8 @@ export default function CreatorDashboard() {
     const campaign = assignment.campaign
     if (!campaign) return null
 
-    const currentStep = getCampaignStep(assignment)
+    const skipSelects = campaign.max_selects === 0
+    const currentStep = getCampaignStep(assignment, skipSelects)
     const products = campaign.available_products || []
     const maxSelects = campaign.max_selects || 2
     const dueDate = campaign.due_date ? new Date(campaign.due_date + 'T00:00:00').toLocaleDateString('en', { month: 'long', day: 'numeric' }) : null
@@ -2545,7 +2552,7 @@ export default function CreatorDashboard() {
           ← Back to Campaigns
         </button>
 
-        {renderCampaignSteps(currentStep)}
+        {renderCampaignSteps(currentStep, skipSelects)}
 
         {/* Mobile: linear layout */}
         {mobile && (
@@ -2668,9 +2675,25 @@ export default function CreatorDashboard() {
                 <button
                   className="cd-campaign-btn-fill"
                   style={{ marginBottom: 28 }}
-                  onClick={() => {
+                  onClick={async () => {
                     setCampaignAccepted(true)
-                    fetchCampaignVariants(products)
+                    if (skipSelects) {
+                      // Auto-confirm without selects
+                      try {
+                        await fetch('/api/creator/campaigns/assignments', {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ id: assignment.id, status: 'confirmed', selected_products: [], creator_notes: null }),
+                        })
+                        const campRes = await fetch(`/api/creator/campaigns?creator_id=${creator.id}`)
+                        const campData = await campRes.json()
+                        setCampaignAssignments(campData.assignments || [])
+                      } catch (err) {
+                        console.error('Auto-confirm error:', err)
+                      }
+                    } else {
+                      fetchCampaignVariants(products)
+                    }
                   }}
                 >
                   Accept Campaign
@@ -2798,9 +2821,24 @@ export default function CreatorDashboard() {
                   <button
                     className="cd-campaign-btn-fill"
                     style={{ marginBottom: 28 }}
-                    onClick={() => {
+                    onClick={async () => {
                       setCampaignAccepted(true)
-                      fetchCampaignVariants(products)
+                      if (skipSelects) {
+                        try {
+                          await fetch('/api/creator/campaigns/assignments', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id: assignment.id, status: 'confirmed', selected_products: [], creator_notes: null }),
+                          })
+                          const campRes = await fetch(`/api/creator/campaigns?creator_id=${creator.id}`)
+                          const campData = await campRes.json()
+                          setCampaignAssignments(campData.assignments || [])
+                        } catch (err) {
+                          console.error('Auto-confirm error:', err)
+                        }
+                      } else {
+                        fetchCampaignVariants(products)
+                      }
                     }}
                   >
                     Accept Campaign

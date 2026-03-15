@@ -462,7 +462,7 @@ export default function CampaignsPage() {
       brief_images: briefImages,
       due_date: form.due_date || null,
       available_products: availableProducts,
-      max_selects: form.max_selects,
+      max_selects: (isInvitation && invProductTab === "wardrobe") ? 0 : form.max_selects,
       campaign_type: form.campaign_type,
       status: editingCampaign ? editingCampaign.status : (publish ? "active" : "draft"),
       banner_image: bannerImage || null,
@@ -745,7 +745,7 @@ export default function CampaignsPage() {
             </div>
 
             {/* Due Date + Max Selects */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className={`grid gap-4 ${invProductTab === "wardrobe" ? "grid-cols-1" : "grid-cols-2"}`}>
               <div>
                 <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Due Date</label>
                 <input
@@ -755,16 +755,18 @@ export default function CampaignsPage() {
                   onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))}
                 />
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Max Selects</label>
-                <input
-                  type="number"
-                  min={1}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                  value={form.max_selects}
-                  onChange={e => setForm(f => ({ ...f, max_selects: parseInt(e.target.value) || 2 }))}
-                />
-              </div>
+              {invProductTab !== "wardrobe" && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Max Selects</label>
+                  <input
+                    type="number"
+                    min={1}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                    value={form.max_selects}
+                    onChange={e => setForm(f => ({ ...f, max_selects: parseInt(e.target.value) || 2 }))}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Campaign Type */}
