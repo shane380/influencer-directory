@@ -433,7 +433,7 @@ export default function InvitePage() {
   const defaultEyebrow = 'A Private Invitation'
   const defaultHeadline = isExisting
     ? <>Hi {firstName},<br /><em>let&apos;s make it<br />official.</em></>
-    : <>Hi {firstName},<br /><em>your partnership<br />offer is ready.</em></>
+    : <>Hi {firstName},<br /><em style={{ fontSize: '0.7em' }}>your partnership offer is ready.</em></>
   const defaultIntro = isExisting
     ? "We've truly loved working with you — now we want to make it official."
     : "Your Nama partnership offer is ready."
