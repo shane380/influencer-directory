@@ -430,11 +430,13 @@ export default function InvitePage() {
   }
 
   const isExisting = invite.is_existing_creator
-  const defaultEyebrow = isExisting ? 'A Private Invitation' : 'A Private Invitation'
+  const defaultEyebrow = 'A Private Invitation'
   const defaultHeadline = isExisting
     ? <>Hi {firstName},<br /><em>let&apos;s make it<br />official.</em></>
-    : <>Hi {firstName},<br /><em>let&apos;s make it<br />official.</em></>
-  const defaultIntro = "We've truly loved working with you — now we want to make it official."
+    : <>Hi {firstName},<br /><em>your partnership<br />offer is ready.</em></>
+  const defaultIntro = isExisting
+    ? "We've truly loved working with you — now we want to make it official."
+    : "Your Nama partnership offer is ready."
 
   // Left panel content per step
   function getLeftContent() {
@@ -561,7 +563,7 @@ export default function InvitePage() {
           <>
             {invite.offer_choice && (
               <>
-                <div className="ni-sec-label">Select Your Structure</div>
+                <div className="ni-sec-label">Choose Your Compensation Plan</div>
                 <div className="ni-option-cards">
                   {availableDeals.includes('retainer') && renderRetainerOptionCard(false)}
                   {availableDeals.includes('ad_spend') && renderAdSpendOptionCard(false)}
@@ -640,7 +642,7 @@ export default function InvitePage() {
           <>
             {invite.offer_choice && (
               <>
-                <div className="ni-sec-label">Select Your Structure</div>
+                <div className="ni-sec-label">Choose Your Compensation Plan</div>
                 <div className="ni-option-cards">
                   {availableDeals.includes('retainer') && renderRetainerOptionCard(false)}
                   {availableDeals.includes('ad_spend') && renderAdSpendOptionCard(false)}
@@ -862,7 +864,7 @@ export default function InvitePage() {
           <>
             {invite.offer_choice && (
               <>
-                <div className="ni-m-sec-label">Select Your Structure</div>
+                <div className="ni-m-sec-label">Choose Your Compensation Plan</div>
                 <div className="ni-m-option-cards">
                   {availableDeals.includes('retainer') && renderRetainerOptionCard(true)}
                   {availableDeals.includes('ad_spend') && renderAdSpendOptionCard(true)}
@@ -920,7 +922,7 @@ export default function InvitePage() {
           <>
             {invite.offer_choice && (
               <>
-                <div className="ni-m-sec-label">Select Your Structure</div>
+                <div className="ni-m-sec-label">Choose Your Compensation Plan</div>
                 <div className="ni-m-option-cards">
                   {availableDeals.includes('retainer') && renderRetainerOptionCard(true)}
                   {availableDeals.includes('ad_spend') && renderAdSpendOptionCard(true)}
