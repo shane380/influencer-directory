@@ -709,7 +709,7 @@ export default function InvitePage() {
             <div className="ni-term-sub">Compensation</div>
             <div className="ni-term-row">
               <span className="ni-term-key">Ad Spend</span>
-              <div className="ni-term-val"><div className="ni-term-primary">{adSpendPct}% of ad spend</div><div className="ni-term-secondary">Paid by the 5th of the following month</div></div>
+              <div className="ni-term-val"><div className="ni-term-primary">{adSpendPct}% of ad spend</div><div className="ni-term-secondary">On paid ads using your content.</div></div>
             </div>
             {hasAffiliateAddon && (
               <div className="ni-term-row">
@@ -1064,7 +1064,7 @@ export default function InvitePage() {
             )}
             <div className="ni-m-sec-label">Partnership Terms</div>
             <div className="ni-m-term-sub">Compensation</div>
-            <div className="ni-m-term-row"><span className="ni-m-term-key">Ad Spend</span><div className="ni-term-val"><div className="ni-m-term-primary">{adSpendPct}% of ad spend</div><div className="ni-m-term-secondary">Paid by the 5th of the following month</div></div></div>
+            <div className="ni-m-term-row"><span className="ni-m-term-key">Ad Spend</span><div className="ni-term-val"><div className="ni-m-term-primary">{adSpendPct}% of ad spend</div><div className="ni-m-term-secondary">On paid ads using your content.</div></div></div>
             {hasAffiliateAddon && (
               <div className="ni-m-term-row"><span className="ni-m-term-key">Affiliate</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% commission</div><div className="ni-m-term-secondary">On your referred sales</div></div></div>
             )}
