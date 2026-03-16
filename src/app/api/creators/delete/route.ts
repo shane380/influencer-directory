@@ -26,12 +26,18 @@ export async function DELETE(request: NextRequest) {
   }
 
   // Delete related data in order (foreign key constraints)
+  // Order matters: campaign_assignments references content_submissions,
+  // so clear that FK first, then delete in dependency order
+  await (supabase.from("campaign_assignments") as any)
+    .update({ content_submission_id: null })
+    .eq("creator_id", creator_id);
+
   const tables = [
+    "campaign_assignments",
     "creator_content_submissions",
     "creator_sample_requests",
     "creator_product_feedback",
     "creator_code_change_requests",
-    "campaign_assignments",
     "submissions",
     "content",
   ];
