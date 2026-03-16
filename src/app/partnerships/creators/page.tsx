@@ -620,8 +620,14 @@ export default function CreatorsListPage() {
                             </button>
                           )}
                           <button
+                            onClickCapture={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              e.nativeEvent.stopImmediatePropagation();
+                            }}
                             onClick={async (e) => {
                               e.stopPropagation();
+                              e.preventDefault();
                               if (!confirm(`Delete ${creator.creator_name}? This will remove their account, submissions, and all related data. Their invite link will be reset so it can be reused.`)) return;
                               try {
                                 const res = await fetch("/api/creators/delete", {
