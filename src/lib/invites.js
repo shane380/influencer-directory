@@ -78,7 +78,7 @@ export async function createInvite({
   if (creatorEmail) {
     try {
       const firstName = creatorName.split(' ')[0] || creatorName
-      const res = await fetch(`${baseUrl}/api/invite-email/send`, {
+      const res = await fetch(`/api/invite-email/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ firstName, inviteUrl: url, recipientEmail: creatorEmail }),
