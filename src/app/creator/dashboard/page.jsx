@@ -3830,8 +3830,11 @@ export default function CreatorDashboard() {
     const sectionLabel = section === 'forYou' ? 'New' : section === 'inProgress' ? 'In progress' : ''
 
     // Check if there's a revision requested or rejected submission for this assignment
-    const revisionSub = submissions.find(s => s.campaign_assignment_id === assignment.id && (s.status === 'revision_requested' || s.status === 'rejected'))
-    const hasRevision = !!revisionSub
+    // But only if no newer approved submission exists (approval supersedes revision)
+    const assignmentSubs = submissions.filter(s => s.campaign_assignment_id === assignment.id)
+    const latestApproved = assignmentSubs.find(s => s.status === 'approved')
+    const revisionSub = assignmentSubs.find(s => s.status === 'revision_requested' || s.status === 'rejected')
+    const hasRevision = !!revisionSub && !latestApproved
 
     return (
       <div
