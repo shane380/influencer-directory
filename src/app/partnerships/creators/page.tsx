@@ -70,6 +70,18 @@ export default function CreatorsListPage() {
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Quick add from Instagram state
+  const [quickAddHandle, setQuickAddHandle] = useState("");
+  const [quickAddLooking, setQuickAddLooking] = useState(false);
+  const [quickAddError, setQuickAddError] = useState<string | null>(null);
+  const [quickAddPreview, setQuickAddPreview] = useState<{
+    username: string;
+    full_name: string;
+    profile_pic_url: string | null;
+    follower_count: number;
+  } | null>(null);
+  const [quickAddSaving, setQuickAddSaving] = useState(false);
+
   // Pending invites
   const [pendingInvites, setPendingInvites] = useState<any[]>([]);
 
@@ -182,6 +194,110 @@ export default function CreatorsListPage() {
     return () => clearTimeout(timer);
   }, [searchQuery, searchInfluencers]);
 
+  async function handleQuickAddLookup() {
+    const raw = quickAddHandle.trim();
+    if (!raw) return;
+    setQuickAddLooking(true);
+    setQuickAddError(null);
+    setQuickAddPreview(null);
+
+    // Parse Instagram URL or handle
+    let username = raw.replace("@", "");
+    const urlMatch = raw.match(/(?:https?:\/\/)?(?:www\.)?instagram\.com\/([a-zA-Z0-9_.]+)\/?/);
+    if (urlMatch?.[1]) username = urlMatch[1];
+
+    try {
+      // Check if already in DB
+      const { data: existing } = await supabase
+        .from("influencers")
+        .select("id, name, instagram_handle, email, profile_photo_url")
+        .ilike("instagram_handle", username)
+        .limit(1);
+      if (existing && existing.length > 0) {
+        selectInfluencer(existing[0] as InfluencerResult);
+        setQuickAddHandle("");
+        setQuickAddLooking(false);
+        return;
+      }
+
+      // Lookup via API
+      let response = await fetch(`/api/instagram-apify?handle=${encodeURIComponent(username)}`);
+      if (!response.ok && response.status === 500) {
+        response = await fetch(`/api/instagram?handle=${encodeURIComponent(username)}`);
+      }
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to fetch Instagram profile");
+      }
+      const profile = await response.json();
+      setQuickAddPreview({
+        username: profile.username,
+        full_name: profile.full_name || profile.username,
+        profile_pic_url: profile.profile_pic_url,
+        follower_count: profile.follower_count,
+      });
+    } catch (err: any) {
+      setQuickAddError(err.message || "Lookup failed");
+    } finally {
+      setQuickAddLooking(false);
+    }
+  }
+
+  async function handleQuickAddConfirm() {
+    if (!quickAddPreview) return;
+    setQuickAddSaving(true);
+    setQuickAddError(null);
+
+    try {
+      // Upload profile photo
+      let photoUrl: string | null = null;
+      if (quickAddPreview.profile_pic_url) {
+        try {
+          const photoResponse = await fetch(`/api/instagram/photo?url=${encodeURIComponent(quickAddPreview.profile_pic_url)}`);
+          if (photoResponse.ok) {
+            const photoBlob = await photoResponse.blob();
+            const fileName = `${quickAddPreview.username}-${Date.now()}.jpg`;
+            const { error: uploadError } = await supabase.storage
+              .from("profile-photos")
+              .upload(fileName, photoBlob, { contentType: "image/jpeg" });
+            if (!uploadError) {
+              const { data: urlData } = supabase.storage
+                .from("profile-photos")
+                .getPublicUrl(fileName);
+              photoUrl = urlData.publicUrl;
+            }
+          }
+        } catch {}
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      const insertResult = await (supabase.from("influencers") as any)
+        .insert({
+          name: quickAddPreview.full_name,
+          instagram_handle: quickAddPreview.username,
+          profile_photo_url: photoUrl,
+          follower_count: quickAddPreview.follower_count,
+          tier: "C",
+          partnership_type: "unassigned",
+          relationship_status: "prospect",
+          created_by: user?.id,
+          assigned_to: user?.id,
+        })
+        .select("id, name, instagram_handle, email, profile_photo_url")
+        .single();
+
+      if (insertResult.error) throw insertResult.error;
+
+      selectInfluencer(insertResult.data as InfluencerResult);
+      setQuickAddHandle("");
+      setQuickAddPreview(null);
+    } catch (err: any) {
+      setQuickAddError(err.message || "Failed to add influencer");
+    } finally {
+      setQuickAddSaving(false);
+    }
+  }
+
   function selectInfluencer(inf: InfluencerResult) {
     setSelectedInfluencer(inf);
     setInviteForm((f) => ({
@@ -219,6 +335,11 @@ export default function CreatorsListPage() {
     setMinimumCommitment(null);
     setGeneratedUrl(null);
     setCopied(false);
+    setQuickAddHandle("");
+    setQuickAddLooking(false);
+    setQuickAddError(null);
+    setQuickAddPreview(null);
+    setQuickAddSaving(false);
   }
 
   function buildDealStructure() {
@@ -639,6 +760,60 @@ export default function CreatorsListPage() {
                           ))}
                         </div>
                       )}
+
+                      {/* Quick Add from Instagram */}
+                      <div className="mt-3 pt-3 border-t">
+                        <p className="text-xs text-gray-500 mb-2">Not in the directory? Add from Instagram:</p>
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">@</span>
+                            <input
+                              type="text"
+                              value={quickAddHandle}
+                              onChange={(e) => { setQuickAddHandle(e.target.value); setQuickAddError(null); setQuickAddPreview(null); }}
+                              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleQuickAddLookup(); } }}
+                              placeholder="instagram_handle"
+                              className="w-full pl-7 pr-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
+                            />
+                          </div>
+                          <button
+                            onClick={handleQuickAddLookup}
+                            disabled={quickAddLooking || !quickAddHandle.trim()}
+                            className="px-3 py-2 bg-gray-900 text-white text-sm rounded-md hover:bg-gray-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed whitespace-nowrap"
+                          >
+                            {quickAddLooking ? "Looking up..." : "Lookup"}
+                          </button>
+                        </div>
+                        {quickAddError && (
+                          <p className="text-xs text-red-500 mt-2">{quickAddError}</p>
+                        )}
+                        {quickAddPreview && (
+                          <div className="mt-2 border rounded-md p-3 bg-gray-50">
+                            <div className="flex items-center gap-3">
+                              {quickAddPreview.profile_pic_url ? (
+                                <img
+                                  src={quickAddPreview.profile_pic_url}
+                                  alt=""
+                                  className="w-10 h-10 rounded-full object-cover bg-gray-200"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-gray-200" />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-gray-900 truncate">{quickAddPreview.full_name}</div>
+                                <div className="text-xs text-gray-500">@{quickAddPreview.username} &middot; {quickAddPreview.follower_count.toLocaleString()} followers</div>
+                              </div>
+                              <button
+                                onClick={handleQuickAddConfirm}
+                                disabled={quickAddSaving}
+                                className="px-3 py-1.5 bg-gray-900 text-white text-xs rounded-md hover:bg-gray-800 transition-colors disabled:bg-gray-300"
+                              >
+                                {quickAddSaving ? "Adding..." : "Add & Select"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <div className="flex items-center gap-3 bg-gray-50 rounded-md px-3 py-2">

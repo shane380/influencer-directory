@@ -74,6 +74,23 @@ export async function createInvite({
   const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://creators.namaclo.com').trim()
   const url = `${baseUrl}/invite/${resolvedSlug}`
 
+  // Send invite email if an email was provided
+  if (creatorEmail) {
+    try {
+      const firstName = creatorName.split(' ')[0] || creatorName
+      const res = await fetch(`${baseUrl}/api/invite-email/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firstName, inviteUrl: url, recipientEmail: creatorEmail }),
+      })
+      if (!res.ok) {
+        console.error('Failed to send invite email:', await res.text())
+      }
+    } catch (err) {
+      console.error('Failed to send invite email:', err)
+    }
+  }
+
   return { url, invite: data }
 }
 
