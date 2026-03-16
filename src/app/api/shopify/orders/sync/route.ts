@@ -77,58 +77,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // First, get the customer's email and name from Shopify
-    let customerEmail: string | null = null;
-    let customerName: string | null = null;
-    let customerOrdersCount: number | null = null;
+    // Support multiple comma-separated customer IDs
+    const customerIds = shopify_customer_id.split(",").map(id => id.trim()).filter(Boolean);
+    const customerIdSet = new Set(customerIds);
 
-    console.log("Fetching customer details from Shopify...");
-    const customerUrl = `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/customers/${shopify_customer_id}.json`;
-    console.log("Customer URL:", customerUrl);
-
-    try {
-      const customerResponse = await fetch(customerUrl, {
-        method: "GET",
-        headers: {
-          "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
-          "Content-Type": "application/json",
-        },
-      });
-
-      console.log("Customer API response status:", customerResponse.status);
-
-      if (customerResponse.ok) {
-        const customerData = await customerResponse.json();
-        customerEmail = customerData.customer?.email;
-        customerName = `${customerData.customer?.first_name || ""} ${customerData.customer?.last_name || ""}`.trim();
-        customerOrdersCount = customerData.customer?.orders_count;
-        console.log("Customer found:");
-        console.log("  - Email:", customerEmail);
-        console.log("  - Name:", customerName);
-        console.log("  - Orders count (per Shopify):", customerOrdersCount);
-      } else {
-        const errorText = await customerResponse.text();
-        console.log("Customer API error:", errorText);
-      }
-    } catch (err) {
-      console.error("Failed to fetch customer details:", err);
-    }
-
-    // Fetch orders ONLY for the exact linked customer ID
+    // Fetch orders for ALL linked customer IDs
     const allOrders: ShopifyOrder[] = [];
     const seenOrderIds = new Set<number>();
+    // Track which customer ID each order belongs to
+    const orderCustomerMap = new Map<number, string>();
 
     console.log("\n=== FETCHING ORDERS ===");
-    console.log("Fetching orders for exact customer ID:", shopify_customer_id);
+    console.log("Fetching orders for customer IDs:", customerIds);
 
-    {
-      const customerId = shopify_customer_id;
-      // Note: Shopify API automatically limits to ~60 days of orders
+    for (const customerId of customerIds) {
+      // Fetch customer email for fallback
+      let customerEmail: string | null = null;
+      try {
+        const customerUrl = `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/customers/${customerId}.json`;
+        const customerResponse = await fetch(customerUrl, {
+          method: "GET",
+          headers: {
+            "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
+            "Content-Type": "application/json",
+          },
+        });
+        if (customerResponse.ok) {
+          const customerData = await customerResponse.json();
+          customerEmail = customerData.customer?.email;
+        }
+      } catch {}
+
+      // Fetch orders by customer ID
       const ordersUrl = `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/orders.json?customer_id=${customerId}&status=any&limit=250`;
-      console.log("\nFetching orders for customer ID:", customerId);
-      console.log("Orders URL:", ordersUrl);
-
       let nextPageUrl: string | null = ordersUrl;
+      let foundOrders = false;
 
       while (nextPageUrl) {
         const fetchResponse: Response = await fetch(nextPageUrl, {
@@ -139,105 +122,66 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        console.log("Orders API response status:", fetchResponse.status);
-
-        if (!fetchResponse.ok) {
-          const errorText = await fetchResponse.text();
-          console.error("Shopify API error for customer", customerId, ":", fetchResponse.status, errorText);
-          break;
-        }
+        if (!fetchResponse.ok) break;
 
         const data: ShopifyOrdersResponse = await fetchResponse.json();
-        console.log("Orders returned:", data.orders?.length || 0);
-
-        if (data.orders?.length > 0) {
-          console.log("Sample order:", {
-            id: data.orders[0].id,
-            name: data.orders[0].name,
-            created_at: data.orders[0].created_at,
-          });
-        }
-
-        // Add orders, avoiding duplicates
         for (const order of data.orders || []) {
           if (!seenOrderIds.has(order.id)) {
             seenOrderIds.add(order.id);
             allOrders.push(order);
+            orderCustomerMap.set(order.id, customerId);
+            foundOrders = true;
           }
         }
 
-        // Check for pagination
         const linkHeader: string | null = fetchResponse.headers.get("Link");
         if (linkHeader) {
           const nextMatch: RegExpMatchArray | null = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
           nextPageUrl = nextMatch ? nextMatch[1] : null;
-          if (nextPageUrl) {
-            console.log("Has more pages, fetching next...");
-          }
         } else {
           nextPageUrl = null;
         }
       }
-    }
 
-    // Also try searching by email if we have one and no orders found yet
-    if (customerEmail && allOrders.length === 0) {
-      console.log("\n=== EMAIL FALLBACK SEARCH ===");
-      console.log("No orders found by customer ID, trying email search:", customerEmail);
-      const emailUrl = `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/orders.json?email=${encodeURIComponent(customerEmail)}&status=any&limit=250`;
-      console.log("Email search URL:", emailUrl);
-      let emailPageUrl: string | null = emailUrl;
+      // Email fallback if no orders found for this customer
+      if (!foundOrders && customerEmail) {
+        const emailUrl = `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/orders.json?email=${encodeURIComponent(customerEmail)}&status=any&limit=250`;
+        let emailPageUrl: string | null = emailUrl;
 
-      while (emailPageUrl) {
-        const emailFetchResponse: Response = await fetch(emailPageUrl, {
-          method: "GET",
-          headers: {
-            "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
-            "Content-Type": "application/json",
-          },
-        });
-
-        console.log("Email search response status:", emailFetchResponse.status);
-
-        if (!emailFetchResponse.ok) {
-          const errorText = await emailFetchResponse.text();
-          console.error("Shopify email search error:", emailFetchResponse.status, errorText);
-          break;
-        }
-
-        const emailData: ShopifyOrdersResponse = await emailFetchResponse.json();
-        console.log("Email search returned", emailData.orders?.length || 0, "orders");
-
-        if (emailData.orders?.length > 0) {
-          console.log("Sample order from email search:", {
-            id: emailData.orders[0].id,
-            name: emailData.orders[0].name,
-            created_at: emailData.orders[0].created_at,
+        while (emailPageUrl) {
+          const emailFetchResponse: Response = await fetch(emailPageUrl, {
+            method: "GET",
+            headers: {
+              "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
+              "Content-Type": "application/json",
+            },
           });
-        }
 
-        for (const order of emailData.orders || []) {
-          if (!seenOrderIds.has(order.id)) {
-            seenOrderIds.add(order.id);
-            allOrders.push(order);
+          if (!emailFetchResponse.ok) break;
+
+          const emailData: ShopifyOrdersResponse = await emailFetchResponse.json();
+          for (const order of emailData.orders || []) {
+            if (!seenOrderIds.has(order.id)) {
+              seenOrderIds.add(order.id);
+              allOrders.push(order);
+              orderCustomerMap.set(order.id, customerId);
+            }
           }
-        }
 
-        // Check for pagination
-        const linkHeader: string | null = emailFetchResponse.headers.get("Link");
-        if (linkHeader) {
-          const nextMatch: RegExpMatchArray | null = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
-          emailPageUrl = nextMatch ? nextMatch[1] : null;
-        } else {
-          emailPageUrl = null;
+          const linkHeader: string | null = emailFetchResponse.headers.get("Link");
+          if (linkHeader) {
+            const nextMatch: RegExpMatchArray | null = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
+            emailPageUrl = nextMatch ? nextMatch[1] : null;
+          } else {
+            emailPageUrl = null;
+          }
         }
       }
     }
 
     console.log("\n=== SYNC SUMMARY ===");
     console.log("Total orders fetched from Shopify:", allOrders.length);
-    console.log("Customer ID searched:", shopify_customer_id);
-    console.log("Customer email (for fallback):", customerEmail || "none");
+    console.log("Customer IDs searched:", customerIds);
 
     if (allOrders.length === 0) {
       console.log("WARNING: No orders found! This could mean:");
@@ -294,7 +238,7 @@ export async function POST(request: NextRequest) {
       return {
         influencer_id,
         shopify_order_id: String(order.id),
-        shopify_customer_id,
+        shopify_customer_id: orderCustomerMap.get(order.id) || customerIds[0],
         order_number: order.name,
         order_date: order.created_at,
         total_amount: totalAmount,
@@ -319,16 +263,12 @@ export async function POST(request: NextRequest) {
 
     console.log("Existing orders in database:", existingOrders?.length || 0);
 
-    const wrongOrders = existingOrders?.filter(o => o.shopify_customer_id !== shopify_customer_id) || [];
-    console.log("Orders from WRONG customers:", wrongOrders.length);
-    if (wrongOrders.length > 0) {
-      console.log("Wrong order IDs:", wrongOrders.map(o => o.id));
-      console.log("Wrong order customer IDs:", [...new Set(wrongOrders.map(o => o.shopify_customer_id))]);
-    }
+    const wrongOrders = existingOrders?.filter(o => !customerIdSet.has(o.shopify_customer_id)) || [];
+    console.log("Orders from unlinked customers:", wrongOrders.length);
 
-    // Delete orders from wrong customers
+    // Delete orders from unlinked customers
     if (wrongOrders.length > 0) {
-      console.log("Deleting", wrongOrders.length, "orders from wrong customers...");
+      console.log("Deleting", wrongOrders.length, "orders from unlinked customers...");
       const wrongOrderIds = wrongOrders.map(o => o.id);
 
       const { error: cleanupError } = await supabase

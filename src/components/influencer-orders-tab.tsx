@@ -44,6 +44,7 @@ interface InfluencerOrdersTabProps {
   onLinkCustomer: (customerId: string) => void;
   refreshingOrders: boolean;
   shopifyCustomer: ShopifyCustomer | null;
+  shopifyCustomers?: ShopifyCustomer[];
 }
 
 function formatDate(dateString: string): string {
@@ -78,12 +79,17 @@ export function InfluencerOrdersTab({
   onLinkCustomer,
   refreshingOrders,
   shopifyCustomer,
+  shopifyCustomers = [],
 }: InfluencerOrdersTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<ShopifyCustomer[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
   const hasAutoSearched = useRef(false);
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
+
+  // Get all linked customer IDs
+  const linkedIds = (influencer?.shopify_customer_id || "").split(",").filter(Boolean);
 
   // Auto-search when no customer linked - prefer email over name for reliability
   useEffect(() => {
@@ -162,117 +168,150 @@ export function InfluencerOrdersTab({
     );
   }
 
+  // Inline search UI (reused for both initial link and "add another")
+  const renderCustomerSearch = () => (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        <Input
+          placeholder="Search by name or email..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              handleSearch();
+            }
+          }}
+        />
+        <Button onClick={handleSearch} disabled={searching}>
+          {searching ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Search className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
+
+      {searching && searchResults.length === 0 && (
+        <div className="text-center py-4 text-gray-500">
+          <Loader2 className="h-6 w-6 mx-auto mb-2 animate-spin" />
+          <p className="text-sm">Searching Shopify customers...</p>
+        </div>
+      )}
+
+      {searchError && !searching && (
+        <p className="text-sm text-gray-500 text-center py-2">{searchError}</p>
+      )}
+
+      {searchResults.length > 0 && (
+        <div className="border rounded-lg max-h-64 overflow-y-auto">
+          {searchResults
+            .filter((c) => !linkedIds.includes(String(c.id)))
+            .map((customer) => (
+            <button
+              key={customer.id}
+              type="button"
+              className="w-full p-3 flex items-center justify-between hover:bg-gray-50 border-b last:border-b-0 text-left"
+              onClick={() => {
+                onLinkCustomer(String(customer.id));
+                setShowAddCustomer(false);
+                setSearchQuery("");
+                setSearchResults([]);
+              }}
+            >
+              <div>
+                <p className="font-medium">{customer.name}</p>
+                <p className="text-sm text-gray-500">{customer.email}</p>
+                {customer.orders_count !== undefined && (
+                  <p className="text-xs text-gray-400">
+                    {customer.orders_count} orders
+                  </p>
+                )}
+              </div>
+              <Check className="h-4 w-4 text-gray-400" />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!searching && searchResults.length === 0 && !searchError && searchQuery && (
+        <div className="text-center py-4 text-gray-400">
+          <User className="h-8 w-8 mx-auto mb-2" />
+          <p className="text-sm">Press Enter or click Search</p>
+        </div>
+      )}
+    </div>
+  );
+
   // No Shopify customer linked - show inline search
   if (!influencer.shopify_customer_id && !shopifyCustomer) {
     return (
       <div className="space-y-4 pt-4">
         <div className="text-sm text-gray-600 mb-2">Link Shopify Customer</div>
-
-        {/* Inline Search */}
-        <div className="flex gap-2">
-          <Input
-            placeholder="Search by name or email..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleSearch();
-              }
-            }}
-          />
-          <Button onClick={handleSearch} disabled={searching}>
-            {searching ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Search className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-
-        {/* Loading State */}
-        {searching && searchResults.length === 0 && (
-          <div className="text-center py-4 text-gray-500">
-            <Loader2 className="h-6 w-6 mx-auto mb-2 animate-spin" />
-            <p className="text-sm">Searching Shopify customers...</p>
-          </div>
-        )}
-
-        {/* Error */}
-        {searchError && !searching && (
-          <p className="text-sm text-gray-500 text-center py-2">{searchError}</p>
-        )}
-
-        {/* Results */}
-        {searchResults.length > 0 && (
-          <div className="border rounded-lg max-h-64 overflow-y-auto">
-            {searchResults.map((customer) => (
-              <button
-                key={customer.id}
-                type="button"
-                className="w-full p-3 flex items-center justify-between hover:bg-gray-50 border-b last:border-b-0 text-left"
-                onClick={() => onLinkCustomer(String(customer.id))}
-              >
-                <div>
-                  <p className="font-medium">{customer.name}</p>
-                  <p className="text-sm text-gray-500">{customer.email}</p>
-                  {customer.orders_count !== undefined && (
-                    <p className="text-xs text-gray-400">
-                      {customer.orders_count} orders
-                    </p>
-                  )}
-                </div>
-                <Check className="h-4 w-4 text-gray-400" />
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* No results and not searching */}
-        {!searching && searchResults.length === 0 && !searchError && searchQuery && (
-          <div className="text-center py-4 text-gray-400">
-            <User className="h-8 w-8 mx-auto mb-2" />
-            <p className="text-sm">Press Enter or click Search</p>
-          </div>
-        )}
+        {renderCustomerSearch()}
       </div>
     );
   }
 
+  // All linked customers
+  const displayCustomers = shopifyCustomers.length > 0 ? shopifyCustomers : (shopifyCustomer ? [shopifyCustomer] : []);
+
   return (
     <div className="space-y-4">
-      {/* Customer Card */}
-      {shopifyCustomer && (
-        <div className="bg-green-50 p-3 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Check className="h-5 w-5 text-green-600" />
-              <div>
-                <p className="font-medium">{shopifyCustomer.name}</p>
-                <p className="text-sm text-gray-600">{shopifyCustomer.email}</p>
-                {shopifyCustomer.address && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    {shopifyCustomer.address.city}, {shopifyCustomer.address.province}
-                  </p>
-                )}
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onRefreshOrders}
-              disabled={refreshingOrders}
-            >
-              {refreshingOrders ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4" />
+      {/* Customer Cards */}
+      {displayCustomers.map((cust) => (
+        <div key={cust.id} className="bg-green-50 p-3 rounded-lg">
+          <div className="flex items-center gap-3">
+            <Check className="h-5 w-5 text-green-600 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="font-medium">{cust.name}</p>
+              <p className="text-sm text-gray-600">{cust.email}</p>
+              {cust.address && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {[cust.address.city, cust.address.province].filter(Boolean).join(", ")}
+                </p>
               )}
-              <span className="ml-2">Refresh</span>
-            </Button>
+            </div>
           </div>
         </div>
-      )}
+      ))}
+
+      {/* Add another customer / Refresh */}
+      <div className="flex items-center gap-2">
+        {!showAddCustomer ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAddCustomer(true)}
+          >
+            <Search className="h-4 w-4 mr-1" />
+            Link another customer
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { setShowAddCustomer(false); setSearchQuery(""); setSearchResults([]); }}
+          >
+            Cancel
+          </Button>
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onRefreshOrders}
+          disabled={refreshingOrders}
+        >
+          {refreshingOrders ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4" />
+          )}
+          <span className="ml-1">Refresh</span>
+        </Button>
+      </div>
+
+      {showAddCustomer && renderCustomerSearch()}
 
       {/* Loading State */}
       {loadingOrders ? (

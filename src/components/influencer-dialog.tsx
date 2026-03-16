@@ -123,6 +123,7 @@ export function InfluencerDialog({
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [refreshingOrders, setRefreshingOrders] = useState(false);
   const [shopifyCustomer, setShopifyCustomer] = useState<ShopifyCustomer | null>(null);
+  const [shopifyCustomers, setShopifyCustomers] = useState<ShopifyCustomer[]>([]);
 
   // Deals state
   const [deals, setDeals] = useState<(CampaignDeal & { campaign: Campaign })[]>([]);
@@ -316,25 +317,34 @@ export function InfluencerDialog({
     fetchRatesAndMediaKits();
   }, [influencer, open, supabase]);
 
-  // Fetch Shopify customer and orders
+  // Fetch Shopify customer(s) and orders
   useEffect(() => {
     async function fetchShopifyData() {
       if (!influencer || !open || !influencer.shopify_customer_id) {
         setShopifyCustomer(null);
+        setShopifyCustomers([]);
         setOrders([]);
         return;
       }
 
       setLoadingOrders(true);
       try {
-        // Fetch Shopify customer details
-        const customerResponse = await fetch(
-          `/api/shopify/customers?id=${influencer.shopify_customer_id}`
-        );
-        if (customerResponse.ok) {
-          const customerData = await customerResponse.json();
-          setShopifyCustomer(customerData.customer);
+        // Support multiple comma-separated customer IDs
+        const customerIds = influencer.shopify_customer_id.split(",").filter(Boolean);
+        const customers: ShopifyCustomer[] = [];
+
+        for (const cid of customerIds) {
+          try {
+            const customerResponse = await fetch(`/api/shopify/customers?id=${cid.trim()}`);
+            if (customerResponse.ok) {
+              const customerData = await customerResponse.json();
+              if (customerData.customer) customers.push(customerData.customer);
+            }
+          } catch {}
         }
+
+        setShopifyCustomers(customers);
+        setShopifyCustomer(customers[0] || null);
 
         // Fetch cached orders
         const ordersResponse = await fetch(
@@ -529,29 +539,37 @@ export function InfluencerDialog({
     if (!influencer) return;
 
     try {
-      // Save customer ID to influencer
+      // Append to existing IDs (comma-separated)
+      const existingIds = (influencer.shopify_customer_id || "").split(",").filter(Boolean);
+      if (existingIds.includes(customerId)) return; // already linked
+      const newIds = [...existingIds, customerId].join(",");
+
+      // Save customer IDs to influencer
       const { error: updateError } = await (supabase
         .from("influencers") as any)
-        .update({ shopify_customer_id: customerId })
+        .update({ shopify_customer_id: newIds })
         .eq("id", influencer.id);
 
       if (updateError) throw updateError;
 
-      // Fetch customer details
+      // Fetch new customer details
       const customerResponse = await fetch(`/api/shopify/customers?id=${customerId}`);
       if (customerResponse.ok) {
         const customerData = await customerResponse.json();
-        setShopifyCustomer(customerData.customer);
+        if (customerData.customer) {
+          setShopifyCustomers(prev => [...prev, customerData.customer]);
+          if (!shopifyCustomer) setShopifyCustomer(customerData.customer);
+        }
       }
 
-      // Sync orders
+      // Sync orders for the new customer
       setRefreshingOrders(true);
       const syncResponse = await fetch("/api/shopify/orders/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           influencer_id: influencer.id,
-          shopify_customer_id: customerId,
+          shopify_customer_id: newIds,
           influencer_name: influencer.name,
         }),
       });
@@ -797,6 +815,7 @@ export function InfluencerDialog({
                     onLinkCustomer={handleLinkCustomer}
                     refreshingOrders={refreshingOrders}
                     shopifyCustomer={shopifyCustomer}
+                    shopifyCustomers={shopifyCustomers}
                   />
                 </TabsContent>
 
