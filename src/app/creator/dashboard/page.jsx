@@ -788,7 +788,7 @@ const CSS = `
 `
 
 const TABS = ['ads', 'campaigns', 'wardrobe', 'submit', 'settings']
-const TAB_LABELS = { wardrobe: 'Wardrobe & Orders', ads: 'Ads', campaigns: 'Campaigns', submit: 'Submit Content', settings: 'Payment Info' }
+const TAB_LABELS = { wardrobe: 'Wardrobe & Orders', ads: 'Ads', campaigns: 'Campaigns', submit: 'Submit Content', settings: 'Account Info' }
 const TAB_LABELS_SHORT = { wardrobe: 'Wardrobe', ads: 'Ads', campaigns: 'Campaigns', submit: 'Submit Content', settings: 'Payment' }
 
 export default function CreatorDashboard() {
@@ -880,6 +880,12 @@ export default function CreatorDashboard() {
   const [campaignVariants, setCampaignVariants] = useState({}) // { [product_id]: variant[] }
   const [campaignVariantsLoading, setCampaignVariantsLoading] = useState(false)
 
+  // Contact / shipping address
+  const [contactEditing, setContactEditing] = useState(false)
+  const [contactForm, setContactForm] = useState({ email: '', phone: '', mailing_address: '' })
+  const [contactSaving, setContactSaving] = useState(false)
+  const [contactSaved, setContactSaved] = useState(false)
+
   // Payment settings
   const [paymentEditing, setPaymentEditing] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState(null)
@@ -940,7 +946,10 @@ export default function CreatorDashboard() {
         const { data } = await supabase.from('influencers').select('*').ilike('name', creatorData.creator_name).single()
         infData = data
       }
-      if (infData) setInfluencer(infData)
+      if (infData) {
+        setInfluencer(infData)
+        setContactForm({ email: infData.email || '', phone: infData.phone || '', mailing_address: infData.mailing_address || '' })
+      }
       if (!infData) setAdsLoading(false)
 
       // Phase 1 done — render the page shell immediately
@@ -4441,6 +4450,104 @@ export default function CreatorDashboard() {
     )
   }
 
+  function renderContactInfo(mobile) {
+    const hasAddress = influencer?.mailing_address || influencer?.email || influencer?.phone
+
+    async function saveContact() {
+      if (!influencer) return
+      setContactSaving(true)
+      setContactSaved(false)
+      try {
+        const res = await fetch('/api/creator/contact', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            influencer_id: influencer.id,
+            email: contactForm.email || null,
+            phone: contactForm.phone || null,
+            mailing_address: contactForm.mailing_address || null,
+          }),
+        })
+        if (res.ok) {
+          const updated = await res.json()
+          setInfluencer(prev => ({ ...prev, email: contactForm.email || null, phone: contactForm.phone || null, mailing_address: contactForm.mailing_address || null }))
+          setContactEditing(false)
+          setContactSaved(true)
+          setTimeout(() => setContactSaved(false), 3000)
+        }
+      } catch (err) {
+        console.error('Failed to update contact info:', err)
+      } finally {
+        setContactSaving(false)
+      }
+    }
+
+    const inputStyle = { width: '100%', padding: '8px 10px', border: '1px solid #e0e0e0', borderRadius: 3, fontSize: 13, fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", color: '#111', outline: 'none' }
+    const labelStyle = { fontSize: 11, color: '#999', marginBottom: 4, fontWeight: 400 }
+
+    return (
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ fontSize: 9, letterSpacing: '0.4em', textTransform: 'uppercase', color: '#aaa', display: 'flex', alignItems: 'center', gap: 14, marginBottom: 22 }}>
+          Shipping &amp; Contact
+          <span style={{ flex: 1, height: 1, background: '#e8e8e8' }} />
+        </div>
+
+        {contactSaved && <div className="cd-success" style={{ marginBottom: 16 }}>Contact info updated.</div>}
+
+        {!contactEditing ? (
+          <div>
+            {hasAddress ? (
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                <div style={{ fontSize: 13, color: '#111', lineHeight: 1.6 }}>
+                  {influencer?.email && <div>{influencer.email}</div>}
+                  {influencer?.phone && <div>{influencer.phone}</div>}
+                  {influencer?.mailing_address && <div style={{ whiteSpace: 'pre-line', marginTop: influencer?.email || influencer?.phone ? 4 : 0 }}>{influencer.mailing_address}</div>}
+                </div>
+                <button
+                  style={{ padding: '6px 14px', border: '1px solid #e8e8e8', background: 'transparent', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '8.5px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#999', cursor: 'pointer', borderRadius: 2 }}
+                  onClick={() => setContactEditing(true)}
+                >Edit</button>
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontSize: 13, color: '#aaa', fontWeight: 300, marginBottom: 14 }}>No shipping address set yet.</div>
+                <button
+                  style={{ padding: '10px 20px', background: '#111', color: 'white', border: 'none', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '9.5px', fontWeight: 500, letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer' }}
+                  onClick={() => setContactEditing(true)}
+                >Add Shipping Address</button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+              <div style={{ flex: 1 }}>
+                <div style={labelStyle}>Email</div>
+                <input type="email" value={contactForm.email} onChange={e => setContactForm(f => ({ ...f, email: e.target.value }))} placeholder="email@example.com" style={inputStyle} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={labelStyle}>Phone</div>
+                <input type="tel" value={contactForm.phone} onChange={e => setContactForm(f => ({ ...f, phone: e.target.value }))} placeholder="+1 (555) 000-0000" style={inputStyle} />
+              </div>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <div style={labelStyle}>Mailing Address</div>
+              <textarea value={contactForm.mailing_address} onChange={e => setContactForm(f => ({ ...f, mailing_address: e.target.value }))} placeholder="Street, City, State, ZIP" rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={saveContact} disabled={contactSaving} style={{ padding: '10px 20px', background: '#111', color: 'white', border: 'none', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '9.5px', fontWeight: 500, letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer', opacity: contactSaving ? 0.5 : 1 }}>
+                {contactSaving ? 'Saving...' : 'Save'}
+              </button>
+              <button onClick={() => { setContactEditing(false); setContactForm({ email: influencer?.email || '', phone: influencer?.phone || '', mailing_address: influencer?.mailing_address || '' }) }} style={{ padding: '10px 20px', background: 'transparent', color: '#999', border: '1px solid #e8e8e8', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '9.5px', fontWeight: 500, letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   function renderSettings(mobile) {
     const hasSaved = creator?.payment_method
     const maskedAccount = creator?.bank_account_number ? '···' + creator.bank_account_number.slice(-4) : ''
@@ -4584,10 +4691,11 @@ export default function CreatorDashboard() {
           <div className="cd-card-head">
             <div>
               <div className="cd-card-eyebrow">Account</div>
-              <div className="cd-card-title">Payment Info</div>
+              <div className="cd-card-title">Account Info</div>
             </div>
           </div>
           <div className="cd-card-body">
+            {renderContactInfo(false)}
             {renderSettings(false)}
           </div>
         </div>
@@ -4875,6 +4983,7 @@ export default function CreatorDashboard() {
                 <div className="cd-m-section-title">Payment Info</div>
               </div>
               <div className="cd-m-section-body">
+                {renderContactInfo(true)}
                 {affiliateCode && invite?.has_affiliate && (
                   <div style={{ background: '#f9f9f9', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
                     <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
