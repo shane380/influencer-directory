@@ -37,6 +37,8 @@ interface EnrichedCreator {
   status: string;
   onboarded_at: string | null;
   last_sign_in: string | null;
+  sign_in_count: number | null;
+  created_at_auth: string | null;
 }
 
 export default function AdminUsersPage() {
@@ -120,10 +122,11 @@ export default function AdminUsersPage() {
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const days = Math.floor(diff / 86400000);
-    if (days === 0) return "Today";
-    if (days === 1) return "Yesterday";
-    if (days < 7) return `${days}d ago`;
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const timeStr = date.toLocaleString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/New_York" });
+    if (days === 0) return `Today ${timeStr} ET`;
+    if (days === 1) return `Yesterday ${timeStr} ET`;
+    if (days < 7) return `${days}d ago · ${timeStr} ET`;
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + ` · ${timeStr} ET`;
   };
 
   const getInitials = (name: string) => {
@@ -263,6 +266,7 @@ export default function AdminUsersPage() {
                   <TableHead>Partner</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Logins</TableHead>
                   <TableHead>Last Active</TableHead>
                   <TableHead className="w-10"></TableHead>
                 </TableRow>
@@ -284,6 +288,7 @@ export default function AdminUsersPage() {
                         {creator.status || "active"}
                       </span>
                     </TableCell>
+                    <TableCell className="text-gray-500 text-sm">{creator.sign_in_count ?? "—"}</TableCell>
                     <TableCell className="text-gray-500 text-sm">{formatDate(creator.last_sign_in)}</TableCell>
                     <TableCell>
                       <button

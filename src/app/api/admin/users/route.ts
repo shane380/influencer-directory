@@ -58,6 +58,8 @@ export async function GET() {
     return {
       ...c,
       last_sign_in: authUser?.last_sign_in_at || null,
+      sign_in_count: authUser?.app_metadata?.sign_in_count ?? null,
+      created_at_auth: authUser?.created_at || null,
     };
   });
 
