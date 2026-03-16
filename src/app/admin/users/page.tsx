@@ -51,6 +51,7 @@ export default function AdminUsersPage() {
   const [sendingInvite, setSendingInvite] = useState(false);
   const [inviteMessage, setInviteMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ userId: string; type: "profile" | "creator"; name: string } | null>(null);
 
   const supabase = createClient();
   const router = useRouter();
@@ -102,8 +103,7 @@ export default function AdminUsersPage() {
     }
   };
 
-  const handleDelete = async (userId: string, type: "profile" | "creator", name: string) => {
-    if (!confirm(`Remove ${name}? This cannot be undone.`)) return;
+  const handleDelete = async (userId: string, type: "profile" | "creator") => {
     setDeleting(userId);
     try {
       await fetch("/api/admin/users", {
@@ -114,6 +114,7 @@ export default function AdminUsersPage() {
       fetchData();
     } catch {}
     setDeleting(null);
+    setDeleteConfirm(null);
   };
 
   const formatDate = (d: string | null) => {
@@ -235,7 +236,7 @@ export default function AdminUsersPage() {
                   <TableCell>
                     {!user.is_admin && (
                       <button
-                        onClick={() => handleDelete(user.id, "profile", user.display_name || user.email)}
+                        onClick={() => setDeleteConfirm({ userId: user.id, type: "profile", name: user.display_name || user.email })}
                         disabled={deleting === user.id}
                         className="text-gray-400 hover:text-red-500 transition-colors p-1"
                       >
@@ -292,7 +293,7 @@ export default function AdminUsersPage() {
                     <TableCell className="text-gray-500 text-sm">{formatDate(creator.last_sign_in)}</TableCell>
                     <TableCell>
                       <button
-                        onClick={() => handleDelete(creator.id, "creator", creator.creator_name)}
+                        onClick={() => setDeleteConfirm({ userId: creator.id, type: "creator", name: creator.creator_name })}
                         disabled={deleting === creator.id}
                         className="text-gray-400 hover:text-red-500 transition-colors p-1"
                       >
@@ -306,6 +307,34 @@ export default function AdminUsersPage() {
           )}
         </div>
       </main>
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Remove User</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Remove <strong>{deleteConfirm.name}</strong>? This cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                disabled={!!deleting}
+                className="px-4 py-2 text-sm border rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDelete(deleteConfirm.userId, deleteConfirm.type)}
+                disabled={!!deleting}
+                className="px-4 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-red-300"
+              >
+                {deleting ? "Removing..." : "Remove"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
