@@ -183,7 +183,7 @@ export function InfluencerOrdersTab({
             }
           }}
         />
-        <Button onClick={handleSearch} disabled={searching}>
+        <Button type="button" onClick={handleSearch} disabled={searching}>
           {searching ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
@@ -280,6 +280,7 @@ export function InfluencerOrdersTab({
       <div className="flex items-center gap-2">
         {!showAddCustomer ? (
           <Button
+            type="button"
             variant="outline"
             size="sm"
             onClick={() => setShowAddCustomer(true)}
@@ -289,6 +290,7 @@ export function InfluencerOrdersTab({
           </Button>
         ) : (
           <Button
+            type="button"
             variant="outline"
             size="sm"
             onClick={() => { setShowAddCustomer(false); setSearchQuery(""); setSearchResults([]); }}
@@ -297,6 +299,7 @@ export function InfluencerOrdersTab({
           </Button>
         )}
         <Button
+          type="button"
           variant="outline"
           size="sm"
           onClick={onRefreshOrders}
