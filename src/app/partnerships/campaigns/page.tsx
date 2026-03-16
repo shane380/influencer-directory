@@ -325,16 +325,15 @@ export default function CampaignsPage() {
   function addProduct(p: SearchProduct) {
     if (availableProducts.find(ap => String(ap.product_id) === String(p.product_id))) return;
     setAvailableProducts(prev => [...prev, {
-      variant_id: String(p.variant_id),
+      variant_id: String(p.product_id),
       product_id: String(p.product_id),
       product_title: p.title,
-      variant_title: p.variant_title || undefined,
       image_url: p.image || undefined,
     }]);
   }
 
   function removeProduct(variantId: string) {
-    setAvailableProducts(prev => prev.filter(p => p.variant_id !== variantId));
+    setAvailableProducts(prev => prev.filter(p => (p.product_id || p.variant_id) !== variantId));
   }
 
   function toggleCreator(c: Creator) {
@@ -816,19 +815,24 @@ export default function CampaignsPage() {
                     <div className="text-xs text-gray-400 py-3 text-center border border-dashed border-gray-200 rounded-lg">No wardrobe items found for selected partners</div>
                   ) : (
                     <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
-                      {wardrobeItems.map(w => {
-                        const alreadyAdded = availableProducts.find(ap => ap.product_title === w.product_title && (ap.variant_title || "") === (w.variant_title || ""));
+                      {wardrobeItems.filter((w, i, arr) => arr.findIndex(x => x.product_id === w.product_id && w.product_id) === i || !w.product_id).map(w => {
+                        const alreadyAdded = availableProducts.find(ap => (w.product_id && ap.product_id === w.product_id) || ap.product_title === w.product_title);
                         return (
                           <div
-                            key={w.variant_id}
+                            key={w.product_id || w.variant_id}
                             className={`flex items-center gap-2 px-3 py-2 border-b border-gray-50 last:border-b-0 ${alreadyAdded ? "opacity-50 cursor-default" : "hover:bg-gray-50 cursor-pointer"}`}
                             onClick={() => {
                               if (alreadyAdded) return;
-                              setAvailableProducts(prev => [...prev, { ...w, variant_id: `wardrobe-${Date.now()}-${Math.random().toString(36).slice(2)}` }]);
+                              setAvailableProducts(prev => [...prev, {
+                                variant_id: w.product_id || `wardrobe-${Date.now()}`,
+                                product_id: w.product_id,
+                                product_title: w.product_title,
+                                image_url: w.image_url,
+                              }]);
                             }}
                           >
                             {w.image_url ? <img src={w.image_url} alt="" className="w-8 h-8 object-cover rounded" /> : <div className="w-8 h-8 bg-gray-100 rounded" />}
-                            <span className="text-xs flex-1">{w.product_title}{w.variant_title ? ` — ${w.variant_title}` : ""}</span>
+                            <span className="text-xs flex-1">{w.product_title}</span>
                             {alreadyAdded ? <span className="text-xs text-green-600">Added</span> : <span className="text-xs text-gray-400">+ Add</span>}
                           </div>
                         );
@@ -879,10 +883,10 @@ export default function CampaignsPage() {
                   <div className="text-xs text-gray-500 mb-1">Selected ({availableProducts.length})</div>
                   <div className="flex gap-2 flex-wrap">
                     {availableProducts.map(p => (
-                      <div key={p.variant_id} className="flex items-center gap-1 bg-gray-100 rounded px-2 py-1 text-xs">
+                      <div key={p.product_id || p.variant_id} className="flex items-center gap-1 bg-gray-100 rounded px-2 py-1 text-xs">
                         {p.image_url && <img src={p.image_url} alt="" className="w-5 h-5 object-cover rounded" />}
                         {p.product_title}{p.variant_title ? ` — ${p.variant_title}` : ""}
-                        <button onClick={() => removeProduct(p.variant_id)} className="ml-1 text-gray-400 hover:text-gray-600">×</button>
+                        <button onClick={() => removeProduct(p.product_id || p.variant_id)} className="ml-1 text-gray-400 hover:text-gray-600">×</button>
                       </div>
                     ))}
                   </div>
@@ -1738,10 +1742,10 @@ export default function CampaignsPage() {
                   {availableProducts.length > 0 && (
                     <div className="flex gap-2 flex-wrap">
                       {availableProducts.map(p => (
-                        <div key={p.variant_id} className="flex items-center gap-1 bg-gray-100 rounded px-2 py-1 text-xs">
+                        <div key={p.product_id || p.variant_id} className="flex items-center gap-1 bg-gray-100 rounded px-2 py-1 text-xs">
                           {p.image_url && <img src={p.image_url} alt="" className="w-5 h-5 object-cover rounded" />}
                           {p.product_title}{p.variant_title ? ` — ${p.variant_title}` : ""}
-                          <button onClick={() => removeProduct(p.variant_id)} className="ml-1 text-gray-400 hover:text-gray-600">×</button>
+                          <button onClick={() => removeProduct(p.product_id || p.variant_id)} className="ml-1 text-gray-400 hover:text-gray-600">×</button>
                         </div>
                       ))}
                     </div>
