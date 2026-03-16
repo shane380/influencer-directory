@@ -85,6 +85,10 @@ export default function CreatorsListPage() {
   // Pending invites
   const [pendingInvites, setPendingInvites] = useState<any[]>([]);
 
+  // Delete confirmation state
+  const [deleteConfirm, setDeleteConfirm] = useState<Creator | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   // Edit Terms modal state
   const [editTermsInvite, setEditTermsInvite] = useState<any>(null);
   const [editTermsLoading, setEditTermsLoading] = useState<string | null>(null);
@@ -620,27 +624,10 @@ export default function CreatorsListPage() {
                             </button>
                           )}
                           <button
-                            onClickCapture={(e) => {
+                            onClick={(e) => {
                               e.stopPropagation();
                               e.preventDefault();
-                              e.nativeEvent.stopImmediatePropagation();
-                            }}
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              e.preventDefault();
-                              if (!confirm(`Delete ${creator.creator_name}? This will remove their account, submissions, and all related data. Their invite link will be reset so it can be reused.`)) return;
-                              try {
-                                const res = await fetch("/api/creators/delete", {
-                                  method: "DELETE",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ creator_id: creator.id }),
-                                });
-                                if (!res.ok) throw new Error("Failed to delete");
-                                setCreators(prev => prev.filter(c => c.id !== creator.id));
-                              } catch (err) {
-                                console.error("Delete error:", err);
-                                alert("Failed to delete partner. Please try again.");
-                              }
+                              setDeleteConfirm(creator);
                             }}
                             className="text-gray-400 hover:text-red-500 transition-colors"
                             title="Delete Partner"
@@ -660,6 +647,53 @@ export default function CreatorsListPage() {
       </main>
 
       {/* Edit Terms Modal */}
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Partner</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Delete <strong>{deleteConfirm.creator_name}</strong>? This will remove their account, submissions, and all related data. Their invite link will be reset so it can be reused.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                disabled={deleting}
+                className="px-4 py-2 text-sm border rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setDeleting(true);
+                  try {
+                    const res = await fetch("/api/creators/delete", {
+                      method: "DELETE",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ creator_id: deleteConfirm.id }),
+                    });
+                    if (!res.ok) {
+                      const data = await res.json().catch(() => ({}));
+                      throw new Error(data.error || "Failed to delete");
+                    }
+                    setCreators(prev => prev.filter(c => c.id !== deleteConfirm.id));
+                    setDeleteConfirm(null);
+                  } catch (err: any) {
+                    alert(err.message || "Failed to delete partner. Please try again.");
+                  } finally {
+                    setDeleting(false);
+                  }
+                }}
+                disabled={deleting}
+                className="px-4 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-red-300"
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {editTermsInvite && (
         <EditTermsModal
           inviteId={editTermsInvite.id}
