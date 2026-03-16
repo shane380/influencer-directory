@@ -5,7 +5,9 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 export async function DELETE(request: NextRequest) {
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
   const { creator_id } = await request.json();
 
   if (!creator_id) {
@@ -24,30 +26,26 @@ export async function DELETE(request: NextRequest) {
   }
 
   // Delete related data in order (foreign key constraints)
-  // 1. Content submissions
-  await (supabase.from("creator_content_submissions") as any).delete().eq("creator_id", creator_id);
+  const tables = [
+    "creator_content_submissions",
+    "creator_sample_requests",
+    "creator_product_feedback",
+    "creator_code_change_requests",
+    "campaign_assignments",
+    "submissions",
+    "content",
+  ];
 
-  // 2. Sample requests
-  await (supabase.from("creator_sample_requests") as any).delete().eq("creator_id", creator_id);
+  for (const table of tables) {
+    const { error } = await (supabase.from(table) as any).delete().eq("creator_id", creator_id);
+    if (error) {
+      console.error(`Failed to delete from ${table}:`, error);
+    }
+  }
 
-  // 3. Product feedback
-  await (supabase.from("creator_product_feedback") as any).delete().eq("creator_id", creator_id);
-
-  // 4. Code change requests
-  await (supabase.from("creator_code_change_requests") as any).delete().eq("creator_id", creator_id);
-
-  // 5. Campaign assignments
-  await (supabase.from("campaign_assignments") as any).delete().eq("creator_id", creator_id);
-
-  // 6. Submissions (legacy)
-  await (supabase.from("submissions") as any).delete().eq("creator_id", creator_id);
-
-  // 7. Content
-  await (supabase.from("content") as any).delete().eq("creator_id", creator_id);
-
-  // 8. Delete the creator record
-  const { error: deleteError } = await supabase
-    .from("creators")
+  // Delete the creator record
+  const { error: deleteError } = await (supabase
+    .from("creators") as any)
     .delete()
     .eq("id", creator_id);
 
