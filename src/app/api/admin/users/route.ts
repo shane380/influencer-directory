@@ -52,16 +52,14 @@ export async function GET() {
   // Fetch partner/creator users
   const { data: creators } = await adminClient
     .from("creators")
-    .select("id, creator_name, email, user_id, status, onboarded_at")
+    .select("id, creator_name, email, user_id, status, onboarded_at, last_active_at, login_count")
     .order("onboarded_at", { ascending: false });
 
   const enrichedCreators = (creators || []).map((c: any) => {
-    const authUser = authMap.get(c.user_id);
     return {
       ...c,
-      last_sign_in: authUser?.last_sign_in_at || null,
-      sign_in_count: authUser?.app_metadata?.sign_in_count ?? null,
-      created_at_auth: authUser?.created_at || null,
+      last_sign_in: c.last_active_at || null,
+      sign_in_count: c.login_count || null,
     };
   });
 

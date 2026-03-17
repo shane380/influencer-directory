@@ -923,6 +923,14 @@ export default function CreatorDashboard() {
       if (!creatorData) { router.push('/creator/login'); return }
       setCreator(creatorData)
 
+      // Track activity (fire-and-forget, only for real creator sessions)
+      if (!isAdmin) {
+        supabase.from('creators').update({
+          last_active_at: new Date().toISOString(),
+          login_count: (creatorData.login_count || 0) + 1,
+        }).eq('id', creatorData.id).then(() => {})
+      }
+
       // Initialize payment form from saved data
       if (creatorData.payment_method) {
         setPaymentMethod(creatorData.payment_method)
