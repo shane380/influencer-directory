@@ -38,14 +38,16 @@ export async function GET() {
   const authUsers = authData?.users || [];
   const authMap = new Map(authUsers.map(u => [u.id, u]));
 
-  const enrichedProfiles = (profiles || []).map((p: any) => {
-    const authUser = authMap.get(p.id);
-    return {
-      ...p,
-      last_sign_in: authUser?.last_sign_in_at || null,
-      role_meta: authUser?.user_metadata?.role || null,
-    };
-  });
+  const enrichedProfiles = (profiles || [])
+    .map((p: any) => {
+      const authUser = authMap.get(p.id);
+      return {
+        ...p,
+        last_sign_in: authUser?.last_sign_in_at || null,
+        role_meta: authUser?.user_metadata?.role || null,
+      };
+    })
+    .filter((p: any) => p.role_meta !== "creator");
 
   // Fetch partner/creator users
   const { data: creators } = await adminClient

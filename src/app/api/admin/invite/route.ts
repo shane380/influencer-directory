@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       data: {
         display_name: displayName,
       },
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/login`,
+      redirectTo: "https://influencer-directory-self.vercel.app/login",
     });
 
     if (inviteError) {
