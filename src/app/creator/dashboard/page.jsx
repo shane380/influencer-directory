@@ -1924,7 +1924,8 @@ export default function CreatorDashboard() {
                 const maxSpend = Math.max(...adsMonthly.map(x => x.spend))
                 const barPct = maxSpend > 0 ? (m.spend / maxSpend) * 100 : 0
                 const isCurrent = m.month === currentMonthKey
-                const mDate = new Date(m.month + '-01')
+                const [mY, mM] = m.month.split('-').map(Number)
+                const mDate = new Date(mY, mM - 1, 1)
                 const mLabel = mDate.toLocaleString('en', { month: 'long', year: 'numeric' })
                 return (
                   <div key={i} className={`cd-breakdown-row${isCurrent ? ' cd-breakdown-current' : ''}`}>
@@ -2113,7 +2114,8 @@ export default function CreatorDashboard() {
                 const hEarned = hs.commission_owed || 0
                 const maxEarned = Math.max(...affiliateHistory.map(x => x.summary?.commission_owed || 0))
                 const barPct = maxEarned > 0 ? (hEarned / maxEarned) * 100 : 0
-                const mDate = new Date(h.month + '-01')
+                const [hY, hM] = h.month.split('-').map(Number)
+                const mDate = new Date(hY, hM - 1, 1)
                 const mLabel = mDate.toLocaleString('en', { month: 'long', year: 'numeric' })
                 return (
                   <div key={i} className="cd-breakdown-row">
