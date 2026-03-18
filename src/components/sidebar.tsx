@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Campaign } from "@/types/database";
 import {
@@ -270,34 +271,30 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                     onClick={(e) => e.stopPropagation()}
                   >
                     <li>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push("/partnerships/creators");
-                        }}
-                        className={`w-full text-left px-2 py-1.5 text-sm rounded-md transition-colors ${
+                      <Link
+                        href="/partnerships/creators"
+                        onClick={(e) => e.stopPropagation()}
+                        className={`block px-2 py-1.5 text-sm rounded-md transition-colors ${
                           pathname === "/partnerships/creators" || pathname?.startsWith("/partnerships/creators/")
                             ? "text-gray-900 bg-gray-100 font-medium"
                             : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
                         }`}
                       >
                         Partners
-                      </button>
+                      </Link>
                     </li>
                     <li>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push("/partnerships/campaigns");
-                        }}
-                        className={`w-full text-left px-2 py-1.5 text-sm rounded-md transition-colors ${
+                      <Link
+                        href="/partnerships/campaigns"
+                        onClick={(e) => e.stopPropagation()}
+                        className={`block px-2 py-1.5 text-sm rounded-md transition-colors ${
                           pathname === "/partnerships/campaigns"
                             ? "text-gray-900 bg-gray-100 font-medium"
                             : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
                         }`}
                       >
                         Partner Campaigns
-                      </button>
+                      </Link>
                     </li>
                   </ul>
                 )}
