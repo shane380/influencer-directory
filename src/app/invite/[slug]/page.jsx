@@ -674,6 +674,10 @@ export default function InvitePage() {
                 ['What if Nama needs a full re-shoot?', 'Minor edits are included. If a full re-shoot or concept change is needed, we\'ll discuss it together and agree on terms before proceeding.'],
                 ['Is this month-to-month or a fixed contract?', minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'],
                 ['How do I submit my content?', 'Through your Nama Partners dashboard. You\'ll get access immediately after signing up.'],
+                ['Will I receive monthly product packages?', 'Yes — as a Nama Partner you\'re officially on our early access PR list. You\'ll receive notifications when a new collection or campaign is available to make selects, and you can request additional pieces anytime through your dashboard.'],
+                ['Can I request specific items?', 'You\'re absolutely welcome to request specific items — we want to make sure you\'re getting pieces you genuinely love. There\'s a dedicated section on your dashboard where you can submit item requests directly.'],
+                ['Are there any exclusive perks or affiliate links/discount codes?', 'Yes — you\'ll receive a personal code with a discount for your audience and commission on sales. Details are in your Partnership Terms.'],
+                ['Is there any exclusivity clause?', 'No. You\'re free to work with other brands.'],
               ].map(([q, a], i) => (
                 <div className="ni-faq-item" key={i}>
                   <div className="ni-faq-q" onClick={() => setOpenFaqIndex(openFaqIndex === i ? null : i)}>
@@ -762,6 +766,10 @@ export default function InvitePage() {
                 ['How do I submit my content?', 'Through your Nama Partners dashboard. You\'ll get access immediately after signing up.'],
                 ['Is this month-to-month or a fixed contract?', minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'],
                 ['What if my content doesn\'t get much spend in month 1?', 'That\'s what the minimum guarantee is for. You\'re covered regardless of how much we spend while we find what works.'],
+                ['Will I receive monthly product packages?', 'Yes — as a Nama Partner you\'re officially on our early access PR list. You\'ll receive notifications when a new collection or campaign is available to make selects, and you can request additional pieces anytime through your dashboard.'],
+                ['Can I request specific items?', 'You\'re absolutely welcome to request specific items — we want to make sure you\'re getting pieces you genuinely love. There\'s a dedicated section on your dashboard where you can submit item requests directly.'],
+                ['Are there any exclusive perks or affiliate links/discount codes?', 'Yes — you\'ll receive a personal code with a discount for your audience and commission on sales. Details are in your Partnership Terms.'],
+                ['Is there any exclusivity clause?', 'No. You\'re free to work with other brands.'],
               ].map(([q, a], i) => (
                 <div className="ni-faq-item" key={i}>
                   <div className="ni-faq-q" onClick={() => setOpenFaqIndex(openFaqIndex === i ? null : i)}>
@@ -829,6 +837,10 @@ export default function InvitePage() {
               ['When do I get paid?', 'Commission is calculated at the end of each month and paid by the 5th of the following month via your selected payment method.'],
               ['What counts as a sale?', 'Any completed order placed using your discount code or affiliate link. Returned or refunded orders are excluded from your commission.'],
               ['Is there a minimum to get paid?', 'No minimum — any commission earned that month gets paid out.'],
+              ['Will I receive monthly product packages?', 'Yes — as a Nama Partner you\'re officially on our early access PR list. You\'ll receive notifications when a new collection or campaign is available to make selects, and you can request additional pieces anytime through your dashboard.'],
+              ['Can I request specific items?', 'You\'re absolutely welcome to request specific items — we want to make sure you\'re getting pieces you genuinely love. There\'s a dedicated section on your dashboard where you can submit item requests directly.'],
+              ['Are there any exclusive perks or affiliate links/discount codes?', 'Yes — you\'ll receive a personal code with a discount for your audience and commission on sales. Details are in your Partnership Terms.'],
+              ['Is there any exclusivity clause?', 'No. You\'re free to work with other brands.'],
             ].map(([q, a], i) => (
               <div className="ni-faq-item" key={i}>
                 <div className="ni-faq-q" onClick={() => setOpenFaqIndex(openFaqIndex === i ? null : i)}>
@@ -1031,6 +1043,10 @@ export default function InvitePage() {
                 ['What if Nama needs a full re-shoot?', 'Minor edits are included. If a full re-shoot or concept change is needed, we\'ll discuss it together and agree on terms before proceeding.'],
                 ['Is this month-to-month or a fixed contract?', minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'],
                 ['How do I submit my content?', 'Through your Nama Partners dashboard. You\'ll get access immediately after signing up.'],
+                ['Will I receive monthly product packages?', 'Yes — as a Nama Partner you\'re officially on our early access PR list. You\'ll receive notifications when a new collection or campaign is available to make selects, and you can request additional pieces anytime through your dashboard.'],
+                ['Can I request specific items?', 'You\'re absolutely welcome to request specific items — we want to make sure you\'re getting pieces you genuinely love. There\'s a dedicated section on your dashboard where you can submit item requests directly.'],
+                ['Are there any exclusive perks or affiliate links/discount codes?', 'Yes — you\'ll receive a personal code with a discount for your audience and commission on sales. Details are in your Partnership Terms.'],
+                ['Is there any exclusivity clause?', 'No. You\'re free to work with other brands.'],
               ].map(([q, a], i) => (
                 <div className="ni-m-faq-item" key={i}>
                   <div className="ni-m-faq-q" onClick={() => setOpenFaqIndex(openFaqIndex === i ? null : i)}>
@@ -1102,6 +1118,10 @@ export default function InvitePage() {
                 ['How do I submit my content?', 'Through your Nama Partners dashboard. You\'ll get access immediately after signing up.'],
                 ['Is this month-to-month or a fixed contract?', minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'],
                 ['What if my content doesn\'t get much spend in month 1?', 'That\'s what the minimum guarantee is for. You\'re covered regardless of how much we spend while we find what works.'],
+                ['Will I receive monthly product packages?', 'Yes — as a Nama Partner you\'re officially on our early access PR list. You\'ll receive notifications when a new collection or campaign is available to make selects, and you can request additional pieces anytime through your dashboard.'],
+                ['Can I request specific items?', 'You\'re absolutely welcome to request specific items — we want to make sure you\'re getting pieces you genuinely love. There\'s a dedicated section on your dashboard where you can submit item requests directly.'],
+                ['Are there any exclusive perks or affiliate links/discount codes?', 'Yes — you\'ll receive a personal code with a discount for your audience and commission on sales. Details are in your Partnership Terms.'],
+                ['Is there any exclusivity clause?', 'No. You\'re free to work with other brands.'],
               ].map(([q, a], i) => (
                 <div className="ni-m-faq-item" key={i}>
                   <div className="ni-m-faq-q" onClick={() => setOpenFaqIndex(openFaqIndex === i ? null : i)}>
@@ -1148,6 +1168,10 @@ export default function InvitePage() {
               ['When do I get paid?', 'Commission is calculated at the end of each month and paid by the 5th of the following month via your selected payment method.'],
               ['What counts as a sale?', 'Any completed order placed using your discount code or affiliate link. Returned or refunded orders are excluded from your commission.'],
               ['Is there a minimum to get paid?', 'No minimum — any commission earned that month gets paid out.'],
+              ['Will I receive monthly product packages?', 'Yes — as a Nama Partner you\'re officially on our early access PR list. You\'ll receive notifications when a new collection or campaign is available to make selects, and you can request additional pieces anytime through your dashboard.'],
+              ['Can I request specific items?', 'You\'re absolutely welcome to request specific items — we want to make sure you\'re getting pieces you genuinely love. There\'s a dedicated section on your dashboard where you can submit item requests directly.'],
+              ['Are there any exclusive perks or affiliate links/discount codes?', 'Yes — you\'ll receive a personal code with a discount for your audience and commission on sales. Details are in your Partnership Terms.'],
+              ['Is there any exclusivity clause?', 'No. You\'re free to work with other brands.'],
             ].map(([q, a], i) => (
               <div className="ni-m-faq-item" key={i}>
                 <div className="ni-m-faq-q" onClick={() => setOpenFaqIndex(openFaqIndex === i ? null : i)}>
