@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { r2Client, R2_BUCKET, getPublicUrl } from "./r2";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
+import mux from "./mux";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -97,9 +98,12 @@ function getBestImageUrl(ad: any): string | null {
 interface AdResult {
   name: string;
   status: string;
+  effective_status: string;
   spend: string;
   impressions: string;
   thumbnailUrl: string | null;
+  video_id: string | null;
+  mux_playback_id: string | null;
 }
 
 interface SyncResult {
@@ -120,7 +124,7 @@ async function fetchAdsForHandle(
     { field: "name", operator: "CONTAIN", value: handle },
   ]);
 
-  const fields = "name,status,creative{thumbnail_url,image_url,object_story_spec{video_data{image_url}}},insights.date_preset(maximum){spend,impressions}";
+  const fields = "name,status,effective_status,creative{thumbnail_url,image_url,object_story_spec{video_data{image_url,video_id}},asset_feed_spec{videos{video_id}}},insights.date_preset(maximum){spend,impressions}";
   const listUrl =
     `https://graph.facebook.com/${META_API_VERSION}/${actId}/ads?` +
     `fields=${fields}` +
@@ -243,12 +247,21 @@ async function fetchAdsForHandle(
       }
     }
 
+    // Extract video_id from creative (standard or dynamic creative format)
+    const videoId =
+      ad.creative?.object_story_spec?.video_data?.video_id ||
+      ad.creative?.asset_feed_spec?.videos?.[0]?.video_id ||
+      null;
+
     ads.push({
       name: displayName,
       status: ad.status,
+      effective_status: ad.effective_status || ad.status,
       spend: spend.toFixed(2),
       impressions: String(impressions),
       thumbnailUrl,
+      video_id: videoId ? String(videoId) : null,
+      mux_playback_id: null, // will be filled in by processVideoUploads
     });
   }
 
@@ -259,6 +272,68 @@ async function fetchAdsForHandle(
     mtd,
     lastMtd,
   };
+}
+
+/**
+ * For each ad with a video_id but no mux_playback_id, fetch the video
+ * source from Meta, upload to Mux, and store the playback ID.
+ * Preserves existing mux_playback_ids from previous syncs.
+ */
+async function processVideoUploads(
+  ads: AdResult[],
+  existingAds: AdResult[] | null,
+  accessToken: string
+): Promise<void> {
+  // Build a map of existing mux_playback_ids by video_id
+  const existingMap = new Map<string, string>();
+  if (existingAds) {
+    for (const ad of existingAds) {
+      if (ad.video_id && ad.mux_playback_id) {
+        existingMap.set(ad.video_id, ad.mux_playback_id);
+      }
+    }
+  }
+
+  for (const ad of ads) {
+    if (!ad.video_id) continue;
+
+    // Check if we already have a playback ID for this video
+    const existing = existingMap.get(ad.video_id);
+    if (existing) {
+      ad.mux_playback_id = existing;
+      continue;
+    }
+
+    // Only download videos for active ads
+    if (ad.effective_status !== "ACTIVE") continue;
+
+    // Fetch video source URL from Meta
+    try {
+      const sourceUrl = `https://graph.facebook.com/${META_API_VERSION}/${ad.video_id}?fields=source&access_token=${accessToken}`;
+      const sourceData = await metaFetch(sourceUrl);
+
+      if (!sourceData?.source) {
+        console.warn(`[meta-sync] No source URL for video ${ad.video_id}`);
+        continue;
+      }
+
+      // Upload to Mux directly from the Meta CDN URL
+      const asset = await mux.video.assets.create({
+        inputs: [{ url: sourceData.source }],
+        playback_policies: ["public"],
+        mp4_support: "capped-1080p",
+      });
+
+      const playbackId = asset.playback_ids?.[0]?.id || null;
+      if (playbackId) {
+        ad.mux_playback_id = playbackId;
+        console.log(`[meta-sync] Uploaded video ${ad.video_id} to Mux: ${playbackId}`);
+      }
+    } catch (err) {
+      console.error(`[meta-sync] Failed to process video ${ad.video_id}:`, err);
+      // Continue — don't block the rest of the sync
+    }
+  }
 }
 
 export function getServiceClient() {
@@ -284,6 +359,15 @@ export async function syncCreator(
 
   try {
     const result = await fetchAdsForHandle(handle, accessToken, actId, influencerId);
+
+    // Fetch existing ads to preserve mux_playback_ids
+    const { data: existingRow } = await (db.from("creator_ad_performance") as any)
+      .select("ads")
+      .eq("instagram_handle", handle)
+      .single();
+
+    // Process video uploads to Mux (skips ads that already have playback IDs)
+    await processVideoUploads(result.ads, existingRow?.ads || null, accessToken);
 
     await (db.from("creator_ad_performance") as any).upsert(
       {

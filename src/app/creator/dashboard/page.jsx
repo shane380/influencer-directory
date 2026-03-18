@@ -492,21 +492,24 @@ const CSS = `
 .cd-ads-section { padding: 0 36px 36px; border-top: 1px solid #e8e8e8; padding-top: 24px; }
 .cd-ads-section-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin-bottom: 14px; }
 .cd-ads-row { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 8px; }
-.cd-ad-card { border: 1px solid #e8e8e8; flex-shrink: 0; width: 320px; }
-.cd-ad-preview { width: 320px; height: 620px; overflow: hidden; background: #fff; display: flex; align-items: center; justify-content: center; }
-.cd-ad-preview iframe { width: 320px; height: 620px; border: none; display: block; }
-.cd-ad-thumb { position: relative; height: 360px; width: 100%; overflow: hidden; background: #1a1a1a; }
+.cd-ad-card { border: 1px solid #e8e8e8; flex-shrink: 0; width: 240px; }
+.cd-ad-preview { width: 240px; aspect-ratio: 9/16; overflow: hidden; background: #fff; display: flex; align-items: center; justify-content: center; }
+.cd-ad-preview iframe { width: 240px; aspect-ratio: 9/16; border: none; display: block; }
+.cd-ad-thumb { position: relative; width: 100%; aspect-ratio: 9/16; overflow: hidden; background: #1a1a1a; }
 .cd-ad-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: center; opacity: 0.85; display: block; }
 .cd-ad-thumb-overlay { position: absolute; bottom: 0; left: 0; right: 0; padding: 16px 20px; background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%); display: flex; align-items: flex-end; justify-content: space-between; }
-.cd-ad-thumb-name { font-size: 13px; color: white; font-weight: 300; }
-.cd-ad-thumb-status { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: #5db075; background: rgba(0,0,0,0.4); padding: 4px 10px; border-radius: 100px; border: 1px solid rgba(93,176,117,0.4); }
+.cd-ad-thumb-name { font-size: 11px; color: white; font-weight: 300; line-height: 1.3; }
+.cd-ad-thumb-status { font-size: 7px; letter-spacing: 0.12em; text-transform: uppercase; color: #5db075; background: rgba(0,0,0,0.4); padding: 3px 7px; border-radius: 100px; border: 1px solid rgba(93,176,117,0.4); white-space: nowrap; flex-shrink: 0; }
 .cd-ad-thumb-status-paused { color: #aaa; border-color: rgba(170,170,170,0.4); }
+.cd-ad-video { position: relative; width: 100%; aspect-ratio: 9/16; overflow: hidden; background: #1a1a1a; }
+.cd-ad-video video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cd-ad-video .cd-ad-thumb-overlay { position: absolute; bottom: 0; left: 0; right: 0; padding: 16px 20px; background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%); display: flex; align-items: flex-end; justify-content: space-between; z-index: 2; pointer-events: none; }
 .cd-ad-stats-strip { display: flex; border-top: 1px solid #e8e8e8; }
-.cd-ad-stat { flex: 1; padding: 14px 20px; border-right: 1px solid #e8e8e8; }
+.cd-ad-stat { flex: 1; padding: 10px 10px; border-right: 1px solid #e8e8e8; text-align: center; min-width: 0; overflow: hidden; }
 .cd-ad-stat:last-child { border-right: none; }
-.cd-ad-stat-l { font-size: 8.5px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin-bottom: 4px; }
-.cd-ad-stat-v { font-family: 'Playfair Display', serif; font-size: 22px; color: #111; }
-.cd-score-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; padding: 4px 12px; border-radius: 100px; border: 1px solid; }
+.cd-ad-stat-l { font-size: 7.5px; letter-spacing: 0.15em; text-transform: uppercase; color: #aaa; margin-bottom: 3px; white-space: nowrap; }
+.cd-ad-stat-v { font-family: 'Playfair Display', serif; font-size: 16px; color: #111; white-space: nowrap; }
+.cd-score-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 8px; border-radius: 100px; border: 1px solid; }
 .cd-score-strong { color: #2e7d32; border-color: #d4edda; background: #f0faf0; }
 .cd-score-scaling { color: #1565c0; border-color: #bbdefb; background: #e3f2fd; }
 .cd-score-testing { color: #e65100; border-color: #ffe0b2; background: #fff3e0; }
@@ -722,15 +725,21 @@ const CSS = `
 .cd-m-ads-section { padding: 16px 20px 20px; border-top: 1px solid #e8e8e8; }
 .cd-m-ads-label { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: #aaa; margin-bottom: 12px; }
 .cd-m-ads-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; }
-.cd-m-ad-card { border: 1px solid #e8e8e8; flex-shrink: 0; width: 280px; overflow: hidden; }
-.cd-m-ad-preview { width: 280px; height: 540px; overflow: hidden; background: #fff; display: flex; align-items: center; justify-content: center; }
-.cd-m-ad-preview iframe { width: 320px; height: 620px; border: none; display: block; transform: scale(0.875); transform-origin: top left; }
-.cd-m-ad-thumb { position: relative; height: 300px; width: 100%; overflow: hidden; background: #1a1a1a; }
+.cd-m-ad-card { border: 1px solid #e8e8e8; flex-shrink: 0; width: 200px; overflow: hidden; }
+.cd-m-ad-preview { width: 200px; aspect-ratio: 9/16; overflow: hidden; background: #fff; display: flex; align-items: center; justify-content: center; }
+.cd-m-ad-preview iframe { width: 200px; aspect-ratio: 9/16; border: none; display: block; }
+.cd-m-ad-thumb { position: relative; width: 100%; aspect-ratio: 9/16; overflow: hidden; background: #1a1a1a; }
 .cd-m-ad-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: center; opacity: 0.85; display: block; }
 .cd-m-ad-thumb-overlay { position: absolute; bottom: 0; left: 0; right: 0; padding: 12px 16px; background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%); display: flex; align-items: flex-end; justify-content: space-between; }
 .cd-m-ad-thumb-name { font-size: 12px; color: white; font-weight: 300; }
 .cd-m-ad-thumb-status { font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase; color: #5db075; background: rgba(0,0,0,0.4); padding: 3px 8px; border-radius: 100px; border: 1px solid rgba(93,176,117,0.4); }
 .cd-m-ad-thumb-status-paused { color: #aaa; border-color: rgba(170,170,170,0.4); }
+.cd-m-ad-video { position: relative; width: 100%; aspect-ratio: 9/16; overflow: hidden; background: #1a1a1a; }
+.cd-m-ad-video video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cd-m-ad-video .cd-m-ad-play-btn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 48px; height: 48px; border-radius: 50%; background: rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.7); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 3; transition: opacity 0.2s; }
+.cd-m-ad-video .cd-m-ad-play-btn svg { fill: white; margin-left: 3px; }
+.cd-m-ad-video .cd-m-ad-play-btn.hidden { opacity: 0; pointer-events: none; }
+.cd-m-ad-video .cd-m-ad-thumb-overlay { position: absolute; bottom: 0; left: 0; right: 0; padding: 12px 16px; background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%); display: flex; align-items: flex-end; justify-content: space-between; z-index: 2; pointer-events: none; }
 .cd-m-ad-stats-strip { display: flex; border-top: 1px solid #e8e8e8; width: 100%; min-width: 0; }
 .cd-m-ad-stat { flex: 1; padding: 10px 12px; border-right: 1px solid #e8e8e8; min-width: 0; overflow: hidden; }
 .cd-m-ad-stat:last-child { border-right: none; }
@@ -2297,6 +2306,33 @@ export default function CreatorDashboard() {
                   <div key={i} className="cd-m-ad-card">
                     {ad.previewHtml ? (
                       <div className="cd-m-ad-preview" dangerouslySetInnerHTML={{ __html: ad.previewHtml }} />
+                    ) : ad.mux_playback_id ? (
+                      <div className="cd-m-ad-video">
+                        <video
+                          src={`https://stream.mux.com/${ad.mux_playback_id}/medium.mp4`}
+                          poster={`https://image.mux.com/${ad.mux_playback_id}/thumbnail.jpg?time=0`}
+                          muted
+                          playsInline
+                          loop
+                          preload="metadata"
+                          onClick={e => {
+                            const v = e.currentTarget
+                            const btn = v.parentElement.querySelector('.cd-m-ad-play-btn')
+                            if (v.paused) { v.play().catch(() => {}); if (btn) btn.classList.add('hidden') }
+                            else { v.pause(); if (btn) btn.classList.remove('hidden') }
+                          }}
+                        />
+                        <div className="cd-m-ad-play-btn" onClick={e => {
+                          const v = e.currentTarget.parentElement.querySelector('video')
+                          if (v) { v.play().catch(() => {}); e.currentTarget.classList.add('hidden') }
+                        }}>
+                          <svg width="18" height="20" viewBox="0 0 18 20"><polygon points="0,0 18,10 0,20" /></svg>
+                        </div>
+                        <div className="cd-m-ad-thumb-overlay">
+                          <div className="cd-m-ad-thumb-name">{name}</div>
+                          <div className={`cd-m-ad-thumb-status${!isActive ? ' cd-m-ad-thumb-status-paused' : ''}`}>● {isActive ? 'Active' : 'Paused'}</div>
+                        </div>
+                      </div>
                     ) : (
                       <div className="cd-m-ad-thumb">
                         {ad.thumbnailUrl ? <img src={ad.thumbnailUrl} alt={name} /> : <div style={{ width: '100%', height: '100%', background: '#222' }} />}
@@ -2387,6 +2423,24 @@ export default function CreatorDashboard() {
                 <div key={i} className="cd-ad-card">
                   {ad.previewHtml ? (
                     <div className="cd-ad-preview" dangerouslySetInnerHTML={{ __html: ad.previewHtml }} />
+                  ) : ad.mux_playback_id ? (
+                    <div className="cd-ad-video"
+                      onMouseEnter={e => { const v = e.currentTarget.querySelector('video'); if (v) v.play().catch(() => {}) }}
+                      onMouseLeave={e => { const v = e.currentTarget.querySelector('video'); if (v) { v.pause(); v.currentTime = 0 } }}
+                    >
+                      <video
+                        src={`https://stream.mux.com/${ad.mux_playback_id}/medium.mp4`}
+                        poster={`https://image.mux.com/${ad.mux_playback_id}/thumbnail.jpg?time=0`}
+                        muted
+                        playsInline
+                        loop
+                        preload="metadata"
+                      />
+                      <div className="cd-ad-thumb-overlay">
+                        <div className="cd-ad-thumb-name">{name}</div>
+                        <div className={`cd-ad-thumb-status${!isActive ? ' cd-ad-thumb-status-paused' : ''}`}>● {isActive ? 'Active' : 'Paused'}</div>
+                      </div>
+                    </div>
                   ) : (
                     <div className="cd-ad-thumb">
                       {ad.thumbnailUrl ? <img src={ad.thumbnailUrl} alt={name} /> : <div style={{ width: '100%', height: '100%', background: '#222' }} />}
