@@ -670,8 +670,7 @@ export default function InvitePage() {
             <div className="ni-faq">
               {[
                 ['When do I get paid?', 'Payment is sent by the 5th of the following month via your selected payment method.'],
-                ['How many revisions are included?', 'Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. Structural re-shoots or concept changes are by mutual agreement.'],
-                ['What if Nama needs a full re-shoot?', 'Minor edits are included. If a full re-shoot or concept change is needed, we\'ll discuss it together and agree on terms before proceeding.'],
+                ['How do content revisions work?', 'Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. If a full re-shoot or concept change is needed, we\'ll discuss it together and agree on terms before proceeding.'],
                 ['Is this month-to-month or a fixed contract?', minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'],
                 ['How do I submit my content?', 'Through your Nama Partners dashboard. You\'ll get access immediately after signing up.'],
                 ['Will I receive monthly product packages?', 'Yes — as a Nama Partner you\'re officially on our early access PR list. You\'ll receive notifications when a new collection or campaign is available to make selects, and you can request additional pieces anytime through your dashboard.'],
@@ -761,8 +760,7 @@ export default function InvitePage() {
                 ['How much will Nama spend on my content?', 'Our system automatically allocates more budget to high-converting content. When your videos perform well, the algorithm picks up spend and scales it — we run flexible budgets specifically to let winning content grow without a cap.'],
                 ['How do I know what\'s being spent?', 'You\'ll see a live breakdown of ad spend and your earnings in your dashboard each month, updated in real time.'],
                 ['When do I get paid?', 'Earnings are calculated at the end of each month and paid by the 5th of the following month via your selected payment method.'],
-                ['How many revisions are included?', 'Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. Structural re-shoots or concept changes are by mutual agreement.'],
-                ['What if Nama needs a full re-shoot?', 'Minor edits are included. If a full re-shoot or concept change is needed, we\'ll discuss it together and agree on terms before proceeding.'],
+                ['How do content revisions work?', 'Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. If a full re-shoot or concept change is needed, we\'ll discuss it together and agree on terms before proceeding.'],
                 ['How do I submit my content?', 'Through your Nama Partners dashboard. You\'ll get access immediately after signing up.'],
                 ['Is this month-to-month or a fixed contract?', minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'],
                 ['What if my content doesn\'t get much spend in month 1?', 'That\'s what the minimum guarantee is for. You\'re covered regardless of how much we spend while we find what works.'],
@@ -1039,8 +1037,7 @@ export default function InvitePage() {
             <div className="ni-m-faq">
               {[
                 ['When do I get paid?', 'Payment is sent by the 5th of the following month via your selected payment method.'],
-                ['How many revisions are included?', 'Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. Structural re-shoots or concept changes are by mutual agreement.'],
-                ['What if Nama needs a full re-shoot?', 'Minor edits are included. If a full re-shoot or concept change is needed, we\'ll discuss it together and agree on terms before proceeding.'],
+                ['How do content revisions work?', 'Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. If a full re-shoot or concept change is needed, we\'ll discuss it together and agree on terms before proceeding.'],
                 ['Is this month-to-month or a fixed contract?', minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'],
                 ['How do I submit my content?', 'Through your Nama Partners dashboard. You\'ll get access immediately after signing up.'],
                 ['Will I receive monthly product packages?', 'Yes — as a Nama Partner you\'re officially on our early access PR list. You\'ll receive notifications when a new collection or campaign is available to make selects, and you can request additional pieces anytime through your dashboard.'],
@@ -1113,8 +1110,7 @@ export default function InvitePage() {
                 ['How much will Nama spend on my content?', 'Our system automatically allocates more budget to high-converting content. When your videos perform well, the algorithm picks up spend and scales it — we run flexible budgets specifically to let winning content grow without a cap.'],
                 ['How do I know what\'s being spent?', 'You\'ll see a live breakdown of ad spend and your earnings in your dashboard each month, updated in real time.'],
                 ['When do I get paid?', 'Earnings are calculated at the end of each month and paid by the 5th of the following month via your selected payment method.'],
-                ['How many revisions are included?', 'Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. Structural re-shoots or concept changes are by mutual agreement.'],
-                ['What if Nama needs a full re-shoot?', 'Minor edits are included. If a full re-shoot or concept change is needed, we\'ll discuss it together and agree on terms before proceeding.'],
+                ['How do content revisions work?', 'Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. If a full re-shoot or concept change is needed, we\'ll discuss it together and agree on terms before proceeding.'],
                 ['How do I submit my content?', 'Through your Nama Partners dashboard. You\'ll get access immediately after signing up.'],
                 ['Is this month-to-month or a fixed contract?', minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'],
                 ['What if my content doesn\'t get much spend in month 1?', 'That\'s what the minimum guarantee is for. You\'re covered regardless of how much we spend while we find what works.'],
