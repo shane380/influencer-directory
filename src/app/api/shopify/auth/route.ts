@@ -28,6 +28,8 @@ export async function GET(request: NextRequest) {
     "read_orders",
     "read_shipping",
     "read_fulfillments",
+    "read_price_rules",
+    "write_price_rules",
   ].join(",");
 
   // Build the authorization URL
