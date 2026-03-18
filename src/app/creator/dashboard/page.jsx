@@ -40,11 +40,11 @@ const CSS = `
 .cd-topnav-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
 /* LAYOUT */
-.cd-layout { display: grid; grid-template-columns: 300px 1fr; min-height: 100vh; }
+.cd-layout { min-height: 100vh; }
 .cd-page { background: #f7f7f7; min-height: 100vh; min-width: 0; overflow: hidden; }
 
 /* SIDEBAR */
-.cd-sidebar { background: #fff; border-right: 1px solid #e8e8e8; position: sticky; top: 0; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; }
+.cd-sidebar { background: #fff; border-right: 1px solid #e8e8e8; position: fixed; top: 0; left: 0; width: 300px; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; z-index: 10; }
 .cd-sidebar-logo { padding: 28px 32px 24px; border-bottom: 1px solid #e8e8e8; }
 .cd-logo-lockup { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .cd-logo-img { height: 34px; display: block; }
@@ -120,7 +120,7 @@ const CSS = `
 .cd-notif-item-feedback { font-size: 10px; color: #666; margin-top: 3px; font-style: italic; }
 
 /* CONTENT */
-.cd-content { padding: 40px 48px 80px; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.cd-content { padding: 40px 48px 80px; display: flex; flex-direction: column; gap: 20px; min-width: 0; margin-left: 300px; }
 
 /* CARDS */
 .cd-card { background: #fff; border: 1px solid #e8e8e8; }
