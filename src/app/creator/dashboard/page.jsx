@@ -4031,7 +4031,8 @@ export default function CreatorDashboard() {
     }
 
     // Collect all assignments including children
-    const allAssignments = [...campaignAssignments]
+    const today = new Date().toISOString().split('T')[0]
+    const allAssignments = campaignAssignments.filter(a => !a.campaign?.expiry_date || a.campaign.expiry_date >= today)
     const childAssignments = allAssignments.filter(a => a.campaign?.parent_campaign_id)
     const parentAssignments = allAssignments.filter(a => !a.campaign?.parent_campaign_id)
 
