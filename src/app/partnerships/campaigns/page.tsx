@@ -1130,6 +1130,7 @@ export default function CampaignsPage() {
               approved_at: null,
               approved_by: null,
             }}
+            isCampaignAssignment
           />
         )}
         <Sidebar activeTab="partners" onTabChange={(tab) => { if (tab !== "partners") router.push(`/?tab=${tab}`); }} currentUser={currentUser} onLogout={async () => { await supabase.auth.signOut(); router.push("/login"); }} />

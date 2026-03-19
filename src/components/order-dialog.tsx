@@ -46,6 +46,7 @@ interface OrderDialogProps {
   onSave: () => void;
   influencer: Influencer;
   campaignInfluencer: CampaignInfluencer;
+  isCampaignAssignment?: boolean;
 }
 
 interface LocationInventory {
@@ -111,6 +112,7 @@ export function OrderDialog({
   onSave,
   influencer,
   campaignInfluencer,
+  isCampaignAssignment = false,
 }: OrderDialogProps) {
   const [skuSearch, setSkuSearch] = useState("");
   const [searchResults, setSearchResults] = useState<ShopifyProduct[]>([]);
@@ -430,6 +432,14 @@ export function OrderDialog({
             product_selections: null,
           })
           .eq("id", influencer.id);
+        if (updateError) throw updateError;
+      } else if (isCampaignAssignment) {
+        // Save to campaign_assignments table (Partner Campaigns flow)
+        const { error: updateError } = await (supabase.from("campaign_assignments") as any)
+          .update({
+            selected_products: null,
+          })
+          .eq("id", campaignInfluencer.id);
         if (updateError) throw updateError;
       } else {
         // Save to campaign_influencers table
@@ -820,6 +830,14 @@ export function OrderDialog({
             product_selections: productSelectionsForDB,
           })
           .eq("id", influencer.id);
+        if (updateError) throw updateError;
+      } else if (isCampaignAssignment) {
+        // Save to campaign_assignments table (Partner Campaigns flow)
+        const { error: updateError } = await (supabase.from("campaign_assignments") as any)
+          .update({
+            selected_products: productSelectionsForDB,
+          })
+          .eq("id", campaignInfluencer.id);
         if (updateError) throw updateError;
       } else {
         // Save to campaign_influencers table
