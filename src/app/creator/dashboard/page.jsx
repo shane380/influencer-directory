@@ -2317,8 +2317,7 @@ export default function CreatorDashboard() {
                           const overlay = e.currentTarget.querySelector('.cd-m-ad-thumb-overlay')
                           if (v && v.paused) {
                             v.muted = false
-                            v.controls = true
-                            v.play().catch(() => {})
+                            v.play().then(() => { v.controls = true }).catch(() => {})
                             if (btn) btn.classList.add('hidden')
                             if (overlay) overlay.classList.add('hidden')
                           }
@@ -2442,8 +2441,7 @@ export default function CreatorDashboard() {
                         const overlay = e.currentTarget.querySelector('.cd-ad-thumb-overlay')
                         if (v && v.paused) {
                           v.muted = false
-                          v.controls = true
-                          v.play().catch(() => {})
+                          v.play().then(() => { v.controls = true }).catch(() => {})
                           if (btn) btn.classList.add('hidden')
                           if (overlay) overlay.classList.add('hidden')
                         }
