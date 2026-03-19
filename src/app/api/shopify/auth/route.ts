@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
     "read_inventory",
     "read_locations",
     "read_orders",
+    "read_all_orders",
     "read_shipping",
     "read_fulfillments",
     "read_price_rules",
