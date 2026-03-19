@@ -2309,7 +2309,7 @@ export default function CreatorDashboard() {
                     ) : ad.mux_playback_id ? (
                       <div className="cd-m-ad-video">
                         <video
-                          src={`https://stream.mux.com/${ad.mux_playback_id}/medium.mp4`}
+                          src={`https://stream.mux.com/${ad.mux_playback_id}/capped-1080p.mp4`}
                           poster={`https://image.mux.com/${ad.mux_playback_id}/thumbnail.jpg?time=0`}
                           muted
                           playsInline
@@ -2429,7 +2429,7 @@ export default function CreatorDashboard() {
                       onMouseLeave={e => { const v = e.currentTarget.querySelector('video'); if (v) { v.pause(); v.currentTime = 0 } }}
                     >
                       <video
-                        src={`https://stream.mux.com/${ad.mux_playback_id}/medium.mp4`}
+                        src={`https://stream.mux.com/${ad.mux_playback_id}/capped-1080p.mp4`}
                         poster={`https://image.mux.com/${ad.mux_playback_id}/thumbnail.jpg?time=0`}
                         muted
                         playsInline
