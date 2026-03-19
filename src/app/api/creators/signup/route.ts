@@ -156,21 +156,42 @@ export async function POST(request: NextRequest) {
     userId = authData.user.id;
   }
 
-  // Generate affiliate code
-  const affiliateCode = creatorName
+  // Generate affiliate code — retry with random suffix on collision
+  const baseCode = creatorName
     .toLowerCase()
     .replace(/\s+/g, '')
     .replace(/[^a-z0-9]/g, '')
     .slice(0, 12);
 
-  const { error: creatorError } = await supabase.from('creators').insert({
-    invite_id: inviteId,
-    user_id: userId,
-    creator_name: creatorName,
-    email,
-    commission_rate: commissionRate ?? 0,
-    affiliate_code: affiliateCode,
-  });
+  let affiliateCode = baseCode;
+  let creatorError: any = null;
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const { error } = await supabase.from('creators').insert({
+      invite_id: inviteId,
+      user_id: userId,
+      creator_name: creatorName,
+      email,
+      commission_rate: commissionRate ?? 0,
+      affiliate_code: affiliateCode,
+    });
+
+    if (!error) {
+      creatorError = null;
+      break;
+    }
+
+    if (error.message?.includes('creators_affiliate_code_key')) {
+      // Code collision — append random digits and retry
+      const suffix = String(Math.floor(Math.random() * 900) + 100);
+      affiliateCode = baseCode.slice(0, 9) + suffix;
+      creatorError = error;
+      continue;
+    }
+
+    creatorError = error;
+    break;
+  }
 
   if (creatorError) {
     return NextResponse.json({ error: creatorError.message }, { status: 500 });
