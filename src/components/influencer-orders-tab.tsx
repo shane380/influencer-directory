@@ -367,7 +367,7 @@ export function InfluencerOrdersTab({
                 </a>
               )}
             </div>
-            <p className="text-xs text-gray-400 mt-1">Showing orders from last ~60 days</p>
+            <p className="text-xs text-gray-400 mt-1">Showing all orders since Jan 2024</p>
           </div>
 
           {/* Orders List */}
