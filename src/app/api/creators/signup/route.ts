@@ -1,10 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { getShopifyAccessToken, getShopifyStoreUrl } from '@/lib/shopify';
-import { sendEmail, renderEmailTemplate } from '@/lib/email';
-import { getUnsubscribeUrl } from '@/lib/unsubscribe';
+import { sendEmail } from '@/lib/email';
 import { syncCreator } from '@/lib/meta-sync';
-import { getEmailTemplate, isEmailTriggerEnabled } from '@/lib/app-settings';
+import { isEmailTriggerEnabled } from '@/lib/app-settings';
+import { welcomeEmail } from '@/lib/email-templates';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -236,40 +236,11 @@ export async function POST(request: NextRequest) {
       if (!enabled) return;
 
       const firstName = creatorName.split(' ')[0];
-      const unsubscribeUrl = getUnsubscribeUrl(email);
-      const template = await getEmailTemplate('welcome');
-
-      const defaults = {
-        subject: 'Welcome to Nama Partners',
-        heading: `Welcome, ${firstName}`,
-        body: `Hi ${firstName},\n\nYour Nama Partners account is all set up. You can log in anytime to view your dashboard, track your earnings, and manage your content.\n\nYour login email: ${email}`,
-        ctaText: 'Go to My Dashboard →',
-      };
-
-      const subject = (template?.subject || defaults.subject)
-        .replace(/\{\{firstName\}\}/g, firstName)
-        .replace(/\{\{email\}\}/g, email);
-      const heading = (template?.heading || defaults.heading)
-        .replace(/\{\{firstName\}\}/g, firstName)
-        .replace(/\{\{email\}\}/g, email);
-      const bodyText = (template?.body || defaults.body)
-        .replace(/\{\{firstName\}\}/g, firstName)
-        .replace(/\{\{email\}\}/g, email);
-      const ctaText = template?.ctaText || defaults.ctaText;
-
-      const bodyHtml = bodyText.split('\n').map((line: string) =>
-        line.trim() ? `<p>${line}</p>` : ''
-      ).join('');
-
-      const html = renderEmailTemplate({
-        preheader: 'Your Nama Partners account is ready',
-        heading,
-        bodyHtml,
-        ctaText,
-        ctaUrl: 'https://creators.namaclo.com/creator/login',
-        unsubscribeUrl,
+      const { subject, html } = await welcomeEmail({
+        firstName,
+        email,
+        recipientEmail: email,
       });
-
       await sendEmail({ to: email, subject, html });
     } catch (err) {
       console.error('Welcome email failed:', err);

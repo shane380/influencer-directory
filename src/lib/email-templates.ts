@@ -7,7 +7,7 @@ function replacePlaceholders(text: string, vars: Record<string, string>): string
 }
 
 // Default templates — used when no DB override exists
-const DEFAULTS = {
+const DEFAULTS: Record<string, { subject: string; heading: string; body: string; ctaText: string }> = {
   campaign_assigned: {
     subject: "You have a new campaign brief",
     heading: "New Campaign Brief",
@@ -31,6 +31,12 @@ const DEFAULTS = {
     heading: "You're Invited",
     body: "Hi {{firstName}},\n\nWe'd love to partner with you. We've put together an offer based on your content and audience.\n\nQuestions? Reply to this email.",
     ctaText: "View Your Offer",
+  },
+  welcome: {
+    subject: "Welcome to Nama Partners",
+    heading: "Welcome, {{firstName}}",
+    body: "Hi {{firstName}},\n\nYour Nama Partners account is all set up. You can log in anytime to view your dashboard, track your earnings, and manage your content.\n\nYour login email: {{email}}",
+    ctaText: "Go to My Dashboard",
   },
 };
 
@@ -152,6 +158,32 @@ export async function inviteEmail({
       bodyHtml: bodyToHtml(tmpl.body, vars),
       ctaText: tmpl.ctaText + " \u2192",
       ctaUrl: inviteUrl,
+      unsubscribeUrl: getUnsubscribeUrl(recipientEmail),
+    }),
+  };
+}
+
+export async function welcomeEmail({
+  firstName,
+  email,
+  recipientEmail,
+}: {
+  firstName: string;
+  email: string;
+  recipientEmail: string;
+}): Promise<{ subject: string; html: string }> {
+  const override = await getEmailTemplate("welcome");
+  const tmpl = { ...DEFAULTS.welcome, ...override };
+  const vars: Record<string, string> = { firstName, email };
+
+  return {
+    subject: replacePlaceholders(tmpl.subject, vars),
+    html: renderEmailTemplate({
+      preheader: "Your Nama Partners account is ready",
+      heading: replacePlaceholders(tmpl.heading, vars),
+      bodyHtml: bodyToHtml(tmpl.body, vars),
+      ctaText: tmpl.ctaText + " \u2192",
+      ctaUrl: "https://creators.namaclo.com/creator/login",
       unsubscribeUrl: getUnsubscribeUrl(recipientEmail),
     }),
   };
