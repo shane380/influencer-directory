@@ -33,7 +33,7 @@ interface ShopifyOrdersResponse {
 }
 
 // POST - Sync orders for a Shopify customer
-// Note: Shopify API only returns orders from last ~60 days (older orders are archived)
+// Fetches all orders since Jan 2024 (Shopify defaults to ~60 days without created_at_min)
 export async function POST(request: NextRequest) {
   console.log("=== ORDER SYNC STARTED ===");
 
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
       } catch {}
 
       // Fetch orders by customer ID
-      const ordersUrl = `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/orders.json?customer_id=${customerId}&status=any&limit=250`;
+      const ordersUrl = `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/orders.json?customer_id=${customerId}&status=any&limit=250&created_at_min=2024-01-01T00:00:00Z`;
       let nextPageUrl: string | null = ordersUrl;
       let foundOrders = false;
 
@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
 
       // Email fallback if no orders found for this customer
       if (!foundOrders && customerEmail) {
-        const emailUrl = `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/orders.json?email=${encodeURIComponent(customerEmail)}&status=any&limit=250`;
+        const emailUrl = `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/orders.json?email=${encodeURIComponent(customerEmail)}&status=any&limit=250&created_at_min=2024-01-01T00:00:00Z`;
         let emailPageUrl: string | null = emailUrl;
 
         while (emailPageUrl) {
