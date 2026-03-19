@@ -1,6 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { getShopifyAccessToken, getShopifyStoreUrl } from '@/lib/shopify';
+import { sendEmail, renderEmailTemplate } from '@/lib/email';
+import { getUnsubscribeUrl } from '@/lib/unsubscribe';
+import { syncCreator } from '@/lib/meta-sync';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -203,10 +206,9 @@ export async function POST(request: NextRequest) {
     .update({ status: 'accepted', accepted_at: new Date().toISOString() })
     .eq('id', inviteId);
 
-  // Get invite details for discount code creation (non-blocking)
-  const { data: invite } = await supabase
-    .from('creator_invites')
-    .select('has_affiliate, ad_spend_percentage')
+  // Get invite details for background tasks
+  const { data: invite } = await (supabase.from('creator_invites') as any)
+    .select('has_affiliate, has_ad_spend, ad_spend_percentage, influencer_id, influencer:influencers!creator_invites_influencer_id_fkey(instagram_handle)')
     .eq('id', inviteId)
     .single();
 
@@ -219,6 +221,29 @@ export async function POST(request: NextRequest) {
       inviteId
     ).catch((err) => console.error('Background Shopify discount creation failed:', err));
   }
+
+  // Fire and forget — sync Meta ads so dashboard has data on first login
+  if (invite?.has_ad_spend && invite?.influencer?.instagram_handle) {
+    syncCreator(invite.influencer.instagram_handle, invite.influencer_id)
+      .catch((err) => console.error('Background Meta ad sync failed:', err));
+  }
+
+  // Fire and forget — send welcome email with login link
+  const firstName = creatorName.split(' ')[0];
+  const unsubscribeUrl = getUnsubscribeUrl(email);
+  const html = renderEmailTemplate({
+    preheader: 'Your Nama Partners account is ready',
+    heading: `Welcome, ${firstName}`,
+    bodyHtml: `
+      <p>Your Nama Partners account is all set up. You can log in anytime to view your dashboard, track your earnings, and manage your content.</p>
+      <p style="margin-top:16px;">Your login email: <strong>${email}</strong></p>
+    `,
+    ctaText: 'Go to My Dashboard →',
+    ctaUrl: 'https://creators.namaclo.com/creator/login',
+    unsubscribeUrl,
+  });
+  sendEmail({ to: email, subject: 'Welcome to Nama Partners', html })
+    .catch((err) => console.error('Welcome email failed:', err));
 
   return NextResponse.json({ success: true });
 }
