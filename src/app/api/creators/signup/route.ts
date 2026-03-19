@@ -4,6 +4,7 @@ import { getShopifyAccessToken, getShopifyStoreUrl } from '@/lib/shopify';
 import { sendEmail, renderEmailTemplate } from '@/lib/email';
 import { getUnsubscribeUrl } from '@/lib/unsubscribe';
 import { syncCreator } from '@/lib/meta-sync';
+import { getEmailTemplate, isEmailTriggerEnabled } from '@/lib/app-settings';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -208,7 +209,7 @@ export async function POST(request: NextRequest) {
 
   // Get invite details for background tasks
   const { data: invite } = await (supabase.from('creator_invites') as any)
-    .select('has_affiliate, has_ad_spend, ad_spend_percentage, influencer_id, influencer:influencers!creator_invites_influencer_id_fkey(instagram_handle)')
+    .select('has_affiliate, has_ad_spend, is_existing_creator, ad_spend_percentage, influencer_id, influencer:influencers!creator_invites_influencer_id_fkey(instagram_handle)')
     .eq('id', inviteId)
     .single();
 
@@ -222,28 +223,58 @@ export async function POST(request: NextRequest) {
     ).catch((err) => console.error('Background Shopify discount creation failed:', err));
   }
 
-  // Fire and forget — sync Meta ads so dashboard has data on first login
-  if (invite?.has_ad_spend && invite?.influencer?.instagram_handle) {
+  // Fire and forget — sync Meta ads so dashboard has data on first login (existing creators only)
+  if (invite?.is_existing_creator && invite?.has_ad_spend && invite?.influencer?.instagram_handle) {
     syncCreator(invite.influencer.instagram_handle, invite.influencer_id)
       .catch((err) => console.error('Background Meta ad sync failed:', err));
   }
 
   // Fire and forget — send welcome email with login link
-  const firstName = creatorName.split(' ')[0];
-  const unsubscribeUrl = getUnsubscribeUrl(email);
-  const html = renderEmailTemplate({
-    preheader: 'Your Nama Partners account is ready',
-    heading: `Welcome, ${firstName}`,
-    bodyHtml: `
-      <p>Your Nama Partners account is all set up. You can log in anytime to view your dashboard, track your earnings, and manage your content.</p>
-      <p style="margin-top:16px;">Your login email: <strong>${email}</strong></p>
-    `,
-    ctaText: 'Go to My Dashboard →',
-    ctaUrl: 'https://creators.namaclo.com/creator/login',
-    unsubscribeUrl,
-  });
-  sendEmail({ to: email, subject: 'Welcome to Nama Partners', html })
-    .catch((err) => console.error('Welcome email failed:', err));
+  (async () => {
+    try {
+      const enabled = await isEmailTriggerEnabled('welcome');
+      if (!enabled) return;
+
+      const firstName = creatorName.split(' ')[0];
+      const unsubscribeUrl = getUnsubscribeUrl(email);
+      const template = await getEmailTemplate('welcome');
+
+      const defaults = {
+        subject: 'Welcome to Nama Partners',
+        heading: `Welcome, ${firstName}`,
+        body: `Hi ${firstName},\n\nYour Nama Partners account is all set up. You can log in anytime to view your dashboard, track your earnings, and manage your content.\n\nYour login email: ${email}`,
+        ctaText: 'Go to My Dashboard →',
+      };
+
+      const subject = (template?.subject || defaults.subject)
+        .replace(/\{\{firstName\}\}/g, firstName)
+        .replace(/\{\{email\}\}/g, email);
+      const heading = (template?.heading || defaults.heading)
+        .replace(/\{\{firstName\}\}/g, firstName)
+        .replace(/\{\{email\}\}/g, email);
+      const bodyText = (template?.body || defaults.body)
+        .replace(/\{\{firstName\}\}/g, firstName)
+        .replace(/\{\{email\}\}/g, email);
+      const ctaText = template?.ctaText || defaults.ctaText;
+
+      const bodyHtml = bodyText.split('\n').map((line: string) =>
+        line.trim() ? `<p>${line}</p>` : ''
+      ).join('');
+
+      const html = renderEmailTemplate({
+        preheader: 'Your Nama Partners account is ready',
+        heading,
+        bodyHtml,
+        ctaText,
+        ctaUrl: 'https://creators.namaclo.com/creator/login',
+        unsubscribeUrl,
+      });
+
+      await sendEmail({ to: email, subject, html });
+    } catch (err) {
+      console.error('Welcome email failed:', err);
+    }
+  })();
 
   return NextResponse.json({ success: true });
 }

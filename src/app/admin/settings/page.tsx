@@ -54,6 +54,12 @@ const DEFAULT_TEMPLATES: Record<string, TemplateFields> = {
     body: "Hi {{firstName}},\n\nWe'd love to partner with you. We've put together an offer based on your content and audience.\n\nQuestions? Reply to this email.",
     ctaText: "View Your Offer",
   },
+  welcome: {
+    subject: "Welcome to Nama Partners",
+    heading: "Welcome, {{firstName}}",
+    body: "Hi {{firstName}},\n\nYour Nama Partners account is all set up. You can log in anytime to view your dashboard, track your earnings, and manage your content.\n\nYour login email: {{email}}",
+    ctaText: "Go to My Dashboard →",
+  },
 };
 
 const TEMPLATE_CONFIGS: TemplateConfig[] = [
@@ -80,6 +86,12 @@ const TEMPLATE_CONFIGS: TemplateConfig[] = [
     name: "Partner Invite",
     description: "Sent to new partners with their offer link.",
     placeholders: ["firstName"],
+  },
+  {
+    key: "welcome",
+    name: "Welcome",
+    description: "Sent after a partner creates their account.",
+    placeholders: ["firstName", "email"],
   },
 ];
 
@@ -115,6 +127,14 @@ const EMAIL_TRIGGERS: TriggerConfig[] = [
     recipient: "Partner",
     event: "Admin creates a partner invite",
     wiredUp: false,
+  },
+  {
+    key: "welcome",
+    name: "Welcome",
+    description: "Sent to partners after they create their account with a link to log in.",
+    recipient: "Partner",
+    event: "Partner creates their account",
+    wiredUp: true,
   },
 ];
 
