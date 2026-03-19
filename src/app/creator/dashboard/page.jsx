@@ -2611,6 +2611,7 @@ export default function CreatorDashboard() {
     const maxSelects = campaign.max_selects || 2
     const dueDate = campaign.due_date ? new Date(campaign.due_date + 'T00:00:00').toLocaleDateString('en', { month: 'long', day: 'numeric' }) : null
     const goLiveDate = campaign.go_live_date ? new Date(campaign.go_live_date + 'T00:00:00').toLocaleDateString('en', { month: 'long', day: 'numeric' }) : null
+    const expiryDate = campaign.expiry_date ? new Date(campaign.expiry_date + 'T00:00:00').toLocaleDateString('en', { month: 'long', day: 'numeric' }) : null
     const baseStatusInfo = getCampaignStatusInfo(assignment.status)
     // Step-aware badge for detail view
     const stepLabels = {
@@ -2813,6 +2814,12 @@ export default function CreatorDashboard() {
                     <div className="cd-camp-detail-date-box">
                       <label>Content due</label>
                       <span>{dueDate}</span>
+                    </div>
+                  )}
+                  {expiryDate && (
+                    <div className="cd-camp-detail-date-box">
+                      <label>Expires</label>
+                      <span>{expiryDate}</span>
                     </div>
                   )}
                 </div>
@@ -3904,6 +3911,7 @@ export default function CreatorDashboard() {
     const statusInfo = getCampaignStatusInfo(assignment.status)
     const dueDate = campaign.due_date ? new Date(campaign.due_date + 'T00:00:00').toLocaleDateString('en', { month: 'long', day: 'numeric' }) : null
     const goLiveDate = campaign.go_live_date ? new Date(campaign.go_live_date + 'T00:00:00').toLocaleDateString('en', { month: 'long', day: 'numeric' }) : null
+    const expiryDate = campaign.expiry_date ? new Date(campaign.expiry_date + 'T00:00:00').toLocaleDateString('en', { month: 'long', day: 'numeric' }) : null
     const sectionLabel = section === 'forYou' ? 'New' : section === 'inProgress' ? 'In progress' : ''
 
     // Check if there's a revision requested or rejected submission for this assignment
@@ -3971,6 +3979,12 @@ export default function CreatorDashboard() {
                     <div className="cd-campaign-date-col">
                       <label>Content due</label>
                       <span>{dueDate}</span>
+                    </div>
+                  )}
+                  {expiryDate && (
+                    <div className="cd-campaign-date-col">
+                      <label>Expires</label>
+                      <span>{expiryDate}</span>
                     </div>
                   )}
                 </div>

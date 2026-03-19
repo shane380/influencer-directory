@@ -26,6 +26,7 @@ interface Campaign {
   banner_image: { url: string; r2_key?: string } | null;
   deliverables: string | null;
   go_live_date: string | null;
+  expiry_date: string | null;
   counts: { total: number; confirmed: number; content_submitted: number; complete: number };
 }
 
@@ -94,6 +95,7 @@ export default function CampaignsPage() {
     campaign_type: "mass" as "mass" | "individual",
     deliverables: "",
     go_live_date: "",
+    expiry_date: "",
   });
   const [briefImages, setBriefImages] = useState<{ url: string; r2_key?: string; is_video?: boolean }[]>([]);
   const [bannerImage, setBannerImage] = useState<{ url: string; r2_key?: string } | null>(null);
@@ -386,7 +388,7 @@ export default function CampaignsPage() {
   function openCreateModal() {
     setEditingCampaign(null);
     setInvitationParentId("");
-    setForm({ title: "", description: "", brief_url: "", due_date: "", max_selects: 2, campaign_type: "mass", deliverables: "", go_live_date: "" });
+    setForm({ title: "", description: "", brief_url: "", due_date: "", max_selects: 2, campaign_type: "mass", deliverables: "", go_live_date: "", expiry_date: "" });
     setBriefImages([]);
     setBannerImage(null);
     setUploadStatus(null);
@@ -413,6 +415,7 @@ export default function CampaignsPage() {
       campaign_type: campaign.campaign_type as "mass" | "individual",
       deliverables: campaign.deliverables || "",
       go_live_date: campaign.go_live_date || "",
+      expiry_date: campaign.expiry_date || "",
     });
     setBriefImages(campaign.brief_images || []);
     setBannerImage(campaign.banner_image || null);
@@ -434,7 +437,7 @@ export default function CampaignsPage() {
   function openCreateInvitation(parentId?: string) {
     setEditingCampaign(null);
     setInvitationParentId(parentId || "");
-    setForm({ title: "", description: "", brief_url: "", due_date: "", max_selects: 2, campaign_type: "mass", deliverables: "", go_live_date: "" });
+    setForm({ title: "", description: "", brief_url: "", due_date: "", max_selects: 2, campaign_type: "mass", deliverables: "", go_live_date: "", expiry_date: "" });
     setBriefImages([]);
     setAvailableProducts([]);
     setSelectedCreators([]);
@@ -467,6 +470,7 @@ export default function CampaignsPage() {
       banner_image: bannerImage || null,
       deliverables: form.deliverables || null,
       go_live_date: form.go_live_date || null,
+      expiry_date: form.expiry_date || null,
     };
 
     if (parentId) {
@@ -743,8 +747,8 @@ export default function CampaignsPage() {
               </div>
             </div>
 
-            {/* Due Date + Max Selects */}
-            <div className={`grid gap-4 ${invProductTab === "wardrobe" ? "grid-cols-1" : "grid-cols-2"}`}>
+            {/* Due Date + Expires + Max Selects */}
+            <div className={`grid gap-4 ${invProductTab === "wardrobe" ? "grid-cols-2" : "grid-cols-3"}`}>
               <div>
                 <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Due Date</label>
                 <input
@@ -752,6 +756,15 @@ export default function CampaignsPage() {
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
                   value={form.due_date}
                   onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Expires</label>
+                <input
+                  type="date"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  value={form.expiry_date}
+                  onChange={e => setForm(f => ({ ...f, expiry_date: e.target.value }))}
                 />
               </div>
               {invProductTab !== "wardrobe" && (
@@ -1654,8 +1667,8 @@ export default function CampaignsPage() {
                   />
                 </div>
 
-                {/* Due Date + Go Live Date + Max Selects */}
-                <div className="grid grid-cols-3 gap-4">
+                {/* Due Date + Go Live Date + Expires + Max Selects */}
+                <div className="grid grid-cols-4 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Due Date</label>
                     <input
@@ -1672,6 +1685,15 @@ export default function CampaignsPage() {
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
                       value={form.go_live_date}
                       onChange={e => setForm(f => ({ ...f, go_live_date: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Expires</label>
+                    <input
+                      type="date"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                      value={form.expiry_date}
+                      onChange={e => setForm(f => ({ ...f, expiry_date: e.target.value }))}
                     />
                   </div>
                   <div>
