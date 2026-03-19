@@ -2523,7 +2523,9 @@ export default function CreatorDashboard() {
     const variantMap = {}
     for (const p of products) {
       try {
-        const res = await fetch(`/api/shopify/products?query=${encodeURIComponent(p.product_title)}`)
+        // Strip special chars like ™ for more reliable search
+        const cleanTitle = (p.product_title || '').replace(/[™®©]/g, '').trim()
+        const res = await fetch(`/api/shopify/products?query=${encodeURIComponent(cleanTitle)}`)
         const data = await res.json()
         const allVariants = data.products || []
         // Group by product_id, match by the exact product_id from the campaign
@@ -2537,7 +2539,7 @@ export default function CreatorDashboard() {
         if (!bestMatch) {
           // Fallback: match by title
           for (const [pid, variants] of Object.entries(grouped)) {
-            if (variants[0]?.title?.toLowerCase() === p.product_title?.toLowerCase()) {
+            if (variants[0]?.title?.toLowerCase().includes(cleanTitle.toLowerCase())) {
               bestMatch = variants
               break
             }
@@ -2550,7 +2552,9 @@ export default function CreatorDashboard() {
           const pid = p.product_id || bestMatch[0]?.product_id
           variantMap[pid] = bestMatch
         }
-      } catch {}
+      } catch (err) {
+        console.error('Failed to fetch variants for', p.product_title, err)
+      }
     }
     setCampaignVariants(variantMap)
     setCampaignVariantsLoading(false)
