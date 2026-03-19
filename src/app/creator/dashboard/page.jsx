@@ -238,7 +238,7 @@ const CSS = `
 .cd-campaign-card-status-right { font-size: 11px; color: #999; }
 .cd-campaign-card-body { padding: 14px 16px 16px; }
 .cd-campaign-title { font-family: 'Playfair Display', serif; font-size: 17px; font-weight: 400; color: #111; line-height: 1.3; margin-bottom: 2px; }
-.cd-campaign-desc { font-family: 'DM Sans', 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #999; line-height: 1.5; margin-bottom: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cd-campaign-desc { font-family: 'DM Sans', 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #999; line-height: 1.5; margin-bottom: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
 .cd-campaign-dates { display: flex; gap: 24px; margin-bottom: 12px; }
 .cd-campaign-date-col label { display: block; font-size: 10px; color: #999; margin-bottom: 2px; }
 .cd-campaign-date-col span { font-size: 13px; font-weight: 500; color: #111; }
@@ -322,7 +322,7 @@ const CSS = `
   .cd-step3-meta { width: 100%; margin-bottom: 0; }
   .cd-step3-meta-row1 { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
   .cd-step3-meta-title { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 400; color: #111; }
-  .cd-step3-meta-desc { font-size: 12px; color: #888; line-height: 1.6; max-width: 520px; }
+  .cd-step3-meta-desc { font-size: 12px; color: #888; line-height: 1.6; max-width: 520px; white-space: pre-line; }
   .cd-step3-info-bar { display: flex; gap: 10px; }
   .cd-step3-info-col { flex: 1; background: #f7f7f7; border-radius: 6px; padding: 8px 10px; }
   .cd-step3-info-col label { display: block; font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px; }
@@ -2667,7 +2667,7 @@ export default function CreatorDashboard() {
             {currentStep < 3 && campaign.description && (
               <>
                 <hr className="cd-camp-detail-divider" />
-                <div style={{ fontSize: 13, color: '#666', lineHeight: 1.7, marginBottom: 20 }}>{campaign.description}</div>
+                <div style={{ fontSize: 13, color: '#666', lineHeight: 1.7, marginBottom: 20, whiteSpace: 'pre-line' }}>{campaign.description}</div>
               </>
             )}
 
@@ -2819,7 +2819,7 @@ export default function CreatorDashboard() {
               )}
 
               {campaign.description && (
-                <div style={{ fontSize: 13, color: '#666', lineHeight: 1.7, marginBottom: 20 }}>{campaign.description}</div>
+                <div style={{ fontSize: 13, color: '#666', lineHeight: 1.7, marginBottom: 20, whiteSpace: 'pre-line' }}>{campaign.description}</div>
               )}
 
               {currentStep === 1 && (
