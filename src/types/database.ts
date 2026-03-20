@@ -114,6 +114,7 @@ export interface Campaign {
   end_date: string | null;
   status: CampaignStatus;
   collection_deck_url: string | null;
+  requires_approval: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -125,6 +126,7 @@ export interface CampaignInsert {
   end_date?: string | null;
   status?: CampaignStatus;
   collection_deck_url?: string | null;
+  requires_approval?: boolean;
 }
 
 export interface CampaignInfluencer {

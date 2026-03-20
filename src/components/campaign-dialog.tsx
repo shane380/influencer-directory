@@ -51,6 +51,7 @@ const initialFormData: CampaignInsert = {
   end_date: null,
   status: "planning",
   collection_deck_url: null,
+  requires_approval: false,
 };
 
 export function CampaignDialog({
@@ -96,6 +97,7 @@ export function CampaignDialog({
           end_date: campaign.end_date,
           status: campaign.status,
           collection_deck_url: campaign.collection_deck_url,
+          requires_approval: campaign.requires_approval ?? false,
         });
         fetchCampaignInfluencers(campaign.id);
       } else {
@@ -242,7 +244,7 @@ export function CampaignDialog({
             shopify_real_order_id: null,
             product_selections: null,
             content_posted: "none",
-            approval_status: null,
+            approval_status: formData.requires_approval ? "pending" : null,
             approval_note: null,
             approved_at: null,
             approved_by: null,
@@ -282,13 +284,17 @@ export function CampaignDialog({
       : influencer.partnership_type;
 
     if (campaign) {
+      const insertData: Record<string, unknown> = {
+        campaign_id: campaign.id,
+        influencer_id: influencer.id,
+        partnership_type: partnershipType,
+      };
+      if (formData.requires_approval) {
+        insertData.approval_status = "pending";
+      }
       const insertResult = await (supabase
         .from("campaign_influencers") as any)
-        .insert({
-          campaign_id: campaign.id,
-          influencer_id: influencer.id,
-          partnership_type: partnershipType,
-        })
+        .insert(insertData)
         .select("*, influencer:influencers(*)")
         .single();
 
@@ -319,7 +325,7 @@ export function CampaignDialog({
           shopify_real_order_id: null,
           product_selections: null,
           content_posted: "none",
-          approval_status: null,
+          approval_status: formData.requires_approval ? "pending" : null,
           approval_note: null,
           approved_at: null,
           approved_by: null,
@@ -360,6 +366,15 @@ export function CampaignDialog({
           .update(formData)
           .eq("id", campaign.id);
         if (updateResult.error) throw updateResult.error;
+
+        // If requires_approval was just turned on, set all influencers without an approval status to pending
+        if (formData.requires_approval && !campaign.requires_approval) {
+          await (supabase
+            .from("campaign_influencers") as any)
+            .update({ approval_status: "pending" })
+            .eq("campaign_id", campaign.id)
+            .is("approval_status", null);
+        }
       } else {
         const insertResult = await (supabase
           .from("campaigns") as any)
@@ -375,6 +390,7 @@ export function CampaignDialog({
           const influencerInserts = campaignInfluencers.map((ci) => ({
             campaign_id: campaignId,
             influencer_id: ci.influencer_id,
+            ...(formData.requires_approval ? { approval_status: "pending" } : {}),
           }));
 
           const linkResult = await (supabase
@@ -507,6 +523,24 @@ export function CampaignDialog({
               value={formData.collection_deck_url || ""}
               onChange={handleChange}
             />
+          </div>
+
+          <div className="flex items-center gap-3 py-3 border-t">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={formData.requires_approval ?? false}
+              className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${formData.requires_approval ? 'bg-black' : 'bg-gray-200'}`}
+              onClick={() => setFormData(prev => ({ ...prev, requires_approval: !prev.requires_approval }))}
+            >
+              <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${formData.requires_approval ? 'translate-x-4' : 'translate-x-0'}`} />
+            </button>
+            <div>
+              <Label className="cursor-pointer" onClick={() => setFormData(prev => ({ ...prev, requires_approval: !prev.requires_approval }))}>
+                Require approval for all influencers
+              </Label>
+              <p className="text-xs text-gray-500 mt-0.5">All influencers in this campaign will need sign-off before proceeding</p>
+            </div>
           </div>
 
           <div className="border-t pt-4">
