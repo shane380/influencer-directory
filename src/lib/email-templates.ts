@@ -12,36 +12,42 @@ const DEFAULTS: Record<string, { subject: string; heading: string; body: string;
     subject: "You have a new campaign brief",
     heading: "New Campaign Brief",
     body: "Hi {{firstName}},\n\nA new campaign has been assigned to you: {{campaignName}}\n\n{{description}}\n\nHead to your dashboard to view the full brief and confirm your participation.",
-    ctaText: "View Campaign",
+    ctaText: "View Campaign \u2192",
   },
   content_approved: {
     subject: "Your content has been approved",
     heading: "Content Approved",
     body: "Hi {{firstName}},\n\nGreat news! Your content submission for {{campaignName}} has been approved.\n\nThank you for your work on this campaign.",
-    ctaText: "View Details",
+    ctaText: "View Details \u2192",
   },
   revision_requested: {
     subject: "Revision requested on your submission",
     heading: "Revision Requested",
     body: "Hi {{firstName}},\n\nA revision has been requested on your content submission for {{campaignName}}.\n\n{{feedback}}\n\nPlease review the feedback and resubmit your content.",
-    ctaText: "View Details",
+    ctaText: "View Details \u2192",
   },
   partner_invite: {
     subject: "You've been invited to join Nama Partners",
     heading: "You're Invited",
     body: "Hi {{firstName}},\n\nWe'd love to partner with you. We've put together an offer based on your content and audience.\n\nQuestions? Reply to this email.",
-    ctaText: "View Your Offer",
+    ctaText: "View Your Offer \u2192",
   },
   welcome: {
     subject: "Welcome to Nama Partners",
     heading: "Welcome, {{firstName}}",
     body: "Hi {{firstName}},\n\nYour Nama Partners account is all set up. You can log in anytime to view your dashboard, track your earnings, and manage your content.\n\nYour login email: {{email}}",
-    ctaText: "Go to My Dashboard",
+    ctaText: "Go to My Dashboard \u2192",
   },
 };
 
 export function getDefaultTemplates() {
   return DEFAULTS;
+}
+
+function linksToHtml(text: string): string {
+  // Convert markdown-style [text](url) to <a> tags
+  return text.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+    '<a href="$2" target="_blank" style="color:#000000;text-decoration:underline;">$1</a>');
 }
 
 function bodyToHtml(body: string, vars: Record<string, string>): string {
@@ -52,9 +58,11 @@ function bodyToHtml(body: string, vars: Record<string, string>): string {
     .map((p) => {
       const trimmed = p.trim();
       // Bold campaign names and key phrases
-      const html = trimmed
+      let html = trimmed
         .replace(/\n/g, "<br />")
         .replace(vars.campaignName ? new RegExp(`(${escapeRegExp(vars.campaignName)})`, "g") : /(?!)/g, "<strong>$1</strong>");
+      // Convert [text](url) links
+      html = linksToHtml(html);
       // Check if this looks like feedback content (from revision_requested)
       if (vars.feedback && trimmed === vars.feedback) {
         return `<div style="margin:0 0 16px;padding:12px 16px;background-color:#f9f9f9;border-left:3px solid #000000;font-size:14px;color:#333333;">${html}</div>`;
@@ -93,7 +101,7 @@ export async function campaignAssignedEmail({
       preheader: `New campaign: ${campaignName}`,
       heading: replacePlaceholders(tmpl.heading, vars),
       bodyHtml: bodyToHtml(tmpl.body, vars),
-      ctaText: tmpl.ctaText + " \u2192",
+      ctaText: tmpl.ctaText,
       ctaUrl: "https://creators.namaclo.com/creator/dashboard?tab=campaigns",
       unsubscribeUrl: getUnsubscribeUrl(recipientEmail),
     }),
@@ -130,7 +138,7 @@ export async function contentStatusEmail({
         : `Revision needed for ${campaignName}`,
       heading: replacePlaceholders(tmpl.heading, vars),
       bodyHtml: bodyToHtml(tmpl.body, vars),
-      ctaText: tmpl.ctaText + " \u2192",
+      ctaText: tmpl.ctaText,
       ctaUrl: "https://creators.namaclo.com/creator/dashboard?tab=campaigns",
       unsubscribeUrl: getUnsubscribeUrl(recipientEmail),
     }),
@@ -156,7 +164,7 @@ export async function inviteEmail({
       preheader: "We'd love to partner with you.",
       heading: replacePlaceholders(tmpl.heading, vars),
       bodyHtml: bodyToHtml(tmpl.body, vars),
-      ctaText: tmpl.ctaText + " \u2192",
+      ctaText: tmpl.ctaText,
       ctaUrl: inviteUrl,
       unsubscribeUrl: getUnsubscribeUrl(recipientEmail),
     }),
@@ -182,7 +190,7 @@ export async function welcomeEmail({
       preheader: "Your Nama Partners account is ready",
       heading: replacePlaceholders(tmpl.heading, vars),
       bodyHtml: bodyToHtml(tmpl.body, vars),
-      ctaText: tmpl.ctaText + " \u2192",
+      ctaText: tmpl.ctaText,
       ctaUrl: "https://creators.namaclo.com/creator/login",
       unsubscribeUrl: getUnsubscribeUrl(recipientEmail),
     }),

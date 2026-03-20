@@ -484,7 +484,7 @@ export default function AdminSettingsPage() {
                           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 font-mono"
                         />
                         <p className="text-xs text-gray-400 mt-1">
-                          Separate paragraphs with a blank line. Available placeholders:{" "}
+                          Separate paragraphs with a blank line. Links: <code className="bg-gray-100 px-1 py-0.5 rounded text-gray-600">[link text](https://url)</code>. Placeholders:{" "}
                           {config.placeholders.map((p) => (
                             <code key={p} className="bg-gray-100 px-1 py-0.5 rounded text-gray-600 mx-0.5">{`{{${p}}}`}</code>
                           ))}

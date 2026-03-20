@@ -11,7 +11,10 @@ function bodyToHtml(body: string, vars: Record<string, string>): string {
   const paragraphs = text.split("\n\n").filter((p) => p.trim());
   return paragraphs
     .map((p) => {
-      const html = p.trim().replace(/\n/g, "<br />");
+      let html = p.trim().replace(/\n/g, "<br />");
+      // Convert [text](url) links
+      html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+        '<a href="$2" target="_blank" style="color:#000000;text-decoration:underline;">$1</a>');
       return `<p style="margin:0 0 16px;">${html}</p>`;
     })
     .join("\n");
@@ -57,7 +60,7 @@ export async function POST(request: NextRequest) {
       preheader: "This is a preview email",
       heading: replacePlaceholders(template.heading, vars),
       bodyHtml: bodyToHtml(template.body, vars),
-      ctaText: template.ctaText + " \u2192",
+      ctaText: template.ctaText,
       ctaUrl: "https://creators.namaclo.com/creator/dashboard",
     });
 
