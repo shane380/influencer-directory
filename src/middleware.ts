@@ -74,7 +74,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Role-based route siloing
-  if (isCreator && !pathname.startsWith('/creator') && !pathname.startsWith('/reset-password') && !pathname.startsWith('/api/creator') && !pathname.startsWith('/api/meta') && !pathname.startsWith('/api/r2/presign') && !pathname.startsWith('/login')) {
+  if (isCreator && !pathname.startsWith('/creator') && !pathname.startsWith('/reset-password') && !pathname.startsWith('/api/creator') && !pathname.startsWith('/api/meta') && !pathname.startsWith('/api/r2/presign') && !pathname.startsWith('/api/shopify/products') && !pathname.startsWith('/login')) {
     return NextResponse.redirect('https://creators.namaclo.com');
   }
   if (userRole === 'admin' && pathname.startsWith('/creator')) {
