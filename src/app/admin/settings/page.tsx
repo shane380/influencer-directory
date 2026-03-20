@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowLeft, Loader2, Mail, Globe, X, Plus, Send, CheckCircle, AlertCircle, FileText, ChevronDown, ChevronRight, Save, RefreshCw, BarChart3 } from "lucide-react";
+import { ArrowLeft, Loader2, Mail, Globe, X, Plus, Send, CheckCircle, AlertCircle, FileText, ChevronDown, ChevronRight, Save, RefreshCw, BarChart3, Link2 } from "lucide-react";
 import Link from "next/link";
 
 interface TriggerConfig {
@@ -149,6 +149,7 @@ export default function AdminSettingsPage() {
   const [emailTemplates, setEmailTemplates] = useState<Record<string, Partial<TemplateFields>>>({});
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
   const [templateDraft, setTemplateDraft] = useState<TemplateFields | null>(null);
+  const bodyTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateSaved, setTemplateSaved] = useState<string | null>(null);
   const [previewEmail, setPreviewEmail] = useState("");
@@ -476,15 +477,45 @@ export default function AdminSettingsPage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Body Text</label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-xs font-medium text-gray-500">Body Text</label>
+                          <button
+                            type="button"
+                            title="Insert link"
+                            className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 transition-colors px-1.5 py-0.5 rounded hover:bg-gray-100"
+                            onClick={() => {
+                              const ta = bodyTextareaRef.current;
+                              if (!ta || !templateDraft) return;
+                              const start = ta.selectionStart;
+                              const end = ta.selectionEnd;
+                              const selected = templateDraft.body.substring(start, end);
+                              const url = prompt("Enter URL:");
+                              if (!url) return;
+                              const linkText = selected || "link text";
+                              const markdown = `[${linkText}](${url})`;
+                              const before = templateDraft.body.substring(0, start);
+                              const after = templateDraft.body.substring(end);
+                              setTemplateDraft({ ...templateDraft, body: before + markdown + after });
+                              setTimeout(() => {
+                                ta.focus();
+                                const cursorPos = start + markdown.length;
+                                ta.setSelectionRange(cursorPos, cursorPos);
+                              }, 0);
+                            }}
+                          >
+                            <Link2 size={12} />
+                            <span>Insert Link</span>
+                          </button>
+                        </div>
                         <textarea
+                          ref={bodyTextareaRef}
                           value={templateDraft.body}
                           onChange={(e) => setTemplateDraft({ ...templateDraft, body: e.target.value })}
                           rows={6}
                           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 font-mono"
                         />
                         <p className="text-xs text-gray-400 mt-1">
-                          Separate paragraphs with a blank line. Links: <code className="bg-gray-100 px-1 py-0.5 rounded text-gray-600">[link text](https://url)</code>. Placeholders:{" "}
+                          Separate paragraphs with a blank line. Highlight text and click Insert Link to add a hyperlink. Placeholders:{" "}
                           {config.placeholders.map((p) => (
                             <code key={p} className="bg-gray-100 px-1 py-0.5 rounded text-gray-600 mx-0.5">{`{{${p}}}`}</code>
                           ))}
