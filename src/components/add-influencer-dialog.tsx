@@ -5,10 +5,12 @@ import { createClient } from "@/lib/supabase/client";
 import {
   Influencer,
   InfluencerInsert,
+  PartnershipType,
 } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -50,6 +52,7 @@ export function AddInfluencerDialog({
     follower_count: number;
   } | null>(null);
   const [requiresApproval, setRequiresApproval] = useState(false);
+  const [selectedPartnershipType, setSelectedPartnershipType] = useState<PartnershipType>("gifted_no_ask");
 
   const supabase = createClient();
 
@@ -63,6 +66,7 @@ export function AddInfluencerDialog({
       setError(null);
       setInstagramPreview(null);
       setRequiresApproval(false);
+      setSelectedPartnershipType("gifted_no_ask");
     }
   }, [open]);
 
@@ -219,7 +223,7 @@ export function AddInfluencerDialog({
         profile_photo_url: photoUrl,
         follower_count: instagramPreview.follower_count,
         tier: "C",
-        partnership_type: "unassigned",
+        partnership_type: selectedPartnershipType,
         relationship_status: "prospect",
         created_by: currentUserId,
         assigned_to: currentUserId,
@@ -410,35 +414,49 @@ export function AddInfluencerDialog({
                     {instagramPreview.follower_count.toLocaleString()} followers
                   </p>
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setInstagramPreview(null);
-                      setInstagramHandle("");
-                    }}
+              </div>
+              <div className="mt-3 flex items-center gap-3">
+                <div className="flex-1">
+                  <Select
+                    value={selectedPartnershipType}
+                    onChange={(e) => setSelectedPartnershipType(e.target.value as PartnershipType)}
+                    className="text-sm"
                   >
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleConfirmAddFromInstagram}
-                    disabled={adding}
-                  >
-                    {adding ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                        Adding...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="h-4 w-4 mr-1" />
-                        Add
-                      </>
-                    )}
-                  </Button>
+                    <option value="gifted_no_ask">Gifted No Ask</option>
+                    <option value="gifted_soft_ask">Gifted Soft Ask</option>
+                    <option value="gifted_deliverable_ask">Gifted Deliverable Ask</option>
+                    <option value="gifted_recurring">Gifted Recurring</option>
+                    <option value="paid">Paid</option>
+                    <option value="whitelisting">Whitelisting</option>
+                  </Select>
                 </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setInstagramPreview(null);
+                    setInstagramHandle("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleConfirmAddFromInstagram}
+                  disabled={adding}
+                >
+                  {adding ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           )}
