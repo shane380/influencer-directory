@@ -1112,6 +1112,7 @@ export default function CampaignDetailPage() {
         }}
         campaignId={campaignId}
         existingInfluencerIds={campaignInfluencers.map((ci) => ci.influencer_id)}
+        campaignRequiresApproval={campaign?.requires_approval ?? false}
       />
 
       {selectedCampaignInfluencer && (

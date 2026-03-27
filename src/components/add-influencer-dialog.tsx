@@ -24,6 +24,7 @@ interface AddInfluencerDialogProps {
   onAdd: () => void;
   campaignId: string;
   existingInfluencerIds: string[];
+  campaignRequiresApproval?: boolean;
 }
 
 export function AddInfluencerDialog({
@@ -32,6 +33,7 @@ export function AddInfluencerDialog({
   onAdd,
   campaignId,
   existingInfluencerIds,
+  campaignRequiresApproval = false,
 }: AddInfluencerDialogProps) {
   const [allInfluencers, setAllInfluencers] = useState<Influencer[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -285,8 +287,8 @@ export function AddInfluencerDialog({
         partnership_type: partnershipType,
       };
 
-      // Add approval status if approval is required
-      if (requiresApproval) {
+      // Add approval status if approval is required (campaign-level or per-influencer)
+      if (campaignRequiresApproval || requiresApproval) {
         insertData.approval_status = "pending";
       }
 

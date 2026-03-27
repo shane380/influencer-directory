@@ -1213,6 +1213,7 @@ export default function MonthCampaignViewPage() {
           }}
           campaignId={selectedCampaignIdForAdd}
           existingInfluencerIds={campaignInfluencers.map((ci) => ci.influencer_id)}
+          campaignRequiresApproval={campaigns.find(c => c.id === selectedCampaignIdForAdd)?.requires_approval ?? false}
         />
       )}
     </div>
