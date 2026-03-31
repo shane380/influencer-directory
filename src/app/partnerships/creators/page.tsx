@@ -91,9 +91,14 @@ export default function CreatorsListPage() {
     creator_id: string;
     creator_name: string;
     creator_photo: string | null;
-    selections: Array<{ product_title?: string; variant_title?: string }>;
+    influencer_id: string | null;
+    shopify_customer_id: string | null;
+    selections: Array<{ product_title?: string; variant_title?: string; image_url?: string; shopify_variant_id?: number; quantity?: number }>;
+    notes: string | null;
     created_at: string;
   }>>([]);
+  const [reviewingRequest, setReviewingRequest] = useState<string | null>(null);
+  const [requestSaving, setRequestSaving] = useState(false);
   const [pendingSubmissions, setPendingSubmissions] = useState<Array<{
     id: string;
     creator_id: string;
@@ -202,7 +207,7 @@ export default function CreatorsListPage() {
 
       const { data: allPendingReqs } = await supabase
         .from("creator_sample_requests" as any)
-        .select("id, creator_id, selections, created_at")
+        .select("id, creator_id, influencer_id, selections, notes, created_at")
         .eq("status", "pending")
         .order("created_at", { ascending: false }) as any;
 
@@ -212,14 +217,31 @@ export default function CreatorsListPage() {
         .eq("status", "pending")
         .order("created_at", { ascending: false }) as any;
 
+      // Fetch shopify_customer_id for influencers with pending requests
+      const reqInfluencerIds = [...new Set((allPendingReqs || []).map((r: any) => r.influencer_id).filter(Boolean))];
+      let influencerMap = new Map<string, { shopify_customer_id: string | null }>();
+      if (reqInfluencerIds.length > 0) {
+        const { data: infData } = await supabase
+          .from("influencers")
+          .select("id, shopify_customer_id")
+          .in("id", reqInfluencerIds);
+        for (const inf of infData || []) {
+          influencerMap.set(inf.id, { shopify_customer_id: (inf as any).shopify_customer_id || null });
+        }
+      }
+
       setPendingRequests((allPendingReqs || []).map((req: any) => {
         const c = creatorMap.get(req.creator_id);
+        const inf = influencerMap.get(req.influencer_id);
         return {
           id: req.id,
           creator_id: req.creator_id,
           creator_name: c?.influencer?.name || c?.creator_name || "Unknown",
           creator_photo: c?.influencer?.profile_photo_url || null,
+          influencer_id: req.influencer_id,
+          shopify_customer_id: inf?.shopify_customer_id || null,
           selections: req.selections || [],
+          notes: req.notes,
           created_at: req.created_at,
         };
       }));
@@ -522,6 +544,41 @@ export default function CreatorsListPage() {
     }
   }
 
+  async function handleRequestAction(requestId: string, action: "approved" | "rejected") {
+    setRequestSaving(true);
+    try {
+      const req = pendingRequests.find((r) => r.id === requestId);
+      if (!req) return;
+
+      // If approving, create draft order
+      if (action === "approved" && req.shopify_customer_id) {
+        const lineItems = (req.selections || []).map((sel) => ({
+          variant_id: sel.shopify_variant_id,
+          quantity: sel.quantity || 1,
+          title: [sel.product_title, sel.variant_title].filter(Boolean).join(" - "),
+        }));
+        await fetch("/api/shopify/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customer_id: req.shopify_customer_id,
+            line_items: lineItems,
+            note: `Sample request from creator: ${req.creator_name}`,
+          }),
+        });
+      }
+
+      await supabase
+        .from("creator_sample_requests" as any)
+        .update({ status: action, reviewed_at: new Date().toISOString() })
+        .eq("id", requestId) as any;
+
+      setPendingRequests((prev) => prev.filter((r) => r.id !== requestId));
+      setReviewingRequest(null);
+    } catch {}
+    setRequestSaving(false);
+  }
+
   async function handleReviewAction(submissionId: string, action: "approved" | "revision_requested") {
     setReviewSaving(true);
     try {
@@ -641,10 +698,10 @@ export default function CreatorsListPage() {
                           </div>
                         </div>
                         <button
-                          onClick={() => router.push(`/partnerships/creators/${req.creator_id}`)}
+                          onClick={() => setReviewingRequest(req.id)}
                           className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors flex-shrink-0 ml-3"
                         >
-                          Place Order
+                          Review
                         </button>
                       </div>
                     );
@@ -1276,6 +1333,78 @@ export default function CreatorsListPage() {
           </div>
         </div>
       )}
+      {/* Outfit Request Review Modal */}
+      {reviewingRequest && (() => {
+        const req = pendingRequests.find((r) => r.id === reviewingRequest);
+        if (!req) return null;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setReviewingRequest(null)}>
+            <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-6 py-4 border-b">
+                <div className="flex items-center gap-3">
+                  {req.creator_photo ? (
+                    <img src={req.creator_photo} alt="" className="w-9 h-9 rounded-full object-cover bg-gray-200" />
+                  ) : (
+                    <div className="w-9 h-9 rounded-full bg-gray-200" />
+                  )}
+                  <div>
+                    <div className="text-sm font-semibold text-gray-900">{req.creator_name}</div>
+                    <div className="text-xs text-gray-500">Outfit request · {req.selections.length} item{req.selections.length !== 1 ? "s" : ""}</div>
+                  </div>
+                </div>
+                <button onClick={() => setReviewingRequest(null)} className="text-gray-400 hover:text-gray-600">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="flex flex-1 overflow-hidden">
+                {/* Left: Products */}
+                <div className="flex-1 p-6 overflow-y-auto border-r">
+                  {req.notes && <p className="text-sm text-gray-600 italic mb-4">&ldquo;{req.notes}&rdquo;</p>}
+                  <div className="space-y-3">
+                    {req.selections.map((sel, si) => (
+                      <div key={si} className="flex items-center gap-4 p-3 border border-gray-100 rounded-lg">
+                        {sel.image_url ? (
+                          <img src={sel.image_url} alt={sel.product_title} className="w-20 h-20 object-cover rounded-md bg-gray-50" />
+                        ) : (
+                          <div className="w-20 h-20 rounded-md bg-gray-100 flex items-center justify-center text-xs text-gray-400">No image</div>
+                        )}
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{sel.product_title}</div>
+                          {sel.variant_title && <div className="text-xs text-gray-500">Size: {sel.variant_title}</div>}
+                          <div className="text-xs text-gray-400">Qty: {sel.quantity || 1}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* Right: Actions */}
+                <div className="w-64 p-6 flex flex-col gap-4">
+                  <button
+                    onClick={() => handleRequestAction(req.id, "approved")}
+                    disabled={requestSaving}
+                    className="w-full py-2.5 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                  >
+                    {requestSaving ? "Placing Order..." : "Approve & Place Order"}
+                  </button>
+                  {!req.shopify_customer_id && (
+                    <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">No Shopify customer linked — order won&apos;t be created automatically.</p>
+                  )}
+                  <div className="border-t pt-4">
+                    <button
+                      onClick={() => handleRequestAction(req.id, "rejected")}
+                      disabled={requestSaving}
+                      className="w-full py-2 text-sm font-medium border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                    >
+                      Decline
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Content Review Modal */}
       {reviewingSubmission && (() => {
         const sub = pendingSubmissions.find((s) => s.id === reviewingSubmission);
