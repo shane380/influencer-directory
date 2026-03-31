@@ -825,6 +825,9 @@ export default function CreatorDashboard() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching] = useState(false)
+  const [activeCategory, setActiveCategory] = useState('all')
+  const [browseProducts, setBrowseProducts] = useState([])
+  const [browseLoaded, setBrowseLoaded] = useState(false)
   const [cart, setCart] = useState([])
   const [requestSubmitting, setRequestSubmitting] = useState(false)
   const [requestSuccess, setRequestSuccess] = useState(false)
@@ -1095,16 +1098,44 @@ export default function CreatorDashboard() {
     load()
   }, [])
 
-  const searchProducts = useCallback(async () => {
-    if (!searchQuery.trim()) return
+  const loadBrowseProducts = useCallback(async (cat) => {
+    if (browseLoaded && cat === 'all' && browseProducts.length > 0 && !searchQuery.trim()) return
     setSearching(true)
     try {
-      const res = await fetch(`/api/shopify/products?query=${encodeURIComponent(searchQuery)}`)
+      const params = new URLSearchParams({ browse: 'true' })
+      if (cat && cat !== 'all') params.set('category', cat)
+      if (searchQuery.trim()) params.set('query', searchQuery.trim())
+      const res = await fetch(`/api/shopify/products?${params}`)
+      const data = await res.json()
+      const products = data.products || []
+      if (!searchQuery.trim() && cat === 'all') {
+        setBrowseProducts(products)
+        setBrowseLoaded(true)
+      }
+      setSearchResults(products)
+    } catch {}
+    setSearching(false)
+  }, [searchQuery, browseLoaded, browseProducts.length])
+
+  const searchProducts = useCallback(async () => {
+    setSearching(true)
+    try {
+      const params = new URLSearchParams({ browse: 'true' })
+      if (searchQuery.trim()) params.set('query', searchQuery.trim())
+      if (activeCategory && activeCategory !== 'all') params.set('category', activeCategory)
+      const res = await fetch(`/api/shopify/products?${params}`)
       const data = await res.json()
       setSearchResults(data.products || [])
     } catch {}
     setSearching(false)
-  }, [searchQuery])
+  }, [searchQuery, activeCategory])
+
+  // Auto-load products when request styles tab is opened
+  useEffect(() => {
+    if (wardrobeSubTab === 'requests' && !browseLoaded && !searching) {
+      loadBrowseProducts('all')
+    }
+  }, [wardrobeSubTab, browseLoaded, searching, loadBrowseProducts])
 
   const [selectedSizes, setSelectedSizes] = useState({})
   const [sizePrompts, setSizePrompts] = useState({})
@@ -1641,7 +1672,17 @@ export default function CreatorDashboard() {
     }
 
     const prefix = mobile ? 'cd-m-' : 'cd-'
-    const grouped = groupProducts(searchResults)
+    // Auto-load products on first render
+    const displayProducts = searchResults.length > 0 ? searchResults : browseProducts
+    const grouped = groupProducts(displayProducts)
+
+    const categories = [
+      { key: 'all', label: 'All' },
+      { key: 'tops', label: 'Tops' },
+      { key: 'bottoms', label: 'Bottoms' },
+      { key: 'sets', label: 'Sets' },
+      { key: 'accessories', label: 'Accessories' },
+    ]
 
     return (
       <>
@@ -1651,11 +1692,40 @@ export default function CreatorDashboard() {
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && searchProducts()}
-            placeholder="Search by product name or SKU…"
+            placeholder="Search by product name, SKU, or color…"
           />
           <button className={`${prefix}search-btn`} onClick={searchProducts} disabled={searching}>
             {searching ? '…' : 'Search'}
           </button>
+        </div>
+
+        <div style={{ display: 'flex', gap: mobile ? 6 : 8, marginBottom: mobile ? 12 : 16, flexWrap: 'wrap' }}>
+          {categories.map(cat => (
+            <button
+              key={cat.key}
+              onClick={() => {
+                setActiveCategory(cat.key)
+                setSearchQuery('')
+                setSearchResults([])
+                loadBrowseProducts(cat.key)
+              }}
+              style={{
+                padding: mobile ? '5px 12px' : '6px 16px',
+                fontSize: mobile ? 10 : 11,
+                fontWeight: activeCategory === cat.key ? 500 : 300,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                border: `1px solid ${activeCategory === cat.key ? '#111' : '#e0e0e0'}`,
+                borderRadius: 100,
+                background: activeCategory === cat.key ? '#111' : '#fff',
+                color: activeCategory === cat.key ? '#fff' : '#888',
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+            >
+              {cat.label}
+            </button>
+          ))}
         </div>
 
         {cart.length > 0 && (
@@ -1675,9 +1745,15 @@ export default function CreatorDashboard() {
           </div>
         )}
 
+        {searching && grouped.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '32px 0', fontSize: 12, color: '#aaa' }}>Loading products…</div>
+        )}
+        {!searching && grouped.length === 0 && browseLoaded && (
+          <div style={{ textAlign: 'center', padding: '32px 0', fontSize: 12, color: '#aaa' }}>No products found. Try a different search or category.</div>
+        )}
         {grouped.length > 0 && (
           <div className={mobile ? 'cd-m-products' : 'cd-products'}>
-            {grouped.slice(0, mobile ? 6 : 9).map(product => {
+            {grouped.map(product => {
               const sizeVariants = product.variants.filter(v => v.variant_title)
               const sizes = sizeVariants.map(v => v.variant_title)
               const hasSizes = sizes.length > 0

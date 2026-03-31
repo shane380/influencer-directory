@@ -137,10 +137,12 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const sku = searchParams.get("sku");
   const query = searchParams.get("query"); // Search by name or SKU
+  const browse = searchParams.get("browse"); // Browse mode: return all active products
+  const category = searchParams.get("category"); // Filter: tops, bottoms, sets, accessories
   const searchTerm = query || sku;
 
-  // If no search term provided, return all SKUs for debugging
-  if (!searchTerm) {
+  // If no search term and not browse mode, return all SKUs for debugging
+  if (!searchTerm && !browse) {
     try {
       const debugUrl = `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/products.json?limit=250`;
 
@@ -248,14 +250,25 @@ export async function GET(request: NextRequest) {
 
     // Use Shopify GraphQL for fast server-side substring search
     const graphqlUrl = `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/graphql.json`;
+
+    // Build query filter
+    let gqlFilter = "status:active";
+    if (searchTerm) {
+      // Search across title words
+      const words = searchTerm.replace(/"/g, '\\"').split(/\s+/);
+      gqlFilter = `${words.map((w: string) => `title:*${w}*`).join(' ')} status:active OR status:draft`;
+    }
+
     const graphqlQuery = `
       {
-        products(first: 100, query: "${searchTerm.replace(/"/g, '\\"').split(/\s+/).map((w: string) => `title:*${w}*`).join(' ')} status:active OR status:draft") {
+        products(first: ${browse ? 250 : 100}, query: "${gqlFilter}") {
           edges {
             node {
               id
               title
               status
+              productType
+              tags
               featuredImage { url }
               variants(first: 100) {
                 edges {
@@ -266,6 +279,7 @@ export async function GET(request: NextRequest) {
                     price
                     inventoryQuantity
                     inventoryItem { id }
+                    selectedOptions { name value }
                   }
                 }
               }
@@ -299,24 +313,47 @@ export async function GET(request: NextRequest) {
     // Parse numeric ID from Shopify GID format (gid://shopify/Product/123)
     const parseGid = (gid: string) => parseInt(gid.split('/').pop() || '0', 10);
 
-    const searchWords = searchTerm.toLowerCase().split(/\s+/).filter(word => word.length > 0);
+    const searchWords = searchTerm ? searchTerm.toLowerCase().split(/\s+/).filter((word: string) => word.length > 0) : [];
     const seenProductIds = new Set<number>();
+
+    // Category keyword mapping
+    const categoryKeywords: Record<string, RegExp> = {
+      tops: /bra|top|crop|tank|tee|shirt|cardigan|sweater|shrug|hoodie|vest|jacket/i,
+      bottoms: /pant|short|legging|skirt|bottom|jogger|trouser/i,
+      sets: /set|bundle|duo|combo/i,
+      accessories: /hat|bag|socks|scrunchie|headband|belt|accessory|towel/i,
+    };
 
     for (const { node: product } of gqlProducts) {
       if (product.status === 'ARCHIVED') continue;
       const titleLower = product.title.toLowerCase();
       const productId = parseGid(product.id);
+      const productType = (product.productType || "").toLowerCase();
+      const tags = (product.tags || []).join(" ").toLowerCase();
+
+      // Category filter
+      if (category && category !== "all") {
+        const regex = categoryKeywords[category];
+        if (regex && !regex.test(product.title) && !regex.test(productType) && !regex.test(tags)) {
+          continue;
+        }
+      }
+
+      // Build full searchable text including tags, product type, and variant options
+      const optionValues = product.variants.edges
+        .flatMap(({ node: v }: any) => (v.selectedOptions || []).map((o: any) => o.value))
+        .join(" ").toLowerCase();
 
       // Check if product title alone matches (most common case)
-      const titleMatches = searchWords.every((word: string) => titleLower.includes(word));
+      const titleMatches = searchWords.length === 0 || searchWords.every((word: string) => titleLower.includes(word));
 
       for (const { node: variant } of product.variants.edges) {
         const skuLower = variant.sku?.toLowerCase() || "";
         const variantTitleLower = variant.title?.toLowerCase() || "";
         const skuNormalized = skuLower.replace(/-/g, ' ');
-        const searchableText = `${titleLower} ${variantTitleLower} ${skuLower} ${skuNormalized}`;
+        const searchableText = `${titleLower} ${variantTitleLower} ${skuLower} ${skuNormalized} ${productType} ${tags} ${optionValues}`;
 
-        const allWordsMatch = titleMatches || searchWords.every((word: string) => searchableText.includes(word));
+        const allWordsMatch = searchWords.length === 0 || titleMatches || searchWords.every((word: string) => searchableText.includes(word));
 
         if (allWordsMatch) {
           matchingProducts.push({
