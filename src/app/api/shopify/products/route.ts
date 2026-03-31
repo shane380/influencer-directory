@@ -324,12 +324,25 @@ export async function GET(request: NextRequest) {
       accessories: /hat|bag|socks|scrunchie|headband|belt|accessory|towel/i,
     };
 
+    // Product types and keywords to exclude from browse results (non-clothing items)
+    const excludedTypes = new Set(["gift card", "gift_card", "giftcard"]);
+    const excludedKeywords = /polybag|poly bag|packaging|gift.?card|sticker|label|insert|mailer|box|carton|tissue/i;
+
     for (const { node: product } of gqlProducts) {
       if (product.status === 'ARCHIVED') continue;
+      // In browse mode, only show active products (skip drafts)
+      if (browse && product.status !== 'ACTIVE') continue;
       const titleLower = product.title.toLowerCase();
       const productId = parseGid(product.id);
       const productType = (product.productType || "").toLowerCase();
       const tags = (product.tags || []).join(" ").toLowerCase();
+
+      // Exclude non-clothing items in browse mode
+      if (browse) {
+        if (excludedTypes.has(productType) || excludedKeywords.test(product.title) || excludedKeywords.test(productType)) {
+          continue;
+        }
+      }
 
       // Category filter
       if (category && category !== "all") {
