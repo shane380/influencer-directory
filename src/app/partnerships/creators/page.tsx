@@ -654,82 +654,27 @@ export default function CreatorsListPage() {
                     const monthLabel = yr && mo
                       ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString("en", { month: "long", year: "numeric" })
                       : sub.month;
-                    const isOpen = reviewingSubmission === sub.id;
                     return (
-                      <div key={`sub-${sub.id}`} className="bg-white border border-amber-200 rounded-lg overflow-hidden">
-                        <div className="px-4 py-3 flex items-center justify-between">
-                          <div className="flex items-center gap-3 min-w-0">
-                            {sub.creator_photo ? (
-                              <img src={sub.creator_photo} alt="" className="w-8 h-8 rounded-full object-cover bg-gray-200 flex-shrink-0" />
-                            ) : (
-                              <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0" />
-                            )}
-                            <div className="min-w-0">
-                              <div className="text-sm font-medium text-gray-900">{sub.creator_name}</div>
-                              <div className="text-xs text-gray-500">
-                                Content submission · {sub.file_count} file{sub.file_count !== 1 ? "s" : ""} for {monthLabel}
-                              </div>
+                      <div key={`sub-${sub.id}`} className="bg-white border border-amber-200 rounded-lg px-4 py-3 flex items-center justify-between">
+                        <div className="flex items-center gap-3 min-w-0">
+                          {sub.creator_photo ? (
+                            <img src={sub.creator_photo} alt="" className="w-8 h-8 rounded-full object-cover bg-gray-200 flex-shrink-0" />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0" />
+                          )}
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-gray-900">{sub.creator_name}</div>
+                            <div className="text-xs text-gray-500">
+                              Content submission · {sub.file_count} file{sub.file_count !== 1 ? "s" : ""} for {monthLabel}
                             </div>
                           </div>
-                          <button
-                            onClick={() => { setReviewingSubmission(isOpen ? null : sub.id); setReviewFeedback(""); }}
-                            className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors flex-shrink-0 ml-3"
-                          >
-                            {isOpen ? "Close" : "Review"}
-                          </button>
                         </div>
-                        {isOpen && (
-                          <div className="px-4 pb-4 border-t border-amber-100">
-                            {sub.notes && <p className="text-xs text-gray-500 italic mt-3 mb-2">&ldquo;{sub.notes}&rdquo;</p>}
-                            <div className="flex gap-3 flex-wrap mt-3">
-                              {sub.files.map((file, fi) => {
-                                const isImage = file.mime_type?.startsWith("image/");
-                                const isVideo = file.mime_type?.startsWith("video/");
-                                return (
-                                  <div key={fi}>
-                                    {isImage && file.r2_url ? (
-                                      <a href={file.r2_url} target="_blank" rel="noopener noreferrer">
-                                        <img src={file.r2_url} alt={file.name} className="w-32 h-40 object-cover rounded border border-gray-200 hover:opacity-90 transition-opacity" />
-                                      </a>
-                                    ) : isVideo && file.r2_url ? (
-                                      <video src={file.r2_url} controls preload="metadata" playsInline className="w-32 h-40 object-cover rounded border border-gray-200" />
-                                    ) : (
-                                      <div className="w-32 h-40 rounded border border-gray-200 bg-gray-50 flex items-center justify-center text-xs text-gray-400">
-                                        {file.name?.split(".").pop()?.toUpperCase() || "FILE"}
-                                      </div>
-                                    )}
-                                    <div className="text-[10px] text-gray-400 truncate max-w-[128px] mt-1">{file.name}</div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                            <div className="mt-4 flex items-start gap-2">
-                              <button
-                                onClick={() => handleReviewAction(sub.id, "approved")}
-                                disabled={reviewSaving}
-                                className="px-3 py-1.5 text-xs bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50"
-                              >
-                                Approve
-                              </button>
-                              <div className="flex-1 flex gap-2 items-start">
-                                <input
-                                  type="text"
-                                  placeholder="Feedback (optional)"
-                                  value={reviewFeedback}
-                                  onChange={(e) => setReviewFeedback(e.target.value)}
-                                  className="flex-1 text-xs border border-gray-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-300"
-                                />
-                                <button
-                                  onClick={() => handleReviewAction(sub.id, "revision_requested")}
-                                  disabled={reviewSaving}
-                                  className="px-3 py-1.5 text-xs border border-amber-400 text-amber-700 rounded-md hover:bg-amber-50 transition-colors disabled:opacity-50 whitespace-nowrap"
-                                >
-                                  Request Revision
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
+                        <button
+                          onClick={() => { setReviewingSubmission(sub.id); setReviewFeedback(""); }}
+                          className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors flex-shrink-0 ml-3"
+                        >
+                          Review
+                        </button>
                       </div>
                     );
                   })}
@@ -1331,6 +1276,98 @@ export default function CreatorsListPage() {
           </div>
         </div>
       )}
+      {/* Content Review Modal */}
+      {reviewingSubmission && (() => {
+        const sub = pendingSubmissions.find((s) => s.id === reviewingSubmission);
+        if (!sub) return null;
+        const [yr, mo] = (sub.month || "").split("-");
+        const monthLabel = yr && mo
+          ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString("en", { month: "long", year: "numeric" })
+          : sub.month;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setReviewingSubmission(null)}>
+            <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-6 py-4 border-b">
+                <div className="flex items-center gap-3">
+                  {sub.creator_photo ? (
+                    <img src={sub.creator_photo} alt="" className="w-9 h-9 rounded-full object-cover bg-gray-200" />
+                  ) : (
+                    <div className="w-9 h-9 rounded-full bg-gray-200" />
+                  )}
+                  <div>
+                    <div className="text-sm font-semibold text-gray-900">{sub.creator_name}</div>
+                    <div className="text-xs text-gray-500">{sub.file_count} file{sub.file_count !== 1 ? "s" : ""} for {monthLabel}</div>
+                  </div>
+                </div>
+                <button onClick={() => setReviewingSubmission(null)} className="text-gray-400 hover:text-gray-600">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="flex flex-1 overflow-hidden">
+                {/* Left: Content */}
+                <div className="flex-1 p-6 overflow-y-auto border-r">
+                  {sub.notes && <p className="text-sm text-gray-600 italic mb-4">&ldquo;{sub.notes}&rdquo;</p>}
+                  <div className="space-y-4">
+                    {sub.files.map((file, fi) => {
+                      const isImage = file.mime_type?.startsWith("image/");
+                      const isVideo = file.mime_type?.startsWith("video/");
+                      return (
+                        <div key={fi}>
+                          {isImage && file.r2_url ? (
+                            <a href={file.r2_url} target="_blank" rel="noopener noreferrer">
+                              <img src={file.r2_url} alt={file.name} className="w-full max-h-[400px] object-contain rounded-lg border border-gray-200 hover:opacity-90 transition-opacity bg-gray-50" />
+                            </a>
+                          ) : isVideo && file.r2_url ? (
+                            <video controls preload="metadata" playsInline className="w-full max-h-[400px] rounded-lg border border-gray-200 bg-black">
+                              <source src={file.r2_url} type={file.mime_type || "video/mp4"} />
+                              <source src={file.r2_url} type="video/mp4" />
+                            </video>
+                          ) : file.r2_url ? (
+                            <a href={file.r2_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                              <div className="text-xs text-gray-400">{file.name?.split(".").pop()?.toUpperCase()}</div>
+                              <div className="text-sm text-gray-700">{file.name}</div>
+                            </a>
+                          ) : (
+                            <div className="p-4 border border-gray-200 rounded-lg text-sm text-gray-400">{file.name}</div>
+                          )}
+                          <div className="text-xs text-gray-400 mt-1">{file.name}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                {/* Right: Actions */}
+                <div className="w-64 p-6 flex flex-col gap-4">
+                  <button
+                    onClick={() => handleReviewAction(sub.id, "approved")}
+                    disabled={reviewSaving}
+                    className="w-full py-2.5 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                  >
+                    {reviewSaving ? "Saving..." : "Approve"}
+                  </button>
+                  <div className="border-t pt-4">
+                    <label className="block text-xs font-medium text-gray-500 mb-2">Request Revision</label>
+                    <textarea
+                      placeholder="What changes are needed?"
+                      value={reviewFeedback}
+                      onChange={(e) => setReviewFeedback(e.target.value)}
+                      rows={4}
+                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-amber-300"
+                    />
+                    <button
+                      onClick={() => handleReviewAction(sub.id, "revision_requested")}
+                      disabled={reviewSaving}
+                      className="w-full mt-2 py-2 text-sm font-medium border border-amber-400 text-amber-700 rounded-lg hover:bg-amber-50 transition-colors disabled:opacity-50"
+                    >
+                      Request Revision
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
