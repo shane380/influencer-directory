@@ -290,6 +290,11 @@ export default function InvitePage() {
         .eq('slug', slug)
         .single()
       if (!error && data) {
+        // If invite was already accepted (account created), redirect to login
+        if (data.status === 'accepted') {
+          window.location.href = 'https://creators.namaclo.com/creator/login'
+          return
+        }
         setInvite(data)
         setForm(f => ({ ...f, name: data.creator_name, email: data.creator_email || '' }))
         // No-deal invites go straight to signup
