@@ -697,12 +697,25 @@ export default function CreatorsListPage() {
                             </div>
                           </div>
                         </div>
-                        <button
-                          onClick={() => setReviewingRequest(req.id)}
-                          className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors flex-shrink-0 ml-3"
-                        >
-                          Review
-                        </button>
+                        <div className="flex gap-2 flex-shrink-0 ml-3">
+                          <button
+                            onClick={async () => {
+                              await (supabase.from("creator_sample_requests" as any) as any)
+                                .update({ status: "approved", reviewed_at: new Date().toISOString() })
+                                .eq("id", req.id);
+                              setPendingRequests((prev) => prev.filter((r) => r.id !== req.id));
+                            }}
+                            className="px-3 py-1.5 text-xs border border-gray-300 text-gray-600 rounded-md hover:bg-gray-50 transition-colors"
+                          >
+                            Mark as Done
+                          </button>
+                          <button
+                            onClick={() => setReviewingRequest(req.id)}
+                            className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
+                          >
+                            Review
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -726,12 +739,20 @@ export default function CreatorsListPage() {
                             </div>
                           </div>
                         </div>
-                        <button
-                          onClick={() => { setReviewingSubmission(sub.id); setReviewFeedback(""); }}
-                          className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors flex-shrink-0 ml-3"
-                        >
-                          Review
-                        </button>
+                        <div className="flex gap-2 flex-shrink-0 ml-3">
+                          <button
+                            onClick={() => handleReviewAction(sub.id, "approved")}
+                            className="px-3 py-1.5 text-xs border border-gray-300 text-gray-600 rounded-md hover:bg-gray-50 transition-colors"
+                          >
+                            Mark as Done
+                          </button>
+                          <button
+                            onClick={() => { setReviewingSubmission(sub.id); setReviewFeedback(""); }}
+                            className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
+                          >
+                            Review
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
