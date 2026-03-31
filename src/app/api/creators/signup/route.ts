@@ -123,7 +123,8 @@ async function createShopifyDiscountCode(
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { inviteId, creatorName, email, password, commissionRate } = body;
+  const { inviteId, creatorName, password, commissionRate } = body;
+  const email = (body.email || '').trim().toLowerCase();
 
   if (!inviteId || !creatorName || !email || !password) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });

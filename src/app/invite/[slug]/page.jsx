@@ -348,7 +348,7 @@ export default function InvitePage() {
         return
       }
       // Sign in the user so they have an active session for the dashboard
-      await supabase.auth.signInWithPassword({ email: form.email, password: form.password })
+      await supabase.auth.signInWithPassword({ email: form.email.trim().toLowerCase(), password: form.password })
       setStep(selectedDeal === 'none' ? 'done' : 'payment')
     } catch {
       setError('Something went wrong. Please try again.')

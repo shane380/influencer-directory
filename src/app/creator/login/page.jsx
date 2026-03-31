@@ -121,7 +121,7 @@ export default function CreatorLoginPage() {
     setLoading(true)
 
     const { error: authError } = await supabase.auth.signInWithPassword({
-      email,
+      email: email.trim().toLowerCase(),
       password,
     })
 
@@ -140,7 +140,7 @@ export default function CreatorLoginPage() {
     if (!email) { setError('Please enter your email'); return }
     setError(null)
     setLoading(true)
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
       redirectTo: `${window.location.origin}/reset-password?from=creator`,
     })
     if (resetError) {
