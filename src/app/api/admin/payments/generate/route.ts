@@ -30,8 +30,33 @@ async function getMetaSpendForMonth(handle: string, month: string, supabase: Ret
   }
 }
 
+// Also support GET for cron access
+export async function GET(request: NextRequest) {
+  return POST(request);
+}
+
 // POST /api/admin/payments/generate?month=2026-03
 export async function POST(request: NextRequest) {
+  // Allow access via cron secret or authenticated session (middleware handles session auth)
+  const cronSecret = process.env.CRON_SECRET;
+  const authHeader = request.headers.get("authorization");
+  const hasCronAuth = cronSecret && authHeader === `Bearer ${cronSecret}`;
+  // If no cron auth, the request must have passed middleware auth (logged-in admin)
+  // Since this route is now in the public routes list, we need to verify one or the other
+  if (!hasCronAuth) {
+    // Check for a valid Supabase session via cookie
+    const { createServerClient } = await import("@supabase/ssr");
+    const supabaseAuth = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { cookies: { getAll: () => request.cookies.getAll(), setAll: () => {} } }
+    );
+    const { data: { user } } = await supabaseAuth.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  }
+
   const month = request.nextUrl.searchParams.get("month");
   if (!month || !/^\d{4}-\d{2}$/.test(month)) {
     return NextResponse.json({ error: "month required (YYYY-MM)" }, { status: 400 });

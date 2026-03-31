@@ -48,6 +48,7 @@ export async function middleware(request: NextRequest) {
   if (
     pathname.startsWith('/api/shopify/webhooks') ||
     pathname.startsWith('/api/cron') ||
+    pathname.startsWith('/api/admin/payments/generate') ||
     pathname.startsWith('/api/shopify/auth') ||
     pathname.startsWith('/invite') ||
     pathname.startsWith('/terms') ||
