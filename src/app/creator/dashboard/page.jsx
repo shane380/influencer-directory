@@ -1678,6 +1678,7 @@ export default function CreatorDashboard() {
 
     const categories = [
       { key: 'all', label: 'All' },
+      { key: 'new_arrivals', label: 'New Arrivals' },
       { key: 'tops', label: 'Tops' },
       { key: 'bottoms', label: 'Bottoms' },
       { key: 'sets', label: 'Sets' },

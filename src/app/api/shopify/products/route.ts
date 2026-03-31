@@ -246,6 +246,7 @@ export async function GET(request: NextRequest) {
       inventory_by_location: { location_id: number; location_name: string; available: number }[];
       image: string | null;
       status: string;
+      created_at: string | null;
     }[] = [];
 
     // Use Shopify GraphQL for fast server-side substring search
@@ -261,7 +262,7 @@ export async function GET(request: NextRequest) {
 
     const graphqlQuery = `
       {
-        products(first: ${browse ? 250 : 100}, query: "${gqlFilter}") {
+        products(first: ${browse ? 250 : 100}, query: "${gqlFilter}", sortKey: CREATED_AT, reverse: true) {
           edges {
             node {
               id
@@ -269,6 +270,7 @@ export async function GET(request: NextRequest) {
               status
               productType
               tags
+              createdAt
               featuredImage { url }
               variants(first: 100) {
                 edges {
@@ -345,7 +347,11 @@ export async function GET(request: NextRequest) {
       }
 
       // Category filter
-      if (category && category !== "all") {
+      if (category === "new_arrivals") {
+        const createdAt = product.createdAt ? new Date(product.createdAt) : null;
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        if (!createdAt || createdAt < thirtyDaysAgo) continue;
+      } else if (category && category !== "all") {
         const regex = categoryKeywords[category];
         if (regex && !regex.test(product.title) && !regex.test(productType) && !regex.test(tags)) {
           continue;
@@ -381,6 +387,7 @@ export async function GET(request: NextRequest) {
             inventory_by_location: [],
             image: product.featuredImage?.url || null,
             status: product.status.toLowerCase(),
+            created_at: product.createdAt || null,
           });
 
           // Track unique products — stop once we have enough distinct products
