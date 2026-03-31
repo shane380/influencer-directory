@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 interface LineItem {
   variant_id: string | number;
   quantity: number;
+  title?: string;
 }
 
 interface ShopifyDraftOrder {
