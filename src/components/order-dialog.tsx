@@ -682,6 +682,7 @@ export function OrderDialog({
           line_items: cart.map((item) => ({
             variant_id: item.variant_id,
             quantity: item.quantity,
+            title: item.title,
           })),
           note: `Influencer gifting - ${influencer.name} (@${influencer.instagram_handle})`,
           tags: "influencer",

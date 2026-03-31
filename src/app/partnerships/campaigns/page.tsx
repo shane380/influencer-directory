@@ -1121,8 +1121,8 @@ export default function CampaignsPage() {
               influencer_id: orderDialogAssignment.influencer_id || "",
               product_selections: (orderDialogAssignment.selected_products || []).map(p => ({
                 sku: "",
-                variant_id: String(p.variant_id),
-                quantity: 1,
+                variant_id: String(p.shopify_variant_id || p.variant_id),
+                quantity: p.quantity || 1,
                 title: p.product_title + (p.variant_title ? ` - ${p.variant_title}` : ""),
                 price: "",
               })),

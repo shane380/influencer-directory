@@ -131,6 +131,7 @@ export async function POST(request: NextRequest) {
         line_items: line_items.map((item) => ({
           variant_id: Number(item.variant_id),
           quantity: item.quantity,
+          ...(item.title ? { title: item.title } : {}),
           // Apply 100% discount for gifting ($0 orders)
           applied_discount: {
             value_type: "percentage",
