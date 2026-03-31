@@ -85,6 +85,25 @@ export default function CreatorsListPage() {
   // Pending invites
   const [pendingInvites, setPendingInvites] = useState<any[]>([]);
 
+  // Action queue
+  const [pendingRequests, setPendingRequests] = useState<Array<{
+    id: string;
+    creator_id: string;
+    creator_name: string;
+    creator_photo: string | null;
+    selections: Array<{ product_title?: string; variant_title?: string }>;
+    created_at: string;
+  }>>([]);
+  const [pendingSubmissions, setPendingSubmissions] = useState<Array<{
+    id: string;
+    creator_id: string;
+    creator_name: string;
+    creator_photo: string | null;
+    month: string;
+    file_count: number;
+    created_at: string;
+  }>>([]);
+
   // Delete confirmation state
   const [deleteConfirm, setDeleteConfirm] = useState<Creator | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -172,6 +191,47 @@ export default function CreatorsListPage() {
       );
 
       setCreators(enriched);
+
+      // Fetch action queue items
+      const creatorMap = new Map(enriched.map((c: any) => [c.id, c]));
+
+      const { data: allPendingReqs } = await supabase
+        .from("creator_sample_requests" as any)
+        .select("id, creator_id, selections, created_at")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false }) as any;
+
+      const { data: allPendingSubs } = await supabase
+        .from("creator_content_submissions" as any)
+        .select("id, creator_id, month, files, created_at")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false }) as any;
+
+      setPendingRequests((allPendingReqs || []).map((req: any) => {
+        const c = creatorMap.get(req.creator_id);
+        return {
+          id: req.id,
+          creator_id: req.creator_id,
+          creator_name: c?.influencer?.name || c?.creator_name || "Unknown",
+          creator_photo: c?.influencer?.profile_photo_url || null,
+          selections: req.selections || [],
+          created_at: req.created_at,
+        };
+      }));
+
+      setPendingSubmissions((allPendingSubs || []).map((sub: any) => {
+        const c = creatorMap.get(sub.creator_id);
+        return {
+          id: sub.id,
+          creator_id: sub.creator_id,
+          creator_name: c?.influencer?.name || c?.creator_name || "Unknown",
+          creator_photo: c?.influencer?.profile_photo_url || null,
+          month: sub.month,
+          file_count: Array.isArray(sub.files) ? sub.files.length : 0,
+          created_at: sub.created_at,
+        };
+      }));
+
       setLoading(false);
     }
     load();
@@ -526,7 +586,73 @@ export default function CreatorsListPage() {
             <p className="text-gray-500 text-sm">No creators yet.</p>
           ) : creators.length > 0 ? (
             <>
-            {pendingInvites.length > 0 && (
+            {(pendingRequests.length > 0 || pendingSubmissions.length > 0) && (
+              <div className="mb-6">
+                <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">
+                  Needs Attention ({pendingRequests.length + pendingSubmissions.length})
+                </h2>
+                <div className="space-y-2">
+                  {pendingRequests.map((req) => {
+                    const productNames = req.selections
+                      .map((s) => [s.product_title, s.variant_title].filter(Boolean).join(" - "))
+                      .join(", ");
+                    return (
+                      <div key={`req-${req.id}`} className="bg-white border border-amber-200 rounded-lg px-4 py-3 flex items-center justify-between">
+                        <div className="flex items-center gap-3 min-w-0">
+                          {req.creator_photo ? (
+                            <img src={req.creator_photo} alt="" className="w-8 h-8 rounded-full object-cover bg-gray-200 flex-shrink-0" />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0" />
+                          )}
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-gray-900">{req.creator_name}</div>
+                            <div className="text-xs text-gray-500 truncate">
+                              Outfit request · {productNames || `${req.selections.length} item${req.selections.length !== 1 ? "s" : ""}`}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => router.push(`/partnerships/creators/${req.creator_id}`)}
+                          className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors flex-shrink-0 ml-3"
+                        >
+                          Place Order
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {pendingSubmissions.map((sub) => {
+                    const [yr, mo] = (sub.month || "").split("-");
+                    const monthLabel = yr && mo
+                      ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString("en", { month: "long", year: "numeric" })
+                      : sub.month;
+                    return (
+                      <div key={`sub-${sub.id}`} className="bg-white border border-amber-200 rounded-lg px-4 py-3 flex items-center justify-between">
+                        <div className="flex items-center gap-3 min-w-0">
+                          {sub.creator_photo ? (
+                            <img src={sub.creator_photo} alt="" className="w-8 h-8 rounded-full object-cover bg-gray-200 flex-shrink-0" />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0" />
+                          )}
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-gray-900">{sub.creator_name}</div>
+                            <div className="text-xs text-gray-500">
+                              Content submission · {sub.file_count} file{sub.file_count !== 1 ? "s" : ""} for {monthLabel}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => router.push(`/partnerships/creators/${sub.creator_id}`)}
+                          className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors flex-shrink-0 ml-3"
+                        >
+                          Review
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {(pendingInvites.length > 0 || pendingRequests.length > 0 || pendingSubmissions.length > 0) && (
               <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">Active Partners</h2>
             )}
             <div className="bg-white border rounded-lg overflow-hidden">
