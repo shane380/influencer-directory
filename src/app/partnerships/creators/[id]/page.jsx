@@ -384,13 +384,13 @@ export default function AdminCreatorProfile() {
                           {files.map((file, fi) => {
                             const isImage = file.mime_type?.startsWith('image/')
                             const isVideo = file.mime_type?.startsWith('video/')
-                            const previewUrl = file.drive_file_id ? `/api/drive/preview/${file.drive_file_id}` : null
+                            const mediaUrl = file.r2_url || (file.drive_file_id ? `/api/drive/preview/${file.drive_file_id}` : null)
                             return (
                               <div key={fi} className="relative group">
-                                {isImage && previewUrl ? (
-                                  <img src={previewUrl} alt={file.name} className="w-24 h-24 object-cover rounded border border-gray-200" />
-                                ) : isVideo && previewUrl ? (
-                                  <video src={previewUrl} preload="metadata" className="w-24 h-24 object-cover rounded border border-gray-200" />
+                                {isImage && mediaUrl ? (
+                                  <img src={mediaUrl} alt={file.name} className="w-24 h-24 object-cover rounded border border-gray-200" />
+                                ) : isVideo && mediaUrl ? (
+                                  <video src={mediaUrl} preload="metadata" className="w-24 h-24 object-cover rounded border border-gray-200" />
                                 ) : (
                                   <div className="w-24 h-24 rounded border border-gray-200 bg-gray-50 flex items-center justify-center text-xs text-gray-400">
                                     {file.name?.split('.').pop()?.toUpperCase() || 'FILE'}

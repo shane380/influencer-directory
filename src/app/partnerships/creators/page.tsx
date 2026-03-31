@@ -101,8 +101,13 @@ export default function CreatorsListPage() {
     creator_photo: string | null;
     month: string;
     file_count: number;
+    files: Array<{ name: string; r2_url?: string; mime_type?: string }>;
+    notes?: string;
     created_at: string;
   }>>([]);
+  const [reviewingSubmission, setReviewingSubmission] = useState<string | null>(null);
+  const [reviewFeedback, setReviewFeedback] = useState("");
+  const [reviewSaving, setReviewSaving] = useState(false);
 
   // Delete confirmation state
   const [deleteConfirm, setDeleteConfirm] = useState<Creator | null>(null);
@@ -203,7 +208,7 @@ export default function CreatorsListPage() {
 
       const { data: allPendingSubs } = await supabase
         .from("creator_content_submissions" as any)
-        .select("id, creator_id, month, files, created_at")
+        .select("id, creator_id, month, files, notes, created_at")
         .eq("status", "pending")
         .order("created_at", { ascending: false }) as any;
 
@@ -221,13 +226,16 @@ export default function CreatorsListPage() {
 
       setPendingSubmissions((allPendingSubs || []).map((sub: any) => {
         const c = creatorMap.get(sub.creator_id);
+        const files = Array.isArray(sub.files) ? sub.files : [];
         return {
           id: sub.id,
           creator_id: sub.creator_id,
           creator_name: c?.influencer?.name || c?.creator_name || "Unknown",
           creator_photo: c?.influencer?.profile_photo_url || null,
           month: sub.month,
-          file_count: Array.isArray(sub.files) ? sub.files.length : 0,
+          file_count: files.length,
+          files,
+          notes: sub.notes,
           created_at: sub.created_at,
         };
       }));
@@ -514,6 +522,27 @@ export default function CreatorsListPage() {
     }
   }
 
+  async function handleReviewAction(submissionId: string, action: "approved" | "revision_requested") {
+    setReviewSaving(true);
+    try {
+      const res = await fetch("/api/creator/submissions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: submissionId,
+          status: action,
+          admin_feedback: action === "revision_requested" ? reviewFeedback : undefined,
+        }),
+      });
+      if (res.ok) {
+        setPendingSubmissions((prev) => prev.filter((s) => s.id !== submissionId));
+        setReviewingSubmission(null);
+        setReviewFeedback("");
+      }
+    } catch {}
+    setReviewSaving(false);
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
       <Sidebar
@@ -625,27 +654,82 @@ export default function CreatorsListPage() {
                     const monthLabel = yr && mo
                       ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString("en", { month: "long", year: "numeric" })
                       : sub.month;
+                    const isOpen = reviewingSubmission === sub.id;
                     return (
-                      <div key={`sub-${sub.id}`} className="bg-white border border-amber-200 rounded-lg px-4 py-3 flex items-center justify-between">
-                        <div className="flex items-center gap-3 min-w-0">
-                          {sub.creator_photo ? (
-                            <img src={sub.creator_photo} alt="" className="w-8 h-8 rounded-full object-cover bg-gray-200 flex-shrink-0" />
-                          ) : (
-                            <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0" />
-                          )}
-                          <div className="min-w-0">
-                            <div className="text-sm font-medium text-gray-900">{sub.creator_name}</div>
-                            <div className="text-xs text-gray-500">
-                              Content submission · {sub.file_count} file{sub.file_count !== 1 ? "s" : ""} for {monthLabel}
+                      <div key={`sub-${sub.id}`} className="bg-white border border-amber-200 rounded-lg overflow-hidden">
+                        <div className="px-4 py-3 flex items-center justify-between">
+                          <div className="flex items-center gap-3 min-w-0">
+                            {sub.creator_photo ? (
+                              <img src={sub.creator_photo} alt="" className="w-8 h-8 rounded-full object-cover bg-gray-200 flex-shrink-0" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0" />
+                            )}
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium text-gray-900">{sub.creator_name}</div>
+                              <div className="text-xs text-gray-500">
+                                Content submission · {sub.file_count} file{sub.file_count !== 1 ? "s" : ""} for {monthLabel}
+                              </div>
                             </div>
                           </div>
+                          <button
+                            onClick={() => { setReviewingSubmission(isOpen ? null : sub.id); setReviewFeedback(""); }}
+                            className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors flex-shrink-0 ml-3"
+                          >
+                            {isOpen ? "Close" : "Review"}
+                          </button>
                         </div>
-                        <button
-                          onClick={() => router.push(`/partnerships/creators/${sub.creator_id}`)}
-                          className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors flex-shrink-0 ml-3"
-                        >
-                          Review
-                        </button>
+                        {isOpen && (
+                          <div className="px-4 pb-4 border-t border-amber-100">
+                            {sub.notes && <p className="text-xs text-gray-500 italic mt-3 mb-2">&ldquo;{sub.notes}&rdquo;</p>}
+                            <div className="flex gap-3 flex-wrap mt-3">
+                              {sub.files.map((file, fi) => {
+                                const isImage = file.mime_type?.startsWith("image/");
+                                const isVideo = file.mime_type?.startsWith("video/");
+                                return (
+                                  <div key={fi}>
+                                    {isImage && file.r2_url ? (
+                                      <a href={file.r2_url} target="_blank" rel="noopener noreferrer">
+                                        <img src={file.r2_url} alt={file.name} className="w-32 h-40 object-cover rounded border border-gray-200 hover:opacity-90 transition-opacity" />
+                                      </a>
+                                    ) : isVideo && file.r2_url ? (
+                                      <video src={file.r2_url} controls preload="metadata" playsInline className="w-32 h-40 object-cover rounded border border-gray-200" />
+                                    ) : (
+                                      <div className="w-32 h-40 rounded border border-gray-200 bg-gray-50 flex items-center justify-center text-xs text-gray-400">
+                                        {file.name?.split(".").pop()?.toUpperCase() || "FILE"}
+                                      </div>
+                                    )}
+                                    <div className="text-[10px] text-gray-400 truncate max-w-[128px] mt-1">{file.name}</div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <div className="mt-4 flex items-start gap-2">
+                              <button
+                                onClick={() => handleReviewAction(sub.id, "approved")}
+                                disabled={reviewSaving}
+                                className="px-3 py-1.5 text-xs bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50"
+                              >
+                                Approve
+                              </button>
+                              <div className="flex-1 flex gap-2 items-start">
+                                <input
+                                  type="text"
+                                  placeholder="Feedback (optional)"
+                                  value={reviewFeedback}
+                                  onChange={(e) => setReviewFeedback(e.target.value)}
+                                  className="flex-1 text-xs border border-gray-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-300"
+                                />
+                                <button
+                                  onClick={() => handleReviewAction(sub.id, "revision_requested")}
+                                  disabled={reviewSaving}
+                                  className="px-3 py-1.5 text-xs border border-amber-400 text-amber-700 rounded-md hover:bg-amber-50 transition-colors disabled:opacity-50 whitespace-nowrap"
+                                >
+                                  Request Revision
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
