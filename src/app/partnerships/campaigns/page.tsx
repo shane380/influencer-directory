@@ -36,6 +36,8 @@ interface Product {
   product_title: string;
   variant_title?: string;
   image_url?: string;
+  shopify_variant_id?: number;
+  quantity?: number;
 }
 
 interface Assignment {
