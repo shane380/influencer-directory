@@ -221,12 +221,12 @@ export default function CreatorsListPage() {
       const reqInfluencerIds = [...new Set((allPendingReqs || []).map((r: any) => r.influencer_id).filter(Boolean))];
       let influencerMap = new Map<string, { shopify_customer_id: string | null }>();
       if (reqInfluencerIds.length > 0) {
-        const { data: infData } = await supabase
-          .from("influencers")
+        const { data: infData } = await (supabase
+          .from("influencers") as any)
           .select("id, shopify_customer_id")
           .in("id", reqInfluencerIds);
-        for (const inf of infData || []) {
-          influencerMap.set(inf.id, { shopify_customer_id: (inf as any).shopify_customer_id || null });
+        for (const inf of (infData || []) as any[]) {
+          influencerMap.set(inf.id, { shopify_customer_id: inf.shopify_customer_id || null });
         }
       }
 
