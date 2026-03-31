@@ -568,10 +568,10 @@ export default function CreatorsListPage() {
         });
       }
 
-      await supabase
-        .from("creator_sample_requests" as any)
+      await (supabase
+        .from("creator_sample_requests" as any) as any)
         .update({ status: action, reviewed_at: new Date().toISOString() })
-        .eq("id", requestId) as any;
+        .eq("id", requestId);
 
       setPendingRequests((prev) => prev.filter((r) => r.id !== requestId));
       setReviewingRequest(null);
