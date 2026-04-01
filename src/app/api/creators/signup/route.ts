@@ -164,21 +164,21 @@ export async function POST(request: NextRequest) {
   // Check if a creator record already exists for this user (prevents duplicates on re-signup)
   const { data: existingCreator } = await supabase
     .from('creators')
-    .select('id')
+    .select('id, affiliate_code')
     .eq('user_id', userId)
     .limit(1);
 
+  let affiliateCode = '';
+  let creatorError: any = null;
+
   if (existingCreator && existingCreator.length > 0) {
     // Creator already exists — update email if needed and skip creation
+    affiliateCode = (existingCreator[0] as any).affiliate_code || '';
     await supabase
       .from('creators')
       .update({ email })
       .eq('id', existingCreator[0].id);
-  }
-
-  let creatorError: any = null;
-
-  if (!existingCreator || existingCreator.length === 0) {
+  } else {
     // Generate affiliate code — retry with random suffix on collision
     const baseCode = creatorName
       .toLowerCase()
@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
       .replace(/[^a-z0-9]/g, '')
       .slice(0, 12);
 
-    let affiliateCode = baseCode;
+    affiliateCode = baseCode;
 
     for (let attempt = 0; attempt < 5; attempt++) {
       const { error } = await supabase.from('creators').insert({
