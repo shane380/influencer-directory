@@ -9,9 +9,9 @@ function getSupabase() {
 }
 
 function getBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : "http://localhost:3000");
+  // Prefer the public site URL to avoid deployment-specific URLs that may redirect
+  return process.env.NEXT_PUBLIC_SITE_URL
+    || "https://influencer-directory-self.vercel.app";
 }
 
 async function getMetaSpendForMonth(handle: string, month: string, supabase: ReturnType<typeof getSupabase>): Promise<number> {
