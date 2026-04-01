@@ -239,13 +239,11 @@ export default function PaymentsPage() {
   }
 
   // Summary stats
-  const totalOwed = payments.reduce((s, p) => s + Number(p.amount_owed || 0), 0);
-  const totalApproved = payments
-    .filter((p) => p.status === "approved" || p.status === "paid")
-    .reduce((s, p) => s + Number(p.amount_owed || 0), 0);
+  const totalOwed = payments.filter((p) => p.status !== "skipped").reduce((s, p) => s + Number(p.amount_owed || 0), 0);
   const totalPaid = payments
     .filter((p) => p.status === "paid")
     .reduce((s, p) => s + Number(p.amount_paid || p.amount_owed || 0), 0);
+  const totalUnpaid = totalOwed - totalPaid;
   const pendingCount = payments.filter((p) => p.status === "pending").length;
 
   const monthLabel = new Date(month + "-01").toLocaleString("en", {
@@ -295,7 +293,7 @@ export default function PaymentsPage() {
         <div className="grid grid-cols-4 gap-4 mb-6">
           {[
             { label: "Total Owed", value: `$${totalOwed.toLocaleString(undefined, { minimumFractionDigits: 2 })}` },
-            { label: "Approved", value: `$${totalApproved.toLocaleString(undefined, { minimumFractionDigits: 2 })}` },
+            { label: "Unpaid", value: `$${totalUnpaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}` },
             { label: "Total Paid", value: `$${totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}` },
             { label: "Pending", value: String(pendingCount) },
           ].map((s) => (
@@ -512,50 +510,24 @@ export default function PaymentsPage() {
 
                       {/* Actions */}
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        {p.status === "pending" && (
+                        {(p.status === "pending" || p.status === "approved") && (
                           <Button
                             size="sm"
                             variant="default"
-                            className="h-6 text-[10px] px-2"
+                            className="h-6 text-[10px] px-2 bg-green-600 hover:bg-green-700"
                             disabled={updating === p.id}
                             onClick={() =>
                               updatePayment(p.id, {
-                                status: "approved",
+                                status: "paid",
                                 approved_by: currentUser?.email || "Admin",
+                                paid_by: currentUser?.email || "Admin",
                               }, p)
                             }
                           >
-                            Approve
+                            Mark Paid
                           </Button>
                         )}
-                        {p.status === "approved" && (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="default"
-                              className="h-6 text-[10px] px-2 bg-green-600 hover:bg-green-700"
-                              disabled={updating === p.id}
-                              onClick={() =>
-                                updatePayment(p.id, {
-                                  status: "paid",
-                                  paid_by: currentUser?.email || "Admin",
-                                })
-                              }
-                            >
-                              Mark Paid
-                            </Button>
-                            <button
-                              className="text-[10px] text-blue-500 hover:text-blue-700 uppercase tracking-wider"
-                              onClick={() => {
-                                setEditingAmount(p.id);
-                                setAmountText(String(p.amount_owed || 0));
-                              }}
-                            >
-                              Edit $
-                            </button>
-                          </>
-                        )}
-                        {p.status !== "skipped" && (
+                        {p.status !== "skipped" && p.status !== "paid" && (
                           <button
                             className="text-[10px] text-gray-400 hover:text-gray-600 uppercase tracking-wider"
                             onClick={() => updatePayment(p.id, { status: "skipped" }, p)}

@@ -98,6 +98,8 @@ export async function PATCH(request: NextRequest) {
       insertData.approved_by = updates.approved_by || null;
     }
     if (insertData.status === "paid") {
+      insertData.approved_at = new Date().toISOString();
+      insertData.approved_by = updates.approved_by || updates.paid_by || null;
       insertData.paid_at = new Date().toISOString();
       insertData.paid_by = updates.paid_by || null;
       insertData.amount_paid = body.amount_paid ?? insertData.amount_owed;
