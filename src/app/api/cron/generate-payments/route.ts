@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     .select("*, influencer:influencers!creator_invites_influencer_id_fkey(id, name, instagram_handle)")
     .in("id", inviteIds);
 
-  const inviteMap = new Map((invites || []).map((i: any) => [i.id, i]));
+  const inviteMap = new Map<string, any>((invites || []).map((i: any) => [i.id, i]));
 
   // Batch fetch ad performance
   const handles = (invites || []).map((i: any) => i.influencer?.instagram_handle).filter(Boolean);
