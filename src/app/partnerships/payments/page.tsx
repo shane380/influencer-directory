@@ -514,7 +514,7 @@ export default function PaymentsPage() {
                           <Button
                             size="sm"
                             variant="default"
-                            className="h-6 text-[10px] px-2 bg-green-600 hover:bg-green-700"
+                            className="h-6 text-[10px] px-2"
                             disabled={updating === p.id}
                             onClick={() =>
                               updatePayment(p.id, {
@@ -526,6 +526,11 @@ export default function PaymentsPage() {
                           >
                             Mark Paid
                           </Button>
+                        )}
+                        {p.status === "paid" && (
+                          <span className="inline-flex items-center h-6 px-2 rounded text-[10px] font-medium bg-green-100 text-green-700">
+                            Paid
+                          </span>
                         )}
                         {p.status !== "skipped" && p.status !== "paid" && (
                           <button
