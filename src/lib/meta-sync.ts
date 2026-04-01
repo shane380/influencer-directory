@@ -7,7 +7,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 const META_API_VERSION = "v19.0";
-const MAX_CALLS_PER_HOUR = 200;
+const MAX_CALLS_PER_HOUR = 400;
 
 // In-memory call counter for a single invocation
 let callCount = 0;
@@ -156,57 +156,44 @@ async function fetchAdsForHandle(
   let mtd = { spend: 0, impressions: 0 };
   let lastMtd = { spend: 0, impressions: 0 };
 
-  // Sequential calls per ad (not Promise.all)
+  // Single insights call per ad: fetch daily data for last 90 days, then aggregate
   for (const adId of adIds) {
-    // Monthly insights (last 90 days)
     try {
-      const mUrl =
+      const insightsUrl =
         `https://graph.facebook.com/${META_API_VERSION}/${adId}/insights?` +
         `fields=spend,impressions` +
-        `&time_increment=monthly` +
+        `&time_increment=1` +
         `&date_preset=last_90d` +
+        `&limit=100` +
         `&access_token=${accessToken}`;
-      const mData = await metaFetch(mUrl);
-      for (const row of mData.data || []) {
-        const monthKey = row.date_start?.substring(0, 7);
-        if (!monthMap[monthKey]) monthMap[monthKey] = { spend: 0, impressions: 0 };
-        monthMap[monthKey].spend += parseFloat(row.spend || "0");
-        monthMap[monthKey].impressions += parseInt(row.impressions || "0");
-      }
-    } catch (err) {
-      console.error(`[meta-sync] Monthly insights failed for ad ${adId}:`, err);
-    }
+      const insightsData = await metaFetch(insightsUrl);
+      for (const row of insightsData.data || []) {
+        const dateStr = row.date_start?.substring(0, 10);
+        const monthKey = dateStr?.substring(0, 7);
+        const spend = parseFloat(row.spend || "0");
+        const impressions = parseInt(row.impressions || "0");
 
-    // Current MTD
-    try {
-      const cUrl =
-        `https://graph.facebook.com/${META_API_VERSION}/${adId}/insights?` +
-        `fields=spend,impressions` +
-        `&time_range=${encodeURIComponent(JSON.stringify({ since: currentMonthStart, until: currentEnd }))}` +
-        `&access_token=${accessToken}`;
-      const cData = await metaFetch(cUrl);
-      if (cData.data?.[0]) {
-        mtd.spend += parseFloat(cData.data[0].spend || "0");
-        mtd.impressions += parseInt(cData.data[0].impressions || "0");
-      }
-    } catch (err) {
-      console.error(`[meta-sync] Current MTD failed for ad ${adId}:`, err);
-    }
+        // Monthly aggregation
+        if (monthKey) {
+          if (!monthMap[monthKey]) monthMap[monthKey] = { spend: 0, impressions: 0 };
+          monthMap[monthKey].spend += spend;
+          monthMap[monthKey].impressions += impressions;
+        }
 
-    // Last month MTD comparison
-    try {
-      const lUrl =
-        `https://graph.facebook.com/${META_API_VERSION}/${adId}/insights?` +
-        `fields=spend,impressions` +
-        `&time_range=${encodeURIComponent(JSON.stringify({ since: lastMonthStart, until: lastMonthEnd }))}` +
-        `&access_token=${accessToken}`;
-      const lData = await metaFetch(lUrl);
-      if (lData.data?.[0]) {
-        lastMtd.spend += parseFloat(lData.data[0].spend || "0");
-        lastMtd.impressions += parseInt(lData.data[0].impressions || "0");
+        // Current MTD
+        if (dateStr && dateStr >= currentMonthStart && dateStr <= currentEnd) {
+          mtd.spend += spend;
+          mtd.impressions += impressions;
+        }
+
+        // Last month MTD comparison
+        if (dateStr && dateStr >= lastMonthStart && dateStr <= lastMonthEnd) {
+          lastMtd.spend += spend;
+          lastMtd.impressions += impressions;
+        }
       }
     } catch (err) {
-      console.error(`[meta-sync] Last MTD failed for ad ${adId}:`, err);
+      console.error(`[meta-sync] Insights failed for ad ${adId}:`, err);
     }
   }
 
@@ -253,8 +240,8 @@ async function fetchAdsForHandle(
       ad.creative?.asset_feed_spec?.videos?.[0]?.video_id ||
       null;
 
-    // For video ads, try to get a higher-quality video thumbnail from Meta
-    if (videoId && thumbnailUrl) {
+    // For video ads without Mux, try to get a higher-quality video thumbnail from Meta
+    if (videoId && thumbnailUrl && !thumbnailUrl.includes('video-thumb')) {
       try {
         const videoThumbUrl = `https://graph.facebook.com/${META_API_VERSION}/${videoId}/thumbnails?access_token=${accessToken}`;
         const thumbData = await metaFetch(videoThumbUrl);
