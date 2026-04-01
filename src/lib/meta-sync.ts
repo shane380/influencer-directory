@@ -156,45 +156,50 @@ async function fetchAdsForHandle(
   let mtd = { spend: 0, impressions: 0 };
   let lastMtd = { spend: 0, impressions: 0 };
 
-  // Single insights call per ad: fetch daily data for last 90 days, then aggregate
-  for (const adId of adIds) {
-    try {
-      const insightsUrl =
-        `https://graph.facebook.com/${META_API_VERSION}/${adId}/insights?` +
-        `fields=spend,impressions` +
-        `&time_increment=1` +
-        `&date_preset=last_90d` +
-        `&limit=100` +
-        `&access_token=${accessToken}`;
-      const insightsData = await metaFetch(insightsUrl);
+  // Single account-level insights call: get daily data for all ads in one request
+  // Filtered to ads matching this handle via the ad name filter
+  try {
+    const insightsFiltering = JSON.stringify([
+      { field: "name", operator: "CONTAIN", value: handle },
+    ]);
+    let insightsPageUrl: string | null =
+      `https://graph.facebook.com/${META_API_VERSION}/${actId}/insights?` +
+      `fields=spend,impressions` +
+      `&level=ad` +
+      `&time_increment=1` +
+      `&date_preset=last_90d` +
+      `&filtering=${encodeURIComponent(insightsFiltering)}` +
+      `&limit=500` +
+      `&access_token=${accessToken}`;
+
+    while (insightsPageUrl) {
+      const insightsData = await metaFetch(insightsPageUrl);
       for (const row of insightsData.data || []) {
         const dateStr = row.date_start?.substring(0, 10);
         const monthKey = dateStr?.substring(0, 7);
         const spend = parseFloat(row.spend || "0");
         const impressions = parseInt(row.impressions || "0");
 
-        // Monthly aggregation
         if (monthKey) {
           if (!monthMap[monthKey]) monthMap[monthKey] = { spend: 0, impressions: 0 };
           monthMap[monthKey].spend += spend;
           monthMap[monthKey].impressions += impressions;
         }
-
-        // Current MTD
         if (dateStr && dateStr >= currentMonthStart && dateStr <= currentEnd) {
           mtd.spend += spend;
           mtd.impressions += impressions;
         }
-
-        // Last month MTD comparison
         if (dateStr && dateStr >= lastMonthStart && dateStr <= lastMonthEnd) {
           lastMtd.spend += spend;
           lastMtd.impressions += impressions;
         }
       }
-    } catch (err) {
-      console.error(`[meta-sync] Insights failed for ad ${adId}:`, err);
+
+      // Handle pagination
+      insightsPageUrl = insightsData.paging?.next || null;
     }
+  } catch (err) {
+    console.error(`[meta-sync] Account-level insights failed for ${handle}:`, err);
   }
 
   const monthly = Object.entries(monthMap)
