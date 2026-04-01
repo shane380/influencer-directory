@@ -161,41 +161,59 @@ export async function POST(request: NextRequest) {
     userId = authData.user.id;
   }
 
-  // Generate affiliate code — retry with random suffix on collision
-  const baseCode = creatorName
-    .toLowerCase()
-    .replace(/\s+/g, '')
-    .replace(/[^a-z0-9]/g, '')
-    .slice(0, 12);
+  // Check if a creator record already exists for this user (prevents duplicates on re-signup)
+  const { data: existingCreator } = await supabase
+    .from('creators')
+    .select('id')
+    .eq('user_id', userId)
+    .limit(1);
 
-  let affiliateCode = baseCode;
+  if (existingCreator && existingCreator.length > 0) {
+    // Creator already exists — update email if needed and skip creation
+    await supabase
+      .from('creators')
+      .update({ email })
+      .eq('id', existingCreator[0].id);
+  }
+
   let creatorError: any = null;
 
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const { error } = await supabase.from('creators').insert({
-      invite_id: inviteId,
-      user_id: userId,
-      creator_name: creatorName,
-      email,
-      commission_rate: commissionRate ?? 0,
-      affiliate_code: affiliateCode,
-    });
+  if (!existingCreator || existingCreator.length === 0) {
+    // Generate affiliate code — retry with random suffix on collision
+    const baseCode = creatorName
+      .toLowerCase()
+      .replace(/\s+/g, '')
+      .replace(/[^a-z0-9]/g, '')
+      .slice(0, 12);
 
-    if (!error) {
-      creatorError = null;
+    let affiliateCode = baseCode;
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const { error } = await supabase.from('creators').insert({
+        invite_id: inviteId,
+        user_id: userId,
+        creator_name: creatorName,
+        email,
+        commission_rate: commissionRate ?? 0,
+        affiliate_code: affiliateCode,
+      });
+
+      if (!error) {
+        creatorError = null;
+        break;
+      }
+
+      if (error.message?.includes('creators_affiliate_code_key')) {
+        // Code collision — append random digits and retry
+        const suffix = String(Math.floor(Math.random() * 900) + 100);
+        affiliateCode = baseCode.slice(0, 9) + suffix;
+        creatorError = error;
+        continue;
+      }
+
+      creatorError = error;
       break;
     }
-
-    if (error.message?.includes('creators_affiliate_code_key')) {
-      // Code collision — append random digits and retry
-      const suffix = String(Math.floor(Math.random() * 900) + 100);
-      affiliateCode = baseCode.slice(0, 9) + suffix;
-      creatorError = error;
-      continue;
-    }
-
-    creatorError = error;
-    break;
   }
 
   if (creatorError) {
