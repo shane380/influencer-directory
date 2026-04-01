@@ -1459,10 +1459,12 @@ export default function CreatorDashboard() {
   }
 
   function getAllLineItems() {
+    const excludePattern = /shipping protection|route|insurance|gift.?card|polybag|poly bag|packaging/i
     const items = []
     for (const order of orders) {
       for (let i = 0; i < (order.line_items || []).length; i++) {
         const item = order.line_items[i]
+        if (excludePattern.test(item.product_name || '')) continue
         items.push({
           key: `${order.id}-${i}`,
           orderId: order.id,
