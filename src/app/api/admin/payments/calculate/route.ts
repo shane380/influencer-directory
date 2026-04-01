@@ -82,7 +82,18 @@ export async function GET(request: NextRequest) {
     dealsByInfluencer.set(deal.influencer_id, arr);
   }
 
-  // 6. Calculate affiliate commissions in parallel (direct Shopify calls, no self-referencing HTTP)
+  // 6. Fetch excluded orders for all influencers
+  const { data: allExcluded } = await (supabase.from as any)("excluded_affiliate_orders")
+    .select("influencer_id, order_id");
+
+  const excludedByInfluencer = new Map<string, number[]>();
+  for (const e of allExcluded || []) {
+    const arr = excludedByInfluencer.get(e.influencer_id) || [];
+    arr.push(e.order_id);
+    excludedByInfluencer.set(e.influencer_id, arr);
+  }
+
+  // 7. Calculate affiliate commissions in parallel (direct Shopify calls, no self-referencing HTTP)
   const affiliateResults = new Map<string, { amount: number; notes: string; details: any }>();
 
   const affiliatePromises = creators
@@ -96,8 +107,9 @@ export async function GET(request: NextRequest) {
     .map(async (c: any) => {
       const invite = inviteMap.get(c.invite_id);
       const rate = c.commission_rate || invite?.ad_spend_percentage || 10;
+      const excluded = excludedByInfluencer.get(invite.influencer.id) || [];
       try {
-        const result = await calculateAffiliateCommission(c.affiliate_code, month, rate / 100);
+        const result = await calculateAffiliateCommission(c.affiliate_code, month, rate / 100, excluded);
         affiliateResults.set(invite.influencer.id, {
           amount: result.summary.commission_owed,
           notes: result.summary.order_count > 0

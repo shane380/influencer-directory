@@ -1,14 +1,22 @@
 import { getShopifyAccessToken, getShopifyStoreUrl } from "./shopify";
 
+export interface AffiliateOrder {
+  order_id: number;
+  order_number: number | string;
+  created_at: string;
+  gross_amount: number;
+  refund_amount: number;
+  net_amount: number;
+  customer_name: string | null;
+  customer_email: string | null;
+  referring_site: string | null;
+  landing_site: string | null;
+  source_name: string | null;
+  excluded?: boolean;
+}
+
 export interface AffiliateResult {
-  orders: Array<{
-    order_id: number;
-    order_number: number | string;
-    created_at: string;
-    gross_amount: number;
-    refund_amount: number;
-    net_amount: number;
-  }>;
+  orders: AffiliateOrder[];
   summary: {
     order_count: number;
     total_gross: number;
@@ -22,8 +30,10 @@ export interface AffiliateResult {
 export async function calculateAffiliateCommission(
   discountCode: string,
   month: string | null,
-  commissionRate: number // as decimal, e.g. 0.1 for 10%
+  commissionRate: number, // as decimal, e.g. 0.1 for 10%
+  excludedOrderIds: number[] = []
 ): Promise<AffiliateResult> {
+  const excludedSet = new Set(excludedOrderIds);
   const storeUrl = getShopifyStoreUrl();
   const accessToken = await getShopifyAccessToken();
 
@@ -96,9 +106,17 @@ export async function calculateAffiliateCommission(
       gross_amount: grossAmount,
       refund_amount: Math.round(refundAmount * 100) / 100,
       net_amount: netAmount,
+      customer_name: order.customer ? `${order.customer.first_name || ""} ${order.customer.last_name || ""}`.trim() : null,
+      customer_email: order.customer?.email || order.email || null,
+      referring_site: order.referring_site || null,
+      landing_site: order.landing_site || null,
+      source_name: order.source_name || null,
+      excluded: excludedSet.has(order.id),
     });
-    totalGross += grossAmount;
-    totalRefunds += refundAmount;
+    if (!excludedSet.has(order.id)) {
+      totalGross += grossAmount;
+      totalRefunds += refundAmount;
+    }
   }
 
   orderDetails.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());

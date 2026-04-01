@@ -89,6 +89,10 @@ export default function PaymentsPage() {
   const [paymentInfoOpen, setPaymentInfoOpen] = useState<string | null>(null);
   const [paymentInfoData, setPaymentInfoData] = useState<Record<string, any>>({});
   const [paymentInfoLoading, setPaymentInfoLoading] = useState(false);
+  const [auditOpen, setAuditOpen] = useState<{ influencerId: string; name: string } | null>(null);
+  const [auditData, setAuditData] = useState<any>(null);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [excludingOrder, setExcludingOrder] = useState<number | null>(null);
   const monthOptions = getMonthOptions();
 
   useEffect(() => {
@@ -125,6 +129,41 @@ export default function PaymentsPage() {
   useEffect(() => {
     fetchPayments();
   }, [fetchPayments]);
+
+  async function openAudit(influencerId: string, name: string) {
+    setAuditOpen({ influencerId, name });
+    setAuditLoading(true);
+    try {
+      const res = await fetch(`/api/admin/affiliate-audit?influencer_id=${influencerId}&month=${month}`);
+      const data = await res.json();
+      setAuditData(data);
+    } catch {}
+    setAuditLoading(false);
+  }
+
+  async function toggleOrderExclusion(orderId: number, currentlyExcluded: boolean) {
+    if (!auditOpen) return;
+    setExcludingOrder(orderId);
+    try {
+      await fetch("/api/admin/affiliate-audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          influencer_id: auditOpen.influencerId,
+          order_id: orderId,
+          action: currentlyExcluded ? "include" : "exclude",
+          reason: currentlyExcluded ? null : "Excluded during audit",
+        }),
+      });
+      // Refresh audit data
+      const res = await fetch(`/api/admin/affiliate-audit?influencer_id=${auditOpen.influencerId}&month=${month}`);
+      const data = await res.json();
+      setAuditData(data);
+      // Refresh payments to update the amount
+      fetchPayments();
+    } catch {}
+    setExcludingOrder(null);
+  }
 
   async function fetchPaymentInfo(influencerId: string) {
     if (paymentInfoData[influencerId]) {
@@ -378,20 +417,13 @@ export default function PaymentsPage() {
                         </span>
                       )}
 
-                      {/* Expand button for affiliate rows with details */}
-                      {p.payment_type === "affiliate_commission" && p.calculation_details?.orders?.length > 0 && (
+                      {/* Audit link for affiliate rows */}
+                      {p.payment_type === "affiliate_commission" && p.influencer && (
                         <button
-                          className="text-gray-400 hover:text-gray-600 flex-shrink-0"
-                          onClick={() => {
-                            setExpandedDetails((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(p.id)) next.delete(p.id);
-                              else next.add(p.id);
-                              return next;
-                            });
-                          }}
+                          className="text-[10px] text-blue-500 hover:text-blue-700 uppercase tracking-wider flex-shrink-0"
+                          onClick={() => openAudit(p.influencer!.id, p.influencer!.name)}
                         >
-                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expandedDetails.has(p.id) ? "rotate-180" : ""}`} />
+                          Audit
                         </button>
                       )}
 
@@ -709,6 +741,98 @@ export default function PaymentsPage() {
           )}
           </div>
         )}
+      {/* Affiliate Audit Modal */}
+      {auditOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { setAuditOpen(null); setAuditData(null); }}>
+          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <div>
+                <div className="text-sm font-semibold text-gray-900">Affiliate Audit — {auditOpen.name}</div>
+                {auditData && (
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    Code: {auditData.affiliate_code} · {auditData.commission_rate}% · {auditData.summary?.order_count || 0} orders · ${auditData.summary?.commission_owed?.toFixed(2) || "0.00"} commission
+                  </div>
+                )}
+              </div>
+              <button onClick={() => { setAuditOpen(null); setAuditData(null); }} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              {auditLoading ? (
+                <div className="text-center py-12 text-gray-400 text-sm">Loading orders...</div>
+              ) : auditData?.orders?.length === 0 ? (
+                <div className="text-center py-12 text-gray-400 text-sm">No orders found for this month.</div>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-gray-50 border-b">
+                    <tr>
+                      <th className="text-left px-4 py-2 font-medium text-gray-500">Order</th>
+                      <th className="text-left px-4 py-2 font-medium text-gray-500">Date</th>
+                      <th className="text-left px-4 py-2 font-medium text-gray-500">Customer</th>
+                      <th className="text-left px-4 py-2 font-medium text-gray-500">Source</th>
+                      <th className="text-right px-4 py-2 font-medium text-gray-500">Gross</th>
+                      <th className="text-right px-4 py-2 font-medium text-gray-500">Refunds</th>
+                      <th className="text-right px-4 py-2 font-medium text-gray-500">Net</th>
+                      <th className="px-4 py-2 w-20"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(auditData?.orders || []).map((o: any) => {
+                      const isExcluded = o.excluded;
+                      const source = o.referring_site
+                        ? new URL(o.referring_site).hostname.replace("www.", "")
+                        : o.source_name || "direct";
+                      const isSuspicious = /coupon|honey|retail|deal|discount|voucher|promo/i.test(o.referring_site || "") || /coupon|honey|retail|deal|discount|voucher|promo/i.test(o.landing_site || "");
+                      return (
+                        <tr key={o.order_id} className={`border-b border-gray-50 ${isExcluded ? "opacity-50 bg-red-50/30" : ""} ${isSuspicious ? "bg-amber-50/40" : ""}`}>
+                          <td className="px-4 py-2 font-mono">#{o.order_number}</td>
+                          <td className="px-4 py-2 text-gray-500">{new Date(o.created_at).toLocaleDateString("en", { month: "short", day: "numeric" })}</td>
+                          <td className="px-4 py-2">
+                            <div className="text-gray-700">{o.customer_name || "—"}</div>
+                            <div className="text-gray-400">{o.customer_email || ""}</div>
+                          </td>
+                          <td className="px-4 py-2">
+                            <div className="text-gray-700">{source}</div>
+                            {o.landing_site && (
+                              <div className="text-gray-400 truncate max-w-[200px]" title={o.landing_site}>
+                                {o.landing_site.replace(/https?:\/\/[^/]+/, "")}
+                              </div>
+                            )}
+                            {isSuspicious && <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium bg-amber-100 text-amber-700">Coupon site?</span>}
+                          </td>
+                          <td className="px-4 py-2 text-right text-gray-700">${o.gross_amount.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-right text-red-500">{o.refund_amount > 0 ? `-$${o.refund_amount.toFixed(2)}` : "—"}</td>
+                          <td className="px-4 py-2 text-right font-medium text-gray-900">${o.net_amount.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-right">
+                            <button
+                              className={`text-[10px] uppercase tracking-wider ${isExcluded ? "text-green-600 hover:text-green-800" : "text-red-500 hover:text-red-700"}`}
+                              disabled={excludingOrder === o.order_id}
+                              onClick={() => toggleOrderExclusion(o.order_id, isExcluded)}
+                            >
+                              {excludingOrder === o.order_id ? "..." : isExcluded ? "Include" : "Exclude"}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            {auditData?.summary && (
+              <div className="px-6 py-3 border-t bg-gray-50 flex items-center justify-between text-xs">
+                <div className="text-gray-500">
+                  {auditData.summary.order_count} orders · ${auditData.summary.total_gross?.toFixed(2)} gross · -${auditData.summary.total_refunds?.toFixed(2)} refunds · ${auditData.summary.total_net?.toFixed(2)} net
+                </div>
+                <div className="font-semibold text-gray-900">
+                  Commission: ${auditData.summary.commission_owed?.toFixed(2)}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       </main>
     </div>
   );
