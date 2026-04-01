@@ -266,13 +266,25 @@ export async function GET(request: NextRequest) {
   }
 
   // Include any existing DB rows not covered by live calculation (e.g. manually added, or old types)
-  for (const [, p] of existingMap) {
+  const uncoveredRows = [...existingMap.entries()].filter(([, p]) => {
     const key = p.deal_id
       ? `${p.influencer_id}-${p.payment_type}-${p.deal_id}`
       : `${p.influencer_id}-${p.payment_type}`;
-    if (!processedKeys.has(key)) {
-      // Enrich with influencer data
-      const inf = (invites || []).find((i: any) => i.influencer?.id === p.influencer_id)?.influencer || null;
+    return !processedKeys.has(key);
+  });
+
+  if (uncoveredRows.length > 0) {
+    // Fetch influencer data for uncovered rows directly
+    const uncoveredInfluencerIds = [...new Set(uncoveredRows.map(([, p]) => p.influencer_id))];
+    const { data: uncoveredInfluencers } = await supabase
+      .from("influencers")
+      .select("id, name, instagram_handle, profile_photo_url")
+      .in("id", uncoveredInfluencerIds);
+
+    const uncoveredInfMap = new Map((uncoveredInfluencers || []).map((i) => [i.id, i]));
+
+    for (const [, p] of uncoveredRows) {
+      const inf = uncoveredInfMap.get(p.influencer_id) || null;
       allPayments.push({ ...p, influencer: inf, deal: null });
     }
   }
