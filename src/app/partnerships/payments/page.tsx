@@ -225,18 +225,27 @@ export default function PaymentsPage() {
     URL.revokeObjectURL(url);
   }
 
-  // Group by creator
-  const grouped: GroupedCreator[] = [];
-  const groupMap: Record<string, GroupedCreator> = {};
-  for (const p of payments) {
-    const key = p.influencer_id;
-    if (!groupMap[key]) {
-      groupMap[key] = { influencer: p.influencer, payments: [], total: 0 };
-      grouped.push(groupMap[key]);
+  // Split into partners vs paid collabs, then group by creator
+  const partnerPayments = payments.filter((p) => p.payment_type !== "paid_collab");
+  const collabPayments = payments.filter((p) => p.payment_type === "paid_collab");
+
+  function groupByCreator(items: Payment[]): GroupedCreator[] {
+    const groups: GroupedCreator[] = [];
+    const map: Record<string, GroupedCreator> = {};
+    for (const p of items) {
+      const key = p.influencer_id;
+      if (!map[key]) {
+        map[key] = { influencer: p.influencer, payments: [], total: 0 };
+        groups.push(map[key]);
+      }
+      map[key].payments.push(p);
+      map[key].total += Number(p.amount_owed || 0);
     }
-    groupMap[key].payments.push(p);
-    groupMap[key].total += Number(p.amount_owed || 0);
+    return groups;
   }
+
+  const partnerGroups = groupByCreator(partnerPayments);
+  const collabGroups = groupByCreator(collabPayments);
 
   // Summary stats
   const totalOwed = payments.filter((p) => p.status !== "skipped").reduce((s, p) => s + Number(p.amount_owed || 0), 0);
@@ -304,7 +313,7 @@ export default function PaymentsPage() {
           ))}
         </div>
 
-        {/* Table */}
+        {/* Tables */}
         {loading ? (
           <div className="text-center py-12 text-gray-400 text-sm">Loading payments...</div>
         ) : payments.length === 0 ? (
@@ -312,8 +321,12 @@ export default function PaymentsPage() {
             <p className="text-gray-400 text-sm">No payments for {monthLabel}.</p>
           </div>
         ) : (
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            {grouped.map((group) => (
+          <div className="space-y-8">
+          {partnerGroups.length > 0 && (
+            <div>
+              <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">Partners</h2>
+              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            {partnerGroups.map((group) => (
               <div key={group.influencer?.id || "unknown"} className="border-b border-gray-100 last:border-b-0">
                 {/* Creator header row */}
                 <div className="flex items-center gap-3 px-5 py-3 bg-gray-50/50">
@@ -576,6 +589,124 @@ export default function PaymentsPage() {
                 })}
               </div>
             ))}
+              </div>
+            </div>
+          )}
+          {collabGroups.length > 0 && (
+            <div>
+              <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">Paid Collabs</h2>
+              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            {collabGroups.map((group) => (
+              <div key={group.influencer?.id || "unknown"} className="border-b border-gray-100 last:border-b-0">
+                <div className="flex items-center gap-3 px-5 py-3 bg-gray-50/50">
+                  <div className="w-8 h-8 rounded-full overflow-hidden border border-gray-200 flex-shrink-0 bg-gray-100">
+                    {group.influencer?.profile_photo_url ? (
+                      <img src={group.influencer.profile_photo_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
+                        {group.influencer?.name?.[0] || "?"}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-gray-900">{group.influencer?.name || "Unknown"}</div>
+                    <div className="text-xs text-gray-400">@{group.influencer?.instagram_handle || "—"}</div>
+                  </div>
+                  <div className="text-sm font-medium text-gray-700">
+                    ${group.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+                {group.payments.map((p) => {
+                  const sc = STATUS_CONFIG[p.status] || STATUS_CONFIG.pending;
+                  return (
+                    <div key={p.id} className="flex items-center gap-4 px-5 py-2.5 pl-16 border-t border-gray-50 hover:bg-gray-50/30">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider border ${TYPE_CONFIG.paid_collab.color}`}>
+                        Paid Collab
+                      </span>
+                      {p.deal?.campaign?.name && (
+                        <span className="text-xs text-gray-500 truncate max-w-[150px]" title={p.deal.campaign.name}>
+                          {p.deal.campaign.name}
+                        </span>
+                      )}
+                      <div className="w-24 text-sm text-gray-900">
+                        ${Number(p.amount_owed || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </div>
+                      <div className="w-36 relative">
+                        <button
+                          className="text-xs text-gray-400 hover:text-gray-600 hover:underline truncate text-left w-full"
+                          onClick={() => p.influencer && fetchPaymentInfo(p.influencer.id)}
+                        >
+                          {p.payment_method === "paypal"
+                            ? `PayPal — ${p.payment_detail || "—"}`
+                            : p.payment_method
+                            ? `Bank ${p.payment_detail || ""}`
+                            : "—"}
+                        </button>
+                        {paymentInfoOpen === p.influencer?.id && (
+                          <div className="absolute top-6 left-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-72" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex justify-between items-center mb-3">
+                              <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Payment Details</span>
+                              <button onClick={() => setPaymentInfoOpen(null)} className="text-gray-400 hover:text-gray-600">
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                            {paymentInfoLoading ? (
+                              <div className="text-xs text-gray-400">Loading…</div>
+                            ) : paymentInfoData[p.influencer?.id || ""] ? (() => {
+                              const info = paymentInfoData[p.influencer!.id];
+                              const method = info.payment_method;
+                              return (
+                                <div className="space-y-2 text-xs">
+                                  {info.payout_country && <div><span className="text-gray-400">Country:</span> <span className="text-gray-700">{info.payout_country}</span></div>}
+                                  {method === "paypal" && <div><span className="text-gray-400">PayPal:</span> <span className="text-gray-700 select-all">{info.paypal_email}</span></div>}
+                                  {method && method !== "paypal" && (
+                                    <>
+                                      {info.bank_account_name && <div><span className="text-gray-400">Name:</span> <span className="text-gray-700">{info.bank_account_name}</span></div>}
+                                      {info.bank_institution && <div><span className="text-gray-400">Institution:</span> <span className="text-gray-700">{info.bank_institution}</span></div>}
+                                      {info.bank_routing_number && <div><span className="text-gray-400">Routing:</span> <span className="text-gray-700 select-all">{info.bank_routing_number}</span></div>}
+                                      {info.bank_account_number && <div><span className="text-gray-400">Account:</span> <span className="text-gray-700 select-all">{info.bank_account_number}</span></div>}
+                                    </>
+                                  )}
+                                  {!method && <div className="text-gray-400">No payment method set</div>}
+                                </div>
+                              );
+                            })() : (
+                              <div className="text-xs text-gray-400">No payment info found</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${sc.color}`}>
+                        {sc.label}
+                      </span>
+                      <div className="flex-1" />
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {(p.status === "pending" || p.status === "approved") && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            className="h-6 text-[10px] px-2"
+                            disabled={updating === p.id}
+                            onClick={() => updatePayment(p.id, { status: "paid", approved_by: currentUser?.email || "Admin", paid_by: currentUser?.email || "Admin" }, p)}
+                          >
+                            Mark Paid
+                          </Button>
+                        )}
+                        {p.status === "paid" && (
+                          <span className="inline-flex items-center h-6 px-2 rounded text-[10px] font-medium bg-green-100 text-green-700">Paid</span>
+                        )}
+                        {p.status !== "skipped" && p.status !== "paid" && (
+                          <button className="text-[10px] text-gray-400 hover:text-gray-600 uppercase tracking-wider" onClick={() => updatePayment(p.id, { status: "skipped" }, p)}>Skip</button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+              </div>
+            </div>
+          )}
           </div>
         )}
       </main>
