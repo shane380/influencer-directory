@@ -68,6 +68,7 @@ export async function GET(request: NextRequest) {
 }
 
 // PATCH /api/admin/payments — update status, amount, notes
+// Also handles creating new rows for live-calculated payments (id starts with "live-")
 export async function PATCH(request: NextRequest) {
   const body = await request.json();
   const { id, ...updates } = body;
@@ -78,13 +79,49 @@ export async function PATCH(request: NextRequest) {
 
   const supabase = getSupabase();
 
+  // Handle live-calculated rows that need to be created in DB
+  if (typeof id === "string" && id.startsWith("live-")) {
+    const insertData: Record<string, any> = {
+      influencer_id: body.influencer_id,
+      month: body.month,
+      payment_type: body.payment_type,
+      amount_owed: body.amount_owed ?? 0,
+      status: updates.status || "approved",
+      payment_method: body.payment_method || null,
+      payment_detail: body.payment_detail || null,
+      notes: body.notes || null,
+      deal_id: body.deal_id || null,
+      calculation_details: body.calculation_details || null,
+    };
+    if (insertData.status === "approved") {
+      insertData.approved_at = new Date().toISOString();
+      insertData.approved_by = updates.approved_by || null;
+    }
+    if (insertData.status === "paid") {
+      insertData.paid_at = new Date().toISOString();
+      insertData.paid_by = updates.paid_by || null;
+      insertData.amount_paid = body.amount_paid ?? insertData.amount_owed;
+    }
+
+    const { data, error } = await (supabase.from as any)("creator_payments")
+      .insert(insertData)
+      .select()
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ payment: data });
+  }
+
+  // Existing update path
   if (updates.status === "approved") {
     updates.approved_at = new Date().toISOString();
   }
   if (updates.status === "paid") {
     updates.paid_at = new Date().toISOString();
     if (!updates.amount_paid && !body.amount_paid) {
-      // Default amount_paid to amount_owed
       const { data: existing } = await (supabase.from as any)("creator_payments")
         .select("amount_owed")
         .eq("id", id)

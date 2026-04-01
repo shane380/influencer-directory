@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Sidebar } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, RefreshCw, Pencil, Check, X, ChevronDown } from "lucide-react";
+import { Download, Pencil, Check, X, ChevronDown } from "lucide-react";
 
 interface Payment {
   id: string;
@@ -80,7 +80,6 @@ export default function PaymentsPage() {
   const [month, setMonth] = useState(defaultMonth);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
   const [updating, setUpdating] = useState<string | null>(null);
   const [editingNote, setEditingNote] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
@@ -114,7 +113,7 @@ export default function PaymentsPage() {
   const fetchPayments = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/payments?month=${month}`);
+      const res = await fetch(`/api/admin/payments/calculate?month=${month}`);
       const data = await res.json();
       setPayments(data.payments || []);
     } catch (err) {
@@ -126,19 +125,6 @@ export default function PaymentsPage() {
   useEffect(() => {
     fetchPayments();
   }, [fetchPayments]);
-
-  async function generatePayments() {
-    setGenerating(true);
-    try {
-      const res = await fetch(`/api/admin/payments/generate?month=${month}`, { method: "POST" });
-      const data = await res.json();
-      console.log("Generate result:", data);
-      await fetchPayments();
-    } catch (err) {
-      console.error("Generate failed:", err);
-    }
-    setGenerating(false);
-  }
 
   async function fetchPaymentInfo(influencerId: string) {
     if (paymentInfoData[influencerId]) {
@@ -168,18 +154,35 @@ export default function PaymentsPage() {
     setPaymentInfoLoading(false);
   }
 
-  async function updatePayment(id: string, updates: Record<string, any>) {
+  async function updatePayment(id: string, updates: Record<string, any>, fullPayment?: Payment) {
     setUpdating(id);
     try {
+      // For live-calculated rows, pass full payment data so the API can create the DB row
+      const body = typeof id === "string" && id.startsWith("live-") && fullPayment
+        ? {
+            id,
+            influencer_id: fullPayment.influencer_id,
+            month: fullPayment.month,
+            payment_type: fullPayment.payment_type,
+            amount_owed: fullPayment.amount_owed,
+            payment_method: fullPayment.payment_method,
+            payment_detail: fullPayment.payment_detail,
+            notes: fullPayment.notes,
+            deal_id: fullPayment.deal_id,
+            calculation_details: fullPayment.calculation_details,
+            ...updates,
+          }
+        : { id, ...updates };
+
       const res = await fetch("/api/admin/payments", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, ...updates }),
+        body: JSON.stringify(body),
       });
       if (res.ok) {
         const data = await res.json();
         setPayments((prev) =>
-          prev.map((p) => (p.id === id ? { ...p, ...data.payment } : p))
+          prev.map((p) => (p.id === id ? { ...p, ...data.payment, influencer: p.influencer, deal: p.deal } : p))
         );
       }
     } catch (err) {
@@ -281,15 +284,6 @@ export default function PaymentsPage() {
                 </option>
               ))}
             </select>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={generatePayments}
-              disabled={generating}
-            >
-              <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${generating ? "animate-spin" : ""}`} />
-              {generating ? "Generating..." : `Generate ${monthLabel}`}
-            </Button>
             <Button size="sm" variant="outline" onClick={exportCSV}>
               <Download className="h-3.5 w-3.5 mr-1.5" />
               Export CSV
@@ -317,10 +311,7 @@ export default function PaymentsPage() {
           <div className="text-center py-12 text-gray-400 text-sm">Loading payments...</div>
         ) : payments.length === 0 ? (
           <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
-            <p className="text-gray-400 text-sm mb-3">No payment rows for {monthLabel}.</p>
-            <Button size="sm" onClick={generatePayments} disabled={generating}>
-              Generate Payments
-            </Button>
+            <p className="text-gray-400 text-sm">No payments for {monthLabel}.</p>
           </div>
         ) : (
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
@@ -531,7 +522,7 @@ export default function PaymentsPage() {
                               updatePayment(p.id, {
                                 status: "approved",
                                 approved_by: currentUser?.email || "Admin",
-                              })
+                              }, p)
                             }
                           >
                             Approve
@@ -567,7 +558,7 @@ export default function PaymentsPage() {
                         {p.status !== "skipped" && (
                           <button
                             className="text-[10px] text-gray-400 hover:text-gray-600 uppercase tracking-wider"
-                            onClick={() => updatePayment(p.id, { status: "skipped" })}
+                            onClick={() => updatePayment(p.id, { status: "skipped" }, p)}
                           >
                             Skip
                           </button>
