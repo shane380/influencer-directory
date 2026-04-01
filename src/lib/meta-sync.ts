@@ -253,6 +253,26 @@ async function fetchAdsForHandle(
       ad.creative?.asset_feed_spec?.videos?.[0]?.video_id ||
       null;
 
+    // For video ads, try to get a higher-quality video thumbnail from Meta
+    if (videoId && thumbnailUrl) {
+      try {
+        const videoThumbUrl = `https://graph.facebook.com/${META_API_VERSION}/${videoId}/thumbnails?access_token=${accessToken}`;
+        const thumbData = await metaFetch(videoThumbUrl);
+        const bestThumb = thumbData?.data?.[0]?.uri;
+        if (bestThumb) {
+          if (r2Enabled) {
+            const r2Key = `ads/${creatorFolder}/${ad.id}/video-thumb.jpg`;
+            const r2Url = await mirrorImageToR2(bestThumb, r2Key);
+            if (r2Url) thumbnailUrl = r2Url;
+          } else {
+            thumbnailUrl = bestThumb;
+          }
+        }
+      } catch {
+        // Fall back to existing thumbnail
+      }
+    }
+
     ads.push({
       name: displayName,
       status: ad.status,
