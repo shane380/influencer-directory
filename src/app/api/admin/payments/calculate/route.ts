@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { calculateAffiliateCommission } from "@/lib/affiliate";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 function getSupabase() {
   return createClient(supabaseUrl, supabaseServiceKey);
-}
-
-function getBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_SITE_URL || "https://influencer-directory-self.vercel.app";
 }
 
 // GET /api/admin/payments/calculate?month=2026-03
@@ -85,8 +82,7 @@ export async function GET(request: NextRequest) {
     dealsByInfluencer.set(deal.influencer_id, arr);
   }
 
-  // 6. Calculate affiliate commissions in parallel
-  const baseUrl = getBaseUrl();
+  // 6. Calculate affiliate commissions in parallel (direct Shopify calls, no self-referencing HTTP)
   const affiliateResults = new Map<string, { amount: number; notes: string; details: any }>();
 
   const affiliatePromises = creators
@@ -95,26 +91,20 @@ export async function GET(request: NextRequest) {
       if (!invite?.has_affiliate || !c.affiliate_code) return false;
       const key = `${invite.influencer?.id}-affiliate_commission`;
       const existing = existingMap.get(key);
-      // Skip if already approved/paid/skipped
       return !existing || existing.status === "pending";
     })
     .map(async (c: any) => {
       const invite = inviteMap.get(c.invite_id);
       const rate = c.commission_rate || invite?.ad_spend_percentage || 10;
       try {
-        const res = await fetch(
-          `${baseUrl}/api/shopify/affiliate-orders?discount_code=${encodeURIComponent(c.affiliate_code)}&month=${month}&commission_rate=${rate}`
-        );
-        const data = await res.json();
-        if (data.summary) {
-          affiliateResults.set(invite.influencer.id, {
-            amount: data.summary.commission_owed || 0,
-            notes: data.summary.order_count > 0
-              ? `${data.summary.order_count} orders, $${data.summary.total_gross.toFixed(2)} gross, -$${data.summary.total_refunds.toFixed(2)} refunds, $${data.summary.total_net.toFixed(2)} net × ${rate}%`
-              : "No orders this month",
-            details: { ...data.summary, orders: data.orders || [] },
-          });
-        }
+        const result = await calculateAffiliateCommission(c.affiliate_code, month, rate / 100);
+        affiliateResults.set(invite.influencer.id, {
+          amount: result.summary.commission_owed,
+          notes: result.summary.order_count > 0
+            ? `${result.summary.order_count} orders, $${result.summary.total_gross.toFixed(2)} gross, -$${result.summary.total_refunds.toFixed(2)} refunds, $${result.summary.total_net.toFixed(2)} net × ${rate}%`
+            : "No orders this month",
+          details: result.summary,
+        });
       } catch {
         affiliateResults.set(invite.influencer.id, {
           amount: 0,
