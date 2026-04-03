@@ -688,6 +688,12 @@ export default function MonthCampaignViewPage() {
                   ["lead_dead", "creator_wants_paid"].includes(ci.status)
                 ).length;
 
+                // Approval breakdown
+                const approvedCount = campaignInfluencers.filter((ci) => ci.approval_status === "approved").length;
+                const declinedCount = campaignInfluencers.filter((ci) => ci.approval_status === "declined").length;
+                const pendingApprovalCount = campaignInfluencers.filter((ci) => ci.approval_status === "pending").length;
+                const hasApprovalData = campaignInfluencers.some((ci) => ci.approval_status !== null);
+
                 // Content breakdown
                 const stories = campaignInfluencers.filter((ci) => ci.content_posted === "stories").length;
                 const inFeed = campaignInfluencers.filter((ci) => ci.content_posted === "in_feed_post").length;
@@ -708,6 +714,16 @@ export default function MonthCampaignViewPage() {
                     >
                       <span className="hover:text-gray-900">{campaignInfluencers.length} influencers</span>
                     </Tooltip>
+                    {hasApprovalData && (
+                      <>
+                        <span className="text-gray-400 mx-1">·</span>
+                        <span className="flex items-center gap-2">
+                          <span className="text-green-600">{approvedCount} approved</span>
+                          <span className="text-red-500">{declinedCount} declined</span>
+                          <span className="text-amber-500">{pendingApprovalCount} pending</span>
+                        </span>
+                      </>
+                    )}
                     <span className="text-gray-400 mx-1">·</span>
                     <Tooltip
                       content={
