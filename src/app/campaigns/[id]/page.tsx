@@ -300,10 +300,29 @@ export default function CampaignDetailPage() {
     if (error) {
       console.error("Error fetching campaign influencers:", error);
     } else {
-      setCampaignInfluencers((data || []).filter((ci: any) => ci.influencer));
+      const rows: any[] = (data || []).filter((ci: any) => ci.influencer);
+
+      // Auto-fix: if campaign requires approval, backfill any null approval_status to "pending"
+      if (campaign?.requires_approval) {
+        const nullApprovalIds = rows
+          .filter((ci) => ci.approval_status === null)
+          .map((ci) => ci.id);
+        if (nullApprovalIds.length > 0) {
+          await (supabase.from("campaign_influencers") as any)
+            .update({ approval_status: "pending" })
+            .in("id", nullApprovalIds);
+          for (const row of rows) {
+            if (nullApprovalIds.includes(row.id)) {
+              row.approval_status = "pending";
+            }
+          }
+        }
+      }
+
+      setCampaignInfluencers(rows);
     }
     setLoading(false);
-  }, [supabase, campaignId]);
+  }, [supabase, campaignId, campaign?.requires_approval]);
 
   const fetchDeals = useCallback(async () => {
     const { data, error } = await supabase

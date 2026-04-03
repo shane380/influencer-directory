@@ -343,6 +343,26 @@ export default function MonthCampaignViewPage() {
         ...ci,
         collection: extractCollection(ci.campaign.name),
       }));
+
+      // Auto-fix: backfill null approval_status to "pending" for campaigns that require approval
+      const approvalCampaignIds = new Set(
+        campaignList.filter(c => c.requires_approval).map(c => c.id)
+      );
+      const nullApprovalRows = withCollection.filter(
+        (ci: any) => ci.approval_status === null && approvalCampaignIds.has(ci.campaign_id)
+      );
+      if (nullApprovalRows.length > 0) {
+        const nullIds = nullApprovalRows.map((ci: any) => ci.id);
+        await (supabase.from("campaign_influencers") as any)
+          .update({ approval_status: "pending" })
+          .in("id", nullIds);
+        for (const row of withCollection) {
+          if (nullIds.includes(row.id)) {
+            (row as any).approval_status = "pending";
+          }
+        }
+      }
+
       setCampaignInfluencers(withCollection);
     }
     setLoading(false);
