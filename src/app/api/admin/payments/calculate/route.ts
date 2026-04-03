@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { calculateAffiliateCommission } from "@/lib/affiliate";
+import { calculateAffiliateCommission, checkRefundAdjustments } from "@/lib/affiliate";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -18,6 +18,11 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = getSupabase();
+
+  // Determine if this is a past month (skip live Shopify for past months)
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const isPastMonth = month < currentMonth;
 
   // 1. Fetch existing payment records (approved/paid/skipped are locked in)
   const { data: existingPayments } = await (supabase.from as any)("creator_payments")
@@ -93,42 +98,181 @@ export async function GET(request: NextRequest) {
     excludedByInfluencer.set(e.influencer_id, arr);
   }
 
-  // 7. Calculate affiliate commissions in parallel (direct Shopify calls, no self-referencing HTTP)
+  // 7. Calculate affiliate commissions
+  // Past months: use stored calculation_details; only call Shopify if no existing row
+  // Current month: always call Shopify live
   const affiliateResults = new Map<string, { amount: number; notes: string; details: any }>();
+  const rowsToAutoInsert: any[] = []; // For persisting first-view past-month calculations
 
-  const affiliatePromises = creators
-    .filter((c: any) => {
-      const invite = inviteMap.get(c.invite_id);
-      if (!invite?.has_affiliate || !c.affiliate_code) return false;
-      const key = `${invite.influencer?.id}-affiliate_commission`;
-      const existing = existingMap.get(key);
-      return !existing || existing.status === "pending";
-    })
-    .map(async (c: any) => {
-      const invite = inviteMap.get(c.invite_id);
-      const rate = c.commission_rate || invite?.ad_spend_percentage || 10;
-      const excluded = excludedByInfluencer.get(invite.influencer.id) || [];
-      try {
-        const result = await calculateAffiliateCommission(c.affiliate_code, month, rate / 100, excluded);
-        affiliateResults.set(invite.influencer.id, {
-          amount: result.summary.commission_owed,
+  const affiliateCreators = creators.filter((c: any) => {
+    const invite = inviteMap.get(c.invite_id);
+    if (!invite?.has_affiliate || !c.affiliate_code) return false;
+    const key = `${invite.influencer?.id}-affiliate_commission`;
+    const existing = existingMap.get(key);
+    // Skip if already locked (non-pending) — regardless of past/current month
+    if (existing && existing.status !== "pending") return false;
+    return true;
+  });
+
+  const affiliatePromises = affiliateCreators.map(async (c: any) => {
+    const invite = inviteMap.get(c.invite_id);
+    const influencerId = invite.influencer.id;
+    const rate = c.commission_rate || invite?.ad_spend_percentage || 10;
+    const key = `${influencerId}-affiliate_commission`;
+    const existing = existingMap.get(key);
+
+    // Past month with existing row: use stored data, skip Shopify
+    if (isPastMonth && existing?.calculation_details) {
+      const details = existing.calculation_details;
+      affiliateResults.set(influencerId, {
+        amount: details.commission_owed ?? existing.amount_owed ?? 0,
+        notes: existing.notes || "",
+        details,
+      });
+      return;
+    }
+
+    // Past month with NO existing row, or current month: calculate live
+    const excluded = excludedByInfluencer.get(influencerId) || [];
+    try {
+      const result = await calculateAffiliateCommission(c.affiliate_code, month, rate / 100, excluded);
+      const detailsWithOrders = { ...result.summary, orders: result.orders };
+      affiliateResults.set(influencerId, {
+        amount: result.summary.commission_owed,
+        notes: result.summary.order_count > 0
+          ? `${result.summary.order_count} orders, $${result.summary.total_gross.toFixed(2)} gross, -$${result.summary.total_refunds.toFixed(2)} refunds, $${result.summary.total_net.toFixed(2)} net × ${rate}%`
+          : "No orders this month",
+        details: detailsWithOrders,
+      });
+
+      // Past month first-view: persist to DB so future loads are instant
+      if (isPastMonth && !existing) {
+        const paymentMethod = c.payment_method || null;
+        let paymentDetail = null;
+        if (paymentMethod === "paypal") paymentDetail = c.paypal_email || null;
+        else if (paymentMethod) {
+          const acct = c.bank_account_number || "";
+          paymentDetail = acct ? `···${acct.slice(-4)}` : null;
+        }
+        rowsToAutoInsert.push({
+          influencer_id: influencerId,
+          month,
+          payment_type: "affiliate_commission",
+          amount_owed: result.summary.commission_owed,
+          payment_method: paymentMethod,
+          payment_detail: paymentDetail,
           notes: result.summary.order_count > 0
             ? `${result.summary.order_count} orders, $${result.summary.total_gross.toFixed(2)} gross, -$${result.summary.total_refunds.toFixed(2)} refunds, $${result.summary.total_net.toFixed(2)} net × ${rate}%`
             : "No orders this month",
-          details: result.summary,
-        });
-      } catch {
-        affiliateResults.set(invite.influencer.id, {
-          amount: 0,
-          notes: "Failed to calculate — enter manually",
-          details: null,
+          calculation_details: detailsWithOrders,
         });
       }
-    });
+    } catch {
+      affiliateResults.set(influencerId, {
+        amount: 0,
+        notes: "Failed to calculate — enter manually",
+        details: null,
+      });
+    }
+  });
 
   await Promise.all(affiliatePromises);
 
-  // 7. Build the merged payment list
+  // Persist first-view past-month calculations
+  if (rowsToAutoInsert.length > 0) {
+    const { data: inserted } = await (supabase.from as any)("creator_payments")
+      .insert(rowsToAutoInsert)
+      .select("*");
+    // Update existingMap so the rows below get real IDs
+    for (const row of inserted || []) {
+      const key = `${row.influencer_id}-affiliate_commission`;
+      existingMap.set(key, row);
+    }
+  }
+
+  // 8. Check previous month for new refunds (only when viewing current month)
+  const refundAdjustmentPayments: any[] = [];
+  if (!isPastMonth) {
+    // Calculate previous month string
+    const [y, m] = month.split("-").map(Number);
+    const prevDate = new Date(y, m - 2, 1);
+    const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
+
+    // Fetch previous month's affiliate payment rows that have stored orders
+    const { data: prevPayments } = await (supabase.from as any)("creator_payments")
+      .select("*")
+      .eq("month", prevMonth)
+      .eq("payment_type", "affiliate_commission");
+
+    // Also fetch any existing refund_adjustment rows for this month to avoid duplicates
+    const { data: existingRefundAdjs } = await (supabase.from as any)("creator_payments")
+      .select("influencer_id, notes")
+      .eq("month", month)
+      .eq("payment_type", "refund_adjustment");
+
+    const existingRefundKeys = new Set(
+      (existingRefundAdjs || []).map((r: any) => r.influencer_id)
+    );
+
+    const refundPromises = (prevPayments || [])
+      .filter((pp: any) => pp.calculation_details?.orders && !existingRefundKeys.has(pp.influencer_id))
+      .map(async (pp: any) => {
+        const storedOrders = pp.calculation_details.orders;
+        const commissionRate = pp.calculation_details.commission_rate;
+        if (!storedOrders || !commissionRate) return;
+
+        // Find the creator's discount code
+        const creator = creators.find((c: any) => {
+          const invite = inviteMap.get(c.invite_id);
+          return invite?.influencer?.id === pp.influencer_id;
+        });
+        if (!creator?.affiliate_code) return;
+
+        try {
+          const result = await checkRefundAdjustments(storedOrders, creator.affiliate_code, prevMonth, commissionRate);
+          if (result.adjustments.length > 0 && result.total_commission_delta < -0.01) {
+            const invite = inviteMap.get(creator.invite_id);
+            const influencer = invite?.influencer || null;
+            const paymentMethod = creator.payment_method || null;
+            let paymentDetail = null;
+            if (paymentMethod === "paypal") paymentDetail = creator.paypal_email || null;
+            else if (paymentMethod) {
+              const acct = creator.bank_account_number || "";
+              paymentDetail = acct ? `···${acct.slice(-4)}` : null;
+            }
+
+            const orderNotes = result.adjustments
+              .map((a) => `Refund on ${prevMonth} order #${a.order_number}`)
+              .join("; ");
+
+            // Insert the refund adjustment row
+            const { data: inserted } = await (supabase.from as any)("creator_payments")
+              .insert({
+                influencer_id: pp.influencer_id,
+                month,
+                payment_type: "refund_adjustment",
+                amount_owed: result.total_commission_delta,
+                payment_method: paymentMethod,
+                payment_detail: paymentDetail,
+                notes: orderNotes,
+                calculation_details: { prev_month: prevMonth, adjustments: result.adjustments },
+              })
+              .select("*")
+              .single();
+
+            if (inserted) {
+              refundAdjustmentPayments.push({ ...inserted, influencer, deal: null });
+            }
+          }
+        } catch {
+          // Skip refund check failures silently
+        }
+      });
+
+    await Promise.all(refundPromises);
+  }
+
+  // 9. Build the merged payment list
   const allPayments: any[] = [];
   const processedKeys = new Set<string>();
 
@@ -277,7 +421,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Include any existing DB rows not covered by live calculation (e.g. manually added, or old types)
+  // Include any existing DB rows not covered by live calculation (e.g. manually added, old types, refund_adjustments)
   const uncoveredRows = [...existingMap.entries()].filter(([, p]) => {
     const key = p.deal_id
       ? `${p.influencer_id}-${p.payment_type}-${p.deal_id}`
@@ -299,6 +443,11 @@ export async function GET(request: NextRequest) {
       const inf = uncoveredInfMap.get(p.influencer_id) || null;
       allPayments.push({ ...p, influencer: inf, deal: null });
     }
+  }
+
+  // Add newly created refund adjustment rows
+  for (const rap of refundAdjustmentPayments) {
+    allPayments.push(rap);
   }
 
   return NextResponse.json({ payments: allPayments });

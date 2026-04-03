@@ -51,6 +51,7 @@ const TYPE_CONFIG: Record<string, { label: string; color: string }> = {
   retainer: { label: "Retainer", color: "bg-purple-50 text-purple-700 border-purple-200" },
   affiliate_commission: { label: "Affiliate", color: "bg-amber-50 text-amber-700 border-amber-200" },
   paid_collab: { label: "Paid Collab", color: "bg-pink-50 text-pink-700 border-pink-200" },
+  refund_adjustment: { label: "Refund Adj", color: "bg-red-50 text-red-700 border-red-200" },
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -451,7 +452,9 @@ export default function PaymentsPage() {
                             </button>
                           </div>
                         ) : (
-                          <>${Number(p.amount_owed || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</>
+                          <>
+                            {Number(p.amount_owed || 0) < 0 ? "-" : ""}${Math.abs(Number(p.amount_owed || 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </>
                         )}
                       </div>
 

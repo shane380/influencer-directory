@@ -133,7 +133,7 @@ export async function GET(request: NextRequest) {
             notes: result.summary.order_count > 0
               ? `${result.summary.order_count} orders, $${result.summary.total_gross.toFixed(2)} net × ${rate}%`
               : "No orders this month",
-            calculation_details: result.summary,
+            calculation_details: { ...result.summary, orders: result.orders },
           });
         } catch {
           rowsToInsert.push({
