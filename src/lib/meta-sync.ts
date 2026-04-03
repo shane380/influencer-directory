@@ -160,7 +160,7 @@ async function fetchAdsForHandle(
   // Filtered to ads matching this handle via the ad name filter
   try {
     const insightsFiltering = JSON.stringify([
-      { field: "name", operator: "CONTAIN", value: handle },
+      { field: "ad.name", operator: "CONTAIN", value: handle },
     ]);
     let insightsPageUrl: string | null =
       `https://graph.facebook.com/${META_API_VERSION}/${actId}/insights?` +
@@ -174,6 +174,9 @@ async function fetchAdsForHandle(
 
     while (insightsPageUrl) {
       const insightsData = await metaFetch(insightsPageUrl);
+      if (insightsData.error) {
+        throw new Error(`Meta insights error: ${insightsData.error.message}`);
+      }
       for (const row of insightsData.data || []) {
         const dateStr = row.date_start?.substring(0, 10);
         const monthKey = dateStr?.substring(0, 7);
@@ -364,14 +367,22 @@ export async function syncCreator(
   try {
     const result = await fetchAdsForHandle(handle, accessToken, actId, influencerId);
 
-    // Fetch existing ads to preserve mux_playback_ids
+    // Fetch existing row to preserve mux_playback_ids and historical monthly data
     const { data: existingRow } = await (db.from("creator_ad_performance") as any)
-      .select("ads")
+      .select("ads, monthly")
       .eq("instagram_handle", handle)
       .single();
 
     // Process video uploads to Mux (skips ads that already have playback IDs)
     await processVideoUploads(result.ads, existingRow?.ads || null, accessToken);
+
+    // Merge monthly data: fresh API data overwrites recent months,
+    // but historical months outside the API window are preserved
+    const existingMonthly = (existingRow?.monthly || []) as { month: string; spend: number; impressions: number }[];
+    const freshMonths = new Set(result.monthly.map((m: any) => m.month));
+    const preserved = existingMonthly.filter((m) => !freshMonths.has(m.month));
+    const mergedMonthly = [...result.monthly, ...preserved]
+      .sort((a, b) => b.month.localeCompare(a.month));
 
     await (db.from("creator_ad_performance") as any).upsert(
       {
@@ -379,7 +390,7 @@ export async function syncCreator(
         influencer_id: influencerId,
         ads: result.ads,
         totals: result.totals,
-        monthly: result.monthly,
+        monthly: mergedMonthly,
         mtd: result.mtd,
         last_mtd: result.lastMtd,
         sync_error: null,
