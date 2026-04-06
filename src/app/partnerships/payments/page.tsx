@@ -394,8 +394,8 @@ export default function PaymentsPage() {
     return groups;
   }
 
-  const partnerGroups = groupByCreator(partnerPayments);
-  const legacyGroups = groupByLegacy(legacyPayments);
+  const partnerGroups = groupByCreator(partnerPayments).sort((a, b) => b.total - a.total);
+  const legacyGroups = groupByLegacy(legacyPayments).sort((a, b) => b.total - a.total);
   const collabGroups = groupByCreator(collabPayments);
 
   // Summary stats
