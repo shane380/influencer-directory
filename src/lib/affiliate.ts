@@ -275,3 +275,130 @@ export async function calculateAffiliateCommission(
     },
   };
 }
+
+/**
+ * Calculate affiliate commissions for multiple discount codes in a single pass.
+ * Pages through all orders for the month once, matching against all codes simultaneously.
+ */
+export async function calculateBulkAffiliateCommissions(
+  codes: { code: string; commissionRate: number; excludedOrderIds?: number[] }[],
+  month: string
+): Promise<Map<string, AffiliateResult>> {
+  const storeUrl = getShopifyStoreUrl();
+  const accessToken = await getShopifyAccessToken();
+  const results = new Map<string, AffiliateResult>();
+
+  // Initialize empty results for all codes
+  for (const c of codes) {
+    results.set(c.code.toUpperCase(), {
+      orders: [],
+      summary: { order_count: 0, total_gross: 0, total_refunds: 0, total_net: 0, commission_rate: c.commissionRate, commission_owed: 0 },
+    });
+  }
+
+  if (!storeUrl || !accessToken || codes.length === 0) return results;
+
+  const codeSet = new Map(codes.map((c) => [c.code.toUpperCase(), c]));
+  const excludedSets = new Map(codes.map((c) => [c.code.toUpperCase(), new Set(c.excludedOrderIds || [])]));
+
+  // Single pass: page through all orders for the month
+  const [year, mon] = month.split("-").map(Number);
+  const startDate = new Date(year, mon - 1, 1).toISOString();
+  const endDate = new Date(year, mon, 1).toISOString();
+
+  const matchedOrders: { order: any; codeUpper: string }[] = [];
+  let pageUrl: string | null = `https://${storeUrl}/admin/api/2024-01/orders.json?status=any&limit=250&created_at_min=${startDate}&created_at_max=${endDate}`;
+
+  while (pageUrl) {
+    const res: Response = await fetch(pageUrl, {
+      headers: { "X-Shopify-Access-Token": accessToken, "Content-Type": "application/json" },
+    });
+    if (!res.ok) break;
+
+    const data = await res.json();
+    for (const order of data.orders || []) {
+      const orderCodes = (order.discount_codes || []).map((dc: any) => dc.code?.toUpperCase());
+      for (const oc of orderCodes) {
+        if (codeSet.has(oc)) {
+          matchedOrders.push({ order, codeUpper: oc });
+        }
+      }
+    }
+
+    const linkHeader = res.headers.get("Link");
+    if (linkHeader && linkHeader.includes('rel="next"')) {
+      const match = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
+      pageUrl = match ? match[1] : null;
+    } else {
+      pageUrl = null;
+    }
+  }
+
+  // Fetch refunds in parallel batches
+  const BATCH_SIZE = 10;
+  const processedOrders: { codeUpper: string; order: any; grossAmount: number; refundAmount: number }[] = [];
+
+  for (let i = 0; i < matchedOrders.length; i += BATCH_SIZE) {
+    const batch = matchedOrders.slice(i, i + BATCH_SIZE);
+    const batchResults = await Promise.all(batch.map(async ({ order, codeUpper }) => {
+      const grossAmount = parseFloat(order.subtotal_price || "0");
+      let refundAmount = 0;
+      try {
+        const refundRes = await fetch(
+          `https://${storeUrl}/admin/api/2024-01/orders/${order.id}/refunds.json`,
+          { headers: { "X-Shopify-Access-Token": accessToken, "Content-Type": "application/json" } }
+        );
+        if (refundRes.ok) {
+          const refundData = await refundRes.json();
+          for (const refund of refundData.refunds || []) {
+            for (const lineItem of refund.refund_line_items || []) {
+              refundAmount += parseFloat(lineItem.subtotal || "0");
+            }
+          }
+        }
+      } catch {}
+      return { codeUpper, order, grossAmount, refundAmount: Math.round(refundAmount * 100) / 100 };
+    }));
+    processedOrders.push(...batchResults);
+  }
+
+  // Group results by code
+  for (const { codeUpper, order, grossAmount, refundAmount } of processedOrders) {
+    const result = results.get(codeUpper)!;
+    const config = codeSet.get(codeUpper)!;
+    const excluded = excludedSets.get(codeUpper)!;
+    const netAmount = Math.round((grossAmount - refundAmount) * 100) / 100;
+
+    result.orders.push({
+      order_id: order.id,
+      order_number: order.order_number || order.name,
+      created_at: order.created_at,
+      gross_amount: grossAmount,
+      refund_amount: refundAmount,
+      net_amount: netAmount,
+      customer_name: order.customer ? `${order.customer.first_name || ""} ${order.customer.last_name || ""}`.trim() : null,
+      customer_email: order.customer?.email || order.email || null,
+      referring_site: order.referring_site || null,
+      landing_site: order.landing_site || null,
+      source_name: order.source_name || null,
+      excluded: excluded.has(order.id),
+    });
+
+    if (!excluded.has(order.id)) {
+      result.summary.total_gross += grossAmount;
+      result.summary.total_refunds += refundAmount;
+    }
+  }
+
+  // Finalize summaries
+  for (const [codeUpper, result] of results) {
+    result.orders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    result.summary.order_count = result.orders.length;
+    result.summary.total_gross = Math.round(result.summary.total_gross * 100) / 100;
+    result.summary.total_refunds = Math.round(result.summary.total_refunds * 100) / 100;
+    result.summary.total_net = Math.round((result.summary.total_gross - result.summary.total_refunds) * 100) / 100;
+    result.summary.commission_owed = Math.round(result.summary.total_net * result.summary.commission_rate * 100) / 100;
+  }
+
+  return results;
+}
