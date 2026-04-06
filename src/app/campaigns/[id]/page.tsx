@@ -57,7 +57,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Sidebar } from "@/components/sidebar";
 
-type SortField = "name" | "follower_count" | "added_at";
+type SortField = "name" | "follower_count" | "added_at" | "updated_at";
 type SortDirection = "asc" | "desc";
 
 const tierColors: Record<Tier, string> = {
@@ -234,6 +234,7 @@ export default function CampaignDetailPage() {
   const [contentFilter, setContentFilter] = useState<string>("all");
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>("all");
   const [approvalFilter, setApprovalFilter] = useState<string>("all");
+  const [ownerFilter, setOwnerFilter] = useState<string>("all");
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [selectedApprovalInfluencer, setSelectedApprovalInfluencer] = useState<CampaignInfluencerWithDetails | null>(null);
   const [currentUser, setCurrentUser] = useState<{ displayName: string; email: string; profilePhotoUrl: string | null; isAdmin: boolean; isManager: boolean } | null>(null);
@@ -352,7 +353,7 @@ export default function CampaignDetailPage() {
   // Clear selection when filters change
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [statusFilter, partnershipTypeFilter, contentFilter, approvalFilter, search]);
+  }, [statusFilter, partnershipTypeFilter, contentFilter, approvalFilter, ownerFilter, search]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -530,6 +531,11 @@ export default function CampaignDetailPage() {
       const influencer = ci.influencer;
       if (statusFilter !== "all" && ci.status !== statusFilter) return false;
       if (partnershipTypeFilter !== "all" && ci.partnership_type !== partnershipTypeFilter) return false;
+      // Owner filter
+      if (ownerFilter !== "all") {
+        if (ownerFilter === "unassigned" && ci.influencer.assigned_to) return false;
+        if (ownerFilter !== "unassigned" && ci.influencer.assigned_to !== ownerFilter) return false;
+      }
       // Approval filter
       if (approvalFilter === "pending" && ci.approval_status !== "pending") return false;
       if (approvalFilter === "needs_review" && ci.approval_status !== "pending") return false;
@@ -560,9 +566,13 @@ export default function CampaignDetailPage() {
         return multiplier * (a.influencer.follower_count - b.influencer.follower_count);
       } else if (sortField === "added_at") {
         return multiplier * (new Date(a.added_at).getTime() - new Date(b.added_at).getTime());
+      } else if (sortField === "updated_at") {
+        const aDate = a.influencer.updated_at || a.added_at;
+        const bDate = b.influencer.updated_at || b.added_at;
+        return multiplier * (new Date(aDate).getTime() - new Date(bDate).getTime());
       }
       return 0;
-    }), [campaignInfluencers, statusFilter, partnershipTypeFilter, contentFilter, orderStatusFilter, approvalFilter, search, sortField, sortDirection]);
+    }), [campaignInfluencers, statusFilter, partnershipTypeFilter, contentFilter, orderStatusFilter, approvalFilter, ownerFilter, search, sortField, sortDirection]);
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -814,6 +824,15 @@ export default function CampaignDetailPage() {
               />
             );
           })()}
+          <FilterChip
+            label="Owner"
+            value={ownerFilter === "all" ? null : ownerFilter}
+            onChange={(v) => setOwnerFilter(v ?? "all")}
+            options={[
+              { value: "unassigned", label: "Unassigned" },
+              ...profiles.map((p) => ({ value: p.id, label: p.display_name })),
+            ]}
+          />
           <div className="flex-1" />
           <Button size="sm" onClick={() => setAddInfluencerDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-1" />
@@ -877,6 +896,15 @@ export default function CampaignDetailPage() {
                       onClick={() => handleSort("added_at")}
                     >
                       Added
+                      <ArrowUpDown className="h-4 w-4" />
+                    </button>
+                  </TableHead>
+                  <TableHead>
+                    <button
+                      className="flex items-center gap-1 hover:text-gray-900"
+                      onClick={() => handleSort("updated_at")}
+                    >
+                      Modified
                       <ArrowUpDown className="h-4 w-4" />
                     </button>
                   </TableHead>
@@ -1020,6 +1048,7 @@ export default function CampaignDetailPage() {
                       </Select>
                     </TableCell>
                     <TableCell className="text-gray-600">{formatDate(ci.added_at)}</TableCell>
+                    <TableCell className="text-gray-600">{formatDate(ci.influencer.updated_at)}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {ci.shopify_order_id ? (
                         <button

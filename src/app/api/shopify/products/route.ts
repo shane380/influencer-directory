@@ -253,11 +253,12 @@ export async function GET(request: NextRequest) {
     const graphqlUrl = `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/graphql.json`;
 
     // Build query filter
+    // Use OR for title words so variant-level terms (like color) don't exclude the product.
+    // The client-side filter (searchableText) handles exact multi-word matching across title + variant + SKU.
     let gqlFilter = "status:active";
     if (searchTerm) {
-      // Search across title words
       const words = searchTerm.replace(/"/g, '\\"').split(/\s+/);
-      gqlFilter = `${words.map((w: string) => `title:*${w}*`).join(' ')} status:active OR status:draft`;
+      gqlFilter = `(${words.map((w: string) => `title:*${w}*`).join(' OR ')}) (status:active OR status:draft)`;
     }
 
     const graphqlQuery = `

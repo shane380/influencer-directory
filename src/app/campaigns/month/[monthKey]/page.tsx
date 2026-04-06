@@ -51,7 +51,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Sidebar } from "@/components/sidebar";
 
-type SortField = "name" | "follower_count" | "added_at" | "collection";
+type SortField = "name" | "follower_count" | "added_at" | "updated_at" | "collection";
 type SortDirection = "asc" | "desc";
 
 const tierColors: Record<Tier, string> = {
@@ -227,6 +227,7 @@ export default function MonthCampaignViewPage() {
   const [contentFilter, setContentFilter] = useState<string>("all");
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>("all");
   const [collectionFilter, setCollectionFilter] = useState<string>("all");
+  const [ownerFilter, setOwnerFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [influencerDialogOpen, setInfluencerDialogOpen] = useState(false);
@@ -409,7 +410,7 @@ export default function MonthCampaignViewPage() {
   // Clear selection when filters change
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [statusFilter, partnershipTypeFilter, contentFilter, collectionFilter, search]);
+  }, [statusFilter, partnershipTypeFilter, contentFilter, collectionFilter, ownerFilter, search]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -597,6 +598,11 @@ export default function MonthCampaignViewPage() {
       if (statusFilter !== "all" && ci.status !== statusFilter) return false;
       if (partnershipTypeFilter !== "all" && ci.partnership_type !== partnershipTypeFilter) return false;
       if (collectionFilter !== "all" && ci.collection !== collectionFilter) return false;
+      // Owner filter
+      if (ownerFilter !== "all") {
+        if (ownerFilter === "unassigned" && ci.influencer.assigned_to) return false;
+        if (ownerFilter !== "unassigned" && ci.influencer.assigned_to !== ownerFilter) return false;
+      }
       if (contentFilter !== "all" && ci.content_posted !== contentFilter) return false;
       // Order status filter
       if (orderStatusFilter !== "all") {
@@ -623,9 +629,13 @@ export default function MonthCampaignViewPage() {
         return multiplier * (new Date(a.added_at).getTime() - new Date(b.added_at).getTime());
       } else if (sortField === "collection") {
         return multiplier * (a.collection || "").localeCompare(b.collection || "");
+      } else if (sortField === "updated_at") {
+        const aDate = a.influencer.updated_at || a.added_at;
+        const bDate = b.influencer.updated_at || b.added_at;
+        return multiplier * (new Date(aDate).getTime() - new Date(bDate).getTime());
       }
       return 0;
-    }), [campaignInfluencers, statusFilter, partnershipTypeFilter, contentFilter, orderStatusFilter, collectionFilter, search, sortField, sortDirection]);
+    }), [campaignInfluencers, statusFilter, partnershipTypeFilter, contentFilter, orderStatusFilter, collectionFilter, ownerFilter, search, sortField, sortDirection]);
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -853,6 +863,15 @@ export default function MonthCampaignViewPage() {
               { value: "delivered", label: "Delivered" },
             ]}
           />
+          <FilterChip
+            label="Owner"
+            value={ownerFilter === "all" ? null : ownerFilter}
+            onChange={(v) => setOwnerFilter(v ?? "all")}
+            options={[
+              { value: "unassigned", label: "Unassigned" },
+              ...profiles.map((p) => ({ value: p.id, label: p.display_name })),
+            ]}
+          />
           <div className="flex-1" />
           <div className="flex items-center gap-2">
             <Select
@@ -935,6 +954,24 @@ export default function MonthCampaignViewPage() {
                   <TableHead>Partnership</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Owner</TableHead>
+                  <TableHead>
+                    <button
+                      className="flex items-center gap-1 hover:text-gray-900"
+                      onClick={() => handleSort("added_at")}
+                    >
+                      Added
+                      <ArrowUpDown className="h-4 w-4" />
+                    </button>
+                  </TableHead>
+                  <TableHead>
+                    <button
+                      className="flex items-center gap-1 hover:text-gray-900"
+                      onClick={() => handleSort("updated_at")}
+                    >
+                      Modified
+                      <ArrowUpDown className="h-4 w-4" />
+                    </button>
+                  </TableHead>
                   <TableHead>Order</TableHead>
                   <TableHead>Content</TableHead>
                   <TableHead>Deal</TableHead>
@@ -1092,6 +1129,8 @@ export default function MonthCampaignViewPage() {
                         ))}
                       </Select>
                     </TableCell>
+                    <TableCell className="text-gray-600">{formatDate(ci.added_at)}</TableCell>
+                    <TableCell className="text-gray-600">{formatDate(ci.influencer.updated_at)}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {ci.shopify_order_id ? (
                         <button
