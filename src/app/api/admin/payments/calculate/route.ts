@@ -553,10 +553,12 @@ export async function GET(request: NextRequest) {
   }
 
   // 9b. Legacy affiliate payment rows
+  const processedLegacyIds = new Set<string>();
   for (const la of (legacyAffiliates || [])) {
     const existingLegacy = [...existingMap.values()].find(
       (p) => p.legacy_affiliate_id === la.id && p.payment_type === "legacy_affiliate_commission"
     );
+    if (existingLegacy) processedLegacyIds.add(existingLegacy.id);
 
     const legacyMeta = {
       id: la.id,
@@ -595,6 +597,9 @@ export async function GET(request: NextRequest) {
 
   // Include any existing DB rows not covered by live calculation (e.g. manually added, old types, refund_adjustments)
   const uncoveredRows = [...existingMap.entries()].filter(([, p]) => {
+    // Skip rows already handled by legacy affiliate section
+    if (processedLegacyIds.has(p.id)) return false;
+    if (p.legacy_affiliate_id) return false;
     const key = p.deal_id
       ? `${p.influencer_id}-${p.payment_type}-${p.deal_id}`
       : `${p.influencer_id}-${p.payment_type}`;
