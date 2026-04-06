@@ -91,6 +91,7 @@ export async function PATCH(request: NextRequest) {
       payment_detail: body.payment_detail || null,
       notes: body.notes || null,
       deal_id: body.deal_id || null,
+      legacy_affiliate_id: body.legacy_affiliate_id || null,
       calculation_details: body.calculation_details || null,
     };
     if (insertData.status === "approved") {

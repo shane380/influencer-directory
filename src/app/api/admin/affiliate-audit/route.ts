@@ -8,46 +8,73 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 // GET: Fetch affiliate orders with attribution for audit
 export async function GET(request: NextRequest) {
   const influencerId = request.nextUrl.searchParams.get("influencer_id");
+  const legacyAffiliateId = request.nextUrl.searchParams.get("legacy_affiliate_id");
   const month = request.nextUrl.searchParams.get("month");
 
-  if (!influencerId || !month) {
-    return NextResponse.json({ error: "influencer_id and month required" }, { status: 400 });
+  if ((!influencerId && !legacyAffiliateId) || !month) {
+    return NextResponse.json({ error: "influencer_id or legacy_affiliate_id, and month required" }, { status: 400 });
   }
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-  // Get creator's affiliate code and commission rate
-  const { data: invite } = await (supabase.from as any)("creator_invites")
-    .select("id, commission_rate")
-    .eq("influencer_id", influencerId)
-    .limit(1)
-    .single();
+  let affiliateCode: string;
+  let rate: number;
 
-  if (!invite) {
-    return NextResponse.json({ error: "No invite found for influencer" }, { status: 404 });
+  if (legacyAffiliateId) {
+    // Legacy affiliate: look up code/rate directly
+    const { data: la } = await (supabase.from as any)("legacy_affiliates")
+      .select("discount_code, commission_rate")
+      .eq("id", legacyAffiliateId)
+      .single();
+
+    if (!la) {
+      return NextResponse.json({ error: "Legacy affiliate not found" }, { status: 404 });
+    }
+
+    affiliateCode = la.discount_code;
+    rate = la.commission_rate || 25;
+  } else {
+    // Partner affiliate: look up via invite → creator
+    const { data: invite } = await (supabase.from as any)("creator_invites")
+      .select("id, commission_rate")
+      .eq("influencer_id", influencerId)
+      .limit(1)
+      .single();
+
+    if (!invite) {
+      return NextResponse.json({ error: "No invite found for influencer" }, { status: 404 });
+    }
+
+    const { data: creator } = await (supabase.from as any)("creators")
+      .select("affiliate_code, commission_rate")
+      .eq("invite_id", invite.id)
+      .single();
+
+    if (!creator?.affiliate_code) {
+      return NextResponse.json({ error: "No affiliate code found" }, { status: 404 });
+    }
+
+    affiliateCode = creator.affiliate_code;
+    rate = creator.commission_rate || invite.commission_rate || 10;
   }
 
-  const { data: creator } = await (supabase.from as any)("creators")
-    .select("affiliate_code, commission_rate")
-    .eq("invite_id", invite.id)
-    .single();
+  // Get excluded order IDs (only for partner affiliates with influencer_id)
+  const excludedOrderIds: number[] = [];
+  const excludedReasons = new Map<number, string>();
 
-  if (!creator?.affiliate_code) {
-    return NextResponse.json({ error: "No affiliate code found" }, { status: 404 });
+  if (influencerId) {
+    const { data: excluded } = await (supabase.from as any)("excluded_affiliate_orders")
+      .select("order_id, reason")
+      .eq("influencer_id", influencerId);
+
+    for (const e of excluded || []) {
+      excludedOrderIds.push(e.order_id);
+      excludedReasons.set(e.order_id, e.reason);
+    }
   }
-
-  const rate = creator.commission_rate || invite.commission_rate || 10;
-
-  // Get excluded order IDs
-  const { data: excluded } = await (supabase.from as any)("excluded_affiliate_orders")
-    .select("order_id, reason")
-    .eq("influencer_id", influencerId);
-
-  const excludedOrderIds = (excluded || []).map((e: any) => e.order_id);
-  const excludedReasons = new Map((excluded || []).map((e: any) => [e.order_id, e.reason]));
 
   // Calculate with exclusions
-  const result = await calculateAffiliateCommission(creator.affiliate_code, month, rate / 100, excludedOrderIds);
+  const result = await calculateAffiliateCommission(affiliateCode, month, rate / 100, excludedOrderIds);
 
   // Add exclusion reasons to orders
   const orders = result.orders.map((o) => ({
@@ -58,7 +85,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     orders,
     summary: result.summary,
-    affiliate_code: creator.affiliate_code,
+    affiliate_code: affiliateCode,
     commission_rate: rate,
   });
 }

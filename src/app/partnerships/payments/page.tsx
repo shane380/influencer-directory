@@ -24,6 +24,7 @@ interface Payment {
   paid_by: string | null;
   paid_at: string | null;
   deal_id: string | null;
+  legacy_affiliate_id: string | null;
   calculation_details: any;
   created_at: string;
   influencer: {
@@ -38,10 +39,36 @@ interface Payment {
     payment_status: string;
     campaign: { name: string } | null;
   } | null;
+  legacyAffiliate?: {
+    id: string;
+    name: string;
+    discount_code: string;
+    commission_rate: number;
+    payment_method: string | null;
+    payment_detail: string | null;
+  } | null;
+}
+
+interface LegacyAffiliate {
+  id: string;
+  name: string;
+  discount_code: string;
+  commission_rate: number;
+  status: string;
+  influencer_id: string | null;
+  payment_method: string | null;
+  payment_detail: string | null;
+  notes: string | null;
 }
 
 interface GroupedCreator {
   influencer: Payment["influencer"];
+  payments: Payment[];
+  total: number;
+}
+
+interface GroupedLegacy {
+  legacyAffiliate: Payment["legacyAffiliate"];
   payments: Payment[];
   total: number;
 }
@@ -52,6 +79,7 @@ const TYPE_CONFIG: Record<string, { label: string; color: string }> = {
   affiliate_commission: { label: "Affiliate", color: "bg-amber-50 text-amber-700 border-amber-200" },
   paid_collab: { label: "Paid Collab", color: "bg-pink-50 text-pink-700 border-pink-200" },
   refund_adjustment: { label: "Refund Adj", color: "bg-red-50 text-red-700 border-red-200" },
+  legacy_affiliate_commission: { label: "Legacy Aff", color: "bg-orange-50 text-orange-700 border-orange-200" },
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -94,6 +122,11 @@ export default function PaymentsPage() {
   const [auditData, setAuditData] = useState<any>(null);
   const [auditLoading, setAuditLoading] = useState(false);
   const [excludingOrder, setExcludingOrder] = useState<number | null>(null);
+  const [legacyModalOpen, setLegacyModalOpen] = useState(false);
+  const [legacyAffiliates, setLegacyAffiliates] = useState<LegacyAffiliate[]>([]);
+  const [legacyForm, setLegacyForm] = useState({ name: "", discount_code: "", commission_rate: "25", payment_method: "", payment_detail: "", notes: "" });
+  const [legacySaving, setLegacySaving] = useState(false);
+  const [legacyEditing, setLegacyEditing] = useState<string | null>(null);
   const monthOptions = getMonthOptions();
 
   useEffect(() => {
@@ -127,15 +160,75 @@ export default function PaymentsPage() {
     setLoading(false);
   }, [month]);
 
+  const fetchLegacyAffiliates = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/legacy-affiliates");
+      const data = await res.json();
+      setLegacyAffiliates(data.legacyAffiliates || []);
+    } catch {}
+  }, []);
+
   useEffect(() => {
     fetchPayments();
   }, [fetchPayments]);
 
-  async function openAudit(influencerId: string, name: string) {
+  useEffect(() => {
+    fetchLegacyAffiliates();
+  }, [fetchLegacyAffiliates]);
+
+  async function saveLegacyAffiliate() {
+    setLegacySaving(true);
+    try {
+      if (legacyEditing) {
+        await fetch("/api/admin/legacy-affiliates", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: legacyEditing,
+            name: legacyForm.name,
+            discount_code: legacyForm.discount_code,
+            commission_rate: parseFloat(legacyForm.commission_rate) || 25,
+            payment_method: legacyForm.payment_method || null,
+            payment_detail: legacyForm.payment_detail || null,
+            notes: legacyForm.notes || null,
+          }),
+        });
+      } else {
+        await fetch("/api/admin/legacy-affiliates", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: legacyForm.name,
+            discount_code: legacyForm.discount_code,
+            commission_rate: parseFloat(legacyForm.commission_rate) || 25,
+            payment_method: legacyForm.payment_method || null,
+            payment_detail: legacyForm.payment_detail || null,
+            notes: legacyForm.notes || null,
+          }),
+        });
+      }
+      setLegacyForm({ name: "", discount_code: "", commission_rate: "25", payment_method: "", payment_detail: "", notes: "" });
+      setLegacyEditing(null);
+      await fetchLegacyAffiliates();
+      fetchPayments();
+    } catch {}
+    setLegacySaving(false);
+  }
+
+  async function removeLegacyAffiliate(id: string) {
+    await fetch(`/api/admin/legacy-affiliates?id=${id}`, { method: "DELETE" });
+    await fetchLegacyAffiliates();
+    fetchPayments();
+  }
+
+  async function openAudit(influencerId: string, name: string, legacyAffiliateId?: string) {
     setAuditOpen({ influencerId, name });
     setAuditLoading(true);
     try {
-      const res = await fetch(`/api/admin/affiliate-audit?influencer_id=${influencerId}&month=${month}`);
+      const param = legacyAffiliateId
+        ? `legacy_affiliate_id=${legacyAffiliateId}`
+        : `influencer_id=${influencerId}`;
+      const res = await fetch(`/api/admin/affiliate-audit?${param}&month=${month}`);
       const data = await res.json();
       setAuditData(data);
     } catch {}
@@ -209,6 +302,7 @@ export default function PaymentsPage() {
             payment_detail: fullPayment.payment_detail,
             notes: fullPayment.notes,
             deal_id: fullPayment.deal_id,
+            legacy_affiliate_id: fullPayment.legacy_affiliate_id,
             calculation_details: fullPayment.calculation_details,
             ...updates,
           }
@@ -222,7 +316,7 @@ export default function PaymentsPage() {
       if (res.ok) {
         const data = await res.json();
         setPayments((prev) =>
-          prev.map((p) => (p.id === id ? { ...p, ...data.payment, influencer: p.influencer, deal: p.deal } : p))
+          prev.map((p) => (p.id === id ? { ...p, ...data.payment, influencer: p.influencer, deal: p.deal, legacyAffiliate: p.legacyAffiliate } : p))
         );
       }
     } catch (err) {
@@ -241,8 +335,8 @@ export default function PaymentsPage() {
       ...rows.map((p) => {
         const tc = TYPE_CONFIG[p.payment_type];
         return [
-          p.influencer?.name || "",
-          p.influencer?.instagram_handle || "",
+          p.influencer?.name || p.legacyAffiliate?.name || "",
+          p.influencer?.instagram_handle || (p.legacyAffiliate ? p.legacyAffiliate.discount_code : "") || "",
           tc?.label || p.payment_type,
           p.amount_owed ?? "",
           p.amount_paid ?? "",
@@ -265,8 +359,9 @@ export default function PaymentsPage() {
     URL.revokeObjectURL(url);
   }
 
-  // Split into partners vs paid collabs, then group by creator
-  const partnerPayments = payments.filter((p) => p.payment_type !== "paid_collab");
+  // Split into partners, legacy affiliates, and paid collabs
+  const partnerPayments = payments.filter((p) => p.payment_type !== "paid_collab" && p.payment_type !== "legacy_affiliate_commission" && !p.legacy_affiliate_id);
+  const legacyPayments = payments.filter((p) => p.payment_type === "legacy_affiliate_commission" || (p.legacy_affiliate_id && p.payment_type === "refund_adjustment"));
   const collabPayments = payments.filter((p) => p.payment_type === "paid_collab");
 
   function groupByCreator(items: Payment[]): GroupedCreator[] {
@@ -284,7 +379,23 @@ export default function PaymentsPage() {
     return groups;
   }
 
+  function groupByLegacy(items: Payment[]): GroupedLegacy[] {
+    const groups: GroupedLegacy[] = [];
+    const map: Record<string, GroupedLegacy> = {};
+    for (const p of items) {
+      const key = p.legacy_affiliate_id || "unknown";
+      if (!map[key]) {
+        map[key] = { legacyAffiliate: p.legacyAffiliate, payments: [], total: 0 };
+        groups.push(map[key]);
+      }
+      map[key].payments.push(p);
+      map[key].total += Number(p.amount_owed || 0);
+    }
+    return groups;
+  }
+
   const partnerGroups = groupByCreator(partnerPayments);
+  const legacyGroups = groupByLegacy(legacyPayments);
   const collabGroups = groupByCreator(collabPayments);
 
   // Summary stats
@@ -331,6 +442,12 @@ export default function PaymentsPage() {
                 </option>
               ))}
             </select>
+            <button
+              className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded px-2.5 py-1.5"
+              onClick={() => { setLegacyModalOpen(true); setLegacyEditing(null); setLegacyForm({ name: "", discount_code: "", commission_rate: "25", payment_method: "", payment_detail: "", notes: "" }); }}
+            >
+              Legacy Codes
+            </button>
             <Button size="sm" variant="outline" onClick={exportCSV}>
               <Download className="h-3.5 w-3.5 mr-1.5" />
               Export CSV
@@ -627,6 +744,131 @@ export default function PaymentsPage() {
               </div>
             </div>
           )}
+          {/* Legacy Affiliates Section */}
+          {legacyGroups.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Legacy Affiliates</h2>
+                <button
+                  className="text-xs text-gray-400 hover:text-gray-600"
+                  onClick={() => { setLegacyModalOpen(true); setLegacyEditing(null); setLegacyForm({ name: "", discount_code: "", commission_rate: "25", payment_method: "", payment_detail: "", notes: "" }); }}
+                >
+                  Manage
+                </button>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                {legacyGroups.map((group) => (
+                  <div key={group.legacyAffiliate?.id || "unknown"} className="border-b border-gray-100 last:border-b-0">
+                    <div className="flex items-center gap-3 px-5 py-3 bg-gray-50/50">
+                      <div className="w-8 h-8 rounded-full overflow-hidden border border-gray-200 flex-shrink-0 bg-orange-50 flex items-center justify-center">
+                        <span className="text-xs font-medium text-orange-600">{group.legacyAffiliate?.name?.[0] || "?"}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-900">{group.legacyAffiliate?.name || "Unknown"}</div>
+                        <div className="text-xs text-gray-400">{group.legacyAffiliate?.discount_code || "—"} · {group.legacyAffiliate?.commission_rate || 25}%</div>
+                      </div>
+                      <div className="text-sm font-medium text-gray-700">
+                        ${group.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
+
+                    {group.payments.map((p) => {
+                      const tc = TYPE_CONFIG[p.payment_type] || { label: p.payment_type, color: "bg-gray-100 text-gray-600" };
+                      const sc = STATUS_CONFIG[p.status] || STATUS_CONFIG.pending;
+                      return (
+                        <div key={p.id}>
+                          <div className="flex items-center gap-4 px-5 py-2.5 pl-16 border-t border-gray-50 hover:bg-gray-50/30">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider border ${tc.color}`}>
+                              {tc.label}
+                            </span>
+
+                            {p.payment_type === "legacy_affiliate_commission" && p.legacyAffiliate && (
+                              <button
+                                className="text-[10px] text-blue-500 hover:text-blue-700 uppercase tracking-wider flex-shrink-0"
+                                onClick={() => openAudit(p.legacy_affiliate_id || "", p.legacyAffiliate!.name, p.legacy_affiliate_id || undefined)}
+                              >
+                                Audit
+                              </button>
+                            )}
+
+                            <div className="w-24 text-sm text-gray-900">
+                              {Number(p.amount_owed || 0) < 0 ? "-" : ""}${Math.abs(Number(p.amount_owed || 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </div>
+
+                            <div className="w-36">
+                              <span className="text-xs text-gray-400 truncate">
+                                {p.payment_method === "paypal"
+                                  ? `PayPal — ${p.payment_detail || "—"}`
+                                  : p.payment_method
+                                  ? `Bank ${p.payment_detail || ""}`
+                                  : "—"}
+                              </span>
+                            </div>
+
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${sc.color}`}>
+                              {sc.label}
+                            </span>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1">
+                                <span className="text-xs text-gray-400 truncate">{p.notes || ""}</span>
+                                <button
+                                  className="text-gray-300 hover:text-gray-500 flex-shrink-0"
+                                  onClick={() => { setEditingNote(p.id); setNoteText(p.notes || ""); }}
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {(p.status === "pending" || p.status === "approved") && (
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  className="h-6 text-[10px] px-2"
+                                  disabled={updating === p.id}
+                                  onClick={() => updatePayment(p.id, { status: "paid", approved_by: currentUser?.email || "Admin", paid_by: currentUser?.email || "Admin" }, p)}
+                                >
+                                  Mark Paid
+                                </Button>
+                              )}
+                              {p.status === "paid" && (
+                                <span className="inline-flex items-center h-6 px-2 rounded text-[10px] font-medium bg-green-100 text-green-700">Paid</span>
+                              )}
+                              {p.status !== "skipped" && p.status !== "paid" && (
+                                <button className="text-[10px] text-gray-400 hover:text-gray-600 uppercase tracking-wider" onClick={() => updatePayment(p.id, { status: "skipped" }, p)}>Skip</button>
+                              )}
+                            </div>
+                          </div>
+
+                          {p.payment_type === "legacy_affiliate_commission" && expandedDetails.has(p.id) && p.calculation_details && (
+                            <div className="px-5 pl-16 pb-3 bg-orange-50/30 border-t border-orange-100">
+                              <div className="text-[10px] uppercase tracking-wider text-gray-400 mt-2 mb-1.5">
+                                {p.calculation_details.order_count} orders &middot; ${p.calculation_details.total_gross?.toFixed(2)} gross &middot; -${p.calculation_details.total_refunds?.toFixed(2)} refunds &middot; ${p.calculation_details.total_net?.toFixed(2)} net &times; {(p.calculation_details.commission_rate * 100).toFixed(0)}% = ${p.calculation_details.commission_owed?.toFixed(2)}
+                              </div>
+                              <div className="space-y-0.5">
+                                {(p.calculation_details.orders || []).map((o: any, idx: number) => (
+                                  <div key={idx} className="flex items-center gap-4 text-[11px] text-gray-500">
+                                    <span className="w-16 text-gray-400">#{o.order_number}</span>
+                                    <span className="w-20">{new Date(o.created_at).toLocaleDateString()}</span>
+                                    <span className="w-16 text-right">${o.gross_amount.toFixed(2)}</span>
+                                    {o.refund_amount > 0 && <span className="text-red-400 w-16 text-right">-${o.refund_amount.toFixed(2)}</span>}
+                                    <span className="font-medium text-gray-700">${o.net_amount.toFixed(2)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {collabGroups.length > 0 && (
             <div>
               <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">Paid Collabs</h2>
@@ -744,6 +986,150 @@ export default function PaymentsPage() {
           )}
           </div>
         )}
+      {/* Legacy Affiliates Management Modal */}
+      {legacyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setLegacyModalOpen(false)}>
+          <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <div className="text-sm font-semibold text-gray-900">Manage Legacy Affiliate Codes</div>
+              <button onClick={() => setLegacyModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-6">
+              {/* Existing codes */}
+              {legacyAffiliates.length > 0 && (
+                <table className="w-full text-xs mb-6">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 font-medium text-gray-500">Name</th>
+                      <th className="text-left py-2 font-medium text-gray-500">Code</th>
+                      <th className="text-left py-2 font-medium text-gray-500">Rate</th>
+                      <th className="text-left py-2 font-medium text-gray-500">Payment</th>
+                      <th className="text-left py-2 font-medium text-gray-500">Status</th>
+                      <th className="py-2 w-24"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {legacyAffiliates.map((la) => (
+                      <tr key={la.id} className="border-b border-gray-50">
+                        <td className="py-2 text-gray-700">{la.name}</td>
+                        <td className="py-2 font-mono text-gray-500">{la.discount_code}</td>
+                        <td className="py-2 text-gray-500">{la.commission_rate}%</td>
+                        <td className="py-2 text-gray-500">
+                          {la.payment_method === "paypal" ? `PayPal — ${la.payment_detail || ""}` : la.payment_method ? `Bank ${la.payment_detail || ""}` : "—"}
+                        </td>
+                        <td className="py-2">
+                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${la.status === "active" ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-400"}`}>
+                            {la.status}
+                          </span>
+                        </td>
+                        <td className="py-2 text-right">
+                          <button
+                            className="text-[10px] text-blue-500 hover:text-blue-700 uppercase tracking-wider mr-2"
+                            onClick={() => {
+                              setLegacyEditing(la.id);
+                              setLegacyForm({
+                                name: la.name,
+                                discount_code: la.discount_code,
+                                commission_rate: String(la.commission_rate),
+                                payment_method: la.payment_method || "",
+                                payment_detail: la.payment_detail || "",
+                                notes: la.notes || "",
+                              });
+                            }}
+                          >
+                            Edit
+                          </button>
+                          {la.status === "active" && (
+                            <button
+                              className="text-[10px] text-red-500 hover:text-red-700 uppercase tracking-wider"
+                              onClick={() => removeLegacyAffiliate(la.id)}
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
+              {/* Add / Edit form */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
+                  {legacyEditing ? "Edit Code" : "Add New Code"}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    className="col-span-1 border border-gray-200 rounded px-3 py-1.5 text-xs"
+                    placeholder="Name (e.g. Molly Dalton)"
+                    value={legacyForm.name}
+                    onChange={(e) => setLegacyForm({ ...legacyForm, name: e.target.value })}
+                  />
+                  <input
+                    className="col-span-1 border border-gray-200 rounded px-3 py-1.5 text-xs font-mono"
+                    placeholder="Discount Code (e.g. MOLLYDALTON)"
+                    value={legacyForm.discount_code}
+                    onChange={(e) => setLegacyForm({ ...legacyForm, discount_code: e.target.value })}
+                  />
+                  <input
+                    className="col-span-1 border border-gray-200 rounded px-3 py-1.5 text-xs"
+                    placeholder="Commission Rate (%)"
+                    value={legacyForm.commission_rate}
+                    onChange={(e) => setLegacyForm({ ...legacyForm, commission_rate: e.target.value })}
+                    type="number"
+                  />
+                  <select
+                    className="col-span-1 border border-gray-200 rounded px-3 py-1.5 text-xs"
+                    value={legacyForm.payment_method}
+                    onChange={(e) => setLegacyForm({ ...legacyForm, payment_method: e.target.value })}
+                  >
+                    <option value="">Payment Method...</option>
+                    <option value="paypal">PayPal</option>
+                    <option value="bank">Bank Transfer</option>
+                  </select>
+                  <input
+                    className="col-span-1 border border-gray-200 rounded px-3 py-1.5 text-xs"
+                    placeholder="Payment Detail (email or account)"
+                    value={legacyForm.payment_detail}
+                    onChange={(e) => setLegacyForm({ ...legacyForm, payment_detail: e.target.value })}
+                  />
+                  <input
+                    className="col-span-1 border border-gray-200 rounded px-3 py-1.5 text-xs"
+                    placeholder="Notes (optional)"
+                    value={legacyForm.notes}
+                    onChange={(e) => setLegacyForm({ ...legacyForm, notes: e.target.value })}
+                  />
+                </div>
+                <div className="flex items-center gap-2 mt-3">
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs"
+                    disabled={!legacyForm.name || !legacyForm.discount_code || legacySaving}
+                    onClick={saveLegacyAffiliate}
+                  >
+                    {legacySaving ? "Saving..." : legacyEditing ? "Update" : "Add Code"}
+                  </Button>
+                  {legacyEditing && (
+                    <button
+                      className="text-xs text-gray-400 hover:text-gray-600"
+                      onClick={() => {
+                        setLegacyEditing(null);
+                        setLegacyForm({ name: "", discount_code: "", commission_rate: "25", payment_method: "", payment_detail: "", notes: "" });
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Affiliate Audit Modal */}
       {auditOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { setAuditOpen(null); setAuditData(null); }}>

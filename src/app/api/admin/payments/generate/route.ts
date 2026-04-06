@@ -293,6 +293,71 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Legacy affiliates
+  const { data: legacyAffiliates } = await (supabase.from as any)("legacy_affiliates")
+    .select("*")
+    .eq("status", "active");
+
+  for (const la of (legacyAffiliates || [])) {
+    // Check if already exists
+    const { data: existing } = await (supabase.from as any)("creator_payments")
+      .select("id")
+      .eq("legacy_affiliate_id", la.id)
+      .eq("month", month)
+      .eq("payment_type", "legacy_affiliate_commission")
+      .maybeSingle();
+
+    if (existing) {
+      skipped++;
+      details.push(`Skipped: legacy_affiliate_commission for ${la.name} (already exists)`);
+      continue;
+    }
+
+    // Fetch Shopify orders
+    const rate = la.commission_rate || 25;
+    let amount = 0;
+    let notes = "No orders this month";
+    let calculationDetails = null;
+    try {
+      const baseUrl = getBaseUrl();
+      const res = await fetch(
+        `${baseUrl}/api/shopify/affiliate-orders?discount_code=${encodeURIComponent(la.discount_code)}&month=${month}&commission_rate=${rate}`,
+        { headers: { "x-api-key": supabaseServiceKey } }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        amount = data.summary?.commission_owed || 0;
+        calculationDetails = { ...data.summary, orders: data.orders };
+        if (data.summary?.order_count > 0) {
+          notes = `${data.summary.order_count} orders, $${data.summary.total_gross.toFixed(2)} gross, -$${data.summary.total_refunds.toFixed(2)} refunds, $${data.summary.total_net.toFixed(2)} net × ${rate}%`;
+        }
+      }
+    } catch {
+      notes = "Failed to fetch orders";
+    }
+
+    const { error } = await (supabase.from as any)("creator_payments").insert({
+      legacy_affiliate_id: la.id,
+      influencer_id: la.influencer_id || null,
+      month,
+      payment_type: "legacy_affiliate_commission",
+      amount_owed: amount,
+      payment_method: la.payment_method || null,
+      payment_detail: la.payment_detail || null,
+      notes,
+      calculation_details: calculationDetails,
+    });
+
+    if (error) {
+      console.error(`Legacy affiliate insert error for ${la.name}:`, error);
+      errors++;
+      details.push(`Error: legacy_affiliate_commission ${la.name}: ${error.message}`);
+    } else {
+      created++;
+      details.push(`Created: legacy_affiliate_commission - ${la.name} ($${amount.toFixed(2)})`);
+    }
+  }
+
   return NextResponse.json({
     summary: { created, skipped, errors },
     details,

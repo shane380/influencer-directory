@@ -190,6 +190,79 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // 7b. Calculate legacy affiliate commissions
+  const { data: legacyAffiliates } = await (supabase.from as any)("legacy_affiliates")
+    .select("*")
+    .eq("status", "active");
+
+  const legacyResults = new Map<string, { amount: number; notes: string; details: any }>();
+  const legacyRowsToInsert: any[] = [];
+
+  const legacyPromises = (legacyAffiliates || []).map(async (la: any) => {
+    const key = `${la.id}-legacy_affiliate_commission`;
+    // Check existing map using legacy key format
+    const existingLegacy = [...existingMap.values()].find(
+      (p) => p.legacy_affiliate_id === la.id && p.payment_type === "legacy_affiliate_commission"
+    );
+
+    if (existingLegacy && existingLegacy.status !== "pending") return;
+
+    // Past month with existing row: use stored data
+    if (isPastMonth && existingLegacy?.calculation_details) {
+      const details = existingLegacy.calculation_details;
+      legacyResults.set(la.id, {
+        amount: details.commission_owed ?? existingLegacy.amount_owed ?? 0,
+        notes: existingLegacy.notes || "",
+        details,
+      });
+      return;
+    }
+
+    // Calculate live from Shopify
+    const rate = la.commission_rate || 25;
+    try {
+      const result = await calculateAffiliateCommission(la.discount_code, month, rate / 100, []);
+      const detailsWithOrders = { ...result.summary, orders: result.orders };
+      legacyResults.set(la.id, {
+        amount: result.summary.commission_owed,
+        notes: result.summary.order_count > 0
+          ? `${result.summary.order_count} orders, $${result.summary.total_gross.toFixed(2)} gross, -$${result.summary.total_refunds.toFixed(2)} refunds, $${result.summary.total_net.toFixed(2)} net × ${rate}%`
+          : "No orders this month",
+        details: detailsWithOrders,
+      });
+
+      if (isPastMonth && !existingLegacy) {
+        legacyRowsToInsert.push({
+          legacy_affiliate_id: la.id,
+          influencer_id: la.influencer_id || null,
+          month,
+          payment_type: "legacy_affiliate_commission",
+          amount_owed: result.summary.commission_owed,
+          payment_method: la.payment_method || null,
+          payment_detail: la.payment_detail || null,
+          notes: result.summary.order_count > 0
+            ? `${result.summary.order_count} orders, $${result.summary.total_gross.toFixed(2)} gross, -$${result.summary.total_refunds.toFixed(2)} refunds, $${result.summary.total_net.toFixed(2)} net × ${rate}%`
+            : "No orders this month",
+          calculation_details: detailsWithOrders,
+        });
+      }
+    } catch {
+      legacyResults.set(la.id, {
+        amount: 0,
+        notes: "Failed to calculate — enter manually",
+        details: null,
+      });
+    }
+  });
+
+  await Promise.all(legacyPromises);
+
+  if (legacyRowsToInsert.length > 0) {
+    await (supabase.from as any)("creator_payments")
+      .insert(legacyRowsToInsert)
+      .select("*");
+  }
+
   // 8. Check previous month for new refunds (only when viewing current month)
   const refundAdjustmentPayments: any[] = [];
   if (!isPastMonth) {
@@ -206,7 +279,7 @@ export async function GET(request: NextRequest) {
 
     // Also fetch any existing refund_adjustment rows for this month to avoid duplicates
     const { data: existingRefundAdjs } = await (supabase.from as any)("creator_payments")
-      .select("influencer_id, notes")
+      .select("influencer_id, legacy_affiliate_id, notes")
       .eq("month", month)
       .eq("payment_type", "refund_adjustment");
 
@@ -270,6 +343,64 @@ export async function GET(request: NextRequest) {
       });
 
     await Promise.all(refundPromises);
+
+    // 8b. Refund adjustments for legacy affiliates
+    const { data: prevLegacyPayments } = await (supabase.from as any)("creator_payments")
+      .select("*")
+      .eq("month", prevMonth)
+      .eq("payment_type", "legacy_affiliate_commission");
+
+    const existingLegacyRefundKeys = new Set(
+      (existingRefundAdjs || []).filter((r: any) => r.legacy_affiliate_id).map((r: any) => r.legacy_affiliate_id)
+    );
+
+    const legacyRefundPromises = (prevLegacyPayments || [])
+      .filter((pp: any) => pp.calculation_details?.orders && pp.legacy_affiliate_id && !existingLegacyRefundKeys.has(pp.legacy_affiliate_id))
+      .map(async (pp: any) => {
+        const storedOrders = pp.calculation_details.orders;
+        const commissionRate = pp.calculation_details.commission_rate;
+        if (!storedOrders || !commissionRate) return;
+
+        const la = (legacyAffiliates || []).find((l: any) => l.id === pp.legacy_affiliate_id);
+        if (!la) return;
+
+        try {
+          const result = await checkRefundAdjustments(storedOrders, la.discount_code, prevMonth, commissionRate);
+          if (result.adjustments.length > 0 && result.total_commission_delta < -0.01) {
+            const orderNotes = result.adjustments
+              .map((a) => `Refund on ${prevMonth} order #${a.order_number}`)
+              .join("; ");
+
+            const { data: inserted } = await (supabase.from as any)("creator_payments")
+              .insert({
+                legacy_affiliate_id: la.id,
+                influencer_id: la.influencer_id || null,
+                month,
+                payment_type: "refund_adjustment",
+                amount_owed: result.total_commission_delta,
+                payment_method: la.payment_method || null,
+                payment_detail: la.payment_detail || null,
+                notes: orderNotes,
+                calculation_details: { prev_month: prevMonth, adjustments: result.adjustments },
+              })
+              .select("*")
+              .single();
+
+            if (inserted) {
+              refundAdjustmentPayments.push({
+                ...inserted,
+                influencer: null,
+                deal: null,
+                legacyAffiliate: { id: la.id, name: la.name, discount_code: la.discount_code, commission_rate: la.commission_rate, payment_method: la.payment_method, payment_detail: la.payment_detail },
+              });
+            }
+          }
+        } catch {
+          // Skip
+        }
+      });
+
+    await Promise.all(legacyRefundPromises);
   }
 
   // 9. Build the merged payment list
@@ -418,6 +549,47 @@ export async function GET(request: NextRequest) {
           _isLive: !existing,
         });
       }
+    }
+  }
+
+  // 9b. Legacy affiliate payment rows
+  for (const la of (legacyAffiliates || [])) {
+    const existingLegacy = [...existingMap.values()].find(
+      (p) => p.legacy_affiliate_id === la.id && p.payment_type === "legacy_affiliate_commission"
+    );
+
+    const legacyMeta = {
+      id: la.id,
+      name: la.name,
+      discount_code: la.discount_code,
+      commission_rate: la.commission_rate,
+      payment_method: la.payment_method,
+      payment_detail: la.payment_detail,
+    };
+
+    if (existingLegacy && existingLegacy.status !== "pending") {
+      allPayments.push({ ...existingLegacy, influencer: null, deal: null, legacyAffiliate: legacyMeta });
+    } else {
+      const aff = legacyResults.get(la.id) || { amount: 0, notes: "No orders this month", details: null };
+      allPayments.push({
+        id: existingLegacy?.id || `live-legacy-${la.id}`,
+        influencer_id: la.influencer_id || null,
+        legacy_affiliate_id: la.id,
+        month,
+        payment_type: "legacy_affiliate_commission",
+        amount_owed: aff.amount,
+        amount_paid: null,
+        status: "pending",
+        payment_method: la.payment_method || null,
+        payment_detail: la.payment_detail || null,
+        notes: aff.notes,
+        deal_id: null,
+        calculation_details: aff.details,
+        influencer: null,
+        deal: null,
+        legacyAffiliate: legacyMeta,
+        _isLive: !existingLegacy,
+      });
     }
   }
 
