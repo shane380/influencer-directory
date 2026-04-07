@@ -175,6 +175,19 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Customer ID is required" }, { status: 400 });
     }
 
+    // Normalize phone to E.164 format for Shopify
+    let normalizedPhone = phone || undefined;
+    if (normalizedPhone) {
+      const digits = normalizedPhone.replace(/\D/g, "");
+      if (digits.length === 10) {
+        normalizedPhone = `+1${digits}`;
+      } else if (digits.length === 11 && digits.startsWith("1")) {
+        normalizedPhone = `+${digits}`;
+      } else if (!normalizedPhone.startsWith("+")) {
+        normalizedPhone = `+${digits}`;
+      }
+    }
+
     const customerData: {
       customer: {
         id: number;
@@ -189,7 +202,7 @@ export async function PUT(request: NextRequest) {
         email: email || undefined,
         first_name: first_name || undefined,
         last_name: last_name || undefined,
-        phone: phone || undefined,
+        phone: normalizedPhone,
       },
     };
 
@@ -313,6 +326,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
+    // Normalize phone to E.164 format for Shopify
+    let normalizedPhone = phone || undefined;
+    if (normalizedPhone) {
+      const digits = normalizedPhone.replace(/\D/g, "");
+      if (digits.length === 10) {
+        normalizedPhone = `+1${digits}`;
+      } else if (digits.length === 11 && digits.startsWith("1")) {
+        normalizedPhone = `+${digits}`;
+      } else if (!normalizedPhone.startsWith("+")) {
+        normalizedPhone = `+${digits}`;
+      }
+    }
+
     const customerData: {
       customer: {
         email: string;
@@ -326,7 +352,7 @@ export async function POST(request: NextRequest) {
         email,
         first_name: first_name || undefined,
         last_name: last_name || undefined,
-        phone: phone || undefined,
+        phone: normalizedPhone,
       },
     };
 
