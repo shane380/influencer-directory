@@ -208,8 +208,13 @@ export async function PUT(request: NextRequest) {
     if (!response.ok) {
       const errorData = await response.json();
       console.error("Shopify API error:", errorData);
+      const errorMsg = typeof errorData.errors === "string"
+        ? errorData.errors
+        : errorData.errors
+          ? Object.entries(errorData.errors).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`).join("; ")
+          : "Failed to update customer in Shopify";
       return NextResponse.json(
-        { error: errorData.errors || "Failed to update customer in Shopify" },
+        { error: errorMsg },
         { status: response.status }
       );
     }
@@ -358,8 +363,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      const errorMsg = typeof errorData.errors === "string"
+        ? errorData.errors
+        : errorData.errors
+          ? Object.entries(errorData.errors).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`).join("; ")
+          : "Failed to create customer in Shopify";
       return NextResponse.json(
-        { error: errorData.errors || "Failed to create customer in Shopify" },
+        { error: errorMsg },
         { status: response.status }
       );
     }
