@@ -1,25 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { calculateAffiliateCommission, calculateBulkAffiliateCommissions, checkRefundAdjustments } from "@/lib/affiliate";
+import { verifyAdmin, getAdminClient } from "@/lib/admin-auth";
+import { decryptField } from "@/lib/encryption";
 
 export const maxDuration = 60;
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-function getSupabase() {
-  return createClient(supabaseUrl, supabaseServiceKey);
-}
 
 // GET /api/admin/payments/calculate?month=2026-03
 // Returns live-calculated payments merged with existing DB records
 export async function GET(request: NextRequest) {
+  const admin = await verifyAdmin();
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+
   const month = request.nextUrl.searchParams.get("month");
   if (!month || !/^\d{4}-\d{2}$/.test(month)) {
     return NextResponse.json({ error: "month required (YYYY-MM)" }, { status: 400 });
   }
 
-  const supabase = getSupabase();
+  const supabase = getAdminClient();
 
   // Determine if this is a past month (skip live Shopify for past months)
   const now = new Date();
@@ -42,10 +39,21 @@ export async function GET(request: NextRequest) {
 
   // 2. Fetch all creators with invites
   const { data: creators } = await (supabase.from as any)("creators")
-    .select("id, creator_name, invite_id, affiliate_code, commission_rate, payment_method, paypal_email, bank_institution, bank_account_number");
+    .select("id, creator_name, invite_id, affiliate_code, commission_rate, payment_method, paypal_email, bank_institution, bank_account_number, bank_account_number_enc");
 
   if (!creators || creators.length === 0) {
     return NextResponse.json({ payments: [] });
+  }
+
+  // Helper: get masked account number (prefer encrypted, fall back to plain)
+  function getMaskedAccount(creator: any): string | null {
+    let acct = "";
+    if (creator.bank_account_number_enc) {
+      try { acct = decryptField(creator.bank_account_number_enc); } catch { acct = creator.bank_account_number || ""; }
+    } else {
+      acct = creator.bank_account_number || "";
+    }
+    return acct ? `···${acct.slice(-4)}` : null;
   }
 
   // 3. Batch fetch invite data
@@ -153,8 +161,7 @@ export async function GET(request: NextRequest) {
         let paymentDetail = null;
         if (paymentMethod === "paypal") paymentDetail = c.paypal_email || null;
         else if (paymentMethod) {
-          const acct = c.bank_account_number || "";
-          paymentDetail = acct ? `···${acct.slice(-4)}` : null;
+          paymentDetail = getMaskedAccount(c);
         }
         rowsToAutoInsert.push({
           influencer_id: influencerId,
@@ -322,8 +329,7 @@ export async function GET(request: NextRequest) {
             let paymentDetail = null;
             if (paymentMethod === "paypal") paymentDetail = creator.paypal_email || null;
             else if (paymentMethod) {
-              const acct = creator.bank_account_number || "";
-              paymentDetail = acct ? `···${acct.slice(-4)}` : null;
+              paymentDetail = getMaskedAccount(creator);
             }
 
             const orderNotes = result.adjustments
@@ -434,8 +440,7 @@ export async function GET(request: NextRequest) {
     if (paymentMethod === "paypal") {
       paymentDetail = creator.paypal_email || null;
     } else if (paymentMethod) {
-      const acct = creator.bank_account_number || "";
-      paymentDetail = acct ? `···${acct.slice(-4)}` : null;
+      paymentDetail = getMaskedAccount(creator);
     }
 
     // Ad spend commission

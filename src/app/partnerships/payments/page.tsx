@@ -267,21 +267,10 @@ export default function PaymentsPage() {
     setPaymentInfoOpen(influencerId);
     setPaymentInfoLoading(true);
     try {
-      const supabase = createClient();
-      // Find creator via invite linked to this influencer
-      const { data: invite } = await (supabase.from("creator_invites") as any)
-        .select("id")
-        .eq("influencer_id", influencerId)
-        .limit(1)
-        .single();
-      if (invite) {
-        const { data: creator } = await (supabase.from("creators") as any)
-          .select("payment_method, payout_country, paypal_email, bank_account_name, bank_account_number, bank_routing_number, bank_institution")
-          .eq("invite_id", invite.id)
-          .single();
-        if (creator) {
-          setPaymentInfoData((prev) => ({ ...prev, [influencerId]: creator }));
-        }
+      const res = await fetch(`/api/admin/payment-info?influencer_id=${influencerId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPaymentInfoData((prev) => ({ ...prev, [influencerId]: data }));
       }
     } catch {}
     setPaymentInfoLoading(false);
@@ -328,23 +317,27 @@ export default function PaymentsPage() {
   }
 
   function exportCSV() {
+    const isAdminOrManager = currentUser?.isAdmin || currentUser?.isManager;
     const rows = payments.filter((p) => p.status === "paid" || p.status === "approved");
-    const header = "Creator,Handle,Type,Amount Owed,Amount Paid,Payment Method,Payment Detail,Status,Paid At";
+    const header = isAdminOrManager
+      ? "Creator,Handle,Type,Amount Owed,Amount Paid,Payment Method,Payment Detail,Status,Paid At"
+      : "Creator,Handle,Type,Amount Owed,Amount Paid,Status,Paid At";
     const csv = [
       header,
       ...rows.map((p) => {
         const tc = TYPE_CONFIG[p.payment_type];
-        return [
+        const baseCols = [
           p.influencer?.name || p.legacyAffiliate?.name || "",
           p.influencer?.instagram_handle || (p.legacyAffiliate ? p.legacyAffiliate.discount_code : "") || "",
           tc?.label || p.payment_type,
           p.amount_owed ?? "",
           p.amount_paid ?? "",
-          p.payment_method || "",
-          p.payment_detail || "",
-          p.status,
-          p.paid_at ? new Date(p.paid_at).toLocaleDateString() : "",
-        ]
+        ];
+        if (isAdminOrManager) {
+          baseCols.push(p.payment_method || "", p.payment_detail || "");
+        }
+        baseCols.push(p.status, p.paid_at ? new Date(p.paid_at).toLocaleDateString() : "");
+        return baseCols
           .map((v) => `"${String(v).replace(/"/g, '""')}"`)
           .join(",");
       }),
@@ -575,54 +568,60 @@ export default function PaymentsPage() {
                         )}
                       </div>
 
-                      {/* Payment method — click to reveal full details */}
+                      {/* Payment method — admin/manager only */}
                       <div className="w-36 relative">
-                        <button
-                          className="text-xs text-gray-400 hover:text-gray-600 hover:underline truncate text-left w-full"
-                          onClick={() => p.influencer && fetchPaymentInfo(p.influencer.id)}
-                        >
-                          {p.payment_method === "paypal"
-                            ? `PayPal — ${p.payment_detail || "—"}`
-                            : p.payment_method === "bank" || p.payment_method === "us_ach" || p.payment_method === "ca_eft" || p.payment_method === "intl_wire"
-                            ? `Bank ${p.payment_detail || ""}`
-                            : p.payment_method || "—"}
-                        </button>
-                        {paymentInfoOpen === p.influencer?.id && (
-                          <div className="absolute top-6 left-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-72" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex justify-between items-center mb-3">
-                              <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Payment Details</span>
-                              <button onClick={() => setPaymentInfoOpen(null)} className="text-gray-400 hover:text-gray-600">
-                                <X className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                            {paymentInfoLoading ? (
-                              <div className="text-xs text-gray-400">Loading…</div>
-                            ) : paymentInfoData[p.influencer?.id || ""] ? (() => {
-                              const info = paymentInfoData[p.influencer!.id];
-                              const method = info.payment_method;
-                              return (
-                                <div className="space-y-2 text-xs">
-                                  {info.payout_country && (
-                                    <div><span className="text-gray-400">Country:</span> <span className="text-gray-700">{info.payout_country}</span></div>
-                                  )}
-                                  {method === "paypal" && (
-                                    <div><span className="text-gray-400">PayPal:</span> <span className="text-gray-700 select-all">{info.paypal_email}</span></div>
-                                  )}
-                                  {(method === "bank" || method === "us_ach" || method === "ca_eft" || method === "intl_wire") && (
-                                    <>
-                                      {info.bank_account_name && <div><span className="text-gray-400">Name:</span> <span className="text-gray-700">{info.bank_account_name}</span></div>}
-                                      {info.bank_institution && <div><span className="text-gray-400">Institution:</span> <span className="text-gray-700">{info.bank_institution}</span></div>}
-                                      {info.bank_routing_number && <div><span className="text-gray-400">Routing:</span> <span className="text-gray-700 select-all">{info.bank_routing_number}</span></div>}
-                                      {info.bank_account_number && <div><span className="text-gray-400">Account:</span> <span className="text-gray-700 select-all">{info.bank_account_number}</span></div>}
-                                    </>
-                                  )}
-                                  {!method && <div className="text-gray-400">No payment method set</div>}
+                        {currentUser?.isAdmin || currentUser?.isManager ? (
+                          <>
+                            <button
+                              className="text-xs text-gray-400 hover:text-gray-600 hover:underline truncate text-left w-full"
+                              onClick={() => p.influencer && fetchPaymentInfo(p.influencer.id)}
+                            >
+                              {p.payment_method === "paypal"
+                                ? `PayPal — ${p.payment_detail || "—"}`
+                                : p.payment_method === "bank" || p.payment_method === "us_ach" || p.payment_method === "ca_eft" || p.payment_method === "intl_wire"
+                                ? `Bank ${p.payment_detail || ""}`
+                                : p.payment_method || "—"}
+                            </button>
+                            {paymentInfoOpen === p.influencer?.id && (
+                              <div className="absolute top-6 left-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-72" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex justify-between items-center mb-3">
+                                  <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Payment Details</span>
+                                  <button onClick={() => setPaymentInfoOpen(null)} className="text-gray-400 hover:text-gray-600">
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
                                 </div>
-                              );
-                            })() : (
-                              <div className="text-xs text-gray-400">No payment info found</div>
+                                {paymentInfoLoading ? (
+                                  <div className="text-xs text-gray-400">Loading…</div>
+                                ) : paymentInfoData[p.influencer?.id || ""] ? (() => {
+                                  const info = paymentInfoData[p.influencer!.id];
+                                  const method = info.payment_method;
+                                  return (
+                                    <div className="space-y-2 text-xs">
+                                      {info.payout_country && (
+                                        <div><span className="text-gray-400">Country:</span> <span className="text-gray-700">{info.payout_country}</span></div>
+                                      )}
+                                      {method === "paypal" && (
+                                        <div><span className="text-gray-400">PayPal:</span> <span className="text-gray-700 select-all">{info.paypal_email}</span></div>
+                                      )}
+                                      {(method === "bank" || method === "us_ach" || method === "ca_eft" || method === "intl_wire") && (
+                                        <>
+                                          {info.bank_account_name && <div><span className="text-gray-400">Name:</span> <span className="text-gray-700">{info.bank_account_name}</span></div>}
+                                          {info.bank_institution && <div><span className="text-gray-400">Institution:</span> <span className="text-gray-700">{info.bank_institution}</span></div>}
+                                          {info.bank_routing_number && <div><span className="text-gray-400">Routing:</span> <span className="text-gray-700 select-all">{info.bank_routing_number}</span></div>}
+                                          {info.bank_account_number && <div><span className="text-gray-400">Account:</span> <span className="text-gray-700 select-all">{info.bank_account_number}</span></div>}
+                                        </>
+                                      )}
+                                      {!method && <div className="text-gray-400">No payment method set</div>}
+                                    </div>
+                                  );
+                                })() : (
+                                  <div className="text-xs text-gray-400">No payment info found</div>
+                                )}
+                              </div>
                             )}
-                          </div>
+                          </>
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
                         )}
                       </div>
 
@@ -909,48 +908,54 @@ export default function PaymentsPage() {
                         ${Number(p.amount_owed || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </div>
                       <div className="w-36 relative">
-                        <button
-                          className="text-xs text-gray-400 hover:text-gray-600 hover:underline truncate text-left w-full"
-                          onClick={() => p.influencer && fetchPaymentInfo(p.influencer.id)}
-                        >
-                          {p.payment_method === "paypal"
-                            ? `PayPal — ${p.payment_detail || "—"}`
-                            : p.payment_method
-                            ? `Bank ${p.payment_detail || ""}`
-                            : "—"}
-                        </button>
-                        {paymentInfoOpen === p.influencer?.id && (
-                          <div className="absolute top-6 left-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-72" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex justify-between items-center mb-3">
-                              <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Payment Details</span>
-                              <button onClick={() => setPaymentInfoOpen(null)} className="text-gray-400 hover:text-gray-600">
-                                <X className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                            {paymentInfoLoading ? (
-                              <div className="text-xs text-gray-400">Loading…</div>
-                            ) : paymentInfoData[p.influencer?.id || ""] ? (() => {
-                              const info = paymentInfoData[p.influencer!.id];
-                              const method = info.payment_method;
-                              return (
-                                <div className="space-y-2 text-xs">
-                                  {info.payout_country && <div><span className="text-gray-400">Country:</span> <span className="text-gray-700">{info.payout_country}</span></div>}
-                                  {method === "paypal" && <div><span className="text-gray-400">PayPal:</span> <span className="text-gray-700 select-all">{info.paypal_email}</span></div>}
-                                  {method && method !== "paypal" && (
-                                    <>
-                                      {info.bank_account_name && <div><span className="text-gray-400">Name:</span> <span className="text-gray-700">{info.bank_account_name}</span></div>}
-                                      {info.bank_institution && <div><span className="text-gray-400">Institution:</span> <span className="text-gray-700">{info.bank_institution}</span></div>}
-                                      {info.bank_routing_number && <div><span className="text-gray-400">Routing:</span> <span className="text-gray-700 select-all">{info.bank_routing_number}</span></div>}
-                                      {info.bank_account_number && <div><span className="text-gray-400">Account:</span> <span className="text-gray-700 select-all">{info.bank_account_number}</span></div>}
-                                    </>
-                                  )}
-                                  {!method && <div className="text-gray-400">No payment method set</div>}
+                        {currentUser?.isAdmin || currentUser?.isManager ? (
+                          <>
+                            <button
+                              className="text-xs text-gray-400 hover:text-gray-600 hover:underline truncate text-left w-full"
+                              onClick={() => p.influencer && fetchPaymentInfo(p.influencer.id)}
+                            >
+                              {p.payment_method === "paypal"
+                                ? `PayPal — ${p.payment_detail || "—"}`
+                                : p.payment_method
+                                ? `Bank ${p.payment_detail || ""}`
+                                : "—"}
+                            </button>
+                            {paymentInfoOpen === p.influencer?.id && (
+                              <div className="absolute top-6 left-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-72" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex justify-between items-center mb-3">
+                                  <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Payment Details</span>
+                                  <button onClick={() => setPaymentInfoOpen(null)} className="text-gray-400 hover:text-gray-600">
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
                                 </div>
-                              );
-                            })() : (
-                              <div className="text-xs text-gray-400">No payment info found</div>
+                                {paymentInfoLoading ? (
+                                  <div className="text-xs text-gray-400">Loading…</div>
+                                ) : paymentInfoData[p.influencer?.id || ""] ? (() => {
+                                  const info = paymentInfoData[p.influencer!.id];
+                                  const method = info.payment_method;
+                                  return (
+                                    <div className="space-y-2 text-xs">
+                                      {info.payout_country && <div><span className="text-gray-400">Country:</span> <span className="text-gray-700">{info.payout_country}</span></div>}
+                                      {method === "paypal" && <div><span className="text-gray-400">PayPal:</span> <span className="text-gray-700 select-all">{info.paypal_email}</span></div>}
+                                      {method && method !== "paypal" && (
+                                        <>
+                                          {info.bank_account_name && <div><span className="text-gray-400">Name:</span> <span className="text-gray-700">{info.bank_account_name}</span></div>}
+                                          {info.bank_institution && <div><span className="text-gray-400">Institution:</span> <span className="text-gray-700">{info.bank_institution}</span></div>}
+                                          {info.bank_routing_number && <div><span className="text-gray-400">Routing:</span> <span className="text-gray-700 select-all">{info.bank_routing_number}</span></div>}
+                                          {info.bank_account_number && <div><span className="text-gray-400">Account:</span> <span className="text-gray-700 select-all">{info.bank_account_number}</span></div>}
+                                        </>
+                                      )}
+                                      {!method && <div className="text-gray-400">No payment method set</div>}
+                                    </div>
+                                  );
+                                })() : (
+                                  <div className="text-xs text-gray-400">No payment info found</div>
+                                )}
+                              </div>
                             )}
-                          </div>
+                          </>
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
                         )}
                       </div>
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${sc.color}`}>

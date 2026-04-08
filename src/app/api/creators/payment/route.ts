@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { encryptField } from "@/lib/encryption";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -46,13 +47,29 @@ export async function PATCH(request: NextRequest) {
     updateData.bank_account_name = null;
     updateData.bank_account_number = null;
     updateData.bank_routing_number = null;
+    updateData.bank_account_number_enc = null;
+    updateData.bank_routing_number_enc = null;
     updateData.bank_institution = null;
   } else {
     updateData.paypal_email = null;
     updateData.bank_account_name = bank_account_name || null;
-    updateData.bank_account_number = bank_account_number || null;
-    updateData.bank_routing_number = bank_routing_number || null;
     updateData.bank_institution = bank_institution || null;
+
+    // Encrypt sensitive fields, null out plaintext columns
+    if (bank_account_number) {
+      updateData.bank_account_number_enc = encryptField(bank_account_number);
+      updateData.bank_account_number = null;
+    } else {
+      updateData.bank_account_number_enc = null;
+      updateData.bank_account_number = null;
+    }
+    if (bank_routing_number) {
+      updateData.bank_routing_number_enc = encryptField(bank_routing_number);
+      updateData.bank_routing_number = null;
+    } else {
+      updateData.bank_routing_number_enc = null;
+      updateData.bank_routing_number = null;
+    }
   }
 
   const { data, error } = await supabase

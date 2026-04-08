@@ -1,21 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-function getSupabase() {
-  return createClient(supabaseUrl, supabaseServiceKey);
-}
+import { verifyAdmin, getAdminClient } from "@/lib/admin-auth";
 
 // GET /api/admin/payments?month=2026-03
 export async function GET(request: NextRequest) {
+  const admin = await verifyAdmin();
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+
   const month = request.nextUrl.searchParams.get("month");
   if (!month) {
     return NextResponse.json({ error: "month required" }, { status: 400 });
   }
 
-  const supabase = getSupabase();
+  const supabase = getAdminClient();
 
   const { data: payments, error } = await (supabase.from as any)("creator_payments")
     .select("*")
@@ -70,6 +66,9 @@ export async function GET(request: NextRequest) {
 // PATCH /api/admin/payments — update status, amount, notes
 // Also handles creating new rows for live-calculated payments (id starts with "live-")
 export async function PATCH(request: NextRequest) {
+  const admin = await verifyAdmin();
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+
   const body = await request.json();
   const { id, ...updates } = body;
 
@@ -77,7 +76,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "id required" }, { status: 400 });
   }
 
-  const supabase = getSupabase();
+  const supabase = getAdminClient();
 
   // Handle live-calculated rows that need to be created in DB
   if (typeof id === "string" && id.startsWith("live-")) {
@@ -115,6 +114,15 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Audit log for insert
+    await supabase.from("payment_audit_log").insert({
+      user_id: admin.id,
+      user_email: admin.email,
+      action: "update_payment",
+      target_influencer_id: body.influencer_id,
+      metadata: { payment_id: data.id, status: data.status, was_live: true },
+    });
+
     return NextResponse.json({ payment: data });
   }
 
@@ -144,6 +152,15 @@ export async function PATCH(request: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  // Audit log for update
+  await supabase.from("payment_audit_log").insert({
+    user_id: admin.id,
+    user_email: admin.email,
+    action: "update_payment",
+    target_influencer_id: data.influencer_id,
+    metadata: { payment_id: data.id, status: data.status, updates: Object.keys(updates) },
+  });
 
   return NextResponse.json({ payment: data });
 }

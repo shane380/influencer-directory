@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { calculateAffiliateCommission } from "@/lib/affiliate";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+import { verifyAdmin, getAdminClient } from "@/lib/admin-auth";
 
 // GET: Fetch affiliate orders with attribution for audit
 export async function GET(request: NextRequest) {
+  const admin = await verifyAdmin();
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+
   const influencerId = request.nextUrl.searchParams.get("influencer_id");
   const legacyAffiliateId = request.nextUrl.searchParams.get("legacy_affiliate_id");
   const month = request.nextUrl.searchParams.get("month");
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "influencer_id or legacy_affiliate_id, and month required" }, { status: 400 });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabase = getAdminClient();
 
   let affiliateCode: string;
   let rate: number;
@@ -92,6 +92,9 @@ export async function GET(request: NextRequest) {
 
 // POST: Exclude or include an order
 export async function POST(request: NextRequest) {
+  const admin = await verifyAdmin();
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+
   const body = await request.json();
   const { influencer_id, order_id, action, reason } = body;
 
@@ -99,7 +102,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "influencer_id, order_id, and action required" }, { status: 400 });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabase = getAdminClient();
 
   if (action === "exclude") {
     const { error } = await (supabase.from as any)("excluded_affiliate_orders")

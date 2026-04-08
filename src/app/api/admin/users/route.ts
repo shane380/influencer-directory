@@ -1,27 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { createClient as createServerClient } from "@/lib/supabase/server";
-
-async function verifyAdmin() {
-  const supabase = await createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const { data: profile } = await (supabase.from("profiles") as any)
-    .select("is_admin")
-    .eq("id", user.id)
-    .single();
-
-  return profile?.is_admin ? user : null;
-}
-
-function getAdminClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-}
+import { verifyAdmin, getAdminClient } from "@/lib/admin-auth";
 
 // GET: Fetch all users (admin + partner) with last sign-in
 export async function GET() {
