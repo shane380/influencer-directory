@@ -74,3 +74,42 @@ export async function DELETE(request: NextRequest) {
 
   return NextResponse.json({ success: true });
 }
+
+// PATCH: Update a user's role
+export async function PATCH(request: NextRequest) {
+  // Only admins (not managers) can change roles
+  const admin = await verifyAdmin();
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+
+  const adminClient = getAdminClient();
+
+  // Verify the caller is specifically an admin (not just a manager)
+  const { data: callerProfile } = await adminClient.from("profiles").select("is_admin").eq("id", admin.id).single();
+  if (!callerProfile?.is_admin) {
+    return NextResponse.json({ error: "Only admins can change roles" }, { status: 403 });
+  }
+
+  const { userId, role } = await request.json();
+  if (!userId || !role) return NextResponse.json({ error: "userId and role required" }, { status: 400 });
+
+  if (!["admin", "manager", "member"].includes(role)) {
+    return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+  }
+
+  // Prevent changing your own role
+  if (userId === admin.id) {
+    return NextResponse.json({ error: "Cannot change your own role" }, { status: 400 });
+  }
+
+  const updateData = {
+    is_admin: role === "admin",
+    is_manager: role === "manager",
+  };
+
+  const { error } = await adminClient.from("profiles").update(updateData).eq("id", userId);
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true });
+}

@@ -52,6 +52,7 @@ export default function AdminUsersPage() {
   const [inviteMessage, setInviteMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ userId: string; type: "profile" | "creator"; name: string } | null>(null);
+  const [updatingRole, setUpdatingRole] = useState<string | null>(null);
 
   const supabase = createClient();
   const router = useRouter();
@@ -115,6 +116,19 @@ export default function AdminUsersPage() {
     } catch {}
     setDeleting(null);
     setDeleteConfirm(null);
+  };
+
+  const handleRoleChange = async (userId: string, role: string) => {
+    setUpdatingRole(userId);
+    try {
+      await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, role }),
+      });
+      fetchData();
+    } catch {}
+    setUpdatingRole(null);
   };
 
   const formatDate = (d: string | null) => {
@@ -224,12 +238,17 @@ export default function AdminUsersPage() {
                       <span className="inline-flex items-center gap-1 text-sm text-purple-700 bg-purple-50 px-2 py-1 rounded">
                         <Shield className="h-3 w-3" />Admin
                       </span>
-                    ) : user.is_manager ? (
-                      <span className="inline-flex items-center gap-1 text-sm text-blue-700 bg-blue-50 px-2 py-1 rounded">
-                        <Shield className="h-3 w-3" />Manager
-                      </span>
                     ) : (
-                      <span className="text-sm text-gray-500">Member</span>
+                      <select
+                        className="text-sm border border-gray-200 rounded px-2 py-1 bg-white"
+                        value={user.is_manager ? "manager" : "member"}
+                        onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                        disabled={updatingRole === user.id}
+                      >
+                        <option value="member">Member</option>
+                        <option value="manager">Manager</option>
+                        <option value="admin">Admin</option>
+                      </select>
                     )}
                   </TableCell>
                   <TableCell className="text-gray-500 text-sm">{formatDate(user.last_sign_in)}</TableCell>
