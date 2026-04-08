@@ -787,9 +787,12 @@ export default function PaymentsPage() {
                           </Button>
                         )}
                         {p.status === "paid" && (
-                          <span className="inline-flex items-center h-6 px-2 rounded text-[10px] font-medium bg-green-100 text-green-700">
-                            Paid
-                          </span>
+                          <>
+                            <span className="inline-flex items-center h-6 px-2 rounded text-[10px] font-medium bg-green-100 text-green-700">
+                              Paid
+                            </span>
+                            <button className="text-[10px] text-gray-400 hover:text-gray-600 uppercase tracking-wider" onClick={() => updatePayment(p.id, { status: "pending", paid_by: null, paid_at: null }, p)}>Undo</button>
+                          </>
                         )}
                         {p.status !== "skipped" && p.status !== "paid" && (
                           <button
@@ -930,7 +933,10 @@ export default function PaymentsPage() {
                                 </Button>
                               )}
                               {p.status === "paid" && (
-                                <span className="inline-flex items-center h-6 px-2 rounded text-[10px] font-medium bg-green-100 text-green-700">Paid</span>
+                                <>
+                                  <span className="inline-flex items-center h-6 px-2 rounded text-[10px] font-medium bg-green-100 text-green-700">Paid</span>
+                                  <button className="text-[10px] text-gray-400 hover:text-gray-600 uppercase tracking-wider" onClick={() => updatePayment(p.id, { status: "pending", paid_by: null, paid_at: null }, p)}>Undo</button>
+                                </>
                               )}
                               {p.status !== "skipped" && p.status !== "paid" && (
                                 <button className="text-[10px] text-gray-400 hover:text-gray-600 uppercase tracking-wider" onClick={() => updatePayment(p.id, { status: "skipped" }, p)}>Skip</button>
@@ -1128,7 +1134,10 @@ export default function PaymentsPage() {
                           </Button>
                         )}
                         {p.status === "paid" && (
-                          <span className="inline-flex items-center h-6 px-2 rounded text-[10px] font-medium bg-green-100 text-green-700">Paid</span>
+                          <>
+                            <span className="inline-flex items-center h-6 px-2 rounded text-[10px] font-medium bg-green-100 text-green-700">Paid</span>
+                            <button className="text-[10px] text-gray-400 hover:text-gray-600 uppercase tracking-wider" onClick={() => updatePayment(p.id, { status: "pending", paid_by: null, paid_at: null }, p)}>Undo</button>
+                          </>
                         )}
                         {p.status !== "skipped" && p.status !== "paid" && (
                           <button className="text-[10px] text-gray-400 hover:text-gray-600 uppercase tracking-wider" onClick={() => updatePayment(p.id, { status: "skipped" }, p)}>Skip</button>
