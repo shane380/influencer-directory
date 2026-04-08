@@ -105,7 +105,8 @@ export default function PaymentsPage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const now = new Date();
-  const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const defaultMonth = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
   const [month, setMonth] = useState(defaultMonth);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
