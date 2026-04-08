@@ -103,6 +103,8 @@ export async function POST(request: NextRequest) {
     let paymentDetail = null;
     if (paymentMethod === "paypal") {
       paymentDetail = creatorData?.paypal_email || null;
+    } else if (paymentMethod === "e_transfer") {
+      paymentDetail = creatorData?.paypal_email || null;
     } else if (paymentMethod === "bank") {
       const acct = creatorData?.bank_account_number || "";
       paymentDetail = acct ? `···${acct.slice(-4)}` : null;
@@ -263,6 +265,8 @@ export async function POST(request: NextRequest) {
       if (creatorData) {
         paymentMethod = creatorData.payment_method || null;
         if (paymentMethod === "paypal") {
+          paymentDetail = creatorData.paypal_email || null;
+        } else if (paymentMethod === "e_transfer") {
           paymentDetail = creatorData.paypal_email || null;
         } else if (paymentMethod === "bank") {
           const acct = creatorData.bank_account_number || "";

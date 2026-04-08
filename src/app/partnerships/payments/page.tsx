@@ -548,6 +548,8 @@ export default function PaymentsPage() {
                       >
                         {group.payments[0]?.payment_method === "paypal"
                           ? `PayPal — ${group.payments[0]?.payment_detail || "—"}`
+                          : group.payments[0]?.payment_method === "e_transfer"
+                          ? `E-Transfer — ${group.payments[0]?.payment_detail || "—"}`
                           : group.payments[0]?.payment_method
                           ? `Bank ${group.payments[0]?.payment_detail || ""}`
                           : "Payment Info"}
@@ -579,15 +581,16 @@ export default function PaymentsPage() {
                                   <option value="us_ach">US ACH</option>
                                   <option value="ca_eft">CA EFT</option>
                                   <option value="intl_wire">Intl Wire</option>
+                                  <option value="e_transfer">E-Transfer</option>
                                 </select>
                               </div>
                               <div>
                                 <label className="text-gray-400 block mb-0.5">Country</label>
                                 <input className="w-full border border-gray-200 rounded px-2 py-1 text-xs" value={paymentInfoForm.payout_country} onChange={(e) => setPaymentInfoForm({ ...paymentInfoForm, payout_country: e.target.value })} placeholder="e.g. US, CA" />
                               </div>
-                              {paymentInfoForm.payment_method === "paypal" ? (
+                              {paymentInfoForm.payment_method === "paypal" || paymentInfoForm.payment_method === "e_transfer" ? (
                                 <div>
-                                  <label className="text-gray-400 block mb-0.5">PayPal Email</label>
+                                  <label className="text-gray-400 block mb-0.5">{paymentInfoForm.payment_method === "e_transfer" ? "E-Transfer Email" : "PayPal Email"}</label>
                                   <input className="w-full border border-gray-200 rounded px-2 py-1 text-xs" value={paymentInfoForm.paypal_email} onChange={(e) => setPaymentInfoForm({ ...paymentInfoForm, paypal_email: e.target.value })} placeholder="email@example.com" />
                                 </div>
                               ) : paymentInfoForm.payment_method ? (
@@ -627,6 +630,9 @@ export default function PaymentsPage() {
                                 )}
                                 {method === "paypal" && (
                                   <div><span className="text-gray-400">PayPal:</span> <span className="text-gray-700 select-all">{info.paypal_email}</span></div>
+                                )}
+                                {method === "e_transfer" && (
+                                  <div><span className="text-gray-400">E-Transfer:</span> <span className="text-gray-700 select-all">{info.paypal_email}</span></div>
                                 )}
                                 {(method === "bank" || method === "us_ach" || method === "ca_eft" || method === "intl_wire") && (
                                   <>
@@ -886,6 +892,8 @@ export default function PaymentsPage() {
                               <span className="text-xs text-gray-400 truncate">
                                 {p.payment_method === "paypal"
                                   ? `PayPal — ${p.payment_detail || "—"}`
+                                  : p.payment_method === "e_transfer"
+                                  ? `E-Transfer — ${p.payment_detail || "—"}`
                                   : p.payment_method
                                   ? `Bank ${p.payment_detail || ""}`
                                   : "—"}
@@ -985,6 +993,8 @@ export default function PaymentsPage() {
                       >
                         {group.payments[0]?.payment_method === "paypal"
                           ? `PayPal — ${group.payments[0]?.payment_detail || "—"}`
+                          : group.payments[0]?.payment_method === "e_transfer"
+                          ? `E-Transfer — ${group.payments[0]?.payment_detail || "—"}`
                           : group.payments[0]?.payment_method
                           ? `Bank ${group.payments[0]?.payment_detail || ""}`
                           : "Payment Info"}
@@ -1016,15 +1026,16 @@ export default function PaymentsPage() {
                                   <option value="us_ach">US ACH</option>
                                   <option value="ca_eft">CA EFT</option>
                                   <option value="intl_wire">Intl Wire</option>
+                                  <option value="e_transfer">E-Transfer</option>
                                 </select>
                               </div>
                               <div>
                                 <label className="text-gray-400 block mb-0.5">Country</label>
                                 <input className="w-full border border-gray-200 rounded px-2 py-1 text-xs" value={paymentInfoForm.payout_country} onChange={(e) => setPaymentInfoForm({ ...paymentInfoForm, payout_country: e.target.value })} placeholder="e.g. US, CA" />
                               </div>
-                              {paymentInfoForm.payment_method === "paypal" ? (
+                              {paymentInfoForm.payment_method === "paypal" || paymentInfoForm.payment_method === "e_transfer" ? (
                                 <div>
-                                  <label className="text-gray-400 block mb-0.5">PayPal Email</label>
+                                  <label className="text-gray-400 block mb-0.5">{paymentInfoForm.payment_method === "e_transfer" ? "E-Transfer Email" : "PayPal Email"}</label>
                                   <input className="w-full border border-gray-200 rounded px-2 py-1 text-xs" value={paymentInfoForm.paypal_email} onChange={(e) => setPaymentInfoForm({ ...paymentInfoForm, paypal_email: e.target.value })} placeholder="email@example.com" />
                                 </div>
                               ) : paymentInfoForm.payment_method ? (
@@ -1061,7 +1072,8 @@ export default function PaymentsPage() {
                               <div className="space-y-2 text-xs">
                                 {info.payout_country && <div><span className="text-gray-400">Country:</span> <span className="text-gray-700">{info.payout_country}</span></div>}
                                 {method === "paypal" && <div><span className="text-gray-400">PayPal:</span> <span className="text-gray-700 select-all">{info.paypal_email}</span></div>}
-                                {method && method !== "paypal" && (
+                                {method === "e_transfer" && <div><span className="text-gray-400">E-Transfer:</span> <span className="text-gray-700 select-all">{info.paypal_email}</span></div>}
+                                {method && method !== "paypal" && method !== "e_transfer" && (
                                   <>
                                     {info.bank_account_name && <div><span className="text-gray-400">Name:</span> <span className="text-gray-700">{info.bank_account_name}</span></div>}
                                     {info.bank_institution && <div><span className="text-gray-400">Institution:</span> <span className="text-gray-700">{info.bank_institution}</span></div>}
@@ -1162,7 +1174,7 @@ export default function PaymentsPage() {
                         <td className="py-2 font-mono text-gray-500">{la.discount_code}</td>
                         <td className="py-2 text-gray-500">{la.commission_rate}%</td>
                         <td className="py-2 text-gray-500">
-                          {la.payment_method === "paypal" ? `PayPal — ${la.payment_detail || ""}` : la.payment_method ? `Bank ${la.payment_detail || ""}` : "—"}
+                          {la.payment_method === "paypal" ? `PayPal — ${la.payment_detail || ""}` : la.payment_method === "e_transfer" ? `E-Transfer — ${la.payment_detail || ""}` : la.payment_method ? `Bank ${la.payment_detail || ""}` : "—"}
                         </td>
                         <td className="py-2">
                           <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${la.status === "active" ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-400"}`}>

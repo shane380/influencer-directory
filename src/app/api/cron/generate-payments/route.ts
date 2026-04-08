@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
     const handle = invite.influencer.instagram_handle;
     const paymentMethod = creator.payment_method || null;
     let paymentDetail = null;
-    if (paymentMethod === "paypal") paymentDetail = creator.paypal_email || null;
+    if (paymentMethod === "paypal" || paymentMethod === "e_transfer") paymentDetail = creator.paypal_email || null;
     else if (paymentMethod) {
       const acct = creator.bank_account_number || "";
       paymentDetail = acct ? `···${acct.slice(-4)}` : null;

@@ -29,7 +29,7 @@ export async function PATCH(request: NextRequest) {
   const body = await request.json();
   const { payment_method, payout_country, paypal_email, bank_account_name, bank_account_number, bank_routing_number, bank_institution } = body;
 
-  if (!payment_method || !["paypal", "bank", "us_ach", "ca_eft", "intl_wire"].includes(payment_method)) {
+  if (!payment_method || !["paypal", "bank", "us_ach", "ca_eft", "intl_wire", "e_transfer"].includes(payment_method)) {
     return NextResponse.json({ error: "Invalid payment method" }, { status: 400 });
   }
 
@@ -42,7 +42,7 @@ export async function PATCH(request: NextRequest) {
     updateData.payout_country = payout_country;
   }
 
-  if (payment_method === "paypal") {
+  if (payment_method === "paypal" || payment_method === "e_transfer") {
     updateData.paypal_email = paypal_email || null;
     updateData.bank_account_name = null;
     updateData.bank_account_number = null;

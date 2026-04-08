@@ -77,7 +77,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "influencer_id required" }, { status: 400 });
   }
 
-  if (!payment_method || !["paypal", "us_ach", "ca_eft", "intl_wire"].includes(payment_method)) {
+  if (!payment_method || !["paypal", "us_ach", "ca_eft", "intl_wire", "e_transfer"].includes(payment_method)) {
     return NextResponse.json({ error: "Invalid payment method" }, { status: 400 });
   }
 
@@ -113,7 +113,7 @@ export async function PATCH(request: NextRequest) {
     updateData.payout_country = payout_country || null;
   }
 
-  if (payment_method === "paypal") {
+  if (payment_method === "paypal" || payment_method === "e_transfer") {
     updateData.paypal_email = paypal_email || null;
     updateData.bank_account_name = null;
     updateData.bank_account_number = null;
@@ -164,10 +164,10 @@ export async function PATCH(request: NextRequest) {
   return NextResponse.json({
     payment_method,
     payout_country: payout_country || null,
-    paypal_email: payment_method === "paypal" ? (paypal_email || null) : null,
-    bank_account_name: payment_method !== "paypal" ? (bank_account_name || null) : null,
-    bank_account_number: payment_method !== "paypal" ? (bank_account_number || null) : null,
-    bank_routing_number: payment_method !== "paypal" ? (bank_routing_number || null) : null,
-    bank_institution: payment_method !== "paypal" ? (bank_institution || null) : null,
+    paypal_email: (payment_method === "paypal" || payment_method === "e_transfer") ? (paypal_email || null) : null,
+    bank_account_name: (payment_method !== "paypal" && payment_method !== "e_transfer") ? (bank_account_name || null) : null,
+    bank_account_number: (payment_method !== "paypal" && payment_method !== "e_transfer") ? (bank_account_number || null) : null,
+    bank_routing_number: (payment_method !== "paypal" && payment_method !== "e_transfer") ? (bank_routing_number || null) : null,
+    bank_institution: (payment_method !== "paypal" && payment_method !== "e_transfer") ? (bank_institution || null) : null,
   });
 }
