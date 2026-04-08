@@ -118,6 +118,9 @@ export default function PaymentsPage() {
   const [paymentInfoOpen, setPaymentInfoOpen] = useState<string | null>(null);
   const [paymentInfoData, setPaymentInfoData] = useState<Record<string, any>>({});
   const [paymentInfoLoading, setPaymentInfoLoading] = useState(false);
+  const [paymentInfoEditing, setPaymentInfoEditing] = useState<string | null>(null);
+  const [paymentInfoForm, setPaymentInfoForm] = useState({ payment_method: "", payout_country: "", paypal_email: "", bank_account_name: "", bank_institution: "", bank_routing_number: "", bank_account_number: "" });
+  const [paymentInfoSaving, setPaymentInfoSaving] = useState(false);
   const [auditOpen, setAuditOpen] = useState<{ influencerId: string; name: string } | null>(null);
   const [auditData, setAuditData] = useState<any>(null);
   const [auditLoading, setAuditLoading] = useState(false);
@@ -274,6 +277,41 @@ export default function PaymentsPage() {
       }
     } catch {}
     setPaymentInfoLoading(false);
+  }
+
+  function startEditingPaymentInfo(influencerId: string) {
+    const info = paymentInfoData[influencerId] || {};
+    setPaymentInfoEditing(influencerId);
+    setPaymentInfoForm({
+      payment_method: info.payment_method || "",
+      payout_country: info.payout_country || "",
+      paypal_email: info.paypal_email || "",
+      bank_account_name: info.bank_account_name || "",
+      bank_institution: info.bank_institution || "",
+      bank_routing_number: info.bank_routing_number || "",
+      bank_account_number: info.bank_account_number || "",
+    });
+  }
+
+  async function savePaymentInfo(influencerId: string) {
+    setPaymentInfoSaving(true);
+    try {
+      const res = await fetch("/api/admin/payment-info", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ influencer_id: influencerId, ...paymentInfoForm }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPaymentInfoData((prev) => ({ ...prev, [influencerId]: data }));
+        setPaymentInfoEditing(null);
+        // Refresh payments to update payment_detail mask on the row
+        fetchPayments();
+      }
+    } catch (err) {
+      console.error("Failed to save payment info:", err);
+    }
+    setPaymentInfoSaving(false);
   }
 
   async function updatePayment(id: string, updates: Record<string, any>, fullPayment?: Payment) {
@@ -515,15 +553,70 @@ export default function PaymentsPage() {
                           : "Payment Info"}
                       </button>
                       {paymentInfoOpen === group.influencer.id && (
-                        <div className="absolute top-6 right-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-72" onClick={(e) => e.stopPropagation()}>
+                        <div className="absolute top-6 right-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-80" onClick={(e) => e.stopPropagation()}>
                           <div className="flex justify-between items-center mb-3">
                             <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Payment Details</span>
-                            <button onClick={() => setPaymentInfoOpen(null)} className="text-gray-400 hover:text-gray-600">
-                              <X className="h-3.5 w-3.5" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                              {paymentInfoEditing !== group.influencer.id && !paymentInfoLoading && (
+                                <button onClick={() => startEditingPaymentInfo(group.influencer!.id)} className="text-gray-400 hover:text-gray-600">
+                                  <Pencil className="h-3 w-3" />
+                                </button>
+                              )}
+                              <button onClick={() => { setPaymentInfoOpen(null); setPaymentInfoEditing(null); }} className="text-gray-400 hover:text-gray-600">
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           </div>
                           {paymentInfoLoading ? (
                             <div className="text-xs text-gray-400">Loading…</div>
+                          ) : paymentInfoEditing === group.influencer.id ? (
+                            <div className="space-y-2 text-xs">
+                              <div>
+                                <label className="text-gray-400 block mb-0.5">Method</label>
+                                <select className="w-full border border-gray-200 rounded px-2 py-1 text-xs" value={paymentInfoForm.payment_method} onChange={(e) => setPaymentInfoForm({ ...paymentInfoForm, payment_method: e.target.value })}>
+                                  <option value="">Select...</option>
+                                  <option value="paypal">PayPal</option>
+                                  <option value="us_ach">US ACH</option>
+                                  <option value="ca_eft">CA EFT</option>
+                                  <option value="intl_wire">Intl Wire</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="text-gray-400 block mb-0.5">Country</label>
+                                <input className="w-full border border-gray-200 rounded px-2 py-1 text-xs" value={paymentInfoForm.payout_country} onChange={(e) => setPaymentInfoForm({ ...paymentInfoForm, payout_country: e.target.value })} placeholder="e.g. US, CA" />
+                              </div>
+                              {paymentInfoForm.payment_method === "paypal" ? (
+                                <div>
+                                  <label className="text-gray-400 block mb-0.5">PayPal Email</label>
+                                  <input className="w-full border border-gray-200 rounded px-2 py-1 text-xs" value={paymentInfoForm.paypal_email} onChange={(e) => setPaymentInfoForm({ ...paymentInfoForm, paypal_email: e.target.value })} placeholder="email@example.com" />
+                                </div>
+                              ) : paymentInfoForm.payment_method ? (
+                                <>
+                                  <div>
+                                    <label className="text-gray-400 block mb-0.5">Account Name</label>
+                                    <input className="w-full border border-gray-200 rounded px-2 py-1 text-xs" value={paymentInfoForm.bank_account_name} onChange={(e) => setPaymentInfoForm({ ...paymentInfoForm, bank_account_name: e.target.value })} />
+                                  </div>
+                                  <div>
+                                    <label className="text-gray-400 block mb-0.5">Institution</label>
+                                    <input className="w-full border border-gray-200 rounded px-2 py-1 text-xs" value={paymentInfoForm.bank_institution} onChange={(e) => setPaymentInfoForm({ ...paymentInfoForm, bank_institution: e.target.value })} />
+                                  </div>
+                                  <div>
+                                    <label className="text-gray-400 block mb-0.5">Routing Number</label>
+                                    <input className="w-full border border-gray-200 rounded px-2 py-1 text-xs" value={paymentInfoForm.bank_routing_number} onChange={(e) => setPaymentInfoForm({ ...paymentInfoForm, bank_routing_number: e.target.value })} />
+                                  </div>
+                                  <div>
+                                    <label className="text-gray-400 block mb-0.5">Account Number</label>
+                                    <input className="w-full border border-gray-200 rounded px-2 py-1 text-xs" value={paymentInfoForm.bank_account_number} onChange={(e) => setPaymentInfoForm({ ...paymentInfoForm, bank_account_number: e.target.value })} />
+                                  </div>
+                                </>
+                              ) : null}
+                              <div className="flex items-center gap-2 pt-1">
+                                <button className="px-3 py-1 bg-gray-900 text-white rounded text-xs hover:bg-gray-800 disabled:opacity-50" disabled={!paymentInfoForm.payment_method || paymentInfoSaving} onClick={() => savePaymentInfo(group.influencer!.id)}>
+                                  {paymentInfoSaving ? "Saving..." : "Save"}
+                                </button>
+                                <button className="text-xs text-gray-400 hover:text-gray-600" onClick={() => setPaymentInfoEditing(null)}>Cancel</button>
+                              </div>
+                            </div>
                           ) : paymentInfoData[group.influencer.id] ? (() => {
                             const info = paymentInfoData[group.influencer!.id];
                             const method = info.payment_method;
@@ -897,15 +990,70 @@ export default function PaymentsPage() {
                           : "Payment Info"}
                       </button>
                       {paymentInfoOpen === group.influencer.id && (
-                        <div className="absolute top-6 right-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-72" onClick={(e) => e.stopPropagation()}>
+                        <div className="absolute top-6 right-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-80" onClick={(e) => e.stopPropagation()}>
                           <div className="flex justify-between items-center mb-3">
                             <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Payment Details</span>
-                            <button onClick={() => setPaymentInfoOpen(null)} className="text-gray-400 hover:text-gray-600">
-                              <X className="h-3.5 w-3.5" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                              {paymentInfoEditing !== group.influencer.id && !paymentInfoLoading && (
+                                <button onClick={() => startEditingPaymentInfo(group.influencer!.id)} className="text-gray-400 hover:text-gray-600">
+                                  <Pencil className="h-3 w-3" />
+                                </button>
+                              )}
+                              <button onClick={() => { setPaymentInfoOpen(null); setPaymentInfoEditing(null); }} className="text-gray-400 hover:text-gray-600">
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           </div>
                           {paymentInfoLoading ? (
                             <div className="text-xs text-gray-400">Loading…</div>
+                          ) : paymentInfoEditing === group.influencer.id ? (
+                            <div className="space-y-2 text-xs">
+                              <div>
+                                <label className="text-gray-400 block mb-0.5">Method</label>
+                                <select className="w-full border border-gray-200 rounded px-2 py-1 text-xs" value={paymentInfoForm.payment_method} onChange={(e) => setPaymentInfoForm({ ...paymentInfoForm, payment_method: e.target.value })}>
+                                  <option value="">Select...</option>
+                                  <option value="paypal">PayPal</option>
+                                  <option value="us_ach">US ACH</option>
+                                  <option value="ca_eft">CA EFT</option>
+                                  <option value="intl_wire">Intl Wire</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="text-gray-400 block mb-0.5">Country</label>
+                                <input className="w-full border border-gray-200 rounded px-2 py-1 text-xs" value={paymentInfoForm.payout_country} onChange={(e) => setPaymentInfoForm({ ...paymentInfoForm, payout_country: e.target.value })} placeholder="e.g. US, CA" />
+                              </div>
+                              {paymentInfoForm.payment_method === "paypal" ? (
+                                <div>
+                                  <label className="text-gray-400 block mb-0.5">PayPal Email</label>
+                                  <input className="w-full border border-gray-200 rounded px-2 py-1 text-xs" value={paymentInfoForm.paypal_email} onChange={(e) => setPaymentInfoForm({ ...paymentInfoForm, paypal_email: e.target.value })} placeholder="email@example.com" />
+                                </div>
+                              ) : paymentInfoForm.payment_method ? (
+                                <>
+                                  <div>
+                                    <label className="text-gray-400 block mb-0.5">Account Name</label>
+                                    <input className="w-full border border-gray-200 rounded px-2 py-1 text-xs" value={paymentInfoForm.bank_account_name} onChange={(e) => setPaymentInfoForm({ ...paymentInfoForm, bank_account_name: e.target.value })} />
+                                  </div>
+                                  <div>
+                                    <label className="text-gray-400 block mb-0.5">Institution</label>
+                                    <input className="w-full border border-gray-200 rounded px-2 py-1 text-xs" value={paymentInfoForm.bank_institution} onChange={(e) => setPaymentInfoForm({ ...paymentInfoForm, bank_institution: e.target.value })} />
+                                  </div>
+                                  <div>
+                                    <label className="text-gray-400 block mb-0.5">Routing Number</label>
+                                    <input className="w-full border border-gray-200 rounded px-2 py-1 text-xs" value={paymentInfoForm.bank_routing_number} onChange={(e) => setPaymentInfoForm({ ...paymentInfoForm, bank_routing_number: e.target.value })} />
+                                  </div>
+                                  <div>
+                                    <label className="text-gray-400 block mb-0.5">Account Number</label>
+                                    <input className="w-full border border-gray-200 rounded px-2 py-1 text-xs" value={paymentInfoForm.bank_account_number} onChange={(e) => setPaymentInfoForm({ ...paymentInfoForm, bank_account_number: e.target.value })} />
+                                  </div>
+                                </>
+                              ) : null}
+                              <div className="flex items-center gap-2 pt-1">
+                                <button className="px-3 py-1 bg-gray-900 text-white rounded text-xs hover:bg-gray-800 disabled:opacity-50" disabled={!paymentInfoForm.payment_method || paymentInfoSaving} onClick={() => savePaymentInfo(group.influencer!.id)}>
+                                  {paymentInfoSaving ? "Saving..." : "Save"}
+                                </button>
+                                <button className="text-xs text-gray-400 hover:text-gray-600" onClick={() => setPaymentInfoEditing(null)}>Cancel</button>
+                              </div>
+                            </div>
                           ) : paymentInfoData[group.influencer.id] ? (() => {
                             const info = paymentInfoData[group.influencer!.id];
                             const method = info.payment_method;
