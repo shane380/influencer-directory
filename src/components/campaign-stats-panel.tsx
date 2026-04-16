@@ -150,7 +150,7 @@ export function CampaignStatsPanel({
     const poolPosted = poolApproved.filter((ci) => ci.content_posted !== "none").length;
     return {
       response: poolContacted > 0 ? Math.round((poolReplied / poolContacted) * 100) : 0,
-      acceptance: poolContacted > 0 ? Math.round((poolOrders / poolContacted) * 100) : 0,
+      acceptance: poolApproved.length > 0 ? Math.round((poolOrders / poolApproved.length) * 100) : 0,
       post: poolDelivered > 0 ? Math.round((poolPosted / poolDelivered) * 100) : 0,
     };
   }
