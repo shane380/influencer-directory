@@ -629,7 +629,7 @@ export default function CampaignDetailPage() {
             </div>
           </div>
           <CampaignStatsPanel
-            campaignName={campaign.name}
+            campaignLabel={campaign.name}
             campaignInfluencers={campaignInfluencers}
           />
           <div className="flex gap-2 mt-4">

@@ -24,6 +24,13 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
+
+    --color-background-secondary: 210 40% 96.1%;
+    --color-text-primary: 222.2 47.4% 11.2%;
+    --color-text-secondary: 215.4 16.3% 46.9%;
+    --color-text-tertiary: 215 16% 65%;
+    --color-text-danger: 0 84.2% 60.2%;
+    --color-border-tertiary: 214.3 31.8% 91.4%;
   }
 
   .dark {
@@ -46,6 +53,13 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
+
+    --color-background-secondary: 217.2 32.6% 17.5%;
+    --color-text-primary: 210 40% 98%;
+    --color-text-secondary: 215 20.2% 65.1%;
+    --color-text-tertiary: 215 16% 47%;
+    --color-text-danger: 0 62.8% 50%;
+    --color-border-tertiary: 217.2 32.6% 22%;
   }
 }
 

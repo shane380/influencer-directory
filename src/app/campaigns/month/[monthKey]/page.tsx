@@ -696,7 +696,8 @@ export default function MonthCampaignViewPage() {
           </div>
 
           <CampaignStatsPanel
-            campaignName={`${monthLabel} - All Campaigns`}
+            campaignLabel={campaigns.length === 1 ? campaigns[0].name.split(" - ").slice(1).join(" - ") || campaigns[0].name : "All Campaigns"}
+            periodLabel={monthLabel}
             campaignInfluencers={campaignInfluencers}
           />
         </div>
