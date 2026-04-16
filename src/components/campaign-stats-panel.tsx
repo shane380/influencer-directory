@@ -55,30 +55,28 @@ function parseProductBreakdown(campaignInfluencers: CampaignInfluencer[]): Style
   for (const ci of withOrders) {
     if (!ci.product_selections) continue;
     for (const ps of ci.product_selections) {
-      if (!ps.title) continue;
+      if (!ps.title && !ps.sku) continue;
 
-      // Parse: "Bluebelle Plunge Bra - Ivory / S" → style "Plunge Bra", colorway "Ivory"
-      const dashParts = ps.title.split(" - ");
+      // Style name from title: strip brand prefix
       let styleName: string;
-      let colorway: string;
-
-      if (dashParts.length >= 2) {
-        // Take everything after the first dash as colorway+size
-        const afterDash = dashParts.slice(1).join(" - ").trim();
-        // Split on / to remove size
-        colorway = afterDash.split("/")[0].trim();
-
-        // Strip brand prefix from style name — take last meaningful words
-        // e.g. "Bluebelle Plunge Bra" → "Plunge Bra"
+      if (ps.title) {
+        const dashParts = ps.title.split(" - ");
         const rawStyle = dashParts[0].trim();
         const words = rawStyle.split(/\s+/);
-        // Drop the first word if there are more than 2 words (likely a brand name)
         styleName = words.length > 2 ? words.slice(1).join(" ") : rawStyle;
       } else {
-        // No dash — use full title, strip size if present
-        const slashParts = ps.title.split("/");
-        styleName = slashParts[0].trim();
-        colorway = "Default";
+        styleName = "Unknown";
+      }
+
+      // Colorway from SKU: format is Fabric-StyleName-Color-Size e.g. BS-PLUNGE-IVORY-S
+      let colorway = "Default";
+      if (ps.sku) {
+        const skuParts = ps.sku.split("-");
+        if (skuParts.length >= 3) {
+          // Third-to-last segment is the colorway
+          const raw = skuParts[skuParts.length - 2];
+          colorway = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+        }
       }
 
       if (!colorwayMap.has(styleName)) {
