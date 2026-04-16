@@ -50,47 +50,55 @@ function parseProductBreakdown(campaignInfluencers: CampaignInfluencer[]): Style
     (ci) => ci.shopify_order_status !== null
   );
 
-  const colorwayMap = new Map<string, Map<string, number>>();
+  // Group by SKU prefix (strip color + size) so renamed products merge.
+  // Track the latest title seen per SKU prefix to use as display name.
+  const styleData = new Map<string, { title: string; colorways: Map<string, number> }>();
 
   for (const ci of withOrders) {
     if (!ci.product_selections) continue;
     for (const ps of ci.product_selections) {
-      if (!ps.title && !ps.sku) continue;
+      if (!ps.sku) continue;
 
-      // Style name: take everything before " - " from the Shopify title as-is
-      let styleName: string;
-      if (ps.title) {
-        styleName = ps.title.split(" - ")[0].trim();
-      } else {
-        styleName = "Unknown";
-      }
-
-      // Colorway from SKU: format is Fabric-StyleName-Color-Size e.g. BS-PLUNGE-IVORY-S
+      const skuParts = ps.sku.split("-");
+      // SKU format: Fabric-Style-Color-Size e.g. BS-PLUNGE-IVORY-S
+      // Style key = everything except last two segments (color + size)
+      let styleKey: string;
       let colorway = "Default";
-      if (ps.sku) {
-        const skuParts = ps.sku.split("-");
-        if (skuParts.length >= 3) {
-          // Third-to-last segment is the colorway
-          const raw = skuParts[skuParts.length - 2];
-          colorway = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
-        }
+      if (skuParts.length >= 4) {
+        styleKey = skuParts.slice(0, -2).join("-");
+        const raw = skuParts[skuParts.length - 2];
+        colorway = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+      } else if (skuParts.length === 3) {
+        styleKey = skuParts[0];
+        const raw = skuParts[1];
+        colorway = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+      } else {
+        styleKey = ps.sku;
       }
 
-      if (!colorwayMap.has(styleName)) {
-        colorwayMap.set(styleName, new Map());
+      // Display name: use title (strip colorway/size suffix), fall back to SKU
+      const displayTitle = ps.title
+        ? ps.title.split(" - ")[0].trim()
+        : styleKey;
+
+      if (!styleData.has(styleKey)) {
+        styleData.set(styleKey, { title: displayTitle, colorways: new Map() });
+      } else {
+        // Always update to the latest title (handles renames)
+        styleData.get(styleKey)!.title = displayTitle;
       }
-      const cwMap = colorwayMap.get(styleName)!;
+      const cwMap = styleData.get(styleKey)!.colorways;
       cwMap.set(colorway, (cwMap.get(colorway) || 0) + (ps.quantity || 1));
     }
   }
 
   const groups: StyleGroup[] = [];
-  for (const [style, cwMap] of colorwayMap) {
-    const colorways = Array.from(cwMap.entries())
+  for (const [, data] of styleData) {
+    const colorways = Array.from(data.colorways.entries())
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count);
     const total = colorways.reduce((sum, cw) => sum + cw.count, 0);
-    groups.push({ style, total, colorways });
+    groups.push({ style: data.title, total, colorways });
   }
 
   groups.sort((a, b) => b.total - a.total);
