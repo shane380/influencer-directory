@@ -136,13 +136,33 @@ export function CampaignStatsPanel({
 
   const postedCount = approved.filter((ci) => ci.content_posted !== "none").length;
 
-  // Rates — also scoped to approved
-  const repliedCount = approved.filter(
-    (ci) => ci.status !== "prospect" && ci.status !== "followed_up" && ci.status !== "order_follow_up_two_sent"
-  ).length;
-  const responseRate = contactedCount > 0 ? Math.round((repliedCount / contactedCount) * 100) : 0;
-  const acceptanceRate = contactedCount > 0 ? Math.round((ordersPlacedCount / contactedCount) * 100) : 0;
-  const postRate = deliveredCount > 0 ? Math.round((postedCount / deliveredCount) * 100) : 0;
+  // Rates — computed per segment
+  function computeRates(pool: CampaignInfluencer[]) {
+    const poolApproved = pool.filter((ci) => ci.approval_status === "approved" || ci.approval_status === null);
+    const poolContacted = poolApproved.filter((ci) => ci.status !== "prospect").length;
+    const poolReplied = poolApproved.filter(
+      (ci) => ci.status !== "prospect" && ci.status !== "followed_up" && ci.status !== "order_follow_up_two_sent"
+    ).length;
+    const poolOrders = poolApproved.filter(
+      (ci) => ci.shopify_order_status && (["draft", "fulfilled", "shipped", "delivered"] as string[]).includes(ci.shopify_order_status)
+    ).length;
+    const poolDelivered = poolApproved.filter((ci) => ci.shopify_order_status === "delivered").length;
+    const poolPosted = poolApproved.filter((ci) => ci.content_posted !== "none").length;
+    return {
+      response: poolContacted > 0 ? Math.round((poolReplied / poolContacted) * 100) : 0,
+      acceptance: poolContacted > 0 ? Math.round((poolOrders / poolContacted) * 100) : 0,
+      post: poolDelivered > 0 ? Math.round((poolPosted / poolDelivered) * 100) : 0,
+    };
+  }
+
+  const seedingInfluencers = campaignInfluencers.filter((ci) =>
+    ["gifted_no_ask", "gifted_soft_ask", "gifted_deliverable_ask"].includes(ci.partnership_type)
+  );
+  const recurringInfluencers = campaignInfluencers.filter((ci) => ci.partnership_type === "gifted_recurring");
+
+  const overallRates = computeRates(campaignInfluencers);
+  const seedingRates = computeRates(seedingInfluencers);
+  const recurringRates = computeRates(recurringInfluencers);
 
   // Progress bar percentages
   const contactedPct = approvedCount > 0 ? Math.round((contactedCount / approvedCount) * 100) : 0;
@@ -300,40 +320,17 @@ export function CampaignStatsPanel({
               </FunnelCell>
             </div>
 
-            {/* Rates row */}
+            {/* Rates table */}
             <div
               style={{
-                display: "flex",
-                gap: 24,
-                paddingTop: 8,
                 marginTop: 12,
                 borderTop: "0.5px solid hsl(var(--color-border-tertiary))",
+                paddingTop: 8,
               }}
             >
-              <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                <span style={{ fontSize: 11, color: "hsl(var(--color-text-secondary))" }}>
-                  Response rate
-                </span>
-                <span style={{ fontSize: 14, fontWeight: 500, color: "hsl(var(--color-text-primary))" }}>
-                  {responseRate}%
-                </span>
-              </div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                <span style={{ fontSize: 11, color: "hsl(var(--color-text-secondary))" }}>
-                  Acceptance rate
-                </span>
-                <span style={{ fontSize: 14, fontWeight: 500, color: "hsl(var(--color-text-primary))" }}>
-                  {acceptanceRate}%
-                </span>
-              </div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                <span style={{ fontSize: 11, color: "hsl(var(--color-text-secondary))" }}>
-                  Post rate
-                </span>
-                <span style={{ fontSize: 14, fontWeight: 500, color: "hsl(var(--color-text-primary))" }}>
-                  {postRate}%
-                </span>
-              </div>
+              <RatesRow label="Overall" rates={overallRates} />
+              <RatesRow label="Seeding" rates={seedingRates} />
+              <RatesRow label="Recurring" rates={recurringRates} />
             </div>
           </div>
         )}
@@ -490,6 +487,43 @@ function FunnelCell({
         )}
       </div>
       {children}
+    </div>
+  );
+}
+
+function RatesRow({ label, rates }: { label: string; rates: { response: number; acceptance: number; post: number } }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "baseline",
+        gap: 24,
+        marginBottom: 4,
+      }}
+    >
+      <span
+        style={{
+          fontSize: 11,
+          fontWeight: 500,
+          color: "hsl(var(--color-text-secondary))",
+          width: 70,
+          flexShrink: 0,
+        }}
+      >
+        {label}
+      </span>
+      <span style={{ display: "flex", alignItems: "baseline", gap: 4, minWidth: 110 }}>
+        <span style={{ fontSize: 11, color: "hsl(var(--color-text-tertiary))" }}>Response</span>
+        <span style={{ fontSize: 14, fontWeight: 500, color: "hsl(var(--color-text-primary))" }}>{rates.response}%</span>
+      </span>
+      <span style={{ display: "flex", alignItems: "baseline", gap: 4, minWidth: 120 }}>
+        <span style={{ fontSize: 11, color: "hsl(var(--color-text-tertiary))" }}>Acceptance</span>
+        <span style={{ fontSize: 14, fontWeight: 500, color: "hsl(var(--color-text-primary))" }}>{rates.acceptance}%</span>
+      </span>
+      <span style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+        <span style={{ fontSize: 11, color: "hsl(var(--color-text-tertiary))" }}>Post</span>
+        <span style={{ fontSize: 14, fontWeight: 500, color: "hsl(var(--color-text-primary))" }}>{rates.post}%</span>
+      </span>
     </div>
   );
 }
