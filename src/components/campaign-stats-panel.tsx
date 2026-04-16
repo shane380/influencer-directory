@@ -2,7 +2,6 @@
 
 import {
   CampaignInfluencer,
-  RelationshipStatus,
   ShopifyOrderStatus,
 } from "@/types/database";
 
@@ -26,40 +25,32 @@ export function CampaignStatsPanel({
   const recurring = campaignInfluencers.filter((ci) => ci.partnership_type === "gifted_recurring").length;
   const paid = campaignInfluencers.filter((ci) => ci.partnership_type === "paid").length;
 
-  // Funnel counts
-  const prospectCount = campaignInfluencers.filter((ci) => ci.status === "prospect").length;
-  const contactedCount = total - prospectCount;
+  // Funnel counts — scoped to approved influencers only
+  const approved = campaignInfluencers.filter((ci) => ci.approval_status === "approved");
+  const approvedCount = approved.length;
 
-  const approvedStatuses: RelationshipStatus[] = [
-    "order_placed",
-    "order_delivered",
-    "order_follow_up_sent",
-    "order_follow_up_two_sent",
-    "posted",
-  ];
-  const approvedCount = campaignInfluencers.filter((ci) =>
-    approvedStatuses.includes(ci.status)
-  ).length;
+  const contactedCount = approved.filter((ci) => ci.status !== "prospect").length;
+  const prospectCount = approvedCount - contactedCount;
 
   const orderStatuses: ShopifyOrderStatus[] = ["draft", "fulfilled", "shipped", "delivered"];
-  const ordersPlacedCount = campaignInfluencers.filter(
+  const ordersPlacedCount = approved.filter(
     (ci) => ci.shopify_order_status && orderStatuses.includes(ci.shopify_order_status)
   ).length;
-  const shippedCount = campaignInfluencers.filter((ci) => ci.shopify_order_status === "shipped").length;
-  const deliveredCount = campaignInfluencers.filter((ci) => ci.shopify_order_status === "delivered").length;
+  const shippedCount = approved.filter((ci) => ci.shopify_order_status === "shipped").length;
+  const deliveredCount = approved.filter((ci) => ci.shopify_order_status === "delivered").length;
 
-  const postedCount = campaignInfluencers.filter((ci) => ci.content_posted !== "none").length;
+  const postedCount = approved.filter((ci) => ci.content_posted !== "none").length;
 
-  // Rates
-  const repliedCount = campaignInfluencers.filter(
+  // Rates — also scoped to approved
+  const repliedCount = approved.filter(
     (ci) => ci.status !== "prospect" && ci.status !== "followed_up"
   ).length;
   const responseRate = contactedCount > 0 ? Math.round((repliedCount / contactedCount) * 100) : 0;
-  const acceptanceRate = repliedCount > 0 ? Math.round((approvedCount / repliedCount) * 100) : 0;
+  const acceptanceRate = repliedCount > 0 ? Math.round((ordersPlacedCount / repliedCount) * 100) : 0;
 
   // Progress bar percentages
-  const contactedPct = total > 0 ? Math.round((contactedCount / total) * 100) : 0;
-  const approvedPct = contactedCount > 0 ? Math.round((approvedCount / contactedCount) * 100) : 0;
+  const contactedPct = approvedCount > 0 ? Math.round((contactedCount / approvedCount) * 100) : 0;
+  const approvedPct = contactedCount > 0 ? Math.round((ordersPlacedCount / contactedCount) * 100) : 0;
   const contentPct = deliveredCount > 0 ? Math.round((postedCount / deliveredCount) * 100) : 0;
 
   // Orders subline
@@ -157,23 +148,23 @@ export function CampaignStatsPanel({
           overflow: "hidden",
         }}
       >
-        {/* Roster */}
-        <FunnelCell label="Roster" value={total}>
-          <ProgressBar pct={100} color="hsl(var(--color-text-tertiary))" />
+        {/* Roster (approved only) */}
+        <FunnelCell label="Approved" value={approvedCount} denominator={total}>
+          <ProgressBar pct={total > 0 ? Math.round((approvedCount / total) * 100) : 0} color="hsl(var(--color-text-tertiary))" />
         </FunnelCell>
 
         {/* Contacted */}
-        <FunnelCell label="Contacted" value={contactedCount} denominator={total}>
+        <FunnelCell label="Contacted" value={contactedCount} denominator={approvedCount}>
           <ProgressBar pct={contactedPct} color="hsl(var(--color-text-danger))" />
         </FunnelCell>
 
-        {/* Approved */}
-        <FunnelCell label="Approved" value={approvedCount} denominator={contactedCount}>
+        {/* Orders placed (from contacted) */}
+        <FunnelCell label="Orders placed" value={ordersPlacedCount} denominator={contactedCount}>
           <ProgressBar pct={approvedPct} color="hsl(var(--color-text-primary))" />
         </FunnelCell>
 
-        {/* Orders placed */}
-        <FunnelCell label="Orders placed" value={ordersPlacedCount}>
+        {/* Shipped/Delivered */}
+        <FunnelCell label="Delivered" value={deliveredCount} denominator={ordersPlacedCount}>
           {orderParts.length > 0 && (
             <div style={{ fontSize: 11, color: "hsl(var(--color-text-tertiary))", marginTop: 2 }}>
               {orderParts.join(" \u00b7 ")}
