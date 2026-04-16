@@ -43,7 +43,7 @@ export function CampaignStatsPanel({
 
   // Rates — also scoped to approved
   const repliedCount = approved.filter(
-    (ci) => ci.status !== "prospect" && ci.status !== "followed_up"
+    (ci) => ci.status !== "prospect" && ci.status !== "followed_up" && ci.status !== "order_follow_up_two_sent"
   ).length;
   const responseRate = contactedCount > 0 ? Math.round((repliedCount / contactedCount) * 100) : 0;
   const acceptanceRate = contactedCount > 0 ? Math.round((ordersPlacedCount / contactedCount) * 100) : 0;
