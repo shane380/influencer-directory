@@ -148,9 +148,9 @@ export function CampaignStatsPanel({
           overflow: "hidden",
         }}
       >
-        {/* Roster (approved only) */}
+        {/* Approved out of total roster */}
         <FunnelCell label="Approved" value={approvedCount} denominator={total}>
-          <ProgressBar pct={total > 0 ? Math.round((approvedCount / total) * 100) : 0} color="hsl(var(--color-text-tertiary))" />
+          <ProgressBar pct={total > 0 ? Math.round((approvedCount / total) * 100) : 0} color="hsl(var(--color-text-primary))" />
         </FunnelCell>
 
         {/* Contacted */}
