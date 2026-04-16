@@ -228,6 +228,7 @@ export default function MonthCampaignViewPage() {
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>("all");
   const [collectionFilter, setCollectionFilter] = useState<string>("all");
   const [ownerFilter, setOwnerFilter] = useState<string>("all");
+  const [approvalFilter, setApprovalFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [influencerDialogOpen, setInfluencerDialogOpen] = useState(false);
@@ -604,6 +605,12 @@ export default function MonthCampaignViewPage() {
         if (ownerFilter !== "unassigned" && ci.influencer.assigned_to !== ownerFilter) return false;
       }
       if (contentFilter !== "all" && ci.content_posted !== contentFilter) return false;
+      // Approval filter
+      if (approvalFilter !== "all") {
+        if (approvalFilter === "pending" && ci.approval_status !== "pending") return false;
+        if (approvalFilter === "approved" && ci.approval_status !== "approved") return false;
+        if (approvalFilter === "declined" && ci.approval_status !== "declined") return false;
+      }
       // Order status filter
       if (orderStatusFilter !== "all") {
         if (orderStatusFilter === "no_order" && ci.shopify_order_status !== null) return false;
@@ -635,7 +642,7 @@ export default function MonthCampaignViewPage() {
         return multiplier * (new Date(aDate).getTime() - new Date(bDate).getTime());
       }
       return 0;
-    }), [campaignInfluencers, statusFilter, partnershipTypeFilter, contentFilter, orderStatusFilter, collectionFilter, ownerFilter, search, sortField, sortDirection]);
+    }), [campaignInfluencers, statusFilter, partnershipTypeFilter, contentFilter, orderStatusFilter, collectionFilter, ownerFilter, approvalFilter, search, sortField, sortDirection]);
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -774,6 +781,24 @@ export default function MonthCampaignViewPage() {
               { value: "delivered", label: "Delivered" },
             ]}
           />
+          {(() => {
+            const pendingCount = campaignInfluencers.filter(ci => ci.approval_status === "pending").length;
+            const hasApprovals = campaignInfluencers.some(ci => ci.approval_status !== null);
+            if (!hasApprovals && approvalFilter === "all") return null;
+            return (
+              <FilterChip
+                label={pendingCount > 0 ? `Approvals (${pendingCount})` : "Approvals"}
+                value={approvalFilter === "all" ? null : approvalFilter}
+                onChange={(v) => setApprovalFilter(v ?? "all")}
+                highlightInactive={pendingCount > 0 && approvalFilter === "all"}
+                options={[
+                  { value: "pending", label: `Pending (${pendingCount})` },
+                  { value: "approved", label: "Approved" },
+                  { value: "declined", label: "Declined" },
+                ]}
+              />
+            );
+          })()}
           <FilterChip
             label="Owner"
             value={ownerFilter === "all" ? null : ownerFilter}

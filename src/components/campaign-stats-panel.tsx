@@ -25,8 +25,8 @@ export function CampaignStatsPanel({
   const recurring = campaignInfluencers.filter((ci) => ci.partnership_type === "gifted_recurring").length;
   const paid = campaignInfluencers.filter((ci) => ci.partnership_type === "paid").length;
 
-  // Funnel counts — scoped to approved influencers only
-  const approved = campaignInfluencers.filter((ci) => ci.approval_status === "approved");
+  // Funnel counts — scoped to approved influencers only (null = no approval required = approved)
+  const approved = campaignInfluencers.filter((ci) => ci.approval_status === "approved" || ci.approval_status === null);
   const approvedCount = approved.length;
 
   const contactedCount = approved.filter((ci) => ci.status !== "prospect").length;
