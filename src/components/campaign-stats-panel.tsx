@@ -105,6 +105,7 @@ export function CampaignStatsPanel({
   periodLabel,
   campaignInfluencers,
 }: CampaignStatsPanelProps) {
+  const [statsOpen, setStatsOpen] = useState(false);
   const [productsOpen, setProductsOpen] = useState(false);
   const total = campaignInfluencers.length;
 
@@ -229,73 +230,108 @@ export function CampaignStatsPanel({
         </div>
       </div>
 
-      {/* Funnel grid */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-          gap: 1,
-          background: "hsl(var(--color-border-tertiary))",
-          border: "0.5px solid hsl(var(--color-border-tertiary))",
-          borderRadius: "calc(var(--radius) - 2px)",
-          overflow: "hidden",
-        }}
-      >
-        <FunnelCell label="Approved" value={approvedCount} denominator={total}>
-          <ProgressBar pct={total > 0 ? Math.round((approvedCount / total) * 100) : 0} color="hsl(var(--color-text-primary))" />
-        </FunnelCell>
+      {/* Campaign stats — collapsible */}
+      <div style={{ borderTop: "0.5px solid hsl(var(--color-border-tertiary))", paddingTop: 8 }}>
+        <button
+          onClick={() => setStatsOpen(!statsOpen)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            padding: 0,
+            fontSize: 11,
+            fontWeight: 600,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+            color: "hsl(var(--color-text-secondary))",
+          }}
+        >
+          Campaign stats
+          <ChevronDown
+            style={{
+              width: 14,
+              height: 14,
+              transition: "transform 0.15s",
+              transform: statsOpen ? "rotate(180deg)" : "rotate(0deg)",
+            }}
+          />
+        </button>
 
-        <FunnelCell label="Contacted" value={contactedCount} denominator={approvedCount}>
-          <ProgressBar pct={contactedPct} color="hsl(var(--color-text-danger))" />
-        </FunnelCell>
+        {statsOpen && (
+          <div style={{ marginTop: 10 }}>
+            {/* Funnel grid */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                gap: 1,
+                background: "hsl(var(--color-border-tertiary))",
+                border: "0.5px solid hsl(var(--color-border-tertiary))",
+                borderRadius: "calc(var(--radius) - 2px)",
+                overflow: "hidden",
+              }}
+            >
+              <FunnelCell label="Approved" value={approvedCount} denominator={total}>
+                <ProgressBar pct={total > 0 ? Math.round((approvedCount / total) * 100) : 0} color="hsl(var(--color-text-primary))" />
+              </FunnelCell>
 
-        <FunnelCell label="Orders placed" value={ordersPlacedCount} denominator={contactedCount}>
-          <ProgressBar pct={approvedPct} color="hsl(var(--color-text-primary))" />
-        </FunnelCell>
+              <FunnelCell label="Contacted" value={contactedCount} denominator={approvedCount}>
+                <ProgressBar pct={contactedPct} color="hsl(var(--color-text-danger))" />
+              </FunnelCell>
 
-        <FunnelCell label="Delivered" value={deliveredCount} denominator={ordersPlacedCount}>
-          {orderParts.length > 0 && (
-            <div style={{ fontSize: 11, color: "hsl(var(--color-text-tertiary))", marginTop: 2 }}>
-              {orderParts.join(" \u00b7 ")}
+              <FunnelCell label="Orders placed" value={ordersPlacedCount} denominator={contactedCount}>
+                <ProgressBar pct={approvedPct} color="hsl(var(--color-text-primary))" />
+              </FunnelCell>
+
+              <FunnelCell label="Delivered" value={deliveredCount} denominator={ordersPlacedCount}>
+                {orderParts.length > 0 && (
+                  <div style={{ fontSize: 11, color: "hsl(var(--color-text-tertiary))", marginTop: 2 }}>
+                    {orderParts.join(" \u00b7 ")}
+                  </div>
+                )}
+              </FunnelCell>
             </div>
-          )}
-        </FunnelCell>
-      </div>
 
-      {/* Bottom row — rates */}
-      <div
-        style={{
-          display: "flex",
-          gap: 24,
-          paddingTop: 8,
-          marginTop: 12,
-          borderTop: "0.5px solid hsl(var(--color-border-tertiary))",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-          <span style={{ fontSize: 11, color: "hsl(var(--color-text-secondary))" }}>
-            Response rate
-          </span>
-          <span style={{ fontSize: 14, fontWeight: 500, color: "hsl(var(--color-text-primary))" }}>
-            {responseRate}%
-          </span>
-        </div>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-          <span style={{ fontSize: 11, color: "hsl(var(--color-text-secondary))" }}>
-            Acceptance rate
-          </span>
-          <span style={{ fontSize: 14, fontWeight: 500, color: "hsl(var(--color-text-primary))" }}>
-            {acceptanceRate}%
-          </span>
-        </div>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-          <span style={{ fontSize: 11, color: "hsl(var(--color-text-secondary))" }}>
-            Post rate
-          </span>
-          <span style={{ fontSize: 14, fontWeight: 500, color: "hsl(var(--color-text-primary))" }}>
-            {postRate}%
-          </span>
-        </div>
+            {/* Rates row */}
+            <div
+              style={{
+                display: "flex",
+                gap: 24,
+                paddingTop: 8,
+                marginTop: 12,
+                borderTop: "0.5px solid hsl(var(--color-border-tertiary))",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                <span style={{ fontSize: 11, color: "hsl(var(--color-text-secondary))" }}>
+                  Response rate
+                </span>
+                <span style={{ fontSize: 14, fontWeight: 500, color: "hsl(var(--color-text-primary))" }}>
+                  {responseRate}%
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                <span style={{ fontSize: 11, color: "hsl(var(--color-text-secondary))" }}>
+                  Acceptance rate
+                </span>
+                <span style={{ fontSize: 14, fontWeight: 500, color: "hsl(var(--color-text-primary))" }}>
+                  {acceptanceRate}%
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                <span style={{ fontSize: 11, color: "hsl(var(--color-text-secondary))" }}>
+                  Post rate
+                </span>
+                <span style={{ fontSize: 14, fontWeight: 500, color: "hsl(var(--color-text-primary))" }}>
+                  {postRate}%
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Products gifted — collapsible */}
