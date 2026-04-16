@@ -228,7 +228,7 @@ export default function MonthCampaignViewPage() {
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>("all");
   const [collectionFilter, setCollectionFilter] = useState<string>("all");
   const [ownerFilter, setOwnerFilter] = useState<string>("all");
-  const [approvalFilter, setApprovalFilter] = useState<string>("all");
+  const [approvalFilter, setApprovalFilter] = useState<string>("approved");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [influencerDialogOpen, setInfluencerDialogOpen] = useState(false);

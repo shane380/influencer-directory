@@ -233,7 +233,7 @@ export default function CampaignDetailPage() {
   const [selectedDealInfluencer, setSelectedDealInfluencer] = useState<CampaignInfluencerWithDetails | null>(null);
   const [contentFilter, setContentFilter] = useState<string>("all");
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>("all");
-  const [approvalFilter, setApprovalFilter] = useState<string>("all");
+  const [approvalFilter, setApprovalFilter] = useState<string>("approved");
   const [ownerFilter, setOwnerFilter] = useState<string>("all");
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [selectedApprovalInfluencer, setSelectedApprovalInfluencer] = useState<CampaignInfluencerWithDetails | null>(null);
