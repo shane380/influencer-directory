@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip } from "@/components/ui/tooltip";
+import { CampaignStatsPanel } from "@/components/campaign-stats-panel";
 import { FilterChip } from "@/components/ui/filter-chip";
 import {
   Table,
@@ -628,100 +628,10 @@ export default function CampaignDetailPage() {
               {campaign.end_date && <> - {formatDate(campaign.end_date)}</>}
             </div>
           </div>
-          {/* Stats Summary Line */}
-              {(() => {
-                // Partnership breakdown
-                const seeding = campaignInfluencers.filter((ci) =>
-                  ["gifted_no_ask", "gifted_soft_ask", "gifted_deliverable_ask"].includes(ci.partnership_type)
-                ).length;
-                const recurring = campaignInfluencers.filter((ci) => ci.partnership_type === "gifted_recurring").length;
-                const paid = campaignInfluencers.filter((ci) => ci.partnership_type === "paid").length;
-
-                // Status breakdown
-                const outreach = campaignInfluencers.filter((ci) =>
-                  ["prospect", "contacted", "followed_up"].includes(ci.status)
-                ).length;
-                const orderPlaced = campaignInfluencers.filter((ci) => ci.status === "order_placed").length;
-                const delivered = campaignInfluencers.filter((ci) => ci.status === "order_delivered").length;
-                const followUp = campaignInfluencers.filter((ci) =>
-                  ["order_follow_up_sent", "order_follow_up_two_sent"].includes(ci.status)
-                ).length;
-                const posted = campaignInfluencers.filter((ci) => ci.status === "posted").length;
-                const deadLeads = campaignInfluencers.filter((ci) =>
-                  ["lead_dead", "creator_wants_paid"].includes(ci.status)
-                ).length;
-
-                // Approval breakdown
-                const approvedCount = campaignInfluencers.filter((ci) => ci.approval_status === "approved").length;
-                const declinedCount = campaignInfluencers.filter((ci) => ci.approval_status === "declined").length;
-                const pendingApprovalCount = campaignInfluencers.filter((ci) => ci.approval_status === "pending").length;
-                const hasApprovalData = campaignInfluencers.some((ci) => ci.approval_status !== null);
-
-                // Content breakdown
-                const stories = campaignInfluencers.filter((ci) => ci.content_posted === "stories").length;
-                const inFeed = campaignInfluencers.filter((ci) => ci.content_posted === "in_feed_post").length;
-                const reels = campaignInfluencers.filter((ci) => ci.content_posted === "reel").length;
-                const tiktoks = campaignInfluencers.filter((ci) => ci.content_posted === "tiktok").length;
-                const totalContent = stories + inFeed + reels + tiktoks;
-
-                return (
-                  <div className="flex items-center gap-1 mt-3 text-sm text-gray-700">
-                    <Tooltip
-                      content={
-                        <div className="space-y-1">
-                          <div>{seeding} Seeding</div>
-                          <div>{recurring} Recurring</div>
-                          <div>{paid} Paid</div>
-                        </div>
-                      }
-                    >
-                      <span className="hover:text-gray-900">{campaignInfluencers.length} influencers</span>
-                    </Tooltip>
-                    {hasApprovalData && (
-                      <>
-                        <span className="text-gray-400 mx-1">·</span>
-                        <span className="flex items-center gap-2">
-                          <span className="text-green-600">{approvedCount} approved</span>
-                          <span className="text-red-500">{declinedCount} declined</span>
-                          <span className="text-amber-500">{pendingApprovalCount} pending</span>
-                        </span>
-                      </>
-                    )}
-                    <span className="text-gray-400 mx-1">·</span>
-                    <Tooltip
-                      content={
-                        <div className="space-y-1">
-                          {outreach > 0 && <div>{outreach} Outreach</div>}
-                          {orderPlaced > 0 && <div>{orderPlaced} Placed</div>}
-                          {delivered > 0 && <div>{delivered} Delivered</div>}
-                          {followUp > 0 && <div>{followUp} Follow Up</div>}
-                          {posted > 0 && <div>{posted} Posted</div>}
-                          {deadLeads > 0 && <div>{deadLeads} Dead Leads</div>}
-                        </div>
-                      }
-                    >
-                      <span className="hover:text-gray-900">{delivered} delivered</span>
-                    </Tooltip>
-                    <span className="text-gray-400 mx-1">·</span>
-                    <Tooltip
-                      content={
-                        totalContent > 0 ? (
-                          <div className="space-y-1">
-                            {stories > 0 && <div>{stories} {stories === 1 ? "Story" : "Stories"}</div>}
-                            {inFeed > 0 && <div>{inFeed} {inFeed === 1 ? "Post" : "Posts"}</div>}
-                            {reels > 0 && <div>{reels} {reels === 1 ? "Reel" : "Reels"}</div>}
-                            {tiktoks > 0 && <div>{tiktoks} {tiktoks === 1 ? "TikTok" : "TikToks"}</div>}
-                          </div>
-                        ) : (
-                          <div>No content posted yet</div>
-                        )
-                      }
-                    >
-                      <span className="hover:text-gray-900">{totalContent} content posted</span>
-                    </Tooltip>
-                  </div>
-                );
-              })()}
+          <CampaignStatsPanel
+            campaignName={campaign.name}
+            campaignInfluencers={campaignInfluencers}
+          />
           <div className="flex gap-2 mt-4">
             {campaign.collection_deck_url && (
               <Button
