@@ -46,7 +46,7 @@ export function CampaignStatsPanel({
     (ci) => ci.status !== "prospect" && ci.status !== "followed_up"
   ).length;
   const responseRate = contactedCount > 0 ? Math.round((repliedCount / contactedCount) * 100) : 0;
-  const acceptanceRate = repliedCount > 0 ? Math.round((ordersPlacedCount / repliedCount) * 100) : 0;
+  const acceptanceRate = contactedCount > 0 ? Math.round((ordersPlacedCount / contactedCount) * 100) : 0;
   const postRate = deliveredCount > 0 ? Math.round((postedCount / deliveredCount) * 100) : 0;
 
   // Progress bar percentages
