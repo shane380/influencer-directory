@@ -47,11 +47,11 @@ export function CampaignStatsPanel({
   ).length;
   const responseRate = contactedCount > 0 ? Math.round((repliedCount / contactedCount) * 100) : 0;
   const acceptanceRate = repliedCount > 0 ? Math.round((ordersPlacedCount / repliedCount) * 100) : 0;
+  const postRate = deliveredCount > 0 ? Math.round((postedCount / deliveredCount) * 100) : 0;
 
   // Progress bar percentages
   const contactedPct = approvedCount > 0 ? Math.round((contactedCount / approvedCount) * 100) : 0;
   const approvedPct = contactedCount > 0 ? Math.round((ordersPlacedCount / contactedCount) * 100) : 0;
-  const contentPct = deliveredCount > 0 ? Math.round((postedCount / deliveredCount) * 100) : 0;
 
   // Orders subline
   const orderParts: string[] = [];
@@ -140,7 +140,7 @@ export function CampaignStatsPanel({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+          gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
           gap: 1,
           background: "hsl(var(--color-border-tertiary))",
           border: "0.5px solid hsl(var(--color-border-tertiary))",
@@ -172,10 +172,6 @@ export function CampaignStatsPanel({
           )}
         </FunnelCell>
 
-        {/* Content posted */}
-        <FunnelCell label="Content posted" value={postedCount} denominator={deliveredCount}>
-          <ProgressBar pct={contentPct} color="hsl(var(--color-text-primary))" />
-        </FunnelCell>
       </div>
 
       {/* Bottom row */}
@@ -202,6 +198,14 @@ export function CampaignStatsPanel({
           </span>
           <span style={{ fontSize: 14, fontWeight: 500, color: "hsl(var(--color-text-primary))" }}>
             {acceptanceRate}%
+          </span>
+        </div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+          <span style={{ fontSize: 11, color: "hsl(var(--color-text-secondary))" }}>
+            Post rate
+          </span>
+          <span style={{ fontSize: 14, fontWeight: 500, color: "hsl(var(--color-text-primary))" }}>
+            {postRate}%
           </span>
         </div>
       </div>
