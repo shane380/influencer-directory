@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import {
   CampaignInfluencer,
   ShopifyOrderStatus,
+  ProductSelection,
 } from "@/types/database";
+import { ChevronDown } from "lucide-react";
 
 interface CampaignStatsPanelProps {
   campaignLabel: string;
@@ -11,11 +14,100 @@ interface CampaignStatsPanelProps {
   campaignInfluencers: CampaignInfluencer[];
 }
 
+const COLORWAY_DOTS: Record<string, string> = {
+  ivory: "#F5E6D3",
+  cream: "#F5E6D3",
+  white: "#E8E8E8",
+  blue: "#B5D4F4",
+  navy: "#2C3E6B",
+  black: "#2C2C2A",
+  red: "#E07070",
+  pink: "#F4B5C8",
+  green: "#A8D5BA",
+  brown: "#A0785A",
+  beige: "#D4C5A9",
+  grey: "#B0B0B0",
+  gray: "#B0B0B0",
+};
+
+function getColorDot(colorway: string): string {
+  const lower = colorway.toLowerCase().trim();
+  for (const [key, hex] of Object.entries(COLORWAY_DOTS)) {
+    if (lower.includes(key)) return hex;
+  }
+  return "#C4C4C4";
+}
+
+interface StyleGroup {
+  style: string;
+  total: number;
+  colorways: { name: string; count: number }[];
+}
+
+function parseProductBreakdown(campaignInfluencers: CampaignInfluencer[]): StyleGroup[] {
+  // Only include rows with an order
+  const withOrders = campaignInfluencers.filter(
+    (ci) => ci.shopify_order_status !== null
+  );
+
+  const colorwayMap = new Map<string, Map<string, number>>();
+
+  for (const ci of withOrders) {
+    if (!ci.product_selections) continue;
+    for (const ps of ci.product_selections) {
+      if (!ps.title) continue;
+
+      // Parse: "Bluebelle Plunge Bra - Ivory / S" → style "Plunge Bra", colorway "Ivory"
+      const dashParts = ps.title.split(" - ");
+      let styleName: string;
+      let colorway: string;
+
+      if (dashParts.length >= 2) {
+        // Take everything after the first dash as colorway+size
+        const afterDash = dashParts.slice(1).join(" - ").trim();
+        // Split on / to remove size
+        colorway = afterDash.split("/")[0].trim();
+
+        // Strip brand prefix from style name — take last meaningful words
+        // e.g. "Bluebelle Plunge Bra" → "Plunge Bra"
+        const rawStyle = dashParts[0].trim();
+        const words = rawStyle.split(/\s+/);
+        // Drop the first word if there are more than 2 words (likely a brand name)
+        styleName = words.length > 2 ? words.slice(1).join(" ") : rawStyle;
+      } else {
+        // No dash — use full title, strip size if present
+        const slashParts = ps.title.split("/");
+        styleName = slashParts[0].trim();
+        colorway = "Default";
+      }
+
+      if (!colorwayMap.has(styleName)) {
+        colorwayMap.set(styleName, new Map());
+      }
+      const cwMap = colorwayMap.get(styleName)!;
+      cwMap.set(colorway, (cwMap.get(colorway) || 0) + (ps.quantity || 1));
+    }
+  }
+
+  const groups: StyleGroup[] = [];
+  for (const [style, cwMap] of colorwayMap) {
+    const colorways = Array.from(cwMap.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+    const total = colorways.reduce((sum, cw) => sum + cw.count, 0);
+    groups.push({ style, total, colorways });
+  }
+
+  groups.sort((a, b) => b.total - a.total);
+  return groups;
+}
+
 export function CampaignStatsPanel({
   campaignLabel,
   periodLabel,
   campaignInfluencers,
 }: CampaignStatsPanelProps) {
+  const [productsOpen, setProductsOpen] = useState(false);
   const total = campaignInfluencers.length;
 
   // Tier counts
@@ -30,7 +122,6 @@ export function CampaignStatsPanel({
   const approvedCount = approved.length;
 
   const contactedCount = approved.filter((ci) => ci.status !== "prospect").length;
-  const prospectCount = approvedCount - contactedCount;
 
   const orderStatuses: ShopifyOrderStatus[] = ["draft", "fulfilled", "shipped", "delivered"];
   const ordersPlacedCount = approved.filter(
@@ -57,6 +148,10 @@ export function CampaignStatsPanel({
   const orderParts: string[] = [];
   if (shippedCount > 0) orderParts.push(`${shippedCount} shipped`);
   if (deliveredCount > 0) orderParts.push(`${deliveredCount} delivered`);
+
+  // Products gifted breakdown
+  const productGroups = parseProductBreakdown(campaignInfluencers);
+  const hasProducts = productGroups.length > 0;
 
   return (
     <div
@@ -148,22 +243,18 @@ export function CampaignStatsPanel({
           overflow: "hidden",
         }}
       >
-        {/* Approved out of total roster */}
         <FunnelCell label="Approved" value={approvedCount} denominator={total}>
           <ProgressBar pct={total > 0 ? Math.round((approvedCount / total) * 100) : 0} color="hsl(var(--color-text-primary))" />
         </FunnelCell>
 
-        {/* Contacted */}
         <FunnelCell label="Contacted" value={contactedCount} denominator={approvedCount}>
           <ProgressBar pct={contactedPct} color="hsl(var(--color-text-danger))" />
         </FunnelCell>
 
-        {/* Orders placed (from contacted) */}
         <FunnelCell label="Orders placed" value={ordersPlacedCount} denominator={contactedCount}>
           <ProgressBar pct={approvedPct} color="hsl(var(--color-text-primary))" />
         </FunnelCell>
 
-        {/* Shipped/Delivered */}
         <FunnelCell label="Delivered" value={deliveredCount} denominator={ordersPlacedCount}>
           {orderParts.length > 0 && (
             <div style={{ fontSize: 11, color: "hsl(var(--color-text-tertiary))", marginTop: 2 }}>
@@ -171,10 +262,9 @@ export function CampaignStatsPanel({
             </div>
           )}
         </FunnelCell>
-
       </div>
 
-      {/* Bottom row */}
+      {/* Bottom row — rates */}
       <div
         style={{
           display: "flex",
@@ -209,6 +299,123 @@ export function CampaignStatsPanel({
           </span>
         </div>
       </div>
+
+      {/* Products gifted — collapsible */}
+      {hasProducts && (
+        <div style={{ marginTop: 12, borderTop: "0.5px solid hsl(var(--color-border-tertiary))", paddingTop: 8 }}>
+          <button
+            onClick={() => setProductsOpen(!productsOpen)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: 0,
+              fontSize: 11,
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              color: "hsl(var(--color-text-secondary))",
+            }}
+          >
+            Products gifted
+            <ChevronDown
+              style={{
+                width: 14,
+                height: 14,
+                transition: "transform 0.15s",
+                transform: productsOpen ? "rotate(180deg)" : "rotate(0deg)",
+              }}
+            />
+          </button>
+
+          {productsOpen && (
+            <div style={{ marginTop: 10 }}>
+              {productGroups.map((group, gi) => {
+                const maxCount = group.colorways[0]?.count || 1;
+                return (
+                  <div key={group.style}>
+                    {gi > 0 && (
+                      <div style={{ borderTop: "0.5px solid hsl(var(--color-border-tertiary))", margin: "8px 0" }} />
+                    )}
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
+                      <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--color-text-primary))" }}>
+                        {group.style}
+                      </span>
+                      <span style={{ fontSize: 12, color: "hsl(var(--color-text-tertiary))" }}>
+                        {group.total} total
+                      </span>
+                    </div>
+                    {group.colorways.map((cw) => (
+                      <div
+                        key={cw.name}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          marginBottom: 4,
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: "50%",
+                            background: getColorDot(cw.name),
+                            flexShrink: 0,
+                            border: "0.5px solid hsl(var(--color-border-tertiary))",
+                          }}
+                        />
+                        <span
+                          style={{
+                            fontSize: 12,
+                            color: "hsl(var(--color-text-secondary))",
+                            width: 60,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {cw.name}
+                        </span>
+                        <div
+                          style={{
+                            flex: 1,
+                            height: 4,
+                            background: "hsl(var(--color-background-secondary))",
+                            borderRadius: 2,
+                            overflow: "hidden",
+                          }}
+                        >
+                          <div
+                            style={{
+                              height: "100%",
+                              width: `${Math.round((cw.count / maxCount) * 100)}%`,
+                              background: "hsl(var(--color-text-tertiary))",
+                              borderRadius: 2,
+                            }}
+                          />
+                        </div>
+                        <span
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 500,
+                            color: "hsl(var(--color-text-primary))",
+                            minWidth: 20,
+                            textAlign: "right",
+                          }}
+                        >
+                          {cw.count}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
