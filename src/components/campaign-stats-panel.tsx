@@ -57,13 +57,10 @@ function parseProductBreakdown(campaignInfluencers: CampaignInfluencer[]): Style
     for (const ps of ci.product_selections) {
       if (!ps.title && !ps.sku) continue;
 
-      // Style name from title: strip brand prefix
+      // Style name: take everything before " - " from the Shopify title as-is
       let styleName: string;
       if (ps.title) {
-        const dashParts = ps.title.split(" - ");
-        const rawStyle = dashParts[0].trim();
-        const words = rawStyle.split(/\s+/);
-        styleName = words.length > 2 ? words.slice(1).join(" ") : rawStyle;
+        styleName = ps.title.split(" - ")[0].trim();
       } else {
         styleName = "Unknown";
       }
