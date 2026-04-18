@@ -88,6 +88,8 @@ export default function CreatorsListPage() {
 
   // Pending invites
   const [pendingInvites, setPendingInvites] = useState<any[]>([]);
+  // Accepted gift card / flat fee invites awaiting fulfillment
+  const [pendingOneOffs, setPendingOneOffs] = useState<any[]>([]);
 
   // Action queue
   const [pendingRequests, setPendingRequests] = useState<Array<{
@@ -155,6 +157,16 @@ export default function CreatorsListPage() {
         .eq("status", "pending")
         .order("created_at", { ascending: false }) as any;
       setPendingInvites(invitesData || []);
+
+      // Fetch accepted one-off invites awaiting fulfillment
+      const { data: oneOffData } = await supabase
+        .from("creator_invites" as any)
+        .select("*, influencer:influencers!creator_invites_influencer_id_fkey(name, instagram_handle, profile_photo_url)")
+        .eq("status", "accepted")
+        .is("one_off_fulfilled_at", null)
+        .or("has_gift_card.eq.true,has_flat_fee.eq.true")
+        .order("accepted_at", { ascending: false }) as any;
+      setPendingOneOffs(oneOffData || []);
 
       if (!creatorsData || creatorsData.length === 0) {
         setLoading(false);
@@ -543,6 +555,14 @@ export default function CreatorsListPage() {
     setPendingInvites((prev) => prev.filter((i) => i.id !== inviteId));
   }
 
+  async function markOneOffFulfilled(inviteId: string) {
+    await (supabase as any)
+      .from("creator_invites")
+      .update({ one_off_fulfilled_at: new Date().toISOString() })
+      .eq("id", inviteId);
+    setPendingOneOffs((prev) => prev.filter((i) => i.id !== inviteId));
+  }
+
   function copyInviteLink(slug: string) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://creators.namaclo.com";
     navigator.clipboard.writeText(`${baseUrl}/invite/${slug}`);
@@ -685,6 +705,70 @@ export default function CreatorsListPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Pending One-Off Deals — accepted gift card / flat fee awaiting fulfillment */}
+          {!loading && pendingOneOffs.length > 0 && (
+            <div className="mb-6">
+              <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">Pending One-Off Deals ({pendingOneOffs.length})</h2>
+              <div className="space-y-2">
+                {pendingOneOffs.map((inv) => {
+                  const isGiftCard = inv.has_gift_card;
+                  const isFlatFee = inv.has_flat_fee;
+                  const amount = isGiftCard ? inv.gift_card_amount : inv.flat_fee_amount;
+                  const typeLabel = isGiftCard ? "Gift Card" : "Flat Fee";
+                  const actionLabel = isGiftCard ? "Issue gift card in Shopify" : "Pay flat fee";
+                  const days = inv.whitelisting_duration_days;
+                  const acceptedDate = inv.accepted_at ? new Date(inv.accepted_at) : null;
+                  const expiryDate = isFlatFee && days && acceptedDate
+                    ? new Date(acceptedDate.getTime() + days * 86400000).toLocaleDateString("en-AU", { day: "numeric", month: "short" })
+                    : null;
+                  return (
+                    <div key={inv.id} className="bg-white border border-amber-200 rounded-lg px-4 py-3 flex items-center justify-between">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {inv.influencer?.profile_photo_url ? (
+                          <img src={inv.influencer.profile_photo_url} alt="" className="w-8 h-8 rounded-full object-cover bg-gray-200 flex-shrink-0" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0" />
+                        )}
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-gray-900">
+                            {inv.influencer?.name || inv.creator_name}
+                          </div>
+                          <div className="text-xs text-gray-500 truncate">
+                            {typeLabel} · ${amount?.toLocaleString()}
+                            {isFlatFee && days ? ` · ${days}-day whitelisting` : ""}
+                            {expiryDate ? ` (expires ${expiryDate})` : ""}
+                            {" · "}
+                            {inv.content_source === "existing" ? "Existing piece" : "New piece"}
+                            {acceptedDate ? ` · Accepted ${acceptedDate.toLocaleDateString("en-AU", { day: "numeric", month: "short" })}` : ""}
+                          </div>
+                          <div className="text-xs text-amber-700 mt-0.5">{actionLabel}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                        {inv.existing_content_url && (
+                          <a
+                            href={inv.existing_content_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1.5 text-xs border rounded-md text-gray-600 hover:bg-gray-50 transition-colors"
+                          >
+                            View Post
+                          </a>
+                        )}
+                        <button
+                          onClick={() => markOneOffFulfilled(inv.id)}
+                          className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
+                        >
+                          Mark Fulfilled
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

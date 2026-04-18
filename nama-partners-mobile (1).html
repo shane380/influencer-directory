@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nama Partners — Mobile Nav</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --white: #fff; --bg: #f7f7f7; --black: #111;
+  --border: #e8e8e8; --label: #aaa; --body: #555;
+  --serif: 'Playfair Display', Georgia, serif;
+  --sans: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --green: #2e7d32; --green-bg: #f0faf0; --green-border: #d4edda;
+}
+body {
+  font-family: var(--sans); background: #b8b8b8;
+  -webkit-font-smoothing: antialiased;
+  display: flex; justify-content: center; align-items: flex-start;
+  gap: 48px; padding: 48px; flex-wrap: wrap;
+}
+.label { font-size: 11px; color: #888; font-family: var(--sans); letter-spacing: 0.06em; margin-bottom: 10px; text-align: center; }
+
+/* ── PHONE FRAME ── */
+.phone {
+  width: 375px; height: 812px; background: var(--white);
+  border-radius: 50px; overflow: hidden; position: relative;
+  box-shadow: 0 40px 100px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(255,255,255,0.1);
+  display: flex; flex-direction: column;
+  border: 8px solid #1a1a1a;
+}
+.notch {
+  width: 110px; height: 28px; background: #1a1a1a;
+  border-radius: 0 0 18px 18px;
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  z-index: 20;
+}
+
+/* ── HEADER ── */
+.app-header {
+  padding: 38px 20px 12px;
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  position: relative; z-index: 10; flex-shrink: 0;
+}
+
+/* Nama Partners lockup */
+.header-brand { display: flex; flex-direction: column; gap: 1px; }
+.header-nama { font-family: var(--serif); font-style: italic; font-size: 20px; font-weight: 300; color: var(--black); line-height: 1; }
+.header-partners {
+  font-size: 7.5px; letter-spacing: 0.4em; text-transform: uppercase;
+  color: var(--label); line-height: 1; padding-left: 1px;
+}
+
+.header-avatar {
+  width: 32px; height: 32px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+  background: #ddd;
+}
+.header-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ── CONTENT AREA ── */
+.content { flex: 1; overflow-y: auto; background: var(--bg); padding-bottom: 70px; }
+.section { display: none; }
+.section.active { display: block; }
+
+/* Cards */
+.card { background: var(--white); border: 1px solid var(--border); margin: 12px; }
+.card-head { padding: 18px 18px 0; margin-bottom: 14px; }
+.eyebrow { font-size: 8px; letter-spacing: 0.36em; text-transform: uppercase; color: var(--label); margin-bottom: 6px; }
+.card-title { font-family: var(--serif); font-size: 24px; font-weight: 300; }
+
+.stats-row { display: grid; grid-template-columns: 1fr 1fr 1fr; border-top: 1px solid var(--border); }
+.stat { padding: 10px 12px; border-right: 1px solid var(--border); }
+.stat:last-child { border-right: none; }
+.stat-l { font-size: 7.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--label); margin-bottom: 3px; }
+.stat-v { font-family: var(--serif); font-size: 17px; color: var(--black); }
+
+/* Ad preview card */
+.ad-thumb { height: 200px; overflow: hidden; position: relative; background: #222; }
+.ad-thumb img { width: 100%; height: 100%; object-fit: cover; opacity: 0.85; }
+.ad-overlay {
+  position: absolute; bottom: 0; left: 0; right: 0; padding: 12px 14px;
+  background: linear-gradient(to top, rgba(0,0,0,0.55), transparent);
+  display: flex; justify-content: space-between; align-items: flex-end;
+}
+.ad-name { font-size: 11px; color: white; font-weight: 300; }
+.ad-status {
+  font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: #5db075; background: rgba(0,0,0,0.35); border: 1px solid rgba(93,176,117,0.4);
+  padding: 3px 8px; border-radius: 100px;
+}
+
+/* Ranking */
+.ranking-row {
+  padding: 14px 18px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.ranking-copy { font-size: 12px; color: var(--body); line-height: 1.4; }
+.ranking-num { font-family: var(--serif); font-size: 34px; color: var(--black); white-space: nowrap; }
+.ranking-pct { font-size: 16px; color: var(--label); }
+
+/* Streak dots */
+.streak-wrap { padding: 14px 18px; border-top: 1px solid var(--border); }
+.streak-l { font-size: 8px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--label); margin-bottom: 10px; }
+.streak-dots { display: flex; gap: 6px; }
+.dot { width: 28px; height: 28px; border-radius: 50%; background: var(--black); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.dot svg { opacity: 0.85; }
+.dot.empty { background: var(--bg); border: 1px solid var(--border); }
+.dot-label { font-size: 8px; color: var(--label); text-align: center; margin-top: 4px; }
+.dot-wrap { display: flex; flex-direction: column; align-items: center; }
+
+/* Simple list items */
+.list-item {
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.list-item:last-child { border-bottom: none; }
+.list-name { font-size: 13px; color: var(--black); }
+.list-sub { font-size: 11px; color: var(--label); margin-top: 2px; }
+.list-badge {
+  font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 3px 10px; border-radius: 100px; border: 1px solid;
+}
+.badge-pending { color: #aaa; border-color: #ddd; background: #fafafa; }
+.badge-active { color: var(--green); border-color: var(--green-border); background: var(--green-bg); }
+
+/* Product grid */
+.product-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); margin-top: 12px; }
+.product-cell { background: var(--white); }
+.product-img { aspect-ratio: 3/4; overflow: hidden; background: #eee; }
+.product-img img { width: 100%; height: 100%; object-fit: cover; }
+.product-info { padding: 10px 12px 14px; }
+.product-name { font-size: 11px; color: var(--black); margin-bottom: 8px; line-height: 1.3; }
+.size-pills { display: flex; gap: 4px; flex-wrap: wrap; }
+.size-pill {
+  font-size: 9px; padding: 3px 8px; border: 1px solid var(--border);
+  color: var(--label); cursor: pointer; border-radius: 2px;
+}
+.size-pill.selected { background: var(--black); color: white; border-color: var(--black); }
+
+/* ── BOTTOM TAB BAR ── */
+.tab-bar {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 70px; background: var(--white);
+  border-top: 1px solid var(--border);
+  display: flex; align-items: flex-start; justify-content: space-around;
+  padding: 10px 0 0;
+  z-index: 20;
+}
+.tab {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 4px; cursor: pointer; flex: 1;
+  transition: all 0.15s;
+}
+.tab-icon { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; }
+.tab-icon svg { transition: all 0.15s; }
+.tab-label {
+  font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--label); transition: color 0.15s;
+}
+.tab.active .tab-label { color: var(--black); }
+.tab.active .tab-icon svg { stroke: var(--black); }
+.tab .tab-icon svg { stroke: #ccc; }
+</style>
+</head>
+<body>
+
+<div>
+  <div class="label">Nama Partners — Mobile</div>
+  <div class="phone">
+    <div class="notch"></div>
+
+    <!-- HEADER -->
+    <div class="app-header">
+      <div class="header-brand">
+        <div class="header-nama">Nama</div>
+        <div class="header-partners">Partners</div>
+      </div>
+      <div class="header-avatar">
+        <img src="https://i.pravatar.cc/64?img=47" alt="Charlene">
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+      <!-- ADS -->
+      <div class="section active" id="s-ads">
+        <div class="card">
+          <div class="card-head">
+            <div class="eyebrow">Paid Media</div>
+            <div class="card-title">Live Ads</div>
+          </div>
+          <div class="stats-row">
+            <div class="stat"><div class="stat-l">Spent</div><div class="stat-v">$3.6K</div></div>
+            <div class="stat"><div class="stat-l">Impressions</div><div class="stat-v">97K</div></div>
+            <div class="stat"><div class="stat-l">Active</div><div class="stat-v">1</div></div>
+          </div>
+          <div class="ranking-row">
+            <div class="ranking-copy">Your content is in the top performers.<br><span style="font-size:10px;color:var(--label);">Nama is scaling spend on your videos.</span></div>
+            <div class="ranking-num">Top 10<span class="ranking-pct">%</span></div>
+          </div>
+          <div class="streak-wrap">
+            <div class="streak-l">Active Months — 3 month streak</div>
+            <div class="streak-dots">
+              <div class="dot-wrap"><div class="dot"><svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg></div><div class="dot-label">Jan</div></div>
+              <div class="dot-wrap"><div class="dot"><svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg></div><div class="dot-label">Feb</div></div>
+              <div class="dot-wrap"><div class="dot"><svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg></div><div class="dot-label">Mar</div></div>
+              <div class="dot-wrap"><div class="dot empty"></div><div class="dot-label">Apr</div></div>
+              <div class="dot-wrap"><div class="dot empty"></div><div class="dot-label">May</div></div>
+              <div class="dot-wrap"><div class="dot empty"></div><div class="dot-label">Jun</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:0;">
+          <div class="ad-thumb">
+            <img src="https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&q=80">
+            <div class="ad-overlay">
+              <div class="ad-name">Body Butter Contour Bra — Washed Navy</div>
+              <div class="ad-status">● Active</div>
+            </div>
+          </div>
+          <div class="stats-row">
+            <div class="stat"><div class="stat-l">Total Spent</div><div class="stat-v">$3,561</div></div>
+            <div class="stat"><div class="stat-l">Impressions</div><div class="stat-v">97K</div></div>
+            <div class="stat"><div class="stat-l">Score</div><div style="margin-top:3px;font-size:8px;letter-spacing:0.1em;text-transform:uppercase;color:var(--green);background:var(--green-bg);border:1px solid var(--green-border);padding:3px 8px;border-radius:100px;display:inline-block;">Strong</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CAMPAIGNS -->
+      <div class="section" id="s-campaigns">
+        <div class="card">
+          <div class="card-head">
+            <div class="eyebrow">From Nama</div>
+            <div class="card-title">Campaigns</div>
+          </div>
+          <div class="list-item">
+            <div>
+              <div class="list-name">Bluebelle SS26 Launch</div>
+              <div class="list-sub">Due April 15 · 2 pieces</div>
+            </div>
+            <div class="list-badge badge-active">Confirm →</div>
+          </div>
+          <div class="list-item">
+            <div>
+              <div class="list-name">March Allowance</div>
+              <div class="list-sub">Submitted · 3 pieces</div>
+            </div>
+            <div class="list-badge badge-pending">Complete</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- WARDROBE -->
+      <div class="section" id="s-wardrobe">
+        <div class="card">
+          <div class="card-head">
+            <div class="eyebrow">Your Collection</div>
+            <div class="card-title">Wardrobe</div>
+          </div>
+          <div class="product-grid">
+            <div class="product-cell">
+              <div class="product-img"><img src="https://images.unsplash.com/photo-1594938298603-c8148c4b1a32?w=300&q=80"></div>
+              <div class="product-info">
+                <div class="product-name">Body Butter™ Twist Bra</div>
+                <div style="font-size:9px;color:var(--label);">XS · Black · Shipped</div>
+              </div>
+            </div>
+            <div class="product-cell">
+              <div class="product-img"><img src="https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=300&q=80"></div>
+              <div class="product-info">
+                <div class="product-name">Body Butter™ Shape Leggings</div>
+                <div style="font-size:9px;color:var(--label);">XS · Black · Shipped</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUBMIT -->
+      <div class="section" id="s-submit">
+        <div class="card">
+          <div class="card-head">
+            <div class="eyebrow">Monthly Delivery</div>
+            <div class="card-title">Submit Content</div>
+          </div>
+          <div style="padding:0 18px 20px;">
+            <div style="font-size:12px;color:var(--label);margin-bottom:16px;line-height:1.6;">Upload your videos or photos. We'll review within 48 hours.</div>
+            <div style="border:1px dashed #ddd;padding:28px;text-align:center;margin-bottom:14px;">
+              <div style="font-size:11px;color:var(--label);line-height:1.8;">Tap to upload<br><span style="font-size:10px;">MP4, MOV, JPG, PNG</span></div>
+            </div>
+            <button style="width:100%;padding:14px;background:var(--black);color:white;border:none;font-family:var(--sans);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer;">Submit Content →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACCOUNT -->
+      <div class="section" id="s-account">
+        <div class="card">
+          <div style="padding:20px 18px;display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--border);">
+            <div style="width:48px;height:48px;border-radius:50%;overflow:hidden;flex-shrink:0;"><img src="https://i.pravatar.cc/64?img=47" style="width:100%;height:100%;object-fit:cover;"></div>
+            <div>
+              <div style="font-family:var(--serif);font-size:18px;color:var(--black);">Charlene Lee</div>
+              <div style="font-size:11px;color:var(--label);">@hiicharlee</div>
+            </div>
+          </div>
+          <div class="list-item"><div class="list-name">Payment Info</div><div style="font-size:11px;color:var(--label);">→</div></div>
+          <div class="list-item"><div class="list-name">Affiliate Code & Link</div><div style="font-size:11px;color:var(--label);">→</div></div>
+          <div class="list-item" style="border-bottom:none;"><div class="list-name">Sign Out</div><div style="font-size:11px;color:var(--label);">→</div></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- BOTTOM TAB BAR -->
+    <div class="tab-bar">
+      <div class="tab active" onclick="switchTab('ads', this)">
+        <div class="tab-icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="12" width="3" height="6" rx="0.5"/>
+            <rect x="8.5" y="7" width="3" height="11" rx="0.5"/>
+            <rect x="15" y="2" width="3" height="16" rx="0.5"/>
+          </svg>
+        </div>
+        <div class="tab-label">Ads</div>
+      </div>
+      <div class="tab" onclick="switchTab('campaigns', this)">
+        <div class="tab-icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6l8-3 6 2v8l-6 2-8-3V6z"/>
+            <path d="M3 6v9"/>
+          </svg>
+        </div>
+        <div class="tab-label">Campaigns</div>
+      </div>
+      <div class="tab" onclick="switchTab('wardrobe', this)">
+        <div class="tab-icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 3C8 3 6.5 4.5 6.5 6c0 .8.3 1.5.8 2L3 10v7h14v-7l-4.3-2c.5-.5.8-1.2.8-2 0-1.5-1.5-3-3.5-3z"/>
+          </svg>
+        </div>
+        <div class="tab-label">Wardrobe</div>
+      </div>
+      <div class="tab" onclick="switchTab('submit', this)">
+        <div class="tab-icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 13V4M7 7l3-3 3 3"/>
+            <path d="M4 13v3a1 1 0 001 1h10a1 1 0 001-1v-3"/>
+          </svg>
+        </div>
+        <div class="tab-label">Submit</div>
+      </div>
+      <div class="tab" onclick="switchTab('account', this)">
+        <div class="tab-icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10" cy="7" r="3"/>
+            <path d="M4 17c0-3.3 2.7-6 6-6s6 2.7 6 6"/>
+          </svg>
+        </div>
+        <div class="tab-label">Account</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function switchTab(id, el) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('s-' + id).classList.add('active');
+  el.classList.add('active');
+}
+</script>
+</body>
+</html>
