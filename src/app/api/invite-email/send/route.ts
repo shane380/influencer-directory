@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { firstName, inviteUrl, recipientEmail } = await request.json();
+    const { firstName, inviteUrl, recipientEmail, dealType } = await request.json();
 
     if (!recipientEmail || !inviteUrl) {
       return NextResponse.json(
@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
       firstName: firstName || "there",
       inviteUrl,
       recipientEmail,
+      dealType,
     });
 
     const data = await sendEmail({ to: recipientEmail, subject, html });

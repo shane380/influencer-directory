@@ -267,6 +267,7 @@ export default function InvitePage() {
   const [error, setError] = useState(null)
   const [codeCopied, setCodeCopied] = useState(false)
   const [openFaqIndex, setOpenFaqIndex] = useState(null)
+  const [postUrl, setPostUrl] = useState('')
 
   // Payment step
   const [paymentCountry, setPaymentCountry] = useState(null)
@@ -303,12 +304,19 @@ export default function InvitePage() {
           setSelectedDeal('none')
         } else {
           // Derive deal type from boolean flags, fallback to deal_type for backwards compat
-          const derivedDeal = data.has_retainer ? 'retainer' : data.has_ad_spend ? 'ad_spend' : data.deal_type || 'affiliate'
+          const derivedDeal = data.has_retainer
+            ? 'retainer'
+            : data.has_ad_spend
+              ? 'ad_spend'
+              : data.has_gift_card
+                ? 'gift_card'
+                : data.has_flat_fee
+                  ? 'flat_fee'
+                  : data.deal_type || 'affiliate'
+          setStep('terms')
           if (data.offer_choice) {
-            setStep('terms')
-            setSelectedDeal('retainer')
+            setSelectedDeal(data.deal_type && data.deal_type !== 'none' ? data.deal_type : derivedDeal)
           } else {
-            setStep('terms')
             setSelectedDeal(derivedDeal)
           }
         }
@@ -325,6 +333,12 @@ export default function InvitePage() {
     document.querySelector('.ni-panel-right')?.scrollTo({ top: 0, behavior: 'smooth' })
     // Mobile: scroll to top of body
     document.querySelector('.ni-m-body')?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  function pickOption(deal) {
+    setSelectedDeal(deal)
+    setAgreed(false)
+    setOpenFaqIndex(null)
   }
 
   async function handleSignup() {
@@ -344,6 +358,8 @@ export default function InvitePage() {
           email: form.email,
           password: form.password,
           commissionRate: invite.commission_rate,
+          postUrl: postUrl || null,
+          selectedDeal,
         }),
       })
       const result = await res.json()
@@ -354,7 +370,7 @@ export default function InvitePage() {
       }
       // Sign in the user so they have an active session for the dashboard
       await supabase.auth.signInWithPassword({ email: form.email.trim().toLowerCase(), password: form.password })
-      setStep(selectedDeal === 'none' ? 'done' : 'payment')
+      setStep(selectedDeal === 'none' || selectedDeal === 'gift_card' ? 'done' : 'payment')
     } catch {
       setError('Something went wrong. Please try again.')
     }
@@ -476,13 +492,19 @@ export default function InvitePage() {
   const adSpendMin = invite.ad_spend_minimum
   const commissionRate = invite.commission_rate || 10
   const minimumCommitment = invite.minimum_commitment || null
+  const giftCardAmount = invite.gift_card_amount
+  const flatFeeAmount = invite.flat_fee_amount
+  const whitelistingDays = invite.whitelisting_duration_days
+  const isExistingContent = invite.content_source === 'existing'
 
   // Determine available deals for choose step
   const availableDeals = []
   if (invite.offer_choice) {
-    if (retainerAmount) availableDeals.push('retainer')
-    if (adSpendPct) availableDeals.push('ad_spend')
-    if (!retainerAmount && !adSpendPct) {
+    if (invite.has_retainer || retainerAmount) availableDeals.push('retainer')
+    if (invite.has_ad_spend || adSpendPct) availableDeals.push('ad_spend')
+    if (invite.has_gift_card) availableDeals.push('gift_card')
+    if (invite.has_flat_fee) availableDeals.push('flat_fee')
+    if (availableDeals.length === 0) {
       availableDeals.push('retainer', 'ad_spend')
     }
   }
@@ -593,6 +615,52 @@ export default function InvitePage() {
           <div className="ni-option-desc">Best for creators looking for higher earning potential</div>
         </div>
       </div>
+    )
+  }
+
+  function renderGiftCardOptionCard(mobile) {
+    const sel = selectedDeal === 'gift_card'
+    const cls = mobile ? 'ni-m-' : 'ni-'
+    return (
+      <div>
+        <div className={`${cls}option-card${sel ? ' selected' : ''}`} onClick={() => pickOption('gift_card')}>
+          <div className={`${cls}check`}>✓</div>
+          <div className={`${cls}option-tag`}>Gift Card</div>
+          <div className={`${cls}option-rate`}>${giftCardAmount?.toLocaleString()}<sub> credit</sub></div>
+          <div className={`${cls}option-desc`}>In exchange for 1 piece of content</div>
+        </div>
+      </div>
+    )
+  }
+
+  function renderFlatFeeOptionCard(mobile) {
+    const sel = selectedDeal === 'flat_fee'
+    const cls = mobile ? 'ni-m-' : 'ni-'
+    return (
+      <div>
+        <div className={`${cls}option-card${sel ? ' selected' : ''}`} onClick={() => pickOption('flat_fee')}>
+          <div className={`${cls}check`}>✓</div>
+          <div className={`${cls}option-tag`}>Flat Fee</div>
+          <div className={`${cls}option-rate`}>${flatFeeAmount?.toLocaleString()}<sub> flat</sub></div>
+          <div className={`${cls}option-desc`}>1 piece of content + {whitelistingDays || 60}-day whitelisting</div>
+        </div>
+      </div>
+    )
+  }
+
+  function renderOneOffChoiceCards(mobile) {
+    if (!invite.offer_choice) return null
+    const cls = mobile ? 'ni-m-' : 'ni-'
+    return (
+      <>
+        <div className={`${cls}sec-label`}>Choose Your Compensation</div>
+        <div className={`${cls}option-cards`}>
+          {availableDeals.includes('retainer') && renderRetainerOptionCard(mobile)}
+          {availableDeals.includes('ad_spend') && renderAdSpendOptionCard(mobile)}
+          {availableDeals.includes('gift_card') && renderGiftCardOptionCard(mobile)}
+          {availableDeals.includes('flat_fee') && renderFlatFeeOptionCard(mobile)}
+        </div>
+      </>
     )
   }
 
@@ -792,6 +860,107 @@ export default function InvitePage() {
         )
       }
 
+      if (selectedDeal === 'gift_card') {
+        return (
+          <>
+            {renderOneOffChoiceCards(false)}
+            <div className="ni-sec-label">Partnership Terms</div>
+            <div className="ni-term-sub">Compensation</div>
+            <div className="ni-term-row">
+              <span className="ni-term-key">Gift Card</span>
+              <div className="ni-term-val"><div className="ni-term-primary">${giftCardAmount?.toLocaleString()} Nama credit</div><div className="ni-term-secondary">Issued via Shopify after content is delivered</div></div>
+            </div>
+            <div className="ni-term-divider" />
+            <div className="ni-term-sub">Deliverable</div>
+            <div className="ni-term-row">
+              <span className="ni-term-key">Content</span>
+              <div className="ni-term-val"><div className="ni-term-primary">1 piece of content</div><div className="ni-term-secondary">{isExistingContent ? 'An existing piece you\u2019ve already posted' : 'A new piece created for Nama'}</div></div>
+            </div>
+            <div className="ni-term-divider" />
+            <div className="ni-term-sub">Terms</div>
+            <div className="ni-term-row">
+              <span className="ni-term-key">Scope</span>
+              <div className="ni-term-val"><div className="ni-term-primary">One-off</div><div className="ni-term-secondary">No ongoing commitment</div></div>
+            </div>
+            <div className="ni-sec-label">How It Works</div>
+            <div className="ni-faq">
+              {[
+                ['When do I receive the gift card?', `You'll receive a $${giftCardAmount} Nama gift card in Shopify once the content is delivered and approved.`],
+                [isExistingContent ? 'What link do I share?' : 'How do I deliver the content?', isExistingContent ? 'On the next step you\u2019ll paste the link to your existing post.' : 'Create your content and share it through your Nama Partners dashboard.'],
+                ['Does this include whitelisting?', 'No — this is content-for-credit only. Whitelisting isn\u2019t included.'],
+                ['Is this recurring?', 'No. This is a one-off partnership. Nothing further is committed beyond this single piece of content.'],
+              ].map(([q, a], i) => (
+                <div className="ni-faq-item" key={i}>
+                  <div className="ni-faq-q" onClick={() => setOpenFaqIndex(openFaqIndex === i ? null : i)}>
+                    <span className="ni-faq-q-text">{q}</span>
+                    <span className={`ni-faq-icon${openFaqIndex === i ? ' open' : ''}`}>+</span>
+                  </div>
+                  {openFaqIndex === i && <div className="ni-faq-a">{a}</div>}
+                </div>
+              ))}
+            </div>
+            <div className="ni-agree-row">
+              <input type="checkbox" className="ni-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
+              <p className="ni-agree-text">{agreeContent}</p>
+            </div>
+            <button className="ni-btn" disabled={!agreed} onClick={() => setStep('signup')}>Accept &amp; Create Account →</button>
+          </>
+        )
+      }
+
+      if (selectedDeal === 'flat_fee') {
+        const days = whitelistingDays || 60
+        return (
+          <>
+            {renderOneOffChoiceCards(false)}
+            <div className="ni-sec-label">Partnership Terms</div>
+            <div className="ni-term-sub">Compensation</div>
+            <div className="ni-term-row">
+              <span className="ni-term-key">Flat Fee</span>
+              <div className="ni-term-val"><div className="ni-term-primary">${flatFeeAmount?.toLocaleString()}</div><div className="ni-term-secondary">Paid by the 5th of the following month</div></div>
+            </div>
+            <div className="ni-term-divider" />
+            <div className="ni-term-sub">Deliverable</div>
+            <div className="ni-term-row">
+              <span className="ni-term-key">Content</span>
+              <div className="ni-term-val"><div className="ni-term-primary">1 piece of content</div><div className="ni-term-secondary">{isExistingContent ? 'An existing piece you\u2019ve already posted' : 'A new piece created for Nama'}</div></div>
+            </div>
+            <div className="ni-term-row">
+              <span className="ni-term-key">Whitelisting</span>
+              <div className="ni-term-val"><div className="ni-term-primary">{days} days</div><div className="ni-term-secondary">Permission to run paid ads through your account</div></div>
+            </div>
+            <div className="ni-term-divider" />
+            <div className="ni-term-sub">Terms</div>
+            <div className="ni-term-row">
+              <span className="ni-term-key">Scope</span>
+              <div className="ni-term-val"><div className="ni-term-primary">One-off</div><div className="ni-term-secondary">No ongoing commitment</div></div>
+            </div>
+            <div className="ni-sec-label">How It Works</div>
+            <div className="ni-faq">
+              {[
+                ['When do I get paid?', 'The flat fee is paid by the 5th of the month following content delivery, via your selected payment method.'],
+                [isExistingContent ? 'What link do I share?' : 'How do I deliver the content?', isExistingContent ? 'On the next step you\u2019ll paste the link to your existing post.' : 'Create your content and share it through your Nama Partners dashboard.'],
+                ['What does whitelisting mean?', `You grant Nama permission to run paid ads through your account using this piece of content for ${days} days from go-live.`],
+                ['Is this recurring?', 'No. This is a one-off partnership. Nothing further is committed beyond this single piece of content.'],
+              ].map(([q, a], i) => (
+                <div className="ni-faq-item" key={i}>
+                  <div className="ni-faq-q" onClick={() => setOpenFaqIndex(openFaqIndex === i ? null : i)}>
+                    <span className="ni-faq-q-text">{q}</span>
+                    <span className={`ni-faq-icon${openFaqIndex === i ? ' open' : ''}`}>+</span>
+                  </div>
+                  {openFaqIndex === i && <div className="ni-faq-a">{a}</div>}
+                </div>
+              ))}
+            </div>
+            <div className="ni-agree-row">
+              <input type="checkbox" className="ni-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
+              <p className="ni-agree-text">{agreeContent}</p>
+            </div>
+            <button className="ni-btn" disabled={!agreed} onClick={() => setStep('signup')}>Accept &amp; Create Account →</button>
+          </>
+        )
+      }
+
       // affiliate
       return (
         <>
@@ -866,6 +1035,9 @@ export default function InvitePage() {
     if (step === 'signup') {
       return (
         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '100%' }}>
+          {isExistingContent && (selectedDeal === 'gift_card' || selectedDeal === 'flat_fee') && (
+            <div className="ni-form-group"><label className="ni-form-label">Link to Your Existing Post</label><input className="ni-form-input" value={postUrl} onChange={e => setPostUrl(e.target.value)} placeholder="https://www.instagram.com/p/..." /></div>
+          )}
           <div className="ni-form-group"><label className="ni-form-label">Full Name</label><input className="ni-form-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></div>
           <div className="ni-form-group"><label className="ni-form-label">Email Address</label><input className="ni-form-input" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="your@email.com" /></div>
           <div className="ni-form-group"><label className="ni-form-label">Create Password</label><input className="ni-form-input" type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="••••••••" /></div>
@@ -1142,6 +1314,86 @@ export default function InvitePage() {
         )
       }
 
+      if (selectedDeal === 'gift_card') {
+        return (
+          <>
+            {renderOneOffChoiceCards(true)}
+            <div className="ni-m-sec-label">Partnership Terms</div>
+            <div className="ni-m-term-sub">Compensation</div>
+            <div className="ni-m-term-row"><span className="ni-m-term-key">Gift Card</span><div className="ni-term-val"><div className="ni-m-term-primary">${giftCardAmount?.toLocaleString()} Nama credit</div><div className="ni-m-term-secondary">Issued via Shopify after delivery</div></div></div>
+            <div className="ni-m-term-divider" />
+            <div className="ni-m-term-sub">Deliverable</div>
+            <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">1 piece of content</div><div className="ni-m-term-secondary">{isExistingContent ? 'Existing piece' : 'New piece for Nama'}</div></div></div>
+            <div className="ni-m-term-divider" />
+            <div className="ni-m-term-sub">Terms</div>
+            <div className="ni-m-term-row"><span className="ni-m-term-key">Scope</span><div className="ni-term-val"><div className="ni-m-term-primary">One-off</div><div className="ni-m-term-secondary">No ongoing commitment</div></div></div>
+            <div className="ni-m-sec-label">How It Works</div>
+            <div className="ni-m-faq">
+              {[
+                ['When do I receive the gift card?', `You'll receive a $${giftCardAmount} Nama gift card in Shopify once the content is delivered and approved.`],
+                [isExistingContent ? 'What link do I share?' : 'How do I deliver the content?', isExistingContent ? 'On the next step you\u2019ll paste the link to your existing post.' : 'Create your content and share it through your Nama Partners dashboard.'],
+                ['Does this include whitelisting?', 'No — this is content-for-credit only.'],
+                ['Is this recurring?', 'No. One-off partnership.'],
+              ].map(([q, a], i) => (
+                <div className="ni-m-faq-item" key={i}>
+                  <div className="ni-m-faq-q" onClick={() => setOpenFaqIndex(openFaqIndex === i ? null : i)}>
+                    <span className="ni-m-faq-q-text">{q}</span>
+                    <span className={`ni-m-faq-icon${openFaqIndex === i ? ' open' : ''}`}>+</span>
+                  </div>
+                  {openFaqIndex === i && <div className="ni-m-faq-a">{a}</div>}
+                </div>
+              ))}
+            </div>
+            <div className="ni-m-agree-row">
+              <input type="checkbox" className="ni-m-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
+              <p className="ni-m-agree-text">{agreeContent}</p>
+            </div>
+            <button className="ni-m-btn" disabled={!agreed} onClick={() => setStep('signup')}>Accept &amp; Create Account →</button>
+          </>
+        )
+      }
+
+      if (selectedDeal === 'flat_fee') {
+        const days = whitelistingDays || 60
+        return (
+          <>
+            {renderOneOffChoiceCards(true)}
+            <div className="ni-m-sec-label">Partnership Terms</div>
+            <div className="ni-m-term-sub">Compensation</div>
+            <div className="ni-m-term-row"><span className="ni-m-term-key">Flat Fee</span><div className="ni-term-val"><div className="ni-m-term-primary">${flatFeeAmount?.toLocaleString()}</div><div className="ni-m-term-secondary">Paid by the 5th of the following month</div></div></div>
+            <div className="ni-m-term-divider" />
+            <div className="ni-m-term-sub">Deliverable</div>
+            <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">1 piece of content</div><div className="ni-m-term-secondary">{isExistingContent ? 'Existing piece' : 'New piece for Nama'}</div></div></div>
+            <div className="ni-m-term-row"><span className="ni-m-term-key">Whitelisting</span><div className="ni-term-val"><div className="ni-m-term-primary">{days} days</div><div className="ni-m-term-secondary">Paid ads through your account</div></div></div>
+            <div className="ni-m-term-divider" />
+            <div className="ni-m-term-sub">Terms</div>
+            <div className="ni-m-term-row"><span className="ni-m-term-key">Scope</span><div className="ni-term-val"><div className="ni-m-term-primary">One-off</div><div className="ni-m-term-secondary">No ongoing commitment</div></div></div>
+            <div className="ni-m-sec-label">How It Works</div>
+            <div className="ni-m-faq">
+              {[
+                ['When do I get paid?', 'The flat fee is paid by the 5th of the month following content delivery.'],
+                [isExistingContent ? 'What link do I share?' : 'How do I deliver the content?', isExistingContent ? 'On the next step you\u2019ll paste the link to your existing post.' : 'Create your content and share it through your Nama Partners dashboard.'],
+                ['What does whitelisting mean?', `You grant Nama permission to run paid ads through your account using this piece of content for ${days} days from go-live.`],
+                ['Is this recurring?', 'No. One-off partnership.'],
+              ].map(([q, a], i) => (
+                <div className="ni-m-faq-item" key={i}>
+                  <div className="ni-m-faq-q" onClick={() => setOpenFaqIndex(openFaqIndex === i ? null : i)}>
+                    <span className="ni-m-faq-q-text">{q}</span>
+                    <span className={`ni-m-faq-icon${openFaqIndex === i ? ' open' : ''}`}>+</span>
+                  </div>
+                  {openFaqIndex === i && <div className="ni-m-faq-a">{a}</div>}
+                </div>
+              ))}
+            </div>
+            <div className="ni-m-agree-row">
+              <input type="checkbox" className="ni-m-agree-box" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
+              <p className="ni-m-agree-text">{agreeContent}</p>
+            </div>
+            <button className="ni-m-btn" disabled={!agreed} onClick={() => setStep('signup')}>Accept &amp; Create Account →</button>
+          </>
+        )
+      }
+
       // affiliate
       return (
         <>
@@ -1195,6 +1447,9 @@ export default function InvitePage() {
     if (step === 'signup') {
       return (
         <>
+          {isExistingContent && (selectedDeal === 'gift_card' || selectedDeal === 'flat_fee') && (
+            <div className="ni-m-form-group"><label className="ni-m-form-label">Link to Your Existing Post</label><input className="ni-m-form-input" value={postUrl} onChange={e => setPostUrl(e.target.value)} placeholder="https://www.instagram.com/p/..." /></div>
+          )}
           <div className="ni-m-form-group"><label className="ni-m-form-label">Full Name</label><input className="ni-m-form-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></div>
           <div className="ni-m-form-group"><label className="ni-m-form-label">Email</label><input className="ni-m-form-input" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="your@email.com" /></div>
           <div className="ni-m-form-group"><label className="ni-m-form-label">Password</label><input className="ni-m-form-input" type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="••••••••" /></div>

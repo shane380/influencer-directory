@@ -22,6 +22,13 @@ export async function createInvite({
   hasRetainer = false,
   hasAdSpend = false,
   hasAffiliate = false,
+  giftCardAmount = null,
+  flatFeeAmount = null,
+  whitelistingDurationDays = null,
+  contentSource = null,
+  hasGiftCard = false,
+  hasFlatFee = false,
+  campaignId = null,
 }) {
   const supabase = createClient()
 
@@ -55,6 +62,13 @@ export async function createInvite({
   upsertData.has_retainer = hasRetainer
   upsertData.has_ad_spend = hasAdSpend
   upsertData.has_affiliate = hasAffiliate
+  upsertData.has_gift_card = hasGiftCard
+  upsertData.has_flat_fee = hasFlatFee
+  if (giftCardAmount != null) upsertData.gift_card_amount = giftCardAmount
+  if (flatFeeAmount != null) upsertData.flat_fee_amount = flatFeeAmount
+  if (whitelistingDurationDays != null) upsertData.whitelisting_duration_days = whitelistingDurationDays
+  if (contentSource) upsertData.content_source = contentSource
+  if (campaignId) upsertData.campaign_id = campaignId
 
   // Remove any expired/revoked invite with the same slug so we can create fresh
   await supabase
@@ -81,7 +95,7 @@ export async function createInvite({
       const res = await fetch(`/api/invite-email/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firstName, inviteUrl: url, recipientEmail: creatorEmail }),
+        body: JSON.stringify({ firstName, inviteUrl: url, recipientEmail: creatorEmail, dealType }),
       })
       if (!res.ok) {
         console.error('Failed to send invite email:', await res.text())

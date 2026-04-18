@@ -32,6 +32,18 @@ const DEFAULTS: Record<string, { subject: string; heading: string; body: string;
     body: "Hi {{firstName}},\n\nWe'd love to partner with you. We've put together an offer based on your content and audience.\n\nQuestions? Reply to this email.",
     ctaText: "View Your Offer \u2192",
   },
+  partner_invite_gift_card: {
+    subject: "A Nama gift card in exchange for one piece of content",
+    heading: "A one-off offer",
+    body: "Hi {{firstName}},\n\nWe'd love to send you a Nama gift card in exchange for a single piece of content. No retainer, no commitment \u2014 just a one-off partnership.\n\nFull terms are on the next page.",
+    ctaText: "View Your Offer \u2192",
+  },
+  partner_invite_flat_fee: {
+    subject: "A one-off paid collab with Nama",
+    heading: "A one-off offer",
+    body: "Hi {{firstName}},\n\nWe'd love to partner with you on a one-off paid collab \u2014 a flat fee for one piece of content and whitelisting rights. No retainer, no commitment beyond the single deliverable.\n\nFull terms are on the next page.",
+    ctaText: "View Your Offer \u2192",
+  },
   welcome: {
     subject: "Welcome to Nama Partners",
     heading: "Welcome, {{firstName}}",
@@ -149,13 +161,20 @@ export async function inviteEmail({
   firstName,
   inviteUrl,
   recipientEmail,
+  dealType,
 }: {
   firstName: string;
   inviteUrl: string;
   recipientEmail: string;
+  dealType?: string;
 }): Promise<{ subject: string; html: string }> {
-  const override = await getEmailTemplate("partner_invite");
-  const tmpl = { ...DEFAULTS.partner_invite, ...override };
+  const templateKey = dealType === "gift_card"
+    ? "partner_invite_gift_card"
+    : dealType === "flat_fee"
+      ? "partner_invite_flat_fee"
+      : "partner_invite";
+  const override = await getEmailTemplate(templateKey);
+  const tmpl = { ...DEFAULTS[templateKey], ...override };
   const vars: Record<string, string> = { firstName };
 
   return {

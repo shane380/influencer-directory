@@ -54,14 +54,20 @@ export default function CreatorsListPage() {
     contentType: "",
     usageRights: "90 days per campaign, renewable",
   });
-  const [dealType, setDealType] = useState<"affiliate" | "ad_spend" | "retainer" | "none">("retainer");
+  const [dealType, setDealType] = useState<"affiliate" | "ad_spend" | "retainer" | "none" | "gift_card" | "flat_fee">("retainer");
   const [dealAffiliate, setDealAffiliate] = useState(10);
   const [dealAdSpendPct, setDealAdSpendPct] = useState(5);
   const [dealAdSpendMin, setDealAdSpendMin] = useState(0);
   const [dealRetainer, setDealRetainer] = useState(1500);
+  const [dealGiftCard, setDealGiftCard] = useState(200);
+  const [dealFlatFee, setDealFlatFee] = useState(500);
+  const [flatFeeWhitelistingDays, setFlatFeeWhitelistingDays] = useState(60);
+  const [contentSource, setContentSource] = useState<"new" | "existing">("new");
+  const [oneOffCampaignId, setOneOffCampaignId] = useState<string>("");
+  const [oneOffCampaigns, setOneOffCampaigns] = useState<Array<{ id: string; title: string }>>([]);
   const [addAffiliate, setAddAffiliate] = useState(false);
   const [offerChoice, setOfferChoice] = useState(false);
-  const [secondDealType, setSecondDealType] = useState<"affiliate" | "ad_spend" | "retainer" | "none">("ad_spend");
+  const [secondDealType, setSecondDealType] = useState<"affiliate" | "ad_spend" | "retainer" | "none" | "gift_card" | "flat_fee">("ad_spend");
   const [secondAddAffiliate, setSecondAddAffiliate] = useState(false);
   const [isExistingCreator, setIsExistingCreator] = useState(false);
   const [existingHasAdSpend, setExistingHasAdSpend] = useState(false);
@@ -288,6 +294,18 @@ export default function CreatorsListPage() {
     return () => clearTimeout(timer);
   }, [searchQuery, searchInfluencers]);
 
+  useEffect(() => {
+    const needsCampaigns = showInviteModal && (isOneOff(dealType) || (offerChoice && isOneOff(secondDealType)));
+    if (!needsCampaigns || oneOffCampaigns.length > 0) return;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("campaigns")
+        .select("id, title, status")
+        .order("created_at", { ascending: false });
+      if (data) setOneOffCampaigns((data as any[]).filter((c) => c.status !== "archived").map((c) => ({ id: c.id, title: c.title })));
+    })();
+  }, [showInviteModal, dealType, secondDealType, offerChoice, oneOffCampaigns.length, supabase]);
+
   async function handleQuickAddLookup() {
     const raw = quickAddHandle.trim();
     if (!raw) return;
@@ -420,6 +438,11 @@ export default function CreatorsListPage() {
     setDealAdSpendPct(5);
     setDealAdSpendMin(0);
     setDealRetainer(1500);
+    setDealGiftCard(200);
+    setDealFlatFee(500);
+    setFlatFeeWhitelistingDays(60);
+    setContentSource("new");
+    setOneOffCampaignId("");
     setAddAffiliate(false);
     setOfferChoice(false);
     setSecondDealType("ad_spend");
@@ -446,8 +469,14 @@ export default function CreatorsListPage() {
         return { type: "ad_spend", percentage: dealAdSpendPct, ...(dealAdSpendMin > 0 ? { first_month_minimum: dealAdSpendMin } : {}), ...(addAffiliate ? { commission_rate: dealAffiliate } : {}) };
       case "retainer":
         return { type: "retainer", monthly_rate: dealRetainer, ...(addAffiliate ? { commission_rate: dealAffiliate } : {}) };
+      case "gift_card":
+        return { type: "gift_card", gift_card_amount: dealGiftCard, content_source: contentSource, ...(addAffiliate ? { commission_rate: dealAffiliate } : {}) };
+      case "flat_fee":
+        return { type: "flat_fee", flat_fee_amount: dealFlatFee, whitelisting_duration_days: flatFeeWhitelistingDays, content_source: contentSource, ...(addAffiliate ? { commission_rate: dealAffiliate } : {}) };
     }
   }
+
+  const isOneOff = (t: string) => t === "gift_card" || t === "flat_fee";
 
   function getInviteFields() {
     if (dealType === "none") {
@@ -476,8 +505,10 @@ export default function CreatorsListPage() {
     const hasRetainer = retainerAmount != null && retainerAmount > 0;
     const hasAdSpend = (adSpendPercentage != null && adSpendPercentage > 0) || (isExistingCreator && existingHasAdSpend);
     const hasAffiliate = commissionRate > 0;
+    const hasGiftCard = allTypes.includes("gift_card");
+    const hasFlatFee = allTypes.includes("flat_fee");
 
-    return { retainerAmount, adSpendPercentage, adSpendMinimum, commissionRate, hasRetainer, hasAdSpend, hasAffiliate };
+    return { retainerAmount, adSpendPercentage, adSpendMinimum, commissionRate, hasRetainer, hasAdSpend, hasAffiliate, hasGiftCard, hasFlatFee };
   }
 
   async function handleGenerateInvite() {
@@ -485,11 +516,12 @@ export default function CreatorsListPage() {
     const ds = buildDealStructure();
     const fields = getInviteFields();
     try {
+      const oneOff = isOneOff(dealType) || (offerChoice && isOneOff(secondDealType));
       const { url } = await (createInvite as any)({
         creatorName: inviteForm.creatorName,
         creatorEmail: inviteForm.email || null,
         commissionRate: fields.commissionRate,
-        videosPerMonth: dealType === "none" ? null : inviteForm.videosPerMonth,
+        videosPerMonth: dealType === "none" || oneOff ? null : inviteForm.videosPerMonth,
         contentType: dealType === "none" ? null : (inviteForm.contentType || null),
         usageRights: inviteForm.usageRights,
         influencerId: selectedInfluencer?.id || null,
@@ -500,10 +532,17 @@ export default function CreatorsListPage() {
         adSpendMinimum: fields.adSpendMinimum,
         offerChoice: dealType === "none" ? false : offerChoice,
         isExistingCreator,
-        minimumCommitment: dealType === "none" ? null : minimumCommitment,
+        minimumCommitment: dealType === "none" || oneOff ? null : minimumCommitment,
         hasRetainer: fields.hasRetainer,
         hasAdSpend: fields.hasAdSpend,
         hasAffiliate: fields.hasAffiliate,
+        hasGiftCard: fields.hasGiftCard,
+        hasFlatFee: fields.hasFlatFee,
+        giftCardAmount: fields.hasGiftCard ? dealGiftCard : null,
+        flatFeeAmount: fields.hasFlatFee ? dealFlatFee : null,
+        whitelistingDurationDays: fields.hasFlatFee ? flatFeeWhitelistingDays : null,
+        contentSource: oneOff ? contentSource : null,
+        campaignId: oneOff && oneOffCampaignId ? oneOffCampaignId : null,
       });
       setGeneratedUrl(url);
     } catch (err: any) {
@@ -1143,16 +1182,18 @@ export default function CreatorsListPage() {
                       />
                     </div>
                   )}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Content type</label>
-                    <input
-                      type="text"
-                      value={inviteForm.contentType}
-                      onChange={(e) => setInviteForm((f) => ({ ...f, contentType: e.target.value }))}
-                      placeholder="e.g. Talking-style UGC, Lifestyle, GRWM"
-                      className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
-                    />
-                  </div>
+                  {!isOneOff(dealType) && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Content type</label>
+                      <input
+                        type="text"
+                        value={inviteForm.contentType}
+                        onChange={(e) => setInviteForm((f) => ({ ...f, contentType: e.target.value }))}
+                        placeholder="e.g. Talking-style UGC, Lifestyle, GRWM"
+                        className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
+                      />
+                    </div>
+                  )}
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -1181,16 +1222,18 @@ export default function CreatorsListPage() {
                       <span className="text-sm text-gray-700">Has active ad spend</span>
                     </label>
                   )}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Minimum commitment (months)</label>
-                    <input
-                      type="number"
-                      value={minimumCommitment ?? ""}
-                      onChange={(e) => setMinimumCommitment(e.target.value ? Number(e.target.value) : null)}
-                      placeholder="Leave blank for month-to-month"
-                      className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
-                    />
-                  </div>
+                  {!isOneOff(dealType) && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Minimum commitment (months)</label>
+                      <input
+                        type="number"
+                        value={minimumCommitment ?? ""}
+                        onChange={(e) => setMinimumCommitment(e.target.value ? Number(e.target.value) : null)}
+                        placeholder="Leave blank for month-to-month"
+                        className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
+                      />
+                    </div>
+                  )}
 
                   {/* Deal Structure */}
                   <div className="border-t pt-4">
@@ -1210,8 +1253,12 @@ export default function CreatorsListPage() {
                             setInviteForm(f => ({ ...f, videosPerMonth: "" }));
                           }
                         }
+                        if (val === "gift_card" || val === "flat_fee") {
+                          setAddAffiliate(false);
+                          setMinimumCommitment(null);
+                        }
                         if (offerChoice && val === secondDealType) {
-                          const opts = ["retainer", "ad_spend", "affiliate"].filter(t => t !== val) as typeof dealType[];
+                          const opts = ["retainer", "ad_spend", "affiliate", "gift_card", "flat_fee"].filter(t => t !== val) as typeof dealType[];
                           setSecondDealType(opts[0]);
                         }
                       }}
@@ -1221,6 +1268,8 @@ export default function CreatorsListPage() {
                       <option value="retainer">Monthly Retainer</option>
                       <option value="ad_spend">% of Ad Spend</option>
                       <option value="affiliate">Affiliate Only</option>
+                      <option value="gift_card">Gift Card for Content</option>
+                      <option value="flat_fee">Flat Fee (Content + Whitelisting)</option>
                     </select>
 
                     {dealType === "none" && (
@@ -1251,8 +1300,87 @@ export default function CreatorsListPage() {
                         <input type="number" value={dealRetainer} onChange={(e) => setDealRetainer(Number(e.target.value))} className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300" />
                       </div>
                     )}
+                    {dealType === "gift_card" && (
+                      <div className="mb-3">
+                        <label className="block text-xs text-gray-500 mb-1">Gift Card Amount (USD)</label>
+                        <input type="number" value={dealGiftCard} onChange={(e) => setDealGiftCard(Number(e.target.value))} className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300" />
+                        <p className="text-xs text-gray-400 mt-1">In exchange for 1 piece of content. You&apos;ll issue the gift card in Shopify after delivery.</p>
+                      </div>
+                    )}
+                    {dealType === "flat_fee" && (
+                      <div className="space-y-3 mb-3">
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Flat Fee (USD)</label>
+                          <input type="number" value={dealFlatFee} onChange={(e) => setDealFlatFee(Number(e.target.value))} className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300" />
+                          <p className="text-xs text-gray-400 mt-1">In exchange for 1 piece of content + whitelisting.</p>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Whitelisting Duration (days)</label>
+                          <select
+                            value={[30, 60, 90, 120].includes(flatFeeWhitelistingDays) ? String(flatFeeWhitelistingDays) : "custom"}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              if (v === "custom") return;
+                              setFlatFeeWhitelistingDays(Number(v));
+                            }}
+                            className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
+                          >
+                            <option value="30">30 days</option>
+                            <option value="60">60 days</option>
+                            <option value="90">90 days</option>
+                            <option value="120">120 days</option>
+                            <option value="custom">Custom</option>
+                          </select>
+                          {![30, 60, 90, 120].includes(flatFeeWhitelistingDays) && (
+                            <input
+                              type="number"
+                              value={flatFeeWhitelistingDays}
+                              onChange={(e) => setFlatFeeWhitelistingDays(Number(e.target.value))}
+                              placeholder="Days"
+                              className="w-full border rounded-md px-3 py-2 text-sm mt-2 focus:outline-none focus:ring-1 focus:ring-gray-300"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {isOneOff(dealType) && (
+                      <div className="space-y-3 mb-3 p-3 bg-gray-50 rounded-md">
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Content Source</label>
+                          <div className="flex gap-4">
+                            <label className="flex items-center gap-2 cursor-pointer text-sm">
+                              <input type="radio" checked={contentSource === "new"} onChange={() => setContentSource("new")} />
+                              <span>New piece</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer text-sm">
+                              <input type="radio" checked={contentSource === "existing"} onChange={() => setContentSource("existing")} />
+                              <span>Existing piece</span>
+                            </label>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {contentSource === "existing"
+                              ? "Partner will paste the post URL on acceptance."
+                              : "Partner creates a new piece for this deal."}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Campaign (for the paid collab record)</label>
+                          <select
+                            value={oneOffCampaignId}
+                            onChange={(e) => setOneOffCampaignId(e.target.value)}
+                            className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300 bg-white"
+                          >
+                            <option value="">Select a campaign…</option>
+                            {oneOffCampaigns.map((c) => (
+                              <option key={c.id} value={c.id}>{c.title}</option>
+                            ))}
+                          </select>
+                          <p className="text-xs text-gray-400 mt-1">The deal will be created under this campaign when the partner accepts.</p>
+                        </div>
+                      </div>
+                    )}
 
-                    {dealType !== "affiliate" && dealType !== "none" && (
+                    {dealType !== "affiliate" && dealType !== "none" && !isOneOff(dealType) && (
                       <div className="mb-3">
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input type="checkbox" checked={addAffiliate} onChange={(e) => setAddAffiliate(e.target.checked)} className="rounded border-gray-300" />
@@ -1296,6 +1424,8 @@ export default function CreatorsListPage() {
                           {dealType !== "retainer" && <option value="retainer">Monthly Retainer</option>}
                           {dealType !== "ad_spend" && <option value="ad_spend">% of Ad Spend</option>}
                           {dealType !== "affiliate" && <option value="affiliate">Affiliate Only</option>}
+                          {dealType !== "gift_card" && <option value="gift_card">Gift Card for Content</option>}
+                          {dealType !== "flat_fee" && <option value="flat_fee">Flat Fee (Content + Whitelisting)</option>}
                         </select>
 
                         {secondDealType === "affiliate" && (
@@ -1322,8 +1452,36 @@ export default function CreatorsListPage() {
                             <input type="number" value={dealRetainer} onChange={(e) => setDealRetainer(Number(e.target.value))} className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300" />
                           </div>
                         )}
+                        {secondDealType === "gift_card" && (
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Gift Card Amount (USD)</label>
+                            <input type="number" value={dealGiftCard} onChange={(e) => setDealGiftCard(Number(e.target.value))} className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300" />
+                          </div>
+                        )}
+                        {secondDealType === "flat_fee" && (
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">Flat Fee (USD)</label>
+                              <input type="number" value={dealFlatFee} onChange={(e) => setDealFlatFee(Number(e.target.value))} className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300" />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">Whitelisting Duration (days)</label>
+                              <select
+                                value={[30, 60, 90, 120].includes(flatFeeWhitelistingDays) ? String(flatFeeWhitelistingDays) : "custom"}
+                                onChange={(e) => { if (e.target.value !== "custom") setFlatFeeWhitelistingDays(Number(e.target.value)); }}
+                                className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300 bg-white"
+                              >
+                                <option value="30">30 days</option>
+                                <option value="60">60 days</option>
+                                <option value="90">90 days</option>
+                                <option value="120">120 days</option>
+                                <option value="custom">Custom</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
 
-                        {secondDealType !== "affiliate" && (
+                        {secondDealType !== "affiliate" && !isOneOff(secondDealType) && (
                           <div className="mt-3">
                             <label className="flex items-center gap-2 cursor-pointer">
                               <input type="checkbox" checked={secondAddAffiliate} onChange={(e) => setSecondAddAffiliate(e.target.checked)} className="rounded border-gray-300" />
@@ -1341,9 +1499,16 @@ export default function CreatorsListPage() {
                     )}
                   </div>
 
+                  {(isOneOff(dealType) || (offerChoice && isOneOff(secondDealType))) && !selectedInfluencer && (
+                    <p className="text-xs text-amber-600">One-off deals need an influencer selected above so we can create the paid collab record on acceptance.</p>
+                  )}
                   <button
                     onClick={handleGenerateInvite}
-                    disabled={submittingInvite || !inviteForm.creatorName}
+                    disabled={
+                      submittingInvite ||
+                      !inviteForm.creatorName ||
+                      ((isOneOff(dealType) || (offerChoice && isOneOff(secondDealType))) && (!oneOffCampaignId || !selectedInfluencer))
+                    }
                     className="w-full px-4 py-2 bg-gray-900 text-white text-sm rounded-md hover:bg-gray-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >
                     {submittingInvite ? "Generating..." : "Generate Invite Link"}
