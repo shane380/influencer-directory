@@ -123,7 +123,7 @@ async function createShopifyDiscountCode(
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { inviteId, creatorName, password, commissionRate, postUrl, selectedDeal } = body;
+  const { inviteId, creatorName, password, commissionRate, postUrl } = body;
   const email = (body.email || '').trim().toLowerCase();
 
   if (!inviteId || !creatorName || !email || !password) {
@@ -228,7 +228,7 @@ export async function POST(request: NextRequest) {
 
   // Get invite details for background tasks
   const { data: invite } = await (supabase.from('creator_invites') as any)
-    .select('has_affiliate, has_ad_spend, has_gift_card, has_flat_fee, is_existing_creator, ad_spend_percentage, gift_card_amount, flat_fee_amount, whitelisting_duration_days, content_source, campaign_id, deal_type, influencer_id, influencer:influencers!creator_invites_influencer_id_fkey(instagram_handle)')
+    .select('has_affiliate, has_ad_spend, is_existing_creator, ad_spend_percentage, content_source, influencer_id, influencer:influencers!creator_invites_influencer_id_fkey(instagram_handle)')
     .eq('id', inviteId)
     .single();
 
@@ -237,60 +237,6 @@ export async function POST(request: NextRequest) {
     await (supabase.from('creator_invites') as any)
       .update({ existing_content_url: postUrl })
       .eq('id', inviteId);
-  }
-
-  // Create campaign_deal for one-off deal types (gift_card or flat_fee)
-  const resolvedOneOff =
-    selectedDeal === 'gift_card' || selectedDeal === 'flat_fee'
-      ? selectedDeal
-      : invite?.has_gift_card
-        ? 'gift_card'
-        : invite?.has_flat_fee
-          ? 'flat_fee'
-          : null;
-
-  if (resolvedOneOff && invite?.campaign_id && invite?.influencer_id) {
-    const amount = resolvedOneOff === 'gift_card' ? invite.gift_card_amount : invite.flat_fee_amount;
-    const days = invite.whitelisting_duration_days || 60;
-    const whitelistingExpiry = resolvedOneOff === 'flat_fee'
-      ? new Date(Date.now() + days * 86400000).toISOString().split('T')[0]
-      : null;
-    const deliverableDesc = resolvedOneOff === 'gift_card'
-      ? `1 piece of content (Gift card: $${amount})`
-      : `1 piece of content + ${days}-day whitelisting`;
-    const notesParts: string[] = [];
-    if (resolvedOneOff === 'gift_card') notesParts.push(`Gift card: $${amount} Nama credit (issue in Shopify)`);
-    if (invite.content_source === 'existing' && postUrl) notesParts.push(`Existing post: ${postUrl}`);
-
-    const { error: dealError } = await (supabase.from('campaign_deals') as any).insert({
-      campaign_id: invite.campaign_id,
-      influencer_id: invite.influencer_id,
-      deliverables: [{ description: deliverableDesc, rate: amount || 0, quantity: 1 }],
-      total_deal_value: amount || 0,
-      deal_status: 'confirmed',
-      payment_status: 'not_paid',
-      whitelisting_status: resolvedOneOff === 'flat_fee' ? 'pending' : 'not_applicable',
-      whitelisting_expiry_date: whitelistingExpiry,
-      notes: notesParts.join(' · ') || null,
-    });
-    if (dealError) {
-      console.error('Failed to create one-off campaign_deal:', dealError);
-    } else {
-      // Also link the influencer to the campaign if not already
-      const { data: existingAssoc } = await (supabase.from('campaign_influencers') as any)
-        .select('id, partnership_type')
-        .eq('campaign_id', invite.campaign_id)
-        .eq('influencer_id', invite.influencer_id)
-        .maybeSingle();
-      if (!existingAssoc) {
-        await (supabase.from('campaign_influencers') as any).insert({
-          campaign_id: invite.campaign_id,
-          influencer_id: invite.influencer_id,
-          partnership_type: 'paid',
-          status: 'confirmed',
-        });
-      }
-    }
   }
 
   if (invite?.has_affiliate) {

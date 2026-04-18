@@ -28,7 +28,6 @@ export async function createInvite({
   contentSource = null,
   hasGiftCard = false,
   hasFlatFee = false,
-  campaignId = null,
 }) {
   const supabase = createClient()
 
@@ -68,7 +67,6 @@ export async function createInvite({
   if (flatFeeAmount != null) upsertData.flat_fee_amount = flatFeeAmount
   if (whitelistingDurationDays != null) upsertData.whitelisting_duration_days = whitelistingDurationDays
   if (contentSource) upsertData.content_source = contentSource
-  if (campaignId) upsertData.campaign_id = campaignId
 
   // Remove any expired/revoked invite with the same slug so we can create fresh
   await supabase

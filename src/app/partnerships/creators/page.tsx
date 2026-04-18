@@ -63,8 +63,6 @@ export default function CreatorsListPage() {
   const [dealFlatFee, setDealFlatFee] = useState(500);
   const [flatFeeWhitelistingDays, setFlatFeeWhitelistingDays] = useState(60);
   const [contentSource, setContentSource] = useState<"new" | "existing">("new");
-  const [oneOffCampaignId, setOneOffCampaignId] = useState<string>("");
-  const [oneOffCampaigns, setOneOffCampaigns] = useState<Array<{ id: string; title: string }>>([]);
   const [addAffiliate, setAddAffiliate] = useState(false);
   const [offerChoice, setOfferChoice] = useState(false);
   const [secondDealType, setSecondDealType] = useState<"affiliate" | "ad_spend" | "retainer" | "none" | "gift_card" | "flat_fee">("ad_spend");
@@ -294,18 +292,6 @@ export default function CreatorsListPage() {
     return () => clearTimeout(timer);
   }, [searchQuery, searchInfluencers]);
 
-  useEffect(() => {
-    const needsCampaigns = showInviteModal && (isOneOff(dealType) || (offerChoice && isOneOff(secondDealType)));
-    if (!needsCampaigns || oneOffCampaigns.length > 0) return;
-    (async () => {
-      const { data } = await (supabase as any)
-        .from("campaigns")
-        .select("id, title, status")
-        .order("created_at", { ascending: false });
-      if (data) setOneOffCampaigns((data as any[]).filter((c) => c.status !== "archived").map((c) => ({ id: c.id, title: c.title })));
-    })();
-  }, [showInviteModal, dealType, secondDealType, offerChoice, oneOffCampaigns.length, supabase]);
-
   async function handleQuickAddLookup() {
     const raw = quickAddHandle.trim();
     if (!raw) return;
@@ -442,7 +428,6 @@ export default function CreatorsListPage() {
     setDealFlatFee(500);
     setFlatFeeWhitelistingDays(60);
     setContentSource("new");
-    setOneOffCampaignId("");
     setAddAffiliate(false);
     setOfferChoice(false);
     setSecondDealType("ad_spend");
@@ -542,7 +527,6 @@ export default function CreatorsListPage() {
         flatFeeAmount: fields.hasFlatFee ? dealFlatFee : null,
         whitelistingDurationDays: fields.hasFlatFee ? flatFeeWhitelistingDays : null,
         contentSource: oneOff ? contentSource : null,
-        campaignId: oneOff && oneOffCampaignId ? oneOffCampaignId : null,
       });
       setGeneratedUrl(url);
     } catch (err: any) {
@@ -1345,38 +1329,22 @@ export default function CreatorsListPage() {
                     )}
                     {isOneOff(dealType) && (
                       <div className="space-y-3 mb-3 p-3 bg-gray-50 rounded-md">
-                        <div>
-                          <label className="block text-xs text-gray-500 mb-1">Content Source</label>
-                          <div className="flex gap-4">
-                            <label className="flex items-center gap-2 cursor-pointer text-sm">
-                              <input type="radio" checked={contentSource === "new"} onChange={() => setContentSource("new")} />
-                              <span>New piece</span>
-                            </label>
-                            <label className="flex items-center gap-2 cursor-pointer text-sm">
-                              <input type="radio" checked={contentSource === "existing"} onChange={() => setContentSource("existing")} />
-                              <span>Existing piece</span>
-                            </label>
-                          </div>
-                          <p className="text-xs text-gray-400 mt-1">
-                            {contentSource === "existing"
-                              ? "Partner will paste the post URL on acceptance."
-                              : "Partner creates a new piece for this deal."}
-                          </p>
+                        <label className="block text-xs text-gray-500 mb-1">Content Source</label>
+                        <div className="flex gap-4">
+                          <label className="flex items-center gap-2 cursor-pointer text-sm">
+                            <input type="radio" checked={contentSource === "new"} onChange={() => setContentSource("new")} />
+                            <span>New piece</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer text-sm">
+                            <input type="radio" checked={contentSource === "existing"} onChange={() => setContentSource("existing")} />
+                            <span>Existing piece</span>
+                          </label>
                         </div>
-                        <div>
-                          <label className="block text-xs text-gray-500 mb-1">Campaign (for the paid collab record)</label>
-                          <select
-                            value={oneOffCampaignId}
-                            onChange={(e) => setOneOffCampaignId(e.target.value)}
-                            className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300 bg-white"
-                          >
-                            <option value="">Select a campaign…</option>
-                            {oneOffCampaigns.map((c) => (
-                              <option key={c.id} value={c.id}>{c.title}</option>
-                            ))}
-                          </select>
-                          <p className="text-xs text-gray-400 mt-1">The deal will be created under this campaign when the partner accepts.</p>
-                        </div>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {contentSource === "existing"
+                            ? "Partner will paste the post URL on acceptance."
+                            : "Partner creates a new piece for this deal."}
+                        </p>
                       </div>
                     )}
 
@@ -1499,16 +1467,9 @@ export default function CreatorsListPage() {
                     )}
                   </div>
 
-                  {(isOneOff(dealType) || (offerChoice && isOneOff(secondDealType))) && !selectedInfluencer && (
-                    <p className="text-xs text-amber-600">One-off deals need an influencer selected above so we can create the paid collab record on acceptance.</p>
-                  )}
                   <button
                     onClick={handleGenerateInvite}
-                    disabled={
-                      submittingInvite ||
-                      !inviteForm.creatorName ||
-                      ((isOneOff(dealType) || (offerChoice && isOneOff(secondDealType))) && (!oneOffCampaignId || !selectedInfluencer))
-                    }
+                    disabled={submittingInvite || !inviteForm.creatorName}
                     className="w-full px-4 py-2 bg-gray-900 text-white text-sm rounded-md hover:bg-gray-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >
                     {submittingInvite ? "Generating..." : "Generate Invite Link"}
