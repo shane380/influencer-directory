@@ -559,9 +559,9 @@ export default function AdminCreatorProfile() {
           <nav className="flex gap-6" role="tablist">
             {(
               [
-                { id: "ads" as const, label: "Ads", count: liveAds.length },
-                { id: "content" as const, label: "Content", count: submissions.length },
-                { id: "styles" as const, label: "Styles", count: sampleRequests.length },
+                { id: "ads" as const, label: "Ads" },
+                { id: "content" as const, label: "Content" },
+                { id: "styles" as const, label: "Styles" },
               ]
             ).map((t) => {
               const isActive = activeTab === t.id;
@@ -578,9 +578,6 @@ export default function AdminCreatorProfile() {
                   }`}
                 >
                   {t.label}
-                  <span className={`ml-1.5 ${isActive ? "text-gray-500" : "text-gray-400"}`}>
-                    ({t.count})
-                  </span>
                 </button>
               );
             })}
