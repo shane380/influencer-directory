@@ -567,9 +567,9 @@ export default function AdminCreatorProfile() {
                     key={`req-${req.id}`}
                     className="flex items-center justify-between gap-3 bg-white border border-red-100 rounded px-3 py-2"
                   >
-                    <div className="text-sm text-gray-800 min-w-0">
-                      Outfit request ·{" "}
-                      <span className="text-gray-500 truncate">
+                    <div className="flex items-center gap-1 text-sm text-gray-800 min-w-0 flex-1">
+                      <span className="flex-shrink-0">Outfit request ·</span>
+                      <span className="text-gray-500 truncate min-w-0">
                         {productNames || `${itemCount} item${itemCount !== 1 ? "s" : ""}`}
                       </span>
                     </div>
