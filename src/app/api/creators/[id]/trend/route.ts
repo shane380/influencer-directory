@@ -7,8 +7,8 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 type Period = "30d" | "90d" | "all";
 
-function startDateFor(period: Period, allTimeFloor: Date): Date {
-  if (period === "all") return allTimeFloor;
+function startDateFor(period: Period, dataFloor: Date): Date {
+  if (period === "all") return dataFloor;
   const days = period === "30d" ? 30 : 90;
   const d = new Date();
   d.setUTCHours(0, 0, 0, 0);
@@ -48,7 +48,7 @@ export async function GET(
 
   // Look up the creator -> invite -> influencer chain
   const { data: creator } = await (db.from("creators") as any)
-    .select("id, affiliate_code, commission_rate, invite_id, onboarded_at")
+    .select("id, affiliate_code, commission_rate, invite_id")
     .eq("id", creatorId)
     .single();
 
@@ -76,12 +76,43 @@ export async function GET(
 
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
-  // Floor for "all time" = onboarding date, or 1 year ago as a reasonable bound
-  // (creators predate signup, so this is just to cap query work)
-  const partnershipFloor = creator.onboarded_at
-    ? new Date(creator.onboarded_at)
-    : new Date(today.getTime() - 365 * 86400000);
-  const startDate = startDateFor(period, partnershipFloor);
+
+  // Floor for "all time" = earliest date with any relevant data (ad daily rows,
+  // code revenue rows, or content submissions), bounded to 730 days back so a
+  // sparse early data point doesn't blow the chart wide. Falls back to today-90d
+  // so the chart never collapses to a single point.
+  const HARD_CAP_DAYS = 730;
+  const FALLBACK_DAYS = 90;
+  let dataFloor = new Date(today.getTime() - FALLBACK_DAYS * 86400000);
+  if (period === "all") {
+    const candidates: string[] = [];
+    if (influencerHandle) {
+      const { data: minAd } = await (db.from("creator_ad_performance_daily") as any)
+        .select("date")
+        .eq("instagram_handle", influencerHandle)
+        .order("date", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (minAd?.date) candidates.push(String(minAd.date).slice(0, 10));
+    }
+    if (creator.affiliate_code) {
+      const { data: minRev } = await (db.from("creator_code_revenue_daily") as any)
+        .select("date")
+        .eq("affiliate_code", String(creator.affiliate_code).toUpperCase())
+        .order("date", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (minRev?.date) candidates.push(String(minRev.date).slice(0, 10));
+    }
+    if (candidates.length) {
+      const earliest = candidates.sort()[0];
+      const earliestDate = new Date(earliest + "T00:00:00.000Z");
+      const hardFloor = new Date(today.getTime() - HARD_CAP_DAYS * 86400000);
+      dataFloor = earliestDate > hardFloor ? earliestDate : hardFloor;
+    }
+  }
+
+  const startDate = startDateFor(period, dataFloor);
   const startIso = startDate.toISOString();
   const startDay = startDate.toISOString().slice(0, 10);
   const todayIso = today.toISOString();
