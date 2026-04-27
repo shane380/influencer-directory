@@ -233,7 +233,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
 
   return (
     <div
-      className={`${isHovered ? "w-56 shadow-xl" : "w-14"} h-screen bg-white border-r flex flex-col fixed left-0 top-0 z-40 transition-[width] duration-200 ease-out overflow-hidden`}
+      className={`${isHovered ? "w-56" : "w-14"} h-screen bg-white border-r flex flex-col sticky top-0 self-start flex-shrink-0 transition-[width] duration-200 ease-out overflow-hidden`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >

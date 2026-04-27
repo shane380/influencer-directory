@@ -757,7 +757,7 @@ function HomePageContent() {
       />
 
       {/* Main content */}
-      <main className="flex-1 ml-14 px-8 pt-12 pb-8 min-w-0">
+      <main className="flex-1 px-8 pt-12 pb-8 min-w-0">
         {/* Tab content wrapper */}
         <div className="relative max-w-6xl">
           {/* Influencers Tab */}

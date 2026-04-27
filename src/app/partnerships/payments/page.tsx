@@ -455,7 +455,7 @@ export default function PaymentsPage() {
           router.push("/login");
         }}
       />
-      <main className="flex-1 p-8 overflow-auto ml-14">
+      <main className="flex-1 p-8 overflow-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
