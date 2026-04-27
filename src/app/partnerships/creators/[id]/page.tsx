@@ -292,11 +292,16 @@ export default function AdminCreatorProfile() {
     };
   }, [creator?.id, period]);
 
-  // Derived: pending submissions
+  // Derived: pending submissions + pending style requests
   const pendingSubmissions = useMemo(
     () => submissions.filter((s) => s.status === "pending"),
     [submissions],
   );
+  const pendingStyleRequests = useMemo(
+    () => sampleRequests.filter((r) => r.status === "pending"),
+    [sampleRequests],
+  );
+  const totalPending = pendingSubmissions.length + pendingStyleRequests.length;
 
   // Active ads list
   const liveAds = useMemo(
@@ -521,17 +526,17 @@ export default function AdminCreatorProfile() {
         </div>
 
         {/* 3. Needs your attention — always visible above the tabs */}
-        {pendingSubmissions.length > 0 && (
+        {totalPending > 0 && (
           <div className="bg-red-50 border border-red-100 border-l-4 border-l-red-500 rounded-lg p-4 mb-6">
             <div className="text-sm font-medium text-red-900 mb-2">
-              Needs your attention · {pendingSubmissions.length}
+              Needs your attention · {totalPending}
             </div>
             <div className="space-y-2">
               {pendingSubmissions.map((sub) => {
                 const fileCount = (sub.files || []).length;
                 return (
                   <div
-                    key={sub.id}
+                    key={`sub-${sub.id}`}
                     className="flex items-center justify-between bg-white border border-red-100 rounded px-3 py-2"
                   >
                     <div className="text-sm text-gray-800">
@@ -544,6 +549,33 @@ export default function AdminCreatorProfile() {
                     <button
                       onClick={() => setReviewingId(sub.id)}
                       className="text-sm font-medium text-red-700 hover:text-red-800"
+                    >
+                      Review →
+                    </button>
+                  </div>
+                );
+              })}
+              {pendingStyleRequests.map((req) => {
+                const sels = Array.isArray(req.selections) ? req.selections : [];
+                const productNames = sels
+                  .map((s) => [s.product_title, s.variant_title].filter(Boolean).join(" — "))
+                  .filter(Boolean)
+                  .join(", ");
+                const itemCount = sels.reduce((s, sel) => s + (Number(sel.quantity) || 1), 0);
+                return (
+                  <div
+                    key={`req-${req.id}`}
+                    className="flex items-center justify-between gap-3 bg-white border border-red-100 rounded px-3 py-2"
+                  >
+                    <div className="text-sm text-gray-800 min-w-0">
+                      Outfit request ·{" "}
+                      <span className="text-gray-500 truncate">
+                        {productNames || `${itemCount} item${itemCount !== 1 ? "s" : ""}`}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setActiveTab("styles")}
+                      className="text-sm font-medium text-red-700 hover:text-red-800 flex-shrink-0"
                     >
                       Review →
                     </button>
