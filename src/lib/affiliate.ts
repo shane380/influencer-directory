@@ -325,6 +325,65 @@ export async function listAffiliateOrdersGross(
 }
 
 /**
+ * Bulk gross-amount lookup across many discount codes for a date range.
+ * Pages through Shopify orders ONCE and bins each matching order by
+ * (code, day). Used by the daily code-revenue cache cron — no per-order
+ * refund detail calls (use calculateAffiliateCommission for net + commission).
+ */
+export async function listBulkAffiliateOrdersGrossByDay(
+  codes: string[],
+  startDate: Date,
+  endDate: Date,
+): Promise<Map<string, Map<string, { gross: number; orders: number }>>> {
+  const out = new Map<string, Map<string, { gross: number; orders: number }>>();
+  for (const c of codes) out.set(c.toUpperCase(), new Map());
+
+  const storeUrl = getShopifyStoreUrl();
+  const accessToken = await getShopifyAccessToken();
+  if (!storeUrl || !accessToken || codes.length === 0) return out;
+
+  const codeSet = new Set(codes.map((c) => c.toUpperCase()));
+
+  let pageUrl: string | null =
+    `https://${storeUrl}/admin/api/2024-01/orders.json?status=any&limit=250` +
+    `&created_at_min=${startDate.toISOString()}` +
+    `&created_at_max=${endDate.toISOString()}` +
+    `&fields=id,created_at,subtotal_price,discount_codes`;
+
+  while (pageUrl) {
+    const res: Response = await fetch(pageUrl, {
+      headers: { "X-Shopify-Access-Token": accessToken, "Content-Type": "application/json" },
+    });
+    if (!res.ok) break;
+    const data = await res.json();
+    for (const order of data.orders || []) {
+      const orderCodes = (order.discount_codes || [])
+        .map((dc: any) => dc.code?.toUpperCase())
+        .filter(Boolean);
+      const day = (order.created_at || "").slice(0, 10);
+      if (!day) continue;
+      const gross = parseFloat(order.subtotal_price || "0");
+      for (const code of orderCodes) {
+        if (!codeSet.has(code)) continue;
+        const byDay = out.get(code)!;
+        const existing = byDay.get(day) || { gross: 0, orders: 0 };
+        existing.gross += gross;
+        existing.orders += 1;
+        byDay.set(day, existing);
+      }
+    }
+    const linkHeader = res.headers.get("Link");
+    if (linkHeader && linkHeader.includes('rel="next"')) {
+      const match = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
+      pageUrl = match ? match[1] : null;
+    } else {
+      pageUrl = null;
+    }
+  }
+  return out;
+}
+
+/**
  * Calculate affiliate commissions for multiple discount codes in a single pass.
  * Pages through all orders for the month once, matching against all codes simultaneously.
  */

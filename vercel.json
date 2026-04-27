@@ -9,6 +9,10 @@
       "schedule": "0 6 * * *"
     },
     {
+      "path": "/api/cron/sync-code-revenue",
+      "schedule": "30 6 * * *"
+    },
+    {
       "path": "/api/cron/generate-payments",
       "schedule": "0 0 28-31 * *"
     }

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
-import { listAffiliateOrdersGross } from "@/lib/affiliate";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -23,17 +22,6 @@ function eachDay(from: Date, to: Date): string[] {
   while (cur <= to) {
     out.push(cur.toISOString().slice(0, 10));
     cur.setUTCDate(cur.getUTCDate() + 1);
-  }
-  return out;
-}
-
-function eachMonth(from: Date, to: Date): string[] {
-  const out: string[] = [];
-  const cur = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), 1));
-  const end = new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), 1));
-  while (cur <= end) {
-    out.push(`${cur.getUTCFullYear()}-${String(cur.getUTCMonth() + 1).padStart(2, "0")}`);
-    cur.setUTCMonth(cur.getUTCMonth() + 1);
   }
   return out;
 }
@@ -141,29 +129,24 @@ export async function GET(
     }
   }
 
-  // ── Code revenue daily (existing Shopify integration) ──
-  // listAffiliateOrdersGross is a lightweight version that skips the per-order
-  // refund detail call — saves N HTTP calls vs. calculateAffiliateCommission.
-  // We parallelize months so wall-clock = max(month) instead of sum(months).
+  // ── Code revenue daily (from cached creator_code_revenue_daily) ──
+  // Cache is refreshed daily by /api/cron/sync-code-revenue. No live Shopify
+  // calls from this endpoint.
   const dailyRevenue: Record<string, number> = {};
   let codeOrderCount = 0;
   let codeRevenueTotal = 0;
   if (creator.affiliate_code) {
-    const cap = period === "all" ? 12 : period === "90d" ? 4 : 2;
-    const months = eachMonth(startDate, today).slice(-cap);
-    const results = await Promise.all(
-      months.map((m) =>
-        listAffiliateOrdersGross(creator.affiliate_code as string, m).catch(() => []),
-      ),
-    );
-    for (const orders of results) {
-      for (const order of orders) {
-        const day = (order.created_at || "").slice(0, 10);
-        if (!day) continue;
-        dailyRevenue[day] = (dailyRevenue[day] || 0) + (order.gross_amount || 0);
-        codeOrderCount += 1;
-        codeRevenueTotal += order.gross_amount || 0;
-      }
+    const { data: revRows } = await (db.from("creator_code_revenue_daily") as any)
+      .select("date, gross_amount, order_count")
+      .eq("affiliate_code", creator.affiliate_code.toUpperCase())
+      .gte("date", startDay)
+      .lte("date", todayDay);
+    for (const row of (revRows as any[]) || []) {
+      const d = String(row.date).slice(0, 10);
+      const gross = Number(row.gross_amount || 0);
+      dailyRevenue[d] = (dailyRevenue[d] || 0) + gross;
+      codeOrderCount += Number(row.order_count || 0);
+      codeRevenueTotal += gross;
     }
   }
 
