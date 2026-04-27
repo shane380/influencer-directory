@@ -277,6 +277,54 @@ export async function calculateAffiliateCommission(
 }
 
 /**
+ * Lightweight: list gross-amount orders for a discount code in a month.
+ * Skips the per-order refund detail call (saves N HTTP calls), so it's
+ * appropriate for surfaces that only need a chart-level revenue number.
+ */
+export async function listAffiliateOrdersGross(
+  discountCode: string,
+  month: string,
+): Promise<Array<{ order_id: number; created_at: string; gross_amount: number }>> {
+  const storeUrl = getShopifyStoreUrl();
+  const accessToken = await getShopifyAccessToken();
+  if (!storeUrl || !accessToken) return [];
+
+  const [year, mon] = month.split("-").map(Number);
+  const startDate = new Date(year, mon - 1, 1).toISOString();
+  const endDate = new Date(year, mon, 1).toISOString();
+  let pageUrl: string | null = `https://${storeUrl}/admin/api/2024-01/orders.json?status=any&limit=250&created_at_min=${startDate}&created_at_max=${endDate}&fields=id,name,order_number,created_at,subtotal_price,discount_codes`;
+
+  const codeUpper = discountCode.toUpperCase();
+  const out: Array<{ order_id: number; created_at: string; gross_amount: number }> = [];
+
+  while (pageUrl) {
+    const res: Response = await fetch(pageUrl, {
+      headers: { "X-Shopify-Access-Token": accessToken, "Content-Type": "application/json" },
+    });
+    if (!res.ok) break;
+    const data = await res.json();
+    for (const order of data.orders || []) {
+      const codes = (order.discount_codes || []).map((dc: any) => dc.code?.toUpperCase());
+      if (codes.includes(codeUpper)) {
+        out.push({
+          order_id: order.id,
+          created_at: order.created_at,
+          gross_amount: parseFloat(order.subtotal_price || "0"),
+        });
+      }
+    }
+    const linkHeader = res.headers.get("Link");
+    if (linkHeader && linkHeader.includes('rel="next"')) {
+      const match = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
+      pageUrl = match ? match[1] : null;
+    } else {
+      pageUrl = null;
+    }
+  }
+  return out;
+}
+
+/**
  * Calculate affiliate commissions for multiple discount codes in a single pass.
  * Pages through all orders for the month once, matching against all codes simultaneously.
  */

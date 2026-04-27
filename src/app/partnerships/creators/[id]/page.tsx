@@ -397,6 +397,7 @@ export default function AdminCreatorProfile() {
   const approvedScatter = (trend?.approvedSubmissions || []).map((s) => ({
     date: s.approved_at.slice(0, 10),
     file_count: s.file_count,
+    y: 0, // pin dots to the x-axis baseline
   }));
 
   const periodSpendTotal = trend?.spendTotal ?? 0;
@@ -583,7 +584,7 @@ export default function AdminCreatorProfile() {
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={chartData} margin={{ top: 16, right: 16, left: 0, bottom: 0 }}>
+                <ComposedChart data={chartData} margin={{ top: 16, right: 16, left: 0, bottom: 8 }}>
                   <CartesianGrid stroke="#F3F4F6" vertical={false} />
                   <XAxis
                     dataKey="date"
@@ -657,6 +658,7 @@ export default function AdminCreatorProfile() {
                   <Scatter
                     yAxisId="dollars"
                     data={approvedScatter}
+                    dataKey="y"
                     name="Creatives approved"
                     fill={COLORS.approved}
                     shape={(props: any) => {

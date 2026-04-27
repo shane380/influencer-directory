@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
-import { calculateAffiliateCommission } from "@/lib/affiliate";
+import { listAffiliateOrdersGross } from "@/lib/affiliate";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -142,31 +142,27 @@ export async function GET(
   }
 
   // ── Code revenue daily (existing Shopify integration) ──
-  // calculateAffiliateCommission supports a single month at a time, so we loop
-  // over the months in the window. For period=all we cap at 12 months back to
-  // bound runtime.
+  // listAffiliateOrdersGross is a lightweight version that skips the per-order
+  // refund detail call — saves N HTTP calls vs. calculateAffiliateCommission.
+  // We parallelize months so wall-clock = max(month) instead of sum(months).
   const dailyRevenue: Record<string, number> = {};
   let codeOrderCount = 0;
   let codeRevenueTotal = 0;
   if (creator.affiliate_code) {
     const cap = period === "all" ? 12 : period === "90d" ? 4 : 2;
     const months = eachMonth(startDate, today).slice(-cap);
-    for (const month of months) {
-      try {
-        const result = await calculateAffiliateCommission(
-          creator.affiliate_code,
-          month,
-          (creator.commission_rate ?? 10) / 100,
-        );
-        for (const order of result.orders || []) {
-          const day = (order.created_at || "").slice(0, 10);
-          if (!day) continue;
-          dailyRevenue[day] = (dailyRevenue[day] || 0) + (order.gross_amount || 0);
-          codeOrderCount += 1;
-          codeRevenueTotal += order.gross_amount || 0;
-        }
-      } catch {
-        // swallow — Shopify may be unavailable; we'll just show zeros
+    const results = await Promise.all(
+      months.map((m) =>
+        listAffiliateOrdersGross(creator.affiliate_code as string, m).catch(() => []),
+      ),
+    );
+    for (const orders of results) {
+      for (const order of orders) {
+        const day = (order.created_at || "").slice(0, 10);
+        if (!day) continue;
+        dailyRevenue[day] = (dailyRevenue[day] || 0) + (order.gross_amount || 0);
+        codeOrderCount += 1;
+        codeRevenueTotal += order.gross_amount || 0;
       }
     }
   }
