@@ -96,14 +96,30 @@ function getBestImageUrl(ad: any): string | null {
 }
 
 interface AdResult {
+  id: string;
   name: string;
   status: string;
   effective_status: string;
+  adset_name: string | null;
   spend: string;
   impressions: string;
+  outbound_clicks: number;
+  outbound_clicks_ctr: number;
+  purchase_value: number;
+  purchase_roas: number | null;
   thumbnailUrl: string | null;
   video_id: string | null;
   mux_playback_id: string | null;
+}
+
+interface DailyAdRow {
+  ad_id: string;
+  date: string; // YYYY-MM-DD
+  spend: number;
+  impressions: number;
+  outbound_clicks: number;
+  purchase_value: number;
+  purchase_roas: number | null;
 }
 
 interface SyncResult {
@@ -112,6 +128,32 @@ interface SyncResult {
   monthly: { month: string; spend: number; impressions: number }[];
   mtd: { spend: number; impressions: number };
   lastMtd: { spend: number; impressions: number };
+  daily: DailyAdRow[];
+  adsLiveCount: number;
+}
+
+// Meta returns action_values / outbound_clicks / purchase_roas as arrays of
+// {action_type, value}. These helpers extract the numeric we care about.
+function sumActionValue(arr: any[] | undefined, actionType?: string): number {
+  if (!Array.isArray(arr)) return 0;
+  let total = 0;
+  for (const row of arr) {
+    if (!row) continue;
+    if (actionType && row.action_type !== actionType) continue;
+    total += parseFloat(row.value || "0");
+  }
+  return total;
+}
+
+function pickActionValue(arr: any[] | undefined, actionType: string): number | null {
+  if (!Array.isArray(arr)) return null;
+  for (const row of arr) {
+    if (row?.action_type === actionType) {
+      const v = parseFloat(row.value || "0");
+      return isFinite(v) ? v : null;
+    }
+  }
+  return null;
 }
 
 async function fetchAdsForHandle(
@@ -124,7 +166,13 @@ async function fetchAdsForHandle(
     { field: "name", operator: "CONTAIN", value: handle },
   ]);
 
-  const fields = "name,status,effective_status,creative{thumbnail_url,image_url,object_story_spec{video_data{image_url,video_id}},asset_feed_spec{videos{video_id}}},insights.date_preset(maximum){spend,impressions}";
+  const adsetField = "adset{name}";
+  const insightsFields =
+    "spend,impressions,outbound_clicks,outbound_clicks_ctr,action_values,purchase_roas";
+  const fields =
+    `name,status,effective_status,${adsetField},` +
+    `creative{thumbnail_url,image_url,object_story_spec{video_data{image_url,video_id}},asset_feed_spec{videos{video_id}}},` +
+    `insights.date_preset(maximum){${insightsFields}}`;
   const listUrl =
     `https://graph.facebook.com/${META_API_VERSION}/${actId}/ads?` +
     `fields=${fields}` +
@@ -139,7 +187,6 @@ async function fetchAdsForHandle(
   }
 
   const rawAds = listData.data || [];
-  const adIds: string[] = rawAds.map((ad: any) => ad.id);
 
   // Date ranges for MTD comparison
   const now = new Date();
@@ -155,6 +202,9 @@ async function fetchAdsForHandle(
   const monthMap: Record<string, { spend: number; impressions: number }> = {};
   let mtd = { spend: 0, impressions: 0 };
   let lastMtd = { spend: 0, impressions: 0 };
+  // Per-day, per-ad rows that we'll persist to creator_ad_performance_daily.
+  // Keyed by `${ad_id}:${date}` for in-memory dedupe across pagination.
+  const dailyMap = new Map<string, DailyAdRow>();
 
   // Single account-level insights call: get daily data for all ads in one request
   // Filtered to ads matching this handle via the ad name filter
@@ -162,9 +212,11 @@ async function fetchAdsForHandle(
     const insightsFiltering = JSON.stringify([
       { field: "ad.name", operator: "CONTAIN", value: handle },
     ]);
+    const dailyFields =
+      "ad_id,spend,impressions,outbound_clicks,action_values,purchase_roas";
     let insightsPageUrl: string | null =
       `https://graph.facebook.com/${META_API_VERSION}/${actId}/insights?` +
-      `fields=spend,impressions` +
+      `fields=${dailyFields}` +
       `&level=ad` +
       `&time_increment=1` +
       `&date_preset=last_90d` +
@@ -182,6 +234,9 @@ async function fetchAdsForHandle(
         const monthKey = dateStr?.substring(0, 7);
         const spend = parseFloat(row.spend || "0");
         const impressions = parseInt(row.impressions || "0");
+        const outboundClicks = sumActionValue(row.outbound_clicks);
+        const purchaseValue = sumActionValue(row.action_values, "purchase");
+        const purchaseRoas = pickActionValue(row.purchase_roas, "purchase");
 
         if (monthKey) {
           if (!monthMap[monthKey]) monthMap[monthKey] = { spend: 0, impressions: 0 };
@@ -195,6 +250,18 @@ async function fetchAdsForHandle(
         if (dateStr && dateStr >= lastMonthStart && dateStr <= lastMonthEnd) {
           lastMtd.spend += spend;
           lastMtd.impressions += impressions;
+        }
+
+        if (dateStr && row.ad_id) {
+          dailyMap.set(`${row.ad_id}:${dateStr}`, {
+            ad_id: String(row.ad_id),
+            date: dateStr,
+            spend,
+            impressions,
+            outbound_clicks: Math.round(outboundClicks),
+            purchase_value: Math.round(purchaseValue * 100) / 100,
+            purchase_roas: purchaseRoas,
+          });
         }
       }
 
@@ -226,6 +293,10 @@ async function fetchAdsForHandle(
     const insights = ad.insights?.data?.[0];
     const spend = parseFloat(insights?.spend || "0");
     const impressions = parseInt(insights?.impressions || "0");
+    const outboundClicks = sumActionValue(insights?.outbound_clicks);
+    const outboundCtr = sumActionValue(insights?.outbound_clicks_ctr);
+    const purchaseValue = sumActionValue(insights?.action_values, "purchase");
+    const purchaseRoas = pickActionValue(insights?.purchase_roas, "purchase");
 
     totalSpend += spend;
     totalImpressions += impressions;
@@ -261,16 +332,24 @@ async function fetchAdsForHandle(
     }
 
     ads.push({
+      id: String(ad.id),
       name: displayName,
       status: ad.status,
       effective_status: ad.effective_status || ad.status,
+      adset_name: ad.adset?.name || null,
       spend: spend.toFixed(2),
       impressions: String(impressions),
+      outbound_clicks: Math.round(outboundClicks),
+      outbound_clicks_ctr: Math.round(outboundCtr * 100) / 100,
+      purchase_value: Math.round(purchaseValue * 100) / 100,
+      purchase_roas: purchaseRoas,
       thumbnailUrl,
       video_id: videoId ? String(videoId) : null,
       mux_playback_id: null, // will be filled in by processVideoUploads
     });
   }
+
+  const adsLiveCount = ads.filter((a) => a.effective_status === "ACTIVE").length;
 
   return {
     ads,
@@ -278,6 +357,8 @@ async function fetchAdsForHandle(
     monthly,
     mtd,
     lastMtd,
+    daily: Array.from(dailyMap.values()),
+    adsLiveCount,
   };
 }
 
@@ -400,7 +481,52 @@ export async function syncCreator(
       { onConflict: "instagram_handle" }
     );
 
-    console.log(`[meta-sync] Synced ${handle}: ${result.ads.length} ads, $${result.totals.spend.toFixed(2)} total spend`);
+    // Persist per-day, per-ad rows (the daily insights call already happens
+    // above; we just stop discarding the data). Upsert is keyed on
+    // (instagram_handle, ad_id, date) so re-syncs overwrite without dupes.
+    if (result.daily.length > 0) {
+      const dailyRows = result.daily.map((d) => ({
+        instagram_handle: handle,
+        influencer_id: influencerId,
+        ad_id: d.ad_id,
+        date: d.date,
+        spend: d.spend,
+        impressions: d.impressions,
+        outbound_clicks: d.outbound_clicks,
+        purchase_value: d.purchase_value,
+        purchase_roas: d.purchase_roas,
+      }));
+      // Chunk to keep payloads modest (Meta returns up to ~90d × N ads).
+      const CHUNK = 500;
+      for (let i = 0; i < dailyRows.length; i += CHUNK) {
+        const { error: dailyErr } = await (db.from("creator_ad_performance_daily") as any).upsert(
+          dailyRows.slice(i, i + CHUNK),
+          { onConflict: "instagram_handle,ad_id,date" }
+        );
+        if (dailyErr) {
+          console.warn(`[meta-sync] daily upsert failed for ${handle}:`, dailyErr.message);
+          break;
+        }
+      }
+    }
+
+    // Write today's ads-live snapshot. Historical days can't be backfilled,
+    // so the chart series will be empty until enough days accumulate.
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const { error: liveErr } = await (db.from("creator_ads_live_daily") as any).upsert(
+      {
+        instagram_handle: handle,
+        influencer_id: influencerId,
+        date: todayIso,
+        count: result.adsLiveCount,
+      },
+      { onConflict: "instagram_handle,date" }
+    );
+    if (liveErr) {
+      console.warn(`[meta-sync] ads-live upsert failed for ${handle}:`, liveErr.message);
+    }
+
+    console.log(`[meta-sync] Synced ${handle}: ${result.ads.length} ads, ${result.daily.length} daily rows, $${result.totals.spend.toFixed(2)} total spend`);
     return { success: true };
   } catch (err: any) {
     const errorMsg = err.message || "Unknown error";
