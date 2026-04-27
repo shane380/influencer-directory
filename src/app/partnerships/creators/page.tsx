@@ -24,6 +24,8 @@ interface Creator {
   } | null;
   pending_requests: number;
   last_submission: string | null;
+  shopify_code_status: "active" | "pending" | "failed" | null;
+  has_affiliate: boolean;
 }
 
 interface InfluencerResult {
@@ -128,6 +130,34 @@ export default function CreatorsListPage() {
   const [editTermsInvite, setEditTermsInvite] = useState<any>(null);
   const [editTermsLoading, setEditTermsLoading] = useState<string | null>(null);
 
+  // Shopify sync retry state
+  const [retryingSync, setRetryingSync] = useState<string | null>(null);
+
+  async function retryShopifySync(creatorId: string) {
+    setRetryingSync(creatorId);
+    try {
+      const res = await fetch("/api/admin/shopify-sync-retry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creator_id: creatorId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(`Retry failed: ${data.error || "Unknown error"}`);
+        return;
+      }
+      setCreators((prev) =>
+        prev.map((c) =>
+          c.id === creatorId ? { ...c, shopify_code_status: "active" } : c
+        )
+      );
+    } catch (err: any) {
+      alert(`Retry failed: ${err.message}`);
+    } finally {
+      setRetryingSync(null);
+    }
+  }
+
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -177,12 +207,17 @@ export default function CreatorsListPage() {
         creatorsData.map(async (c: any) => {
           let influencer = null;
 
+          let shopifyCodeStatus: Creator["shopify_code_status"] = null;
+          let hasAffiliate = false;
           if (c.invite_id) {
             const { data: invite } = await supabase
               .from("creator_invites" as any)
-              .select("influencer_id")
+              .select("influencer_id, shopify_code_status, has_affiliate")
               .eq("id", c.invite_id)
               .single() as any;
+
+            shopifyCodeStatus = invite?.shopify_code_status ?? null;
+            hasAffiliate = invite?.has_affiliate ?? false;
 
             if (invite?.influencer_id) {
               const { data: inf } = await supabase
@@ -212,6 +247,8 @@ export default function CreatorsListPage() {
             influencer,
             pending_requests: count || 0,
             last_submission: lastSub?.[0]?.created_at || null,
+            shopify_code_status: shopifyCodeStatus,
+            has_affiliate: hasAffiliate,
           } as Creator;
         })
       );
@@ -913,9 +950,24 @@ export default function CreatorsListPage() {
                       </td>
                       <td className="px-4 py-3 text-gray-700">{creator.commission_rate}%</td>
                       <td className="px-4 py-3">
-                        <code className="text-xs bg-gray-100 px-2 py-1 rounded">
-                          {creator.affiliate_code}
-                        </code>
+                        <div className="flex items-center gap-2">
+                          <code className="text-xs bg-gray-100 px-2 py-1 rounded">
+                            {creator.affiliate_code}
+                          </code>
+                          {creator.has_affiliate && creator.shopify_code_status === "failed" && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                retryShopifySync(creator.id);
+                              }}
+                              disabled={retryingSync === creator.id}
+                              className="text-xs px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors disabled:opacity-50"
+                              title="Shopify discount code sync failed — click to retry"
+                            >
+                              {retryingSync === creator.id ? "Retrying…" : "Retry Shopify sync"}
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         {creator.pending_requests > 0 ? (
@@ -1646,7 +1698,7 @@ export default function CreatorsListPage() {
           : sub.month;
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setReviewingSubmission(null)}>
-            <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full mx-4 max-h-[95vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between px-6 py-4 border-b">
                 <div className="flex items-center gap-3">
                   {sub.creator_photo ? (
@@ -1675,10 +1727,10 @@ export default function CreatorsListPage() {
                         <div key={fi}>
                           {isImage && file.r2_url ? (
                             <a href={file.r2_url} target="_blank" rel="noopener noreferrer">
-                              <img src={file.r2_url} alt={file.name} className="w-full max-h-[400px] object-contain rounded-lg border border-gray-200 hover:opacity-90 transition-opacity bg-gray-50" />
+                              <img src={file.r2_url} alt={file.name} className="w-full max-h-[75vh] object-contain rounded-lg border border-gray-200 hover:opacity-90 transition-opacity bg-gray-50" />
                             </a>
                           ) : isVideo && file.r2_url ? (
-                            <video controls preload="metadata" playsInline className="w-full max-h-[400px] rounded-lg border border-gray-200 bg-black">
+                            <video controls preload="metadata" playsInline className="w-full max-h-[75vh] rounded-lg border border-gray-200 bg-black object-contain">
                               <source src={file.r2_url} type={file.mime_type || "video/mp4"} />
                               <source src={file.r2_url} type="video/mp4" />
                             </video>
