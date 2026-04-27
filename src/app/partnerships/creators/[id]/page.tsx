@@ -771,7 +771,13 @@ export default function AdminCreatorProfile() {
                 <tbody className="divide-y divide-gray-100">
                   {liveAds.map((ad) => {
                     const spendNum = parseFloat(ad.spend || "0");
-                    const roas = ad.purchase_roas ?? null;
+                    // Compute ROAS from purchase_value / spend rather than Meta's
+                    // `purchase_roas` field, which is keyed by action_type
+                    // (varies between accounts: "purchase" vs "omni_purchase").
+                    const roas =
+                      ad.purchase_value != null && spendNum > 0
+                        ? ad.purchase_value / spendNum
+                        : ad.purchase_roas ?? null;
                     const ctr = ad.outbound_clicks_ctr ?? null;
                     const roasClass =
                       roas == null
