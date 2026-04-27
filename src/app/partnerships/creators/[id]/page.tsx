@@ -25,7 +25,7 @@ interface Creator {
   affiliate_code: string | null;
   commission_rate: number | null;
   invite_id: string | null;
-  created_at: string;
+  onboarded_at: string | null;
 }
 
 interface Invite {
@@ -41,6 +41,7 @@ interface Invite {
   notes?: string | null;
   deal_structure?: string | null;
   commission_rate?: number | null;
+  created_at?: string | null;
 }
 
 interface Influencer {
@@ -369,7 +370,8 @@ export default function AdminCreatorProfile() {
     }
   }
 
-  const partnershipStarted = creator?.created_at ? monthYearShort(creator.created_at) : "—";
+  const startedAt = invite?.created_at || creator?.onboarded_at || null;
+  const partnershipStarted = startedAt ? monthYearShort(startedAt) : "—";
   const handle = influencer?.instagram_handle;
 
   if (loading) {

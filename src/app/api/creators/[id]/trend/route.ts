@@ -60,7 +60,7 @@ export async function GET(
 
   // Look up the creator -> invite -> influencer chain
   const { data: creator } = await (db.from("creators") as any)
-    .select("id, affiliate_code, commission_rate, invite_id, created_at")
+    .select("id, affiliate_code, commission_rate, invite_id, onboarded_at")
     .eq("id", creatorId)
     .single();
 
@@ -88,7 +88,11 @@ export async function GET(
 
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
-  const partnershipFloor = creator.created_at ? new Date(creator.created_at) : new Date(today.getTime() - 365 * 86400000);
+  // Floor for "all time" = onboarding date, or 1 year ago as a reasonable bound
+  // (creators predate signup, so this is just to cap query work)
+  const partnershipFloor = creator.onboarded_at
+    ? new Date(creator.onboarded_at)
+    : new Date(today.getTime() - 365 * 86400000);
   const startDate = startDateFor(period, partnershipFloor);
   const startIso = startDate.toISOString();
   const startDay = startDate.toISOString().slice(0, 10);
