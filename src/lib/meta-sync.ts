@@ -166,11 +166,12 @@ async function fetchAdsForHandle(
     { field: "name", operator: "CONTAIN", value: handle },
   ]);
 
-  const adsetField = "adset{name}";
   const insightsFields =
     "spend,impressions,outbound_clicks,outbound_clicks_ctr,action_values,purchase_roas";
+  // adset{id,name} — including `id` alongside `name` avoids Meta's URL parser
+  // mistaking single-subfield `adset{name}` for brace value-substitution syntax.
   const fields =
-    `name,status,effective_status,${adsetField},` +
+    `name,status,effective_status,adset{id,name},` +
     `creative{thumbnail_url,image_url,object_story_spec{video_data{image_url,video_id}},asset_feed_spec{videos{video_id}}},` +
     `insights.date_preset(maximum){${insightsFields}}`;
   const listUrl =
