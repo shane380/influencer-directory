@@ -87,24 +87,14 @@ export async function GET(
   const todayIso = today.toISOString();
   const todayDay = today.toISOString().slice(0, 10);
 
-  // ── Approved submissions in window (for scatter dots) ──
-  const { data: approvedSubsRaw } = await (db.from("creator_content_submissions") as any)
-    .select("id, files, reviewed_at, status")
-    .eq("creator_id", creatorId)
-    .eq("status", "approved")
-    .gte("reviewed_at", startIso);
-
-  const approvedSubmissions = (approvedSubsRaw || [])
-    .filter((s: any) => s.reviewed_at)
-    .map((s: any) => ({
-      approved_at: s.reviewed_at,
-      file_count: Array.isArray(s.files) ? s.files.length : 0,
-    }));
-
-  // ── Per-day ad spend from creator_ad_performance_daily ──
-  // Sum across all ads for each date in window.
+  // ── Per-day ad spend + new-ad-launch events from creator_ad_performance_daily ──
+  // For "new ads live" scatter dots: a new ad is one whose FIRST appearance with
+  // spend or impressions falls inside the window. This means launching N ads on
+  // a given day produces one dot at that date with count=N.
   const dailySpendByDate: Record<string, number> = {};
+  const adsLaunchedByDate: Record<string, number> = {};
   if (influencerHandle) {
+    // 1) Window-scoped daily rows for spend aggregation
     const { data: dailyRows } = await (db.from("creator_ad_performance_daily") as any)
       .select("date, spend")
       .eq("instagram_handle", influencerHandle)
@@ -114,7 +104,30 @@ export async function GET(
       const d = String(row.date).slice(0, 10);
       dailySpendByDate[d] = (dailySpendByDate[d] || 0) + Number(row.spend || 0);
     }
+
+    // 2) ALL daily rows for launch-date detection — we need to know if an ad's
+    // first appearance is inside the window or before it. Pull only what's
+    // needed (ad_id, date, spend, impressions).
+    const { data: allRows } = await (db.from("creator_ad_performance_daily") as any)
+      .select("ad_id, date, spend, impressions")
+      .eq("instagram_handle", influencerHandle);
+    const firstActiveByAd = new Map<string, string>();
+    for (const row of (allRows as any[]) || []) {
+      if (!(Number(row.spend) > 0 || Number(row.impressions) > 0)) continue;
+      const day = String(row.date).slice(0, 10);
+      const prev = firstActiveByAd.get(row.ad_id);
+      if (!prev || day < prev) firstActiveByAd.set(row.ad_id, day);
+    }
+    for (const launchDay of firstActiveByAd.values()) {
+      if (launchDay >= startDay && launchDay <= todayDay) {
+        adsLaunchedByDate[launchDay] = (adsLaunchedByDate[launchDay] || 0) + 1;
+      }
+    }
   }
+
+  const adsLaunched = Object.entries(adsLaunchedByDate)
+    .map(([date, count]) => ({ date, count }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   // ── Per-day ads-live count from creator_ads_live_daily ──
   const adsLiveByDate: Record<string, number> = {};
@@ -164,7 +177,7 @@ export async function GET(
     period,
     range: { start: startIso, end: todayIso },
     daily,
-    approvedSubmissions,
+    adsLaunched,
     spendTotal: Math.round(spendTotal * 100) / 100,
     codeRevenueTotal: Math.round(codeRevenueTotal * 100) / 100,
     codeOrderCount,

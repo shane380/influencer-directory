@@ -104,7 +104,7 @@ interface TrendData {
   period: Period;
   range: { start: string; end: string };
   daily: Array<{ date: string; spend: number; revenue: number; adsLive: number | null }>;
-  approvedSubmissions: Array<{ approved_at: string; file_count: number }>;
+  adsLaunched: Array<{ date: string; count: number }>;
   spendTotal: number;
   codeRevenueTotal: number;
   codeOrderCount: number;
@@ -394,14 +394,14 @@ export default function AdminCreatorProfile() {
   // Each daily row carries spend, revenue, and adsLive on the same x-axis date.
   const chartData = trend?.daily ?? [];
 
-  const approvedScatter = (trend?.approvedSubmissions || []).map((s) => ({
-    date: s.approved_at.slice(0, 10),
-    file_count: s.file_count,
+  const launchedScatter = (trend?.adsLaunched || []).map((s) => ({
+    date: s.date,
+    ad_count: s.count,
     y: 0, // pin dots to the x-axis baseline
   }));
 
   const periodSpendTotal = trend?.spendTotal ?? 0;
-  const periodApprovedCount = (trend?.approvedSubmissions || []).length;
+  const periodAdsLaunched = (trend?.adsLaunched || []).reduce((s, d) => s + d.count, 0);
   const adsLiveMax = (trend?.daily || []).reduce(
     (m, d) => Math.max(m, d.adsLive ?? 0),
     liveAds.length,
@@ -565,8 +565,8 @@ export default function AdminCreatorProfile() {
             />
             <LegendDot
               color={COLORS.approved}
-              label="Creatives approved"
-              value={String(periodApprovedCount)}
+              label="New ads live"
+              value={String(periodAdsLaunched)}
             />
             <LegendDot
               color={COLORS.adsLive}
@@ -607,20 +607,45 @@ export default function AdminCreatorProfile() {
                     tick={{ fontSize: 11, fill: "#6B7280" }}
                   />
                   <Tooltip
-                    contentStyle={{ fontSize: 12, borderRadius: 6, border: "1px solid #E5E7EB" }}
-                    labelFormatter={(d) =>
-                      new Date(d).toLocaleDateString("en", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })
-                    }
-                    formatter={(value: any, name: any) => {
-                      const label = String(name ?? "");
-                      if (value == null) return ["—", label];
-                      if (label === "Creatives approved") return [`${value} files`, label];
-                      if (label === "Ads live") return [`${value}`, label];
-                      return [`$${Number(value).toLocaleString()}`, label];
+                    cursor={{ stroke: "#D1D5DB", strokeDasharray: "3 3" }}
+                    content={(props: any) => {
+                      const { active, label } = props;
+                      if (!active || !label) return null;
+                      const day = String(label);
+                      const point = chartData.find((d) => d.date === day);
+                      const launches = launchedScatter
+                        .filter((s) => s.date === day)
+                        .reduce((s, x) => s + x.ad_count, 0);
+                      return (
+                        <div
+                          className="bg-white border border-gray-200 rounded-md px-3 py-2 shadow-sm text-xs"
+                          style={{ minWidth: 160 }}
+                        >
+                          <div className="font-medium text-gray-900 mb-1">
+                            {new Date(day).toLocaleDateString("en", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                          </div>
+                          <TooltipRow color={COLORS.spend} label="Ad spend">
+                            ${(point?.spend ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </TooltipRow>
+                          <TooltipRow color={COLORS.revenue} label="Code revenue">
+                            ${(point?.revenue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </TooltipRow>
+                          {launches > 0 && (
+                            <TooltipRow color={COLORS.approved} label="New ads live">
+                              {launches}
+                            </TooltipRow>
+                          )}
+                          {point?.adsLive != null && (
+                            <TooltipRow color={COLORS.adsLive} label="Ads live">
+                              {point.adsLive}
+                            </TooltipRow>
+                          )}
+                        </div>
+                      );
                     }}
                   />
                   <Line
@@ -657,13 +682,13 @@ export default function AdminCreatorProfile() {
                   />
                   <Scatter
                     yAxisId="dollars"
-                    data={approvedScatter}
+                    data={launchedScatter}
                     dataKey="y"
-                    name="Creatives approved"
+                    name="New ads live"
                     fill={COLORS.approved}
                     shape={(props: any) => {
                       const { cx, cy, payload } = props;
-                      const r = approvedDotRadius(payload.file_count || 1);
+                      const r = approvedDotRadius(payload.ad_count || 1);
                       return (
                         <g>
                           <circle cx={cx} cy={cy} r={r} fill={COLORS.approved} />
@@ -674,13 +699,13 @@ export default function AdminCreatorProfile() {
                             fontSize="10"
                             fill={COLORS.approved}
                           >
-                            {payload.file_count}
+                            {payload.ad_count}
                           </text>
                         </g>
                       );
                     }}
                   >
-                    {approvedScatter.map((_, i) => (
+                    {launchedScatter.map((_, i) => (
                       <Cell key={i} />
                     ))}
                   </Scatter>
@@ -915,6 +940,26 @@ function MetricCard({
         {value}
       </div>
       <div className="text-xs text-gray-500 mt-0.5">{subtitle}</div>
+    </div>
+  );
+}
+
+function TooltipRow({
+  color,
+  label,
+  children,
+}: {
+  color: string;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-0.5">
+      <span className="flex items-center gap-1.5 text-gray-600">
+        <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+        {label}
+      </span>
+      <span className="text-gray-900 font-medium">{children}</span>
     </div>
   );
 }
