@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Sidebar } from "@/components/sidebar";
 import { SubmissionReviewModal, SubmissionForReview } from "@/components/submission-review-modal";
@@ -163,10 +163,27 @@ function monthYearShort(iso: string | null | undefined): string {
   return new Date(iso).toLocaleDateString("en", { month: "short", year: "numeric" });
 }
 
+type Tab = "ads" | "content" | "styles";
+
 export default function AdminCreatorProfile() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
+
+  const tabParam = (searchParams.get("tab") || "ads") as Tab;
+  const activeTab: Tab = ["ads", "content", "styles"].includes(tabParam) ? tabParam : "ads";
+
+  function setActiveTab(next: Tab) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "ads") {
+      params.delete("tab");
+    } else {
+      params.set("tab", next);
+    }
+    const qs = params.toString();
+    router.replace(qs ? `?${qs}` : "?", { scroll: false });
+  }
 
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -473,7 +490,37 @@ export default function AdminCreatorProfile() {
           </div>
         </div>
 
-        {/* 2. Needs your attention */}
+        {/* 2. Metric cards */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+          <MetricCard
+            label="Ad spend (lifetime)"
+            value={formatMoney(adPerf?.totals?.spend || 0)}
+            subtitle={`${formatMoney(last30dSpend)} last 30d`}
+          />
+          <MetricCard
+            label="ROAS"
+            value={lifetimeRoas != null ? `${lifetimeRoas.toFixed(2)}x` : "—"}
+            subtitle="Lifetime"
+            unavailable={lifetimeRoas == null}
+          />
+          <MetricCard
+            label="Code revenue"
+            value={trend ? formatMoney(trend.codeRevenueTotal) : "—"}
+            subtitle={trend ? `${trend.codeOrderCount} order${trend.codeOrderCount !== 1 ? "s" : ""}` : "—"}
+          />
+          <MetricCard
+            label="Ads live"
+            value={String(liveAds.length)}
+            subtitle="Whitelisted on Meta"
+          />
+          <MetricCard
+            label="Items gifted"
+            value={String(itemsGifted.qty)}
+            subtitle={`${itemsGifted.orders} order${itemsGifted.orders !== 1 ? "s" : ""}`}
+          />
+        </div>
+
+        {/* 3. Needs your attention — always visible above the tabs */}
         {pendingSubmissions.length > 0 && (
           <div className="bg-red-50 border border-red-100 border-l-4 border-l-red-500 rounded-lg p-4 mb-6">
             <div className="text-sm font-medium text-red-900 mb-2">
@@ -507,37 +554,42 @@ export default function AdminCreatorProfile() {
           </div>
         )}
 
-        {/* 3. Metric cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-          <MetricCard
-            label="Ad spend (lifetime)"
-            value={formatMoney(adPerf?.totals?.spend || 0)}
-            subtitle={`${formatMoney(last30dSpend)} last 30d`}
-          />
-          <MetricCard
-            label="ROAS"
-            value={lifetimeRoas != null ? `${lifetimeRoas.toFixed(2)}x` : "—"}
-            subtitle="Lifetime"
-            unavailable={lifetimeRoas == null}
-          />
-          <MetricCard
-            label="Code revenue"
-            value={trend ? formatMoney(trend.codeRevenueTotal) : "—"}
-            subtitle={trend ? `${trend.codeOrderCount} order${trend.codeOrderCount !== 1 ? "s" : ""}` : "—"}
-          />
-          <MetricCard
-            label="Ads live"
-            value={String(liveAds.length)}
-            subtitle="Whitelisted on Meta"
-          />
-          <MetricCard
-            label="Items gifted"
-            value={String(itemsGifted.qty)}
-            subtitle={`${itemsGifted.orders} order${itemsGifted.orders !== 1 ? "s" : ""}`}
-          />
+        {/* 4. Tab bar */}
+        <div className="border-b border-gray-200 mb-6">
+          <nav className="flex gap-6" role="tablist">
+            {(
+              [
+                { id: "ads" as const, label: "Ads", count: liveAds.length },
+                { id: "content" as const, label: "Content", count: submissions.length },
+                { id: "styles" as const, label: "Styles", count: sampleRequests.length },
+              ]
+            ).map((t) => {
+              const isActive = activeTab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => setActiveTab(t.id)}
+                  className={`relative py-3 text-sm font-medium transition-colors -mb-px border-b-2 ${
+                    isActive
+                      ? "text-gray-900 border-gray-900"
+                      : "text-gray-500 border-transparent hover:text-gray-800"
+                  }`}
+                >
+                  {t.label}
+                  <span className={`ml-1.5 ${isActive ? "text-gray-500" : "text-gray-400"}`}>
+                    ({t.count})
+                  </span>
+                </button>
+              );
+            })}
+          </nav>
         </div>
 
-        {/* 4. Trend chart */}
+        {/* Ads tab: Trend chart + Live ads */}
+        {activeTab === "ads" && (
+          <>
         <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-[15px] font-medium text-gray-900">Trend</h2>
@@ -722,69 +774,8 @@ export default function AdminCreatorProfile() {
           )}
         </div>
 
-        {/* 5. Content submissions */}
-        <div className="mb-6">
-          <h2 className="text-xs uppercase tracking-wider text-gray-500 mb-3">Content submissions</h2>
-          {submissions.length === 0 ? (
-            <p className="text-gray-500 text-sm">No content submitted yet.</p>
-          ) : (
-            <div className="space-y-2">
-              {submissions.map((sub) => {
-                const files = Array.isArray(sub.files) ? sub.files : [];
-                const first = files[0];
-                const isImage = first?.mime_type?.startsWith("image/");
-                const isVideo = first?.mime_type?.startsWith("video/");
-                const submittedDate = sub.submitted_at || sub.created_at;
-                return (
-                  <div
-                    key={sub.id}
-                    className="bg-white border border-gray-200 rounded-lg p-3 flex items-center gap-3"
-                  >
-                    <div className="w-12 h-16 rounded bg-gray-100 flex-shrink-0 overflow-hidden">
-                      {isImage && first?.r2_url ? (
-                        <img
-                          src={first.r2_url}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      ) : isVideo && first?.r2_url ? (
-                        <video
-                          src={first.r2_url}
-                          preload="metadata"
-                          className="w-full h-full object-cover"
-                          muted
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-400">
-                          {first?.name?.split(".").pop()?.toUpperCase() || "FILE"}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-900">{monthLabel(sub.month)}</div>
-                      <div className="text-xs text-gray-500">
-                        {files.length} file{files.length !== 1 ? "s" : ""} · Submitted{" "}
-                        {shortDate(submittedDate)}
-                      </div>
-                    </div>
-                    <span className={statusPillClass(sub.status)}>
-                      {sub.status === "revision_requested" ? "Revision requested" : sub.status}
-                    </span>
-                    <button
-                      onClick={() => setReviewingId(sub.id)}
-                      className="px-3 py-1.5 text-xs font-medium border border-gray-200 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
-                    >
-                      Review
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* 6. Live ads */}
-        <div className="mb-6">
+        {/* Live ads — also in the Ads tab */}
+        <div className="mb-12">
           <h2 className="text-xs uppercase tracking-wider text-gray-500 mb-3">Live ads</h2>
           {liveAds.length === 0 ? (
             <p className="text-gray-500 text-sm">No active ads.</p>
@@ -841,49 +832,116 @@ export default function AdminCreatorProfile() {
             </div>
           )}
         </div>
+          </>
+        )}
 
-        {/* 7. Recent samples */}
-        <div className="mb-12">
-          <h2 className="text-xs uppercase tracking-wider text-gray-500 mb-3">Recent samples</h2>
-          {sampleRequests.length === 0 ? (
-            <p className="text-gray-500 text-sm">No sample requests yet.</p>
-          ) : (
-            <div className="space-y-2">
-              {sampleRequests.map((req) => {
-                const sels = Array.isArray(req.selections) ? req.selections : [];
-                const itemCount = sels.reduce((s, sel) => s + (Number(sel.quantity) || 1), 0);
-                return (
-                  <div
-                    key={req.id}
-                    className="bg-white border border-gray-200 rounded-lg p-4"
-                  >
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div className="text-sm font-medium text-gray-900">
-                        Sample order · {itemCount} item{itemCount !== 1 ? "s" : ""} ·{" "}
-                        <span className="text-gray-500 font-normal">{shortDate(req.created_at)}</span>
+        {/* Content tab */}
+        {activeTab === "content" && (
+          <div className="mb-12">
+            <h2 className="text-xs uppercase tracking-wider text-gray-500 mb-3">Content submissions</h2>
+            {submissions.length === 0 ? (
+              <p className="text-gray-500 text-sm">No content submitted yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {submissions.map((sub) => {
+                  const files = Array.isArray(sub.files) ? sub.files : [];
+                  const first = files[0];
+                  const isImage = first?.mime_type?.startsWith("image/");
+                  const isVideo = first?.mime_type?.startsWith("video/");
+                  const submittedDate = sub.submitted_at || sub.created_at;
+                  return (
+                    <div
+                      key={sub.id}
+                      className="bg-white border border-gray-200 rounded-lg p-3 flex items-center gap-3"
+                    >
+                      <div className="w-12 h-16 rounded bg-gray-100 flex-shrink-0 overflow-hidden">
+                        {isImage && first?.r2_url ? (
+                          <img
+                            src={first.r2_url}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        ) : isVideo && first?.r2_url ? (
+                          <video
+                            src={first.r2_url}
+                            preload="metadata"
+                            className="w-full h-full object-cover"
+                            muted
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-400">
+                            {first?.name?.split(".").pop()?.toUpperCase() || "FILE"}
+                          </div>
+                        )}
                       </div>
-                      <span className={statusPillClass(req.status)}>{req.status}</span>
-                    </div>
-                    <div className="space-y-0.5 mb-2">
-                      {sels.map((sel, i) => (
-                        <div key={i} className="text-sm text-gray-700">
-                          {sel.product_title}
-                          {sel.variant_title && (
-                            <span className="text-gray-400"> — {sel.variant_title}</span>
-                          )}
-                          {sel.quantity && sel.quantity > 1 && (
-                            <span className="text-gray-400"> ×{sel.quantity}</span>
-                          )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-900">{monthLabel(sub.month)}</div>
+                        <div className="text-xs text-gray-500">
+                          {files.length} file{files.length !== 1 ? "s" : ""} · Submitted{" "}
+                          {shortDate(submittedDate)}
                         </div>
-                      ))}
+                      </div>
+                      <span className={statusPillClass(sub.status)}>
+                        {sub.status === "revision_requested" ? "Revision requested" : sub.status}
+                      </span>
+                      <button
+                        onClick={() => setReviewingId(sub.id)}
+                        className="px-3 py-1.5 text-xs font-medium border border-gray-200 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+                      >
+                        Review
+                      </button>
                     </div>
-                    <div className="text-xs text-gray-400 font-mono">{req.id}</div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Styles tab */}
+        {activeTab === "styles" && (
+          <div className="mb-12">
+            <h2 className="text-xs uppercase tracking-wider text-gray-500 mb-3">Styles</h2>
+            {sampleRequests.length === 0 ? (
+              <p className="text-gray-500 text-sm">No styles requested yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {sampleRequests.map((req) => {
+                  const sels = Array.isArray(req.selections) ? req.selections : [];
+                  const itemCount = sels.reduce((s, sel) => s + (Number(sel.quantity) || 1), 0);
+                  return (
+                    <div
+                      key={req.id}
+                      className="bg-white border border-gray-200 rounded-lg p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="text-sm font-medium text-gray-900">
+                          Style request · {itemCount} item{itemCount !== 1 ? "s" : ""} ·{" "}
+                          <span className="text-gray-500 font-normal">{shortDate(req.created_at)}</span>
+                        </div>
+                        <span className={statusPillClass(req.status)}>{req.status}</span>
+                      </div>
+                      <div className="space-y-0.5 mb-2">
+                        {sels.map((sel, i) => (
+                          <div key={i} className="text-sm text-gray-700">
+                            {sel.product_title}
+                            {sel.variant_title && (
+                              <span className="text-gray-400"> — {sel.variant_title}</span>
+                            )}
+                            {sel.quantity && sel.quantity > 1 && (
+                              <span className="text-gray-400"> ×{sel.quantity}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="text-xs text-gray-400 font-mono">{req.id}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {reviewingSub && (
