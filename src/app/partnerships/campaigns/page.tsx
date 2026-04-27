@@ -1149,7 +1149,7 @@ export default function CampaignsPage() {
           />
         )}
         <Sidebar activeTab="partners" onTabChange={(tab) => { if (tab !== "partners") router.push(`/?tab=${tab}`); }} currentUser={currentUser} onLogout={async () => { await supabase.auth.signOut(); router.push("/login"); }} />
-        <div className="flex-1 ml-48 overflow-y-auto p-8">
+        <div className="flex-1 ml-14 overflow-y-auto p-8">
           <button onClick={() => {
             if (selectedCampaign.parent_campaign_id) {
               const parent = campaigns.find(c => c.id === selectedCampaign.parent_campaign_id);
@@ -1419,7 +1419,7 @@ export default function CampaignsPage() {
   return (
     <div className="flex h-screen bg-white">
       <Sidebar activeTab="partners" onTabChange={(tab) => { if (tab !== "partners") router.push(`/?tab=${tab}`); }} currentUser={currentUser} onLogout={async () => { await supabase.auth.signOut(); router.push("/login"); }} />
-      <div className="flex-1 ml-48 overflow-y-auto p-8">
+      <div className="flex-1 ml-14 overflow-y-auto p-8">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-semibold">Partner Campaigns</h1>

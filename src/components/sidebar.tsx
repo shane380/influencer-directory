@@ -42,6 +42,7 @@ interface GroupedCampaigns {
 }
 
 export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: SidebarProps) {
+  const [isHovered, setIsHovered] = useState(false);
   const [campaignsExpanded, setCampaignsExpanded] = useState(false);
   const [partnersExpanded, setPartnersExpanded] = useState(false);
   const [groupedCampaigns, setGroupedCampaigns] = useState<GroupedCampaigns[]>([]);
@@ -173,6 +174,14 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Close dropdowns and submenus when sidebar collapses
+  useEffect(() => {
+    if (!isHovered) {
+      setUserMenuOpen(false);
+      setNotifOpen(false);
+    }
+  }, [isHovered]);
+
   // Close on escape key
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -223,14 +232,22 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
   }
 
   return (
-    <div className="w-48 h-screen bg-white border-r flex flex-col fixed left-0 top-0">
+    <div
+      className={`${isHovered ? "w-56 shadow-xl" : "w-14"} h-screen bg-white border-r flex flex-col fixed left-0 top-0 z-40 transition-[width] duration-200 ease-out overflow-hidden`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       {/* Logo / Title */}
-      <div className="px-4 py-3 border-b">
-        <h1 className="text-base font-semibold text-gray-900">Partnerships</h1>
+      <div className="px-4 py-3 border-b h-[49px] flex items-center">
+        {isHovered ? (
+          <h1 className="text-base font-semibold text-gray-900 whitespace-nowrap">Partnerships</h1>
+        ) : (
+          <span className="text-base font-semibold text-gray-900 mx-auto">P</span>
+        )}
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-2 py-3 overflow-y-auto">
+      <nav className="flex-1 px-2 py-3 overflow-y-auto overflow-x-hidden">
         <ul className="space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -239,26 +256,36 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
               (item.id === "partners" && (pathname?.startsWith("/partnerships/creators") || pathname?.startsWith("/partnerships/campaigns"))) ||
               (item.id === "payments" && pathname?.startsWith("/partnerships/payments"));
 
+            const showBadgeDot = !isHovered && item.id === "influencers" && pendingCodeRequests > 0;
+
             return (
               <li key={item.id}>
                 <button
                   onClick={() => handleNavClick(item.id)}
-                  className={`w-full flex items-center justify-between px-2 py-2 rounded-md text-sm transition-colors ${
+                  title={!isHovered ? item.label : undefined}
+                  className={`w-full flex items-center ${isHovered ? "justify-between px-2" : "justify-center px-0"} py-2 rounded-md text-sm transition-colors ${
                     isActive
                       ? "bg-gray-100 text-gray-900 font-medium"
                       : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                   }`}
                 >
-                  <span className="flex items-center gap-2">
+                  <span className={`flex items-center ${isHovered ? "gap-2" : ""} relative`}>
                     <Icon className="h-4 w-4 flex-shrink-0" />
-                    <span className="truncate">{item.label}</span>
-                    {item.id === "influencers" && pendingCodeRequests > 0 && (
-                      <span className="ml-auto flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-medium flex items-center justify-center px-1">
-                        {pendingCodeRequests}
-                      </span>
+                    {showBadgeDot && (
+                      <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500" />
+                    )}
+                    {isHovered && (
+                      <>
+                        <span className="truncate whitespace-nowrap">{item.label}</span>
+                        {item.id === "influencers" && pendingCodeRequests > 0 && (
+                          <span className="ml-auto flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-medium flex items-center justify-center px-1">
+                            {pendingCodeRequests}
+                          </span>
+                        )}
+                      </>
                     )}
                   </span>
-                  {item.expandable && (
+                  {isHovered && item.expandable && (
                     (item.id === "campaigns" ? campaignsExpanded : item.id === "partners" ? partnersExpanded : false) ? (
                       <ChevronDown className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
                     ) : (
@@ -268,7 +295,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                 </button>
 
                 {/* Partners submenu */}
-                {item.id === "partners" && partnersExpanded && (
+                {isHovered && item.id === "partners" && partnersExpanded && (
                   <ul
                     className="mt-1 ml-3 pl-3 border-l border-gray-200 space-y-1"
                     onClick={(e) => e.stopPropagation()}
@@ -303,7 +330,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                 )}
 
                 {/* Campaigns submenu */}
-                {item.id === "campaigns" && campaignsExpanded && (
+                {isHovered && item.id === "campaigns" && campaignsExpanded && (
                   <ul
                     className="mt-1 ml-3 pl-3 border-l border-gray-200 space-y-1"
                     onClick={(e) => e.stopPropagation()}
@@ -349,13 +376,17 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
       <div className="border-t relative" ref={notifRef}>
         <button
           onClick={() => setNotifOpen(!notifOpen)}
-          className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-gray-50 transition-colors"
+          title={!isHovered ? "Notifications" : undefined}
+          className={`w-full ${isHovered ? "px-3 justify-between" : "px-0 justify-center"} py-2.5 flex items-center hover:bg-gray-50 transition-colors`}
         >
-          <span className="flex items-center gap-2 text-sm text-gray-600">
+          <span className={`flex items-center ${isHovered ? "gap-2" : ""} text-sm text-gray-600 relative`}>
             <Bell className="h-4 w-4" />
-            Notifications
+            {!isHovered && notifications.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500" />
+            )}
+            {isHovered && <span className="whitespace-nowrap">Notifications</span>}
           </span>
-          {notifications.length > 0 && (
+          {isHovered && notifications.length > 0 && (
             <span className="min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-medium flex items-center justify-center px-1">
               {notifications.length}
             </span>
@@ -404,9 +435,10 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
         <div className="border-t relative" ref={userMenuRef}>
           <button
             onClick={() => setUserMenuOpen(!userMenuOpen)}
-            className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            title={!isHovered ? currentUser.displayName : undefined}
+            className={`w-full ${isHovered ? "px-3 justify-between" : "px-0 justify-center"} py-2.5 flex items-center hover:bg-gray-50 transition-colors`}
           >
-            <div className="flex items-center gap-2 min-w-0">
+            <div className={`flex items-center ${isHovered ? "gap-2" : ""} min-w-0`}>
               {currentUser.profilePhotoUrl ? (
                 <Image
                   src={currentUser.profilePhotoUrl}
@@ -423,13 +455,17 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                   </span>
                 </div>
               )}
-              <div className="min-w-0 text-left">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {currentUser.displayName}
-                </p>
-              </div>
+              {isHovered && (
+                <div className="min-w-0 text-left">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {currentUser.displayName}
+                  </p>
+                </div>
+              )}
             </div>
-            <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform flex-shrink-0 ${userMenuOpen ? "rotate-180" : ""}`} />
+            {isHovered && (
+              <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform flex-shrink-0 ${userMenuOpen ? "rotate-180" : ""}`} />
+            )}
           </button>
 
           {/* Dropdown menu */}

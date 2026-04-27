@@ -594,7 +594,7 @@ export default function CampaignDetailPage() {
           currentUser={currentUser}
           onLogout={handleLogout}
         />
-        <div className="flex-1 ml-48 flex items-center justify-center">
+        <div className="flex-1 ml-14 flex items-center justify-center">
           <div className="text-gray-500">Loading campaign...</div>
         </div>
       </div>
@@ -609,7 +609,7 @@ export default function CampaignDetailPage() {
         currentUser={currentUser}
         onLogout={handleLogout}
       />
-      <main className="flex-1 ml-48 px-8 pt-12 pb-8 min-w-0">
+      <main className="flex-1 ml-14 px-8 pt-12 pb-8 min-w-0">
         {/* Campaign Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3">
