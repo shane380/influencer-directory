@@ -680,35 +680,37 @@ export default function AdminCreatorProfile() {
                     connectNulls={false}
                     isAnimationActive={false}
                   />
-                  <Scatter
-                    yAxisId="dollars"
-                    data={launchedScatter}
-                    dataKey="y"
-                    name="New ads live"
-                    fill={COLORS.approved}
-                    shape={(props: any) => {
-                      const { cx, cy, payload } = props;
-                      const r = approvedDotRadius(payload.ad_count || 1);
-                      return (
-                        <g>
-                          <circle cx={cx} cy={cy} r={r} fill={COLORS.approved} />
-                          <text
-                            x={cx}
-                            y={cy - r - 3}
-                            textAnchor="middle"
-                            fontSize="10"
-                            fill={COLORS.approved}
-                          >
-                            {payload.ad_count}
-                          </text>
-                        </g>
-                      );
-                    }}
-                  >
-                    {launchedScatter.map((_, i) => (
-                      <Cell key={i} />
-                    ))}
-                  </Scatter>
+                  {launchedScatter.length > 0 && (
+                    <Scatter
+                      yAxisId="dollars"
+                      data={launchedScatter}
+                      dataKey="y"
+                      name="New ads live"
+                      fill={COLORS.approved}
+                      shape={(props: any) => {
+                        const { cx, cy, payload } = props;
+                        const r = approvedDotRadius(payload.ad_count || 1);
+                        return (
+                          <g>
+                            <circle cx={cx} cy={cy} r={r} fill={COLORS.approved} />
+                            <text
+                              x={cx}
+                              y={cy - r - 3}
+                              textAnchor="middle"
+                              fontSize="10"
+                              fill={COLORS.approved}
+                            >
+                              {payload.ad_count}
+                            </text>
+                          </g>
+                        );
+                      }}
+                    >
+                      {launchedScatter.map((_, i) => (
+                        <Cell key={i} />
+                      ))}
+                    </Scatter>
+                  )}
                 </ComposedChart>
               </ResponsiveContainer>
             )}
