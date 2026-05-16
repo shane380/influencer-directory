@@ -341,14 +341,27 @@ export default function PaymentsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      
       if (res.ok) {
         const data = await res.json();
         setPayments((prev) =>
           prev.map((p) => (p.id === id ? { ...p, ...data.payment, influencer: p.influencer, deal: p.deal, legacyAffiliate: p.legacyAffiliate } : p))
         );
+      } else {
+        // Handle API errors
+        let errorMessage = "Failed to update payment";
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.error || errorMessage;
+          console.error("Payment update failed:", { status: res.status, error: errorData });
+        } catch {
+          console.error("Payment update failed:", { status: res.status, statusText: res.statusText });
+        }
+        alert(`Error: ${errorMessage}`);
       }
     } catch (err) {
       console.error("Update failed:", err);
+      alert("Failed to update payment. Please check your connection and try again.");
     }
     setUpdating(null);
     setEditingNote(null);
