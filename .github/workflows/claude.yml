@@ -33,5 +33,6 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # Cap the run so a confused agent can't loop indefinitely.
-          claude_args: "--max-turns 15"
+          # Sonnet: higher rate limits, lower cost, fully capable for strict
+          # small bug fixes and PR review. --max-turns caps a confused agent.
+          claude_args: "--max-turns 15 --model claude-sonnet-4-6"
