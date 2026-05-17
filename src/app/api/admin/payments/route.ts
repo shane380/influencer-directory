@@ -80,6 +80,66 @@ export async function PATCH(request: NextRequest) {
 
   // Handle live-calculated rows that need to be created in DB
   if (typeof id === "string" && id.startsWith("live-")) {
+    // First, check if a matching record already exists (may have been auto-inserted on page load)
+    let existingQuery = (supabase.from as any)("creator_payments")
+      .select("id")
+      .eq("month", body.month)
+      .eq("payment_type", body.payment_type);
+    
+    // Match on influencer_id or legacy_affiliate_id depending on payment type
+    if (body.legacy_affiliate_id) {
+      existingQuery = existingQuery.eq("legacy_affiliate_id", body.legacy_affiliate_id);
+    } else if (body.influencer_id) {
+      existingQuery = existingQuery.eq("influencer_id", body.influencer_id);
+    }
+    
+    // For paid_collab, also match on deal_id
+    if (body.deal_id) {
+      existingQuery = existingQuery.eq("deal_id", body.deal_id);
+    }
+    
+    const { data: existingRecord } = await existingQuery.single();
+    
+    // If record exists, UPDATE it instead of INSERT
+    if (existingRecord) {
+      const updateData: Record<string, any> = {
+        status: updates.status || "approved",
+      };
+      if (updateData.status === "approved") {
+        updateData.approved_at = new Date().toISOString();
+        updateData.approved_by = updates.approved_by || null;
+      }
+      if (updateData.status === "paid") {
+        updateData.approved_at = new Date().toISOString();
+        updateData.approved_by = updates.approved_by || updates.paid_by || null;
+        updateData.paid_at = new Date().toISOString();
+        updateData.paid_by = updates.paid_by || null;
+        updateData.amount_paid = body.amount_paid ?? body.amount_owed ?? 0;
+      }
+      
+      const { data, error } = await (supabase.from as any)("creator_payments")
+        .update(updateData)
+        .eq("id", existingRecord.id)
+        .select()
+        .single();
+      
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      
+      // Audit log for update (was live, found existing)
+      await supabase.from("payment_audit_log").insert({
+        user_id: admin.id,
+        user_email: admin.email,
+        action: "update_payment",
+        target_influencer_id: body.influencer_id,
+        metadata: { payment_id: data.id, status: data.status, was_live: true, found_existing: true },
+      });
+      
+      return NextResponse.json({ payment: data });
+    }
+    
+    // No existing record, INSERT new one
     const insertData: Record<string, any> = {
       influencer_id: body.influencer_id,
       month: body.month,
