@@ -1,0 +1,26 @@
+name: CI
+
+# Runs lint + build on every PR into main. Pair this with a branch-protection
+# rule requiring the "build-and-lint" check so the CLAUDE.md "build + lint must
+# pass" rule is actually enforced, not just requested.
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run build

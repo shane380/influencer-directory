@@ -1,5 +1,32 @@
 # CLAUDE.md
 
+## Automated bug-fix agent — global guardrails
+
+When invoked by the GitHub Action to fix a bug, follow the shared guardrails:
+
+@.claude/global-bot-rules.md
+
+The section below adds rules specific to this repo (`influencer-directory`).
+
+## Repo profile — influencer-directory
+
+- **Stack:** Next.js App Router, TypeScript, Tailwind CSS, Supabase.
+- **Build command:** `npm run build`
+- **Lint command:** `npm run lint`
+- **No test suite.** There is no automated test command — rely on build + lint,
+  and list explicit manual-testing steps in the PR description.
+- Database types live in `src/types/database.ts`.
+
+### Off-limits paths (maps the global §2 rules to this repo)
+
+Do **not** modify these — stop and comment on the issue instead:
+
+- **DB schema / migrations:** `supabase/migrations/**`, `supabase/**`
+- **Auth & middleware:** `src/middleware.ts`, any Supabase auth/session code
+- **Dependencies:** `package.json`, `package-lock.json`
+- **CI / secrets / env:** `.github/workflows/**`, `.env*`, and any new code that
+  reads `process.env`
+
 ## Pre-Commit Self-Review
 
 Before committing any change that involves conditional rendering or logic based on DB fields:
