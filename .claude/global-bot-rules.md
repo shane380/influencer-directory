@@ -91,11 +91,19 @@ comments:
 
 ## 8. PR description template
 
-Every draft PR description must follow this structure:
+Every draft PR description must follow this structure. The **Change
+classification** fields are mandatory and are machine-read by the merge-routing
+bot — fill them honestly. An omitted or wrong value sends the PR for manual
+human review (the router fails closed).
 
 ```markdown
 ## Bug
 Fixes #<issue-number>. <One-sentence summary of the reported bug.>
+
+## Change classification
+- Change type: cosmetic | logic
+  (cosmetic = display only: copy, colour, layout, spacing, display-only filters)
+- Blast radius: none | single creator | multiple creators | system-wide
 
 ## Root cause
 <What was actually wrong, and where.>

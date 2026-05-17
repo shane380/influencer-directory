@@ -1,0 +1,22 @@
+# CODEOWNERS — PRs touching these paths require Shane's review before merge.
+#
+# "Require review from Code Owners" is enabled on the main branch, so a PR
+# changing anything below cannot merge until @shane380 approves — even if the
+# Slack reporter has confirmed it and Alfred has approved it.
+#
+# Keep aligned with docs/alfred-bot-spec.md §6 and .claude/global-bot-rules.md §2.
+# Note: line-count and multi-creator rules cannot be expressed here — Alfred
+# enforces those in its routing logic.
+
+# Database / schema
+/supabase/           @shane380
+*.sql                @shane380
+
+# Auth / middleware / permissions
+/src/middleware.ts   @shane380
+
+# API routes — payments, data, Shopify, Meta, all server integrations
+/src/app/api/        @shane380
+
+# Server-side integration libraries
+/src/lib/            @shane380
