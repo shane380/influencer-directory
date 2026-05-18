@@ -47,6 +47,7 @@ export async function middleware(request: NextRequest) {
   // Public routes — no auth required
   if (
     pathname.startsWith('/api/shopify/webhooks') ||
+    pathname.startsWith('/api/slack-bug-router') ||
     pathname.startsWith('/api/cron') ||
     pathname.startsWith('/api/admin/payments/generate') ||
     pathname.startsWith('/api/shopify/affiliate-orders') ||
