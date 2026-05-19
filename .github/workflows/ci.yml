@@ -3,10 +3,14 @@ name: CI
 # Runs the production build on every PR into main. Pair this with a
 # branch-protection rule requiring the "build-and-lint" status check.
 #
-# Lint is intentionally NOT run here: `next lint` was removed in Next.js 16
-# (this repo runs Next 16) and there is no standalone ESLint setup. If ESLint
-# is properly configured later, add an `npm run lint` step back.
-# The job id stays "build-and-lint" so the required status check keeps matching.
+# Lint is intentionally NOT run: `next lint` was removed in Next.js 16 (this
+# repo runs Next 16) and there is no standalone ESLint setup. The job id stays
+# "build-and-lint" so the required status check keeps matching.
+#
+# The build evaluates API-route modules, some of which construct clients
+# (Supabase etc.) at import time and throw if their env vars are undefined.
+# The values below are PLACEHOLDERS — `next build` only constructs clients, it
+# never connects — so no real secrets are needed here.
 
 on:
   pull_request:
@@ -26,3 +30,33 @@ jobs:
       - run: npm ci
 
       - run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+          SUPABASE_SERVICE_ROLE_KEY: placeholder
+          NEXT_PUBLIC_APP_URL: https://placeholder.example.com
+          NEXT_PUBLIC_SITE_URL: https://placeholder.example.com
+          APIFY_API_TOKEN: placeholder
+          CRON_SECRET: placeholder
+          GOOGLE_DRIVE_PARENT_FOLDER_ID: placeholder
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: placeholder@example.com
+          GOOGLE_SERVICE_ACCOUNT_JSON: "{}"
+          GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: placeholder
+          META_ACCESS_TOKEN: placeholder
+          META_AD_ACCOUNT_ID: placeholder
+          MUX_TOKEN_ID: placeholder
+          MUX_TOKEN_SECRET: placeholder
+          PAYMENT_ENCRYPTION_KEY: placeholderplaceholderplaceholder32
+          R2_ACCESS_KEY_ID: placeholder
+          R2_ACCOUNT_ID: placeholder
+          R2_BUCKET_NAME: placeholder
+          R2_PUBLIC_URL: https://placeholder.example.com
+          R2_SECRET_ACCESS_KEY: placeholder
+          RAPIDAPI_KEY: placeholder
+          RESEND_API_KEY: placeholder
+          SHOPIFY_ACCESS_TOKEN: placeholder
+          SHOPIFY_CLIENT_ID: placeholder
+          SHOPIFY_CLIENT_SECRET: placeholder
+          SHOPIFY_STORE_URL: https://placeholder.myshopify.com
+          SLACK_BUG_CHANNEL: placeholder
+          UNSUBSCRIBE_SECRET: placeholder
