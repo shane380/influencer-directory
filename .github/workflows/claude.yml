@@ -33,6 +33,9 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Allow the bug-router GitHub App to trigger the fixer. Issues it
+          # files are bot-authored, which the action blocks by default.
+          allowed_bots: "bugbotrouter"
           # Sonnet: higher rate limits, lower cost, fully capable for strict
           # small bug fixes and PR review. --max-turns caps a confused agent.
           claude_args: "--max-turns 15 --model claude-sonnet-4-6"
