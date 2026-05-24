@@ -119,12 +119,17 @@ function initialsFor(name: string): string {
   return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
 }
 
+type PartnerStatus = "partner" | "affiliate" | "whitelisted";
+
 interface Creator {
-  id: string;
+  id: string; // unique row_id from API (partner:<uuid> | affiliate:<uuid> | whitelisted:<uuid>)
+  status: PartnerStatus;
+  creator_id: string | null;
   creator_name: string;
-  commission_rate: number;
+  commission_rate: number | null;
   affiliate_code: string;
   invite_id: string;
+  influencer_id: string | null;
   influencer?: {
     name: string;
     instagram_handle: string;
@@ -322,11 +327,14 @@ export default function CreatorsListPage() {
       const partnersRes = await fetch("/api/partnerships/active-partners");
       const partnersJson = partnersRes.ok ? await partnersRes.json() : { partners: [] };
       const enriched: Creator[] = (partnersJson.partners || []).map((p: any) => ({
-        id: p.creator_id,
+        id: p.row_id || p.creator_id,
+        status: (p.status || "partner") as PartnerStatus,
+        creator_id: p.creator_id || null,
         creator_name: p.creator_name || p.name || "",
-        commission_rate: p.commission_rate ?? 0,
+        commission_rate: p.commission_rate ?? null,
         affiliate_code: p.affiliate_code || "",
         invite_id: p.invite_id || "",
+        influencer_id: p.influencer_id || null,
         influencer: p.name || p.handle || p.photo
           ? {
               name: p.name || "",
@@ -1312,6 +1320,7 @@ export default function CreatorsListPage() {
                       if (k === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
                       else { setSortKey(k); setSortDir("asc"); }
                     }} align="left" />
+                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Status</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Code</th>
                     <SortableHeader label="Affiliate revenue · MTD" sortKey="revenue_mtd" currentKey={sortKey} dir={sortDir} onSort={(k) => {
                       if (k === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -1347,11 +1356,20 @@ export default function CreatorsListPage() {
                     const av = (a as any)[sortKey] || 0;
                     const bv = (b as any)[sortKey] || 0;
                     return sortDir === "asc" ? av - bv : bv - av;
-                  }).map((creator) => (
+                  }).map((creator) => {
+                    const isPartner = creator.status === "partner";
+                    const rowClasses = isPartner
+                      ? "border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors last:border-b-0"
+                      : "border-b border-gray-200 hover:bg-gray-50 transition-colors last:border-b-0";
+                    return (
                     <tr
                       key={creator.id}
-                      className="border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors last:border-b-0"
-                      onClick={() => router.push(`/partnerships/creators/${creator.id}`)}
+                      className={rowClasses}
+                      onClick={
+                        isPartner && creator.creator_id
+                          ? () => router.push(`/partnerships/creators/${creator.creator_id}`)
+                          : undefined
+                      }
                     >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
@@ -1366,7 +1384,7 @@ export default function CreatorsListPage() {
                           )}
                           <div>
                             <div className="font-medium text-gray-900">
-                              {creator.influencer?.name || creator.creator_name}
+                              {creator.influencer?.name || creator.creator_name || "—"}
                             </div>
                             {creator.influencer?.instagram_handle && (
                               <div className="text-gray-500 text-xs">
@@ -1377,27 +1395,36 @@ export default function CreatorsListPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
+                        <StatusPill status={creator.status} />
+                      </td>
+                      <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono">
-                            {creator.affiliate_code || "—"}
-                          </code>
-                          {creator.has_affiliate && creator.shopify_code_status === "failed" && (
+                          {creator.affiliate_code ? (
+                            <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono">
+                              {creator.affiliate_code}
+                            </code>
+                          ) : (
+                            <span className="text-gray-400 text-xs">—</span>
+                          )}
+                          {isPartner && creator.has_affiliate && creator.shopify_code_status === "failed" && creator.creator_id && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                retryShopifySync(creator.id);
+                                retryShopifySync(creator.creator_id!);
                               }}
-                              disabled={retryingSync === creator.id}
+                              disabled={retryingSync === creator.creator_id}
                               className="text-xs px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors disabled:opacity-50"
                               title="Shopify discount code sync failed — click to retry"
                             >
-                              {retryingSync === creator.id ? "Retrying…" : "Retry Shopify sync"}
+                              {retryingSync === creator.creator_id ? "Retrying…" : "Retry Shopify sync"}
                             </button>
                           )}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-gray-900">
-                        ${(creator.revenue_mtd || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        {creator.revenue_mtd > 0
+                          ? `$${creator.revenue_mtd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+                          : <span className="text-gray-400">—</span>}
                       </td>
                       <td className="px-4 py-3 text-right text-gray-700">
                         {creator.ad_spend_mtd > 0
@@ -1413,48 +1440,65 @@ export default function CreatorsListPage() {
                         {relativeTime(creator.last_activity_at)}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <a
-                            href={`/creator/dashboard?creator_id=${creator.id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-gray-400 hover:text-gray-600 transition-colors"
-                            title="View Partner Profile"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                          {creator.invite_id && (
+                        {isPartner && creator.creator_id ? (
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={`/creator/dashboard?creator_id=${creator.creator_id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-gray-400 hover:text-gray-600 transition-colors"
+                              title="View Partner Profile"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                            {creator.invite_id && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openEditTerms(creator.creator_id!, creator.invite_id);
+                                }}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                                title="Edit Terms"
+                              >
+                                {editTermsLoading === creator.creator_id ? (
+                                  <span className="text-xs">...</span>
+                                ) : (
+                                  <Settings className="h-4 w-4" />
+                                )}
+                              </button>
+                            )}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                openEditTerms(creator.id, creator.invite_id);
+                                e.preventDefault();
+                                setDeleteConfirm(creator);
                               }}
-                              className="text-gray-400 hover:text-gray-600 transition-colors"
-                              title="Edit Terms"
+                              className="text-gray-400 hover:text-red-500 transition-colors"
+                              title="Delete Partner"
                             >
-                              {editTermsLoading === creator.id ? (
-                                <span className="text-xs">...</span>
-                              ) : (
-                                <Settings className="h-4 w-4" />
-                              )}
+                              <Trash2 className="h-4 w-4" />
                             </button>
-                          )}
+                          </div>
+                        ) : (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              e.preventDefault();
-                              setDeleteConfirm(creator);
+                              if (creator.influencer?.instagram_handle) {
+                                setQuickAddHandle(creator.influencer.instagram_handle);
+                              }
+                              setShowInviteModal(true);
                             }}
-                            className="text-gray-400 hover:text-red-500 transition-colors"
-                            title="Delete Partner"
+                            className="text-xs px-2 py-1 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors whitespace-nowrap"
+                            title="Send a partner invite to this person"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            Send invite
                           </button>
-                        </div>
+                        )}
                       </td>
                     </tr>
-                  ))}
+                  );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1562,7 +1606,7 @@ export default function CreatorsListPage() {
                     const res = await fetch("/api/creators/delete", {
                       method: "DELETE",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ creator_id: deleteConfirm.id }),
+                      body: JSON.stringify({ creator_id: deleteConfirm.creator_id }),
                     });
                     if (!res.ok) {
                       const data = await res.json().catch(() => ({}));
@@ -2289,6 +2333,19 @@ function InboxRow({
       </button>
       {expanded && <div className="border-t border-gray-200">{children}</div>}
     </div>
+  );
+}
+
+function StatusPill({ status }: { status: PartnerStatus }) {
+  const config = {
+    partner: { label: "Partner", classes: "bg-gray-100 text-gray-700" },
+    affiliate: { label: "Affiliate", classes: "bg-emerald-50 text-emerald-700" },
+    whitelisted: { label: "Whitelisted", classes: "bg-blue-50 text-blue-700" },
+  }[status];
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${config.classes}`}>
+      {config.label}
+    </span>
   );
 }
 
