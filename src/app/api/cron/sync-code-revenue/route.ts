@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { syncCodeRevenue } from "@/lib/code-revenue-sync";
 
 // GET: Daily cron — refresh code-revenue cache for the trailing window.
-// Runs after the Meta sync. Defaults to a 60-day rolling window so the trend
-// chart's 30d and (most of) 90d views always have fresh cached data.
-// Pass `?days=365` to backfill a longer window (one-shot).
+// Runs after the Meta sync. Defaults to a 400-day rolling window (12M + buffer)
+// so the partnerships overview can serve 6M and 12M ranges directly from the
+// cached creator_code_revenue_daily table without a fresh Shopify scan.
+// Pass `?days=N` (capped at 730) for one-shot backfills. Upsert uses
+// (affiliate_code, date) as the conflict key, so a wider window is idempotent —
+// existing rows get overwritten with the latest figures and missing rows get
+// inserted, no duplicates.
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
@@ -12,7 +16,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const daysParam = parseInt(request.nextUrl.searchParams.get("days") || "60", 10);
+  const daysParam = parseInt(request.nextUrl.searchParams.get("days") || "400", 10);
   const days = Math.max(1, Math.min(daysParam, 730)); // cap at 2 years
 
   const today = new Date();
