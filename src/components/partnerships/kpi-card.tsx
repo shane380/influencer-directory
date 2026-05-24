@@ -18,7 +18,7 @@ export function KpiCard({
   subtitleTone?: SubtitleTone;
 }) {
   return (
-    <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
+    <div className="bg-gray-50 rounded-md px-3.5 py-3">
       <div className="text-[11px] text-gray-500 uppercase tracking-wider">{label}</div>
       <div className="text-[20px] font-medium mt-1 text-gray-900">{value}</div>
       {subtitle ? (
