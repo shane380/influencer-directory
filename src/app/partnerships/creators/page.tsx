@@ -695,7 +695,7 @@ export default function CreatorsListPage() {
         }}
       />
       <main className="flex-1 px-8 pt-12 pb-8">
-        <div className="max-w-5xl">
+        <div>
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-semibold text-gray-900">Partners</h1>
             <button
