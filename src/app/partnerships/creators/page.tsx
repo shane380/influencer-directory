@@ -119,11 +119,11 @@ function initialsFor(name: string): string {
   return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
 }
 
-type PartnerStatus = "partner" | "affiliate" | "whitelisted";
-
 interface Creator {
-  id: string; // unique row_id from API (partner:<uuid> | affiliate:<uuid> | whitelisted:<uuid>)
-  status: PartnerStatus;
+  id: string; // row_id from API ("influencer:<uuid>" | "partner:<uuid>" | "legacy:<uuid>")
+  is_partner: boolean;
+  is_affiliate: boolean;
+  is_whitelisted: boolean;
   creator_id: string | null;
   creator_name: string;
   commission_rate: number | null;
@@ -327,8 +327,10 @@ export default function CreatorsListPage() {
       const partnersRes = await fetch("/api/partnerships/active-partners");
       const partnersJson = partnersRes.ok ? await partnersRes.json() : { partners: [] };
       const enriched: Creator[] = (partnersJson.partners || []).map((p: any) => ({
-        id: p.row_id || p.creator_id,
-        status: (p.status || "partner") as PartnerStatus,
+        id: p.row_id || p.creator_id || `influencer:${p.influencer_id}`,
+        is_partner: !!p.is_partner,
+        is_affiliate: !!p.is_affiliate,
+        is_whitelisted: !!p.is_whitelisted,
         creator_id: p.creator_id || null,
         creator_name: p.creator_name || p.name || "",
         commission_rate: p.commission_rate ?? null,
@@ -1357,7 +1359,7 @@ export default function CreatorsListPage() {
                     const bv = (b as any)[sortKey] || 0;
                     return sortDir === "asc" ? av - bv : bv - av;
                   }).map((creator) => {
-                    const isPartner = creator.status === "partner";
+                    const isPartner = creator.is_partner;
                     const rowClasses = isPartner
                       ? "border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors last:border-b-0"
                       : "border-b border-gray-200 hover:bg-gray-50 transition-colors last:border-b-0";
@@ -1395,7 +1397,7 @@ export default function CreatorsListPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <StatusPill status={creator.status} />
+                        <RolePills creator={creator} />
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -2336,16 +2338,38 @@ function InboxRow({
   );
 }
 
-function StatusPill({ status }: { status: PartnerStatus }) {
-  const config = {
-    partner: { label: "Partner", classes: "bg-gray-100 text-gray-700" },
-    affiliate: { label: "Affiliate", classes: "bg-emerald-50 text-emerald-700" },
-    whitelisted: { label: "Whitelisted", classes: "bg-blue-50 text-blue-700" },
-  }[status];
+function RolePills({ creator }: { creator: Creator }) {
+  // Partner is exclusive — when an influencer has a creator account, that's the
+  // only pill we render even if they also have legacy/whitelisting data, because
+  // those are captured in the columns to the right.
+  if (creator.is_partner) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-700">
+        Partner
+      </span>
+    );
+  }
+  const pills: Array<{ label: string; classes: string }> = [];
+  if (creator.is_affiliate) {
+    pills.push({ label: "Affiliate", classes: "bg-emerald-50 text-emerald-700" });
+  }
+  if (creator.is_whitelisted) {
+    pills.push({ label: "Whitelisted", classes: "bg-blue-50 text-blue-700" });
+  }
+  if (pills.length === 0) {
+    return <span className="text-gray-400 text-xs">—</span>;
+  }
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${config.classes}`}>
-      {config.label}
-    </span>
+    <div className="flex flex-wrap gap-1">
+      {pills.map((p) => (
+        <span
+          key={p.label}
+          className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${p.classes}`}
+        >
+          {p.label}
+        </span>
+      ))}
+    </div>
   );
 }
 

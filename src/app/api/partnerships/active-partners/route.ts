@@ -9,13 +9,14 @@ function dayOnly(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-// Unified active-partners endpoint. Returns one row per:
-//   - "partner": has a row in `creators` (a fully-onboarded account)
-//   - "affiliate": in `legacy_affiliates` with no corresponding creator
-//   - "whitelisted": has ads/spend in creator_ad_performance with no creator
-//     and no legacy_affiliates row
-// Each row's MTD revenue + ad spend share the same source as the partners
-// they originate from, so totals reconcile with the page-level KPIs.
+// One row per influencer (the canonical person). Roles overlay as flags:
+//   is_partner     — has an active creators row via the invite chain
+//   is_affiliate   — has a legacy_affiliates row (not yet covered by a partner)
+//   is_whitelisted — has Meta ad activity (ads live or 30d spend) and is not a partner
+//
+// Headless legacy affiliates (legacy_affiliates.influencer_id IS NULL with no
+// matching partner code) appear as a final batch keyed by `legacy:<uuid>` so
+// they're visible but flagged for cleanup.
 export async function GET(_request: NextRequest) {
   const auth = await createServerClient();
   const { data: { user } } = await auth.auth.getUser();
@@ -34,15 +35,12 @@ export async function GET(_request: NextRequest) {
   const monthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
   const monthStartDay = dayOnly(monthStart);
 
-  // last_activity_at lookbacks bounded to 1y. Daily-table volume is small enough
-  // (one row per ad per day) to pull without a per-influencer filter once we
-  // need to surface whitelisted-only influencers.
   const yearAgo = new Date(today);
   yearAgo.setUTCDate(yearAgo.getUTCDate() - 365);
   const yearAgoDay = dayOnly(yearAgo);
   const yearAgoIso = yearAgo.toISOString();
 
-  // 1. Fetch the base entity tables in parallel.
+  // 1. Pull every source table in parallel.
   const [
     creatorsRes,
     legacyRes,
@@ -65,7 +63,7 @@ export async function GET(_request: NextRequest) {
   const creatorList = (creatorsRes.data || []) as any[];
   const legacyList = (legacyRes.data || []) as any[];
 
-  // 2. Resolve invite → influencer chain for creators.
+  // 2. Resolve invites for the partner chain.
   const inviteIds = creatorList.map((c) => c.invite_id).filter(Boolean);
   const creatorIds = creatorList.map((c) => c.id);
 
@@ -98,34 +96,18 @@ export async function GET(_request: NextRequest) {
     });
   }
 
-  // 3. Build coverage sets — influencer_ids AND affiliate_codes that are already
-  // claimed by an account. These take priority over legacy / whitelisted-only rows.
-  // Code-based dedup catches the common case where a creator signed up later and
-  // their old legacy_affiliates row was never linked to their influencer.
-  const partneredInfluencerIds = new Set<string>();
-  const partneredCodes = new Set<string>();
+  // 3. Collect all influencer_ids we need to render or look up.
+  const allInfluencerIds = new Set<string>();
   for (const c of creatorList) {
-    const invite = c.invite_id ? invitesById.get(c.invite_id) : null;
-    if (invite?.influencer_id) partneredInfluencerIds.add(invite.influencer_id);
-    if (c.affiliate_code) partneredCodes.add(String(c.affiliate_code).toUpperCase());
+    const inv = c.invite_id ? invitesById.get(c.invite_id) : null;
+    if (inv?.influencer_id) allInfluencerIds.add(inv.influencer_id);
   }
-
-  // 4. Collect every influencer_id we need to render — partnered + legacy + ad-perf.
-  const legacyInfluencerIds = new Set<string>();
-  for (const l of legacyList) {
-    if (l.influencer_id) legacyInfluencerIds.add(String(l.influencer_id));
-  }
-  const adPerfInfluencerIds = new Set<string>();
+  for (const l of legacyList) if (l.influencer_id) allInfluencerIds.add(String(l.influencer_id));
   for (const row of (adPerfRes.data || []) as any[]) {
-    if (row.influencer_id) adPerfInfluencerIds.add(String(row.influencer_id));
+    if (row.influencer_id) allInfluencerIds.add(String(row.influencer_id));
   }
-  const allInfluencerIds = new Set<string>([
-    ...partneredInfluencerIds,
-    ...legacyInfluencerIds,
-    ...adPerfInfluencerIds,
-  ]);
 
-  // 5. Pull influencers + revenue (codes union of partner + legacy).
+  // 4. Fetch influencer profiles + revenue (codes union of partner + legacy).
   const partnerCodes = creatorList
     .map((c) => (c.affiliate_code ? String(c.affiliate_code).toUpperCase() : null))
     .filter(Boolean) as string[];
@@ -159,7 +141,7 @@ export async function GET(_request: NextRequest) {
     });
   }
 
-  // 6. Aggregate revenue per code (MTD totals + lifetime lastOrderDay for activity).
+  // 5. Aggregate revenue per affiliate_code.
   const revenueByCode = new Map<string, { revenue_mtd: number; orders_mtd: number; lastOrderDay: string | null }>();
   for (const row of (revenueRes.data || []) as any[]) {
     const code = String(row.affiliate_code).toUpperCase();
@@ -175,7 +157,7 @@ export async function GET(_request: NextRequest) {
     revenueByCode.set(code, acc);
   }
 
-  // 7. Pending sample-request counts + last submission per creator.
+  // 6. Pending sample-requests + last content submission per creator.
   const pendingByCreator = new Map<string, number>();
   for (const row of (pendingReqsRes.data || []) as any[]) {
     const id = String(row.creator_id);
@@ -189,7 +171,7 @@ export async function GET(_request: NextRequest) {
     if (!prev || ts > prev) lastSubmissionByCreator.set(id, ts);
   }
 
-  // 8. Ad spend MTD + last activity per influencer (from daily table).
+  // 7. Ad spend MTD + last activity per influencer.
   const lastAdActivityByInfluencer = new Map<string, string>();
   const adSpendMtdByInfluencer = new Map<string, number>();
   for (const row of (adActivityRes.data || []) as any[]) {
@@ -207,7 +189,7 @@ export async function GET(_request: NextRequest) {
     }
   }
 
-  // 9. Ads live count per influencer.
+  // 8. Ads live per influencer.
   const adsLiveByInfluencer = new Map<string, number>();
   for (const row of (adPerfRes.data || []) as any[]) {
     if (!row.influencer_id) continue;
@@ -216,18 +198,20 @@ export async function GET(_request: NextRequest) {
     adsLiveByInfluencer.set(String(row.influencer_id), active);
   }
 
-  // 10. Build rows — partners first, then legacy_affiliates not yet covered,
-  //     then influencers with ad activity not yet covered.
+  // 9. Build influencer-keyed row map. Each role layered on top of any existing
+  // row for the same influencer.
   type Row = {
     row_id: string;
-    status: "partner" | "affiliate" | "whitelisted";
-    creator_id: string | null;
-    creator_name: string | null;
-    invite_id: string | null;
     influencer_id: string | null;
     name: string | null;
     handle: string | null;
     photo: string | null;
+    is_partner: boolean;
+    is_affiliate: boolean;
+    is_whitelisted: boolean;
+    creator_id: string | null;
+    creator_name: string | null;
+    invite_id: string | null;
     affiliate_code: string | null;
     shopify_code_status: string | null;
     has_affiliate: boolean;
@@ -240,134 +224,173 @@ export async function GET(_request: NextRequest) {
     last_activity_at: string | null;
   };
 
-  const rows: Row[] = [];
-  const coveredInfluencerIds = new Set<string>();
+  const rowsByInfluencer = new Map<string, Row>();
+  const partneredCodes = new Set<string>();
 
-  // Partners
+  const newRow = (influencerId: string | null): Row => ({
+    row_id: influencerId ? `influencer:${influencerId}` : "",
+    influencer_id: influencerId,
+    name: null,
+    handle: null,
+    photo: null,
+    is_partner: false,
+    is_affiliate: false,
+    is_whitelisted: false,
+    creator_id: null,
+    creator_name: null,
+    invite_id: null,
+    affiliate_code: null,
+    shopify_code_status: null,
+    has_affiliate: false,
+    commission_rate: null,
+    revenue_mtd: 0,
+    orders_mtd: 0,
+    ad_spend_mtd: 0,
+    ads_live: 0,
+    pending_requests_count: 0,
+    last_activity_at: null,
+  });
+
+  const mergeActivity = (row: Row, candidate: string | null) => {
+    if (!candidate) return;
+    if (!row.last_activity_at || candidate > row.last_activity_at) {
+      row.last_activity_at = candidate;
+    }
+  };
+
+  // 9a. Partners — these establish the canonical influencer row.
   for (const c of creatorList) {
     const invite = c.invite_id ? invitesById.get(c.invite_id) : null;
     const influencerId = invite?.influencer_id ?? null;
-    if (influencerId) coveredInfluencerIds.add(influencerId);
+    if (!influencerId) {
+      // Partner without an influencer link — show as a partner-only row keyed
+      // on creator_id so they don't get lost.
+      const row = newRow(null);
+      row.row_id = `partner:${c.id}`;
+      row.is_partner = true;
+      row.name = c.creator_name || null;
+      row.creator_id = c.id;
+      row.creator_name = c.creator_name || null;
+      row.invite_id = c.invite_id || null;
+      const code = c.affiliate_code ? String(c.affiliate_code).toUpperCase() : null;
+      row.affiliate_code = code;
+      if (code) partneredCodes.add(code);
+      const rev = code ? revenueByCode.get(code) : null;
+      row.revenue_mtd = rev ? Math.round(rev.revenue_mtd * 100) / 100 : 0;
+      row.orders_mtd = rev?.orders_mtd || 0;
+      row.shopify_code_status = invite?.shopify_code_status ?? null;
+      row.has_affiliate = invite?.has_affiliate ?? false;
+      row.commission_rate = c.commission_rate;
+      row.pending_requests_count = pendingByCreator.get(c.id) || 0;
+      if (rev?.lastOrderDay) mergeActivity(row, `${rev.lastOrderDay}T00:00:00.000Z`);
+      const sub = lastSubmissionByCreator.get(c.id);
+      if (sub) mergeActivity(row, sub);
+      rowsByInfluencer.set(row.row_id, row);
+      continue;
+    }
 
-    const inf = influencerId ? influencersById.get(influencerId) : null;
+    const row = rowsByInfluencer.get(`influencer:${influencerId}`) || newRow(influencerId);
+    row.is_partner = true;
+    const inf = influencersById.get(influencerId);
+    row.name = inf?.name || c.creator_name || null;
+    row.handle = inf?.instagram_handle || null;
+    row.photo = inf?.profile_photo_url || null;
+    row.creator_id = c.id;
+    row.creator_name = c.creator_name || null;
+    row.invite_id = c.invite_id || null;
     const code = c.affiliate_code ? String(c.affiliate_code).toUpperCase() : null;
-    const rev = code ? revenueByCode.get(code) : null;
+    row.affiliate_code = code;
+    if (code) partneredCodes.add(code);
+    row.shopify_code_status = invite?.shopify_code_status ?? null;
+    row.has_affiliate = invite?.has_affiliate ?? false;
+    row.commission_rate = c.commission_rate;
+    row.pending_requests_count = pendingByCreator.get(c.id) || 0;
 
-    const candidates: string[] = [];
-    if (rev?.lastOrderDay) candidates.push(`${rev.lastOrderDay}T00:00:00.000Z`);
+    const rev = code ? revenueByCode.get(code) : null;
+    row.revenue_mtd += rev ? Math.round(rev.revenue_mtd * 100) / 100 : 0;
+    row.orders_mtd += rev?.orders_mtd || 0;
+    if (rev?.lastOrderDay) mergeActivity(row, `${rev.lastOrderDay}T00:00:00.000Z`);
+
     const sub = lastSubmissionByCreator.get(c.id);
-    if (sub) candidates.push(sub);
-    if (influencerId) {
-      const adDay = lastAdActivityByInfluencer.get(influencerId);
-      if (adDay) candidates.push(`${adDay}T00:00:00.000Z`);
-    }
-    const lastActivityAt = candidates.length > 0 ? candidates.sort().slice(-1)[0] : null;
+    if (sub) mergeActivity(row, sub);
 
-    rows.push({
-      row_id: `partner:${c.id}`,
-      status: "partner",
-      creator_id: c.id,
-      creator_name: c.creator_name || null,
-      invite_id: c.invite_id || null,
-      influencer_id: influencerId,
-      name: inf?.name || c.creator_name || null,
-      handle: inf?.instagram_handle || null,
-      photo: inf?.profile_photo_url || null,
-      affiliate_code: code,
-      shopify_code_status: invite?.shopify_code_status ?? null,
-      has_affiliate: invite?.has_affiliate ?? false,
-      commission_rate: c.commission_rate,
-      revenue_mtd: rev ? Math.round(rev.revenue_mtd * 100) / 100 : 0,
-      orders_mtd: rev?.orders_mtd || 0,
-      ad_spend_mtd: influencerId
-        ? Math.round((adSpendMtdByInfluencer.get(influencerId) || 0) * 100) / 100
-        : 0,
-      ads_live: influencerId ? adsLiveByInfluencer.get(influencerId) || 0 : 0,
-      pending_requests_count: pendingByCreator.get(c.id) || 0,
-      last_activity_at: lastActivityAt,
-    });
+    rowsByInfluencer.set(`influencer:${influencerId}`, row);
   }
 
-  // Legacy affiliates — skip if their influencer is already a partner, or if
-  // their discount_code matches an existing creator's affiliate_code (catches
-  // duplicate legacy rows for creators who signed up after the legacy import).
+  // 9b. Legacy affiliates — layer affiliate flag onto matching influencer rows.
+  // Skip if the legacy code is already represented by a partner (dedup).
+  const headlessLegacy: Row[] = [];
   for (const l of legacyList) {
-    const influencerId = l.influencer_id ? String(l.influencer_id) : null;
     const code = l.discount_code ? String(l.discount_code).toUpperCase() : null;
-    if (influencerId && coveredInfluencerIds.has(influencerId)) continue;
     if (code && partneredCodes.has(code)) continue;
-    if (influencerId) coveredInfluencerIds.add(influencerId);
-
-    const inf = influencerId ? influencersById.get(influencerId) : null;
-    const rev = code ? revenueByCode.get(code) : null;
-
-    const candidates: string[] = [];
-    if (rev?.lastOrderDay) candidates.push(`${rev.lastOrderDay}T00:00:00.000Z`);
-    if (influencerId) {
-      const adDay = lastAdActivityByInfluencer.get(influencerId);
-      if (adDay) candidates.push(`${adDay}T00:00:00.000Z`);
+    const influencerId = l.influencer_id ? String(l.influencer_id) : null;
+    if (!influencerId) {
+      // No influencer link — create a headless row that the user can clean up.
+      const row = newRow(null);
+      row.row_id = `legacy:${l.id}`;
+      row.is_affiliate = true;
+      row.name = l.name || null;
+      row.affiliate_code = code;
+      row.commission_rate = l.commission_rate ?? null;
+      row.has_affiliate = true;
+      const rev = code ? revenueByCode.get(code) : null;
+      row.revenue_mtd = rev ? Math.round(rev.revenue_mtd * 100) / 100 : 0;
+      row.orders_mtd = rev?.orders_mtd || 0;
+      if (rev?.lastOrderDay) mergeActivity(row, `${rev.lastOrderDay}T00:00:00.000Z`);
+      headlessLegacy.push(row);
+      continue;
     }
-    const lastActivityAt = candidates.length > 0 ? candidates.sort().slice(-1)[0] : null;
 
-    rows.push({
-      row_id: `affiliate:${l.id}`,
-      status: "affiliate",
-      creator_id: null,
-      creator_name: null,
-      invite_id: null,
-      influencer_id: influencerId,
-      name: inf?.name || l.name || null,
-      handle: inf?.instagram_handle || null,
-      photo: inf?.profile_photo_url || null,
-      affiliate_code: code,
-      shopify_code_status: null,
-      has_affiliate: true,
-      commission_rate: l.commission_rate ?? null,
-      revenue_mtd: rev ? Math.round(rev.revenue_mtd * 100) / 100 : 0,
-      orders_mtd: rev?.orders_mtd || 0,
-      ad_spend_mtd: influencerId
-        ? Math.round((adSpendMtdByInfluencer.get(influencerId) || 0) * 100) / 100
-        : 0,
-      ads_live: influencerId ? adsLiveByInfluencer.get(influencerId) || 0 : 0,
-      pending_requests_count: 0,
-      last_activity_at: lastActivityAt,
-    });
+    const row = rowsByInfluencer.get(`influencer:${influencerId}`) || newRow(influencerId);
+    row.is_affiliate = true;
+    const inf = influencersById.get(influencerId);
+    if (!row.name) row.name = inf?.name || l.name || null;
+    if (!row.handle) row.handle = inf?.instagram_handle || null;
+    if (!row.photo) row.photo = inf?.profile_photo_url || null;
+    if (!row.affiliate_code) row.affiliate_code = code;
+    if (row.commission_rate == null) row.commission_rate = l.commission_rate ?? null;
+    row.has_affiliate = true;
+
+    const rev = code ? revenueByCode.get(code) : null;
+    if (rev) {
+      row.revenue_mtd += Math.round(rev.revenue_mtd * 100) / 100;
+      row.orders_mtd += rev.orders_mtd || 0;
+      if (rev.lastOrderDay) mergeActivity(row, `${rev.lastOrderDay}T00:00:00.000Z`);
+    }
+
+    rowsByInfluencer.set(`influencer:${influencerId}`, row);
   }
 
-  // Whitelisted-only — influencers with ads/spend not yet covered, and only if
-  // they have meaningful activity (any ad spend in window OR ads currently live).
-  for (const id of adPerfInfluencerIds) {
-    if (coveredInfluencerIds.has(id)) continue;
-    const adSpendMtd = adSpendMtdByInfluencer.get(id) || 0;
-    const adsLive = adsLiveByInfluencer.get(id) || 0;
-    if (adSpendMtd <= 0 && adsLive <= 0) continue;
-    coveredInfluencerIds.add(id);
+  // 9c. Whitelisting layer — for every influencer with ad activity, attach
+  // the metrics and (if not a partner) flag is_whitelisted.
+  for (const influencerIdRaw of allInfluencerIds) {
+    const influencerId = String(influencerIdRaw);
+    const spend = adSpendMtdByInfluencer.get(influencerId) || 0;
+    const ads = adsLiveByInfluencer.get(influencerId) || 0;
+    const adDay = lastAdActivityByInfluencer.get(influencerId);
+    if (spend <= 0 && ads <= 0 && !adDay) continue;
 
-    const inf = influencersById.get(id);
-    const adDay = lastAdActivityByInfluencer.get(id);
+    const row = rowsByInfluencer.get(`influencer:${influencerId}`) || newRow(influencerId);
+    if (row.row_id === "") row.row_id = `influencer:${influencerId}`;
+    const inf = influencersById.get(influencerId);
+    if (!row.name) row.name = inf?.name || null;
+    if (!row.handle) row.handle = inf?.instagram_handle || null;
+    if (!row.photo) row.photo = inf?.profile_photo_url || null;
+    row.ad_spend_mtd = Math.round(spend * 100) / 100;
+    row.ads_live = ads;
+    if (!row.is_partner && (ads > 0 || spend > 0)) row.is_whitelisted = true;
+    if (adDay) mergeActivity(row, `${adDay}T00:00:00.000Z`);
 
-    rows.push({
-      row_id: `whitelisted:${id}`,
-      status: "whitelisted",
-      creator_id: null,
-      creator_name: null,
-      invite_id: null,
-      influencer_id: id,
-      name: inf?.name || null,
-      handle: inf?.instagram_handle || null,
-      photo: inf?.profile_photo_url || null,
-      affiliate_code: null,
-      shopify_code_status: null,
-      has_affiliate: false,
-      commission_rate: null,
-      revenue_mtd: 0,
-      orders_mtd: 0,
-      ad_spend_mtd: Math.round(adSpendMtd * 100) / 100,
-      ads_live: adsLive,
-      pending_requests_count: 0,
-      last_activity_at: adDay ? `${adDay}T00:00:00.000Z` : null,
-    });
+    rowsByInfluencer.set(`influencer:${influencerId}`, row);
   }
+
+  // 10. Final ordering — partners first (preserving onboarded_at), then by
+  // revenue desc within each role bucket.
+  const rows = [...rowsByInfluencer.values(), ...headlessLegacy];
+  rows.sort((a, b) => {
+    if (a.is_partner !== b.is_partner) return a.is_partner ? -1 : 1;
+    return (b.revenue_mtd || 0) - (a.revenue_mtd || 0);
+  });
 
   return NextResponse.json({ partners: rows });
 }
