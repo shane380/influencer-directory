@@ -201,6 +201,8 @@ export async function GET(_request: NextRequest) {
 
     return {
       creator_id: c.id,
+      creator_name: c.creator_name || null,
+      invite_id: c.invite_id || null,
       name: inf?.name || c.creator_name || null,
       handle: inf?.instagram_handle || null,
       photo: inf?.profile_photo_url || null,

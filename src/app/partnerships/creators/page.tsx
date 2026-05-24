@@ -5,7 +5,24 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { createInvite } from "@/lib/invites";
 import { Sidebar } from "@/components/sidebar";
-import { X, Search, Copy, Check, Settings, ExternalLink, Trash2 } from "lucide-react";
+import {
+  X,
+  Search,
+  Copy,
+  Check,
+  Settings,
+  ExternalLink,
+  Trash2,
+  Video,
+  Shirt,
+  Gift,
+  Mail,
+  ChevronRight,
+  ChevronDown,
+  ArrowDown,
+  ArrowUp,
+} from "lucide-react";
+import { NotificationBadge } from "@/components/partnerships/notification-badge";
 import { EditTermsModal } from "@/components/edit-terms-modal";
 import { SubmissionReviewModal } from "@/components/submission-review-modal";
 import { KpiCard } from "@/components/partnerships/kpi-card";
@@ -105,21 +122,35 @@ function initialsFor(name: string): string {
 interface Creator {
   id: string;
   creator_name: string;
-  email: string;
   commission_rate: number;
   affiliate_code: string;
   invite_id: string;
-  created_at: string;
   influencer?: {
-    id: string;
     name: string;
     instagram_handle: string;
     profile_photo_url: string | null;
   } | null;
-  pending_requests: number;
-  last_submission: string | null;
   shopify_code_status: "active" | "pending" | "failed" | null;
   has_affiliate: boolean;
+  revenue_30d: number;
+  orders_30d: number;
+  last_activity_at: string | null;
+}
+
+type SortKey = "revenue_30d" | "orders_30d" | "last_activity_at" | "name";
+type SortDir = "asc" | "desc";
+
+function relativeTime(iso: string | null): string {
+  if (!iso) return "—";
+  const ms = Date.now() - new Date(iso).getTime();
+  if (ms < 0) return "—";
+  const day = 86400000;
+  const days = Math.floor(ms / day);
+  if (days === 0) return "today";
+  if (days < 7) return `${days}d`;
+  if (days < 30) return `${Math.floor(days / 7)}w`;
+  if (days < 365) return `${Math.floor(days / 30)}mo`;
+  return `${Math.floor(days / 365)}y`;
 }
 
 interface InfluencerResult {
@@ -195,6 +226,14 @@ export default function CreatorsListPage() {
   const [whitelistingLoading, setWhitelistingLoading] = useState(true);
   const [topPartners, setTopPartners] = useState<TopPartner[] | null>(null);
   const [topPartnersLoading, setTopPartnersLoading] = useState(true);
+
+  // Inbox: which group is expanded (single-open accordion)
+  const [inboxExpanded, setInboxExpanded] = useState<"submissions" | "outfits" | "gift_cards" | null>(null);
+  // Pending Invites collapsed row at bottom
+  const [pendingInvitesExpanded, setPendingInvitesExpanded] = useState(false);
+  // Active partners sort
+  const [sortKey, setSortKey] = useState<SortKey>("revenue_30d");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   // Action queue
   const [pendingRequests, setPendingRequests] = useState<Array<{
@@ -277,12 +316,31 @@ export default function CreatorsListPage() {
         });
       }
 
-      const { data: creatorsData } = await supabase
-        .from("creators" as any)
-        .select("*")
-        .order("onboarded_at", { ascending: false });
+      // Single batched fetch replaces the per-creator N+1 fan-out — see
+      // /api/partnerships/active-partners for the aggregation.
+      const partnersRes = await fetch("/api/partnerships/active-partners");
+      const partnersJson = partnersRes.ok ? await partnersRes.json() : { partners: [] };
+      const enriched: Creator[] = (partnersJson.partners || []).map((p: any) => ({
+        id: p.creator_id,
+        creator_name: p.creator_name || p.name || "",
+        commission_rate: p.commission_rate ?? 0,
+        affiliate_code: p.affiliate_code || "",
+        invite_id: p.invite_id || "",
+        influencer: p.name || p.handle || p.photo
+          ? {
+              name: p.name || "",
+              instagram_handle: p.handle || "",
+              profile_photo_url: p.photo,
+            }
+          : null,
+        shopify_code_status: p.shopify_code_status,
+        has_affiliate: p.has_affiliate,
+        revenue_30d: p.revenue_30d || 0,
+        orders_30d: p.orders_30d || 0,
+        last_activity_at: p.last_activity_at,
+      }));
 
-      // Fetch pending invites (before early return so they always load)
+      // Fetch pending invites
       const { data: invitesData } = await supabase
         .from("creator_invites" as any)
         .select("*")
@@ -300,64 +358,14 @@ export default function CreatorsListPage() {
         .order("accepted_at", { ascending: false }) as any;
       setPendingOneOffs(oneOffData || []);
 
-      if (!creatorsData || creatorsData.length === 0) {
+      setCreators(enriched);
+
+      if (enriched.length === 0) {
         setLoading(false);
         return;
       }
 
-      const enriched = await Promise.all(
-        creatorsData.map(async (c: any) => {
-          let influencer = null;
-
-          let shopifyCodeStatus: Creator["shopify_code_status"] = null;
-          let hasAffiliate = false;
-          if (c.invite_id) {
-            const { data: invite } = await supabase
-              .from("creator_invites" as any)
-              .select("influencer_id, shopify_code_status, has_affiliate")
-              .eq("id", c.invite_id)
-              .single() as any;
-
-            shopifyCodeStatus = invite?.shopify_code_status ?? null;
-            hasAffiliate = invite?.has_affiliate ?? false;
-
-            if (invite?.influencer_id) {
-              const { data: inf } = await supabase
-                .from("influencers")
-                .select("id, name, instagram_handle, profile_photo_url")
-                .eq("id", invite.influencer_id)
-                .single();
-              influencer = inf;
-            }
-          }
-
-          const { count } = await supabase
-            .from("creator_sample_requests" as any)
-            .select("id", { count: "exact", head: true })
-            .eq("creator_id", c.id)
-            .eq("status", "pending") as any;
-
-          const { data: lastSub } = await supabase
-            .from("creator_content_submissions" as any)
-            .select("created_at")
-            .eq("creator_id", c.id)
-            .order("created_at", { ascending: false })
-            .limit(1) as any;
-
-          return {
-            ...c,
-            influencer,
-            pending_requests: count || 0,
-            last_submission: lastSub?.[0]?.created_at || null,
-            shopify_code_status: shopifyCodeStatus,
-            has_affiliate: hasAffiliate,
-          } as Creator;
-        })
-      );
-
-      setCreators(enriched);
-
-      // Fetch action queue items
+      // Action-queue enrichment uses the same creator metadata we already have
       const creatorMap = new Map(enriched.map((c: any) => [c.id, c]));
 
       const { data: allPendingReqs } = await supabase
@@ -1095,226 +1103,248 @@ export default function CreatorsListPage() {
             </div>
           </div>
 
-          {/* Pending Invites */}
-          {!loading && pendingInvites.length > 0 && (
-            <div className="mb-6">
-              <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">Pending Invites</h2>
-              <div className="space-y-2">
-                {pendingInvites.map((inv) => (
-                  <div key={inv.id} className="bg-white border rounded-lg px-4 py-3 flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{inv.creator_name}</div>
-                      <div className="text-xs text-gray-500">
-                        {inv.creator_email || "No email"}
-                        {inv.deal_type && <> · <span className="capitalize">{inv.deal_type === "ad_spend" ? "% of Ad Spend" : inv.deal_type === "retainer" ? "Retainer" : "Affiliate"}</span></>}
-                        {" "}· Sent {new Date(inv.created_at).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => copyInviteLink(inv.slug)}
-                        className="px-3 py-1.5 text-xs border rounded-md text-gray-600 hover:bg-gray-50 transition-colors"
-                      >
-                        Copy Link
-                      </button>
-                      <button
-                        onClick={() => {
-                          setEditTermsInvite(inv);
-                        }}
-                        className="px-3 py-1.5 text-xs border rounded-md text-gray-600 hover:bg-gray-50 transition-colors"
-                      >
-                        Edit Terms
-                      </button>
-                      <button
-                        onClick={() => revokeInvite(inv.id)}
-                        className="px-3 py-1.5 text-xs border border-red-200 rounded-md text-red-600 hover:bg-red-50 transition-colors"
-                      >
-                        Revoke
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Pending One-Off Deals — accepted gift card / flat fee awaiting fulfillment */}
-          {!loading && pendingOneOffs.length > 0 && (
-            <div className="mb-6">
-              <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">Pending One-Off Deals ({pendingOneOffs.length})</h2>
-              <div className="space-y-2">
-                {pendingOneOffs.map((inv) => {
-                  const isGiftCard = inv.has_gift_card;
-                  const isFlatFee = inv.has_flat_fee;
-                  const amount = isGiftCard ? inv.gift_card_amount : inv.flat_fee_amount;
-                  const typeLabel = isGiftCard ? "Gift Card" : "Flat Fee";
-                  const actionLabel = isGiftCard ? "Issue gift card in Shopify" : "Pay flat fee";
-                  const days = inv.whitelisting_duration_days;
-                  const acceptedDate = inv.accepted_at ? new Date(inv.accepted_at) : null;
-                  const expiryDate = isFlatFee && days && acceptedDate
-                    ? new Date(acceptedDate.getTime() + days * 86400000).toLocaleDateString("en-AU", { day: "numeric", month: "short" })
-                    : null;
-                  return (
-                    <div key={inv.id} className="bg-white border border-amber-200 rounded-lg px-4 py-3 flex items-center justify-between">
-                      <div className="flex items-center gap-3 min-w-0">
-                        {inv.influencer?.profile_photo_url ? (
-                          <img src={inv.influencer.profile_photo_url} alt="" className="w-8 h-8 rounded-full object-cover bg-gray-200 flex-shrink-0" />
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0" />
-                        )}
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium text-gray-900">
-                            {inv.influencer?.name || inv.creator_name}
+          {/* Inbox — unified action queue across submissions, outfits, gift cards */}
+          {(() => {
+            const submissionsCount = pendingSubmissions.length;
+            const outfitsCount = pendingRequests.length;
+            const giftCardsCount = pendingOneOffs.length;
+            const total = submissionsCount + outfitsCount + giftCardsCount;
+            return (
+              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-3">
+                <div className="px-4 py-3 border-b border-gray-200">
+                  <h2 className="text-[13px] font-medium text-gray-900">
+                    Inbox <span className="text-gray-500 font-normal">· {total}</span>
+                  </h2>
+                </div>
+                <InboxRow
+                  icon={<Video className="h-[18px] w-[18px] text-gray-500" />}
+                  label="Content submissions"
+                  count={submissionsCount}
+                  expanded={inboxExpanded === "submissions"}
+                  onToggle={() => setInboxExpanded((p) => (p === "submissions" ? null : "submissions"))}
+                >
+                  {pendingSubmissions.length === 0 ? (
+                    <div className="px-4 py-3 text-xs text-gray-500">No pending submissions.</div>
+                  ) : (
+                    <div className="px-4 py-3 space-y-2">
+                      {pendingSubmissions.map((sub) => {
+                        const [yr, mo] = (sub.month || "").split("-");
+                        const monthLabel = yr && mo
+                          ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString("en", { month: "long", year: "numeric" })
+                          : sub.month;
+                        return (
+                          <div key={`sub-${sub.id}`} className="bg-gray-50 rounded-md px-3 py-2 flex items-center justify-between">
+                            <div className="flex items-center gap-3 min-w-0">
+                              {sub.creator_photo ? (
+                                <img src={sub.creator_photo} alt="" className="w-8 h-8 rounded-full object-cover bg-gray-200 flex-shrink-0" />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0" />
+                              )}
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium text-gray-900">{sub.creator_name}</div>
+                                <div className="text-xs text-gray-500">
+                                  Content submissions · {sub.file_count} file{sub.file_count !== 1 ? "s" : ""} for {monthLabel}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex gap-2 flex-shrink-0 ml-3">
+                              <button
+                                onClick={() => handleReviewAction(sub.id, "approved")}
+                                className="px-3 py-1.5 text-xs border border-gray-300 text-gray-600 rounded-md hover:bg-gray-50 transition-colors"
+                              >
+                                Mark as Done
+                              </button>
+                              <button
+                                onClick={() => setReviewingSubmission(sub.id)}
+                                className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
+                              >
+                                Review
+                              </button>
+                            </div>
                           </div>
-                          <div className="text-xs text-gray-500 truncate">
-                            {typeLabel} · ${amount?.toLocaleString()}
-                            {isFlatFee && days ? ` · ${days}-day whitelisting` : ""}
-                            {expiryDate ? ` (expires ${expiryDate})` : ""}
-                            {" · "}
-                            {inv.content_source === "existing" ? "Existing piece" : "New piece"}
-                            {acceptedDate ? ` · Accepted ${acceptedDate.toLocaleDateString("en-AU", { day: "numeric", month: "short" })}` : ""}
-                          </div>
-                          <div className="text-xs text-amber-700 mt-0.5">{actionLabel}</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                        {inv.existing_content_url && (
-                          <a
-                            href={inv.existing_content_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-1.5 text-xs border rounded-md text-gray-600 hover:bg-gray-50 transition-colors"
-                          >
-                            View Post
-                          </a>
-                        )}
-                        <button
-                          onClick={() => markOneOffFulfilled(inv.id)}
-                          className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
-                        >
-                          Mark Fulfilled
-                        </button>
-                      </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
+                  )}
+                </InboxRow>
+                <InboxRow
+                  icon={<Shirt className="h-[18px] w-[18px] text-gray-500" />}
+                  label="Outfit requests"
+                  count={outfitsCount}
+                  expanded={inboxExpanded === "outfits"}
+                  onToggle={() => setInboxExpanded((p) => (p === "outfits" ? null : "outfits"))}
+                >
+                  {pendingRequests.length === 0 ? (
+                    <div className="px-4 py-3 text-xs text-gray-500">No outstanding outfit requests.</div>
+                  ) : (
+                    <div className="px-4 py-3 space-y-2">
+                      {pendingRequests.map((req) => {
+                        const productNames = req.selections
+                          .map((s) => [s.product_title, s.variant_title].filter(Boolean).join(" - "))
+                          .join(", ");
+                        return (
+                          <div key={`req-${req.id}`} className="bg-gray-50 rounded-md px-3 py-2 flex items-center justify-between">
+                            <div className="flex items-center gap-3 min-w-0">
+                              {req.creator_photo ? (
+                                <img src={req.creator_photo} alt="" className="w-8 h-8 rounded-full object-cover bg-gray-200 flex-shrink-0" />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0" />
+                              )}
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium text-gray-900">{req.creator_name}</div>
+                                <div className="text-xs text-gray-500 truncate">
+                                  Outfit request · {productNames || `${req.selections.length} item${req.selections.length !== 1 ? "s" : ""}`}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex gap-2 flex-shrink-0 ml-3">
+                              <button
+                                onClick={async () => {
+                                  await (supabase.from("creator_sample_requests" as any) as any)
+                                    .update({ status: "approved", reviewed_at: new Date().toISOString() })
+                                    .eq("id", req.id);
+                                  setPendingRequests((prev) => prev.filter((r) => r.id !== req.id));
+                                }}
+                                className="px-3 py-1.5 text-xs border border-gray-300 text-gray-600 rounded-md hover:bg-gray-50 transition-colors"
+                              >
+                                Mark as Done
+                              </button>
+                              <button
+                                onClick={() => setReviewingRequest(req.id)}
+                                className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
+                              >
+                                Review
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </InboxRow>
+                <InboxRow
+                  icon={<Gift className="h-[18px] w-[18px] text-gray-500" />}
+                  label="Gift cards to issue"
+                  count={giftCardsCount}
+                  expanded={inboxExpanded === "gift_cards"}
+                  onToggle={() => setInboxExpanded((p) => (p === "gift_cards" ? null : "gift_cards"))}
+                  last
+                >
+                  {pendingOneOffs.length === 0 ? (
+                    <div className="px-4 py-3 text-xs text-gray-500">No one-off deals awaiting fulfillment.</div>
+                  ) : (
+                    <div className="px-4 py-3 space-y-2">
+                      {pendingOneOffs.map((inv) => {
+                        const isGiftCard = inv.has_gift_card;
+                        const isFlatFee = inv.has_flat_fee;
+                        const amount = isGiftCard ? inv.gift_card_amount : inv.flat_fee_amount;
+                        const typeLabel = isGiftCard ? "Gift Card" : "Flat Fee";
+                        const actionLabel = isGiftCard ? "Issue gift card in Shopify" : "Pay flat fee";
+                        const days = inv.whitelisting_duration_days;
+                        const acceptedDate = inv.accepted_at ? new Date(inv.accepted_at) : null;
+                        const expiryDate = isFlatFee && days && acceptedDate
+                          ? new Date(acceptedDate.getTime() + days * 86400000).toLocaleDateString("en-AU", { day: "numeric", month: "short" })
+                          : null;
+                        return (
+                          <div key={inv.id} className="bg-gray-50 rounded-md px-3 py-2 flex items-center justify-between">
+                            <div className="flex items-center gap-3 min-w-0">
+                              {inv.influencer?.profile_photo_url ? (
+                                <img src={inv.influencer.profile_photo_url} alt="" className="w-8 h-8 rounded-full object-cover bg-gray-200 flex-shrink-0" />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0" />
+                              )}
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {inv.influencer?.name || inv.creator_name}
+                                </div>
+                                <div className="text-xs text-gray-500 truncate">
+                                  {typeLabel} · ${amount?.toLocaleString()}
+                                  {isFlatFee && days ? ` · ${days}-day whitelisting` : ""}
+                                  {expiryDate ? ` (expires ${expiryDate})` : ""}
+                                  {" · "}
+                                  {inv.content_source === "existing" ? "Existing piece" : "New piece"}
+                                  {acceptedDate ? ` · Accepted ${acceptedDate.toLocaleDateString("en-AU", { day: "numeric", month: "short" })}` : ""}
+                                </div>
+                                <div className="text-xs text-amber-700 mt-0.5">{actionLabel}</div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                              {inv.existing_content_url && (
+                                <a
+                                  href={inv.existing_content_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-3 py-1.5 text-xs border rounded-md text-gray-600 hover:bg-gray-50 transition-colors"
+                                >
+                                  View Post
+                                </a>
+                              )}
+                              <button
+                                onClick={() => markOneOffFulfilled(inv.id)}
+                                className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
+                              >
+                                Mark Fulfilled
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </InboxRow>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
+          {/* Active Partners table */}
           {loading ? (
             <p className="text-gray-500 text-sm">Loading...</p>
-          ) : creators.length === 0 && pendingInvites.length === 0 ? (
-            <p className="text-gray-500 text-sm">No creators yet.</p>
-          ) : creators.length > 0 ? (
-            <>
-            {(pendingRequests.length > 0 || pendingSubmissions.length > 0) && (
-              <div className="mb-6">
-                <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">
-                  Needs Attention ({pendingRequests.length + pendingSubmissions.length})
-                </h2>
-                <div className="space-y-2">
-                  {pendingRequests.map((req) => {
-                    const productNames = req.selections
-                      .map((s) => [s.product_title, s.variant_title].filter(Boolean).join(" - "))
-                      .join(", ");
-                    return (
-                      <div key={`req-${req.id}`} className="bg-white border border-amber-200 rounded-lg px-4 py-3 flex items-center justify-between">
-                        <div className="flex items-center gap-3 min-w-0">
-                          {req.creator_photo ? (
-                            <img src={req.creator_photo} alt="" className="w-8 h-8 rounded-full object-cover bg-gray-200 flex-shrink-0" />
-                          ) : (
-                            <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0" />
-                          )}
-                          <div className="min-w-0">
-                            <div className="text-sm font-medium text-gray-900">{req.creator_name}</div>
-                            <div className="text-xs text-gray-500 truncate">
-                              Outfit request · {productNames || `${req.selections.length} item${req.selections.length !== 1 ? "s" : ""}`}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex gap-2 flex-shrink-0 ml-3">
-                          <button
-                            onClick={async () => {
-                              await (supabase.from("creator_sample_requests" as any) as any)
-                                .update({ status: "approved", reviewed_at: new Date().toISOString() })
-                                .eq("id", req.id);
-                              setPendingRequests((prev) => prev.filter((r) => r.id !== req.id));
-                            }}
-                            className="px-3 py-1.5 text-xs border border-gray-300 text-gray-600 rounded-md hover:bg-gray-50 transition-colors"
-                          >
-                            Mark as Done
-                          </button>
-                          <button
-                            onClick={() => setReviewingRequest(req.id)}
-                            className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
-                          >
-                            Review
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {pendingSubmissions.map((sub) => {
-                    const [yr, mo] = (sub.month || "").split("-");
-                    const monthLabel = yr && mo
-                      ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString("en", { month: "long", year: "numeric" })
-                      : sub.month;
-                    return (
-                      <div key={`sub-${sub.id}`} className="bg-white border border-amber-200 rounded-lg px-4 py-3 flex items-center justify-between">
-                        <div className="flex items-center gap-3 min-w-0">
-                          {sub.creator_photo ? (
-                            <img src={sub.creator_photo} alt="" className="w-8 h-8 rounded-full object-cover bg-gray-200 flex-shrink-0" />
-                          ) : (
-                            <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0" />
-                          )}
-                          <div className="min-w-0">
-                            <div className="text-sm font-medium text-gray-900">{sub.creator_name}</div>
-                            <div className="text-xs text-gray-500">
-                              Content submission · {sub.file_count} file{sub.file_count !== 1 ? "s" : ""} for {monthLabel}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex gap-2 flex-shrink-0 ml-3">
-                          <button
-                            onClick={() => handleReviewAction(sub.id, "approved")}
-                            className="px-3 py-1.5 text-xs border border-gray-300 text-gray-600 rounded-md hover:bg-gray-50 transition-colors"
-                          >
-                            Mark as Done
-                          </button>
-                          <button
-                            onClick={() => setReviewingSubmission(sub.id)}
-                            className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
-                          >
-                            Review
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-            {(pendingInvites.length > 0 || pendingRequests.length > 0 || pendingSubmissions.length > 0) && (
-              <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">Active Partners</h2>
-            )}
-            <div className="bg-white border rounded-lg overflow-hidden">
+          ) : creators.length === 0 ? (
+            <p className="text-gray-500 text-sm">No active partners yet.</p>
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-3">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b bg-gray-50">
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Partner</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Commission</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Affiliate Code</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Pending Requests</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Last Submission</th>
+                  <tr className="border-b border-gray-200 bg-gray-50">
+                    <SortableHeader label="Partner" sortKey="name" currentKey={sortKey} dir={sortDir} onSort={(k) => {
+                      if (k === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+                      else { setSortKey(k); setSortDir("asc"); }
+                    }} align="left" />
+                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Code</th>
+                    <SortableHeader label="Revenue 30d" sortKey="revenue_30d" currentKey={sortKey} dir={sortDir} onSort={(k) => {
+                      if (k === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+                      else { setSortKey(k); setSortDir("desc"); }
+                    }} align="right" />
+                    <SortableHeader label="Orders 30d" sortKey="orders_30d" currentKey={sortKey} dir={sortDir} onSort={(k) => {
+                      if (k === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+                      else { setSortKey(k); setSortDir("desc"); }
+                    }} align="right" />
+                    <SortableHeader label="Activity" sortKey="last_activity_at" currentKey={sortKey} dir={sortDir} onSort={(k) => {
+                      if (k === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+                      else { setSortKey(k); setSortDir("desc"); }
+                    }} align="right" />
                     <th className="px-4 py-3 w-10"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {creators.map((creator) => (
+                  {[...creators].sort((a, b) => {
+                    if (sortKey === "name") {
+                      const av = (a.influencer?.name || a.creator_name || "").toLowerCase();
+                      const bv = (b.influencer?.name || b.creator_name || "").toLowerCase();
+                      return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+                    }
+                    if (sortKey === "last_activity_at") {
+                      const av = a.last_activity_at ? new Date(a.last_activity_at).getTime() : 0;
+                      const bv = b.last_activity_at ? new Date(b.last_activity_at).getTime() : 0;
+                      return sortDir === "asc" ? av - bv : bv - av;
+                    }
+                    const av = (a as any)[sortKey] || 0;
+                    const bv = (b as any)[sortKey] || 0;
+                    return sortDir === "asc" ? av - bv : bv - av;
+                  }).map((creator) => (
                     <tr
                       key={creator.id}
-                      className="border-b hover:bg-gray-50 cursor-pointer transition-colors"
+                      className="border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors last:border-b-0"
                       onClick={() => router.push(`/partnerships/creators/${creator.id}`)}
                     >
                       <td className="px-4 py-3">
@@ -1340,11 +1370,10 @@ export default function CreatorsListPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-gray-700">{creator.commission_rate}%</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <code className="text-xs bg-gray-100 px-2 py-1 rounded">
-                            {creator.affiliate_code}
+                          <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono">
+                            {creator.affiliate_code || "—"}
                           </code>
                           {creator.has_affiliate && creator.shopify_code_status === "failed" && (
                             <button
@@ -1361,23 +1390,14 @@ export default function CreatorsListPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        {creator.pending_requests > 0 ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
-                            {creator.pending_requests} pending
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">—</span>
-                        )}
+                      <td className="px-4 py-3 text-right font-medium text-gray-900">
+                        ${(creator.revenue_30d || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">
-                        {creator.last_submission
-                          ? new Date(creator.last_submission).toLocaleDateString("en-AU", {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            })
-                          : "—"}
+                      <td className="px-4 py-3 text-right text-gray-500">
+                        {(creator.orders_30d || 0).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-500 text-xs">
+                        {relativeTime(creator.last_activity_at)}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -1425,8 +1445,83 @@ export default function CreatorsListPage() {
                 </tbody>
               </table>
             </div>
-            </>
-          ) : null}
+          )}
+
+          {/* Pending Invites — collapsed row at bottom */}
+          {pendingInvites.length > 0 && (() => {
+            const STALE_MS = 30 * 86400000;
+            const staleCount = pendingInvites.filter((inv: any) =>
+              Date.now() - new Date(inv.created_at).getTime() > STALE_MS,
+            ).length;
+            return (
+              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-6">
+                <button
+                  type="button"
+                  onClick={() => setPendingInvitesExpanded((v) => !v)}
+                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
+                >
+                  <Mail className="h-[18px] w-[18px] text-gray-500" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-medium text-gray-900">Pending invites</div>
+                    <div className="text-xs text-gray-500">
+                      {pendingInvites.length} sent · {staleCount} stale
+                    </div>
+                  </div>
+                  {pendingInvitesExpanded ? (
+                    <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                  )}
+                </button>
+                {pendingInvitesExpanded && (
+                  <div className="border-t border-gray-200 px-4 py-3 space-y-2">
+                    {pendingInvites.map((inv) => {
+                      const isStale = Date.now() - new Date(inv.created_at).getTime() > STALE_MS;
+                      return (
+                        <div key={inv.id} className="bg-gray-50 rounded-md px-3 py-2 flex items-center justify-between">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{inv.creator_name}</div>
+                            <div className="text-xs text-gray-500 flex items-center gap-2">
+                              <span>
+                                {inv.creator_email || "No email"}
+                                {inv.deal_type && <> · <span className="capitalize">{inv.deal_type === "ad_spend" ? "% of Ad Spend" : inv.deal_type === "retainer" ? "Retainer" : "Affiliate"}</span></>}
+                                {" "}· Sent {new Date(inv.created_at).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}
+                              </span>
+                              {isStale && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800">
+                                  Stale
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => copyInviteLink(inv.slug)}
+                              className="px-3 py-1.5 text-xs border rounded-md text-gray-600 hover:bg-gray-50 transition-colors"
+                            >
+                              Copy Link
+                            </button>
+                            <button
+                              onClick={() => setEditTermsInvite(inv)}
+                              className="px-3 py-1.5 text-xs border rounded-md text-gray-600 hover:bg-gray-50 transition-colors"
+                            >
+                              Edit Terms
+                            </button>
+                            <button
+                              onClick={() => revokeInvite(inv.id)}
+                              className="px-3 py-1.5 text-xs border border-red-200 rounded-md text-red-600 hover:bg-red-50 transition-colors"
+                            >
+                              Revoke
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       </main>
 
@@ -2141,5 +2236,83 @@ function StatRow({ label, value }: { label: string; value: string }) {
       <span className="text-gray-500">{label}</span>
       <span className="font-medium text-gray-900">{value}</span>
     </div>
+  );
+}
+
+function InboxRow({
+  icon,
+  label,
+  count,
+  expanded,
+  onToggle,
+  children,
+  last,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  count: number;
+  expanded: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+  last?: boolean;
+}) {
+  return (
+    <div className={last ? undefined : "border-b border-gray-200"}>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
+      >
+        <span className="relative inline-flex">
+          {icon}
+          <NotificationBadge count={count} />
+        </span>
+        <span className="flex-1 text-[13px] font-medium text-gray-900">{label}</span>
+        {expanded ? (
+          <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0" />
+        ) : (
+          <ChevronRight className="h-4 w-4 text-gray-400 flex-shrink-0" />
+        )}
+      </button>
+      {expanded && <div className="border-t border-gray-200">{children}</div>}
+    </div>
+  );
+}
+
+function SortableHeader({
+  label,
+  sortKey,
+  currentKey,
+  dir,
+  onSort,
+  align,
+}: {
+  label: string;
+  sortKey: SortKey;
+  currentKey: SortKey;
+  dir: SortDir;
+  onSort: (key: SortKey) => void;
+  align: "left" | "right";
+}) {
+  const isActive = currentKey === sortKey;
+  return (
+    <th className={`px-4 py-3 ${align === "right" ? "text-right" : "text-left"}`}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={`inline-flex items-center gap-1 text-xs uppercase tracking-wider transition-colors ${
+          isActive ? "text-gray-700 font-medium" : "text-gray-500 font-medium hover:text-gray-700"
+        }`}
+      >
+        {label}
+        {isActive ? (
+          dir === "asc" ? (
+            <ArrowUp className="h-3 w-3" />
+          ) : (
+            <ArrowDown className="h-3 w-3" />
+          )
+        ) : null}
+      </button>
+    </th>
   );
 }
