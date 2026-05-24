@@ -1040,8 +1040,8 @@ export default function InvitePage() {
           )}
           <div className="ni-form-group"><label className="ni-form-label">Full Name</label><input className="ni-form-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></div>
           <div className="ni-form-group"><label className="ni-form-label">Email Address</label><input className="ni-form-input" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="your@email.com" /></div>
-          <div className="ni-form-group"><label className="ni-form-label">Create Password</label><input className="ni-form-input" type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="••••••••" /></div>
-          <div className="ni-form-group" style={{ marginBottom: 28 }}><label className="ni-form-label">Confirm Password</label><input className="ni-form-input" type="password" value={form.confirmPassword} onChange={e => setForm(f => ({ ...f, confirmPassword: e.target.value }))} placeholder="••••••••" /></div>
+          <div className="ni-form-group"><label className="ni-form-label">Create Password</label><input className="ni-form-input" type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="At least 6 characters" /></div>
+          <div className="ni-form-group" style={{ marginBottom: 28 }}><label className="ni-form-label">Confirm Password</label><input className="ni-form-input" type="password" value={form.confirmPassword} onChange={e => setForm(f => ({ ...f, confirmPassword: e.target.value }))} placeholder="At least 6 characters" /></div>
           {error && <div className="ni-error">{error}</div>}
           <button className="ni-btn" onClick={handleSignup} disabled={submitting || !form.email || !form.password || !form.confirmPassword}>
             {submitting ? 'Creating account…' : 'Create My Account →'}
@@ -1452,8 +1452,8 @@ export default function InvitePage() {
           )}
           <div className="ni-m-form-group"><label className="ni-m-form-label">Full Name</label><input className="ni-m-form-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></div>
           <div className="ni-m-form-group"><label className="ni-m-form-label">Email</label><input className="ni-m-form-input" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="your@email.com" /></div>
-          <div className="ni-m-form-group"><label className="ni-m-form-label">Password</label><input className="ni-m-form-input" type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="••••••••" /></div>
-          <div className="ni-m-form-group" style={{ marginBottom: 24 }}><label className="ni-m-form-label">Confirm Password</label><input className="ni-m-form-input" type="password" value={form.confirmPassword} onChange={e => setForm(f => ({ ...f, confirmPassword: e.target.value }))} placeholder="••••••••" /></div>
+          <div className="ni-m-form-group"><label className="ni-m-form-label">Password</label><input className="ni-m-form-input" type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="At least 6 characters" /></div>
+          <div className="ni-m-form-group" style={{ marginBottom: 24 }}><label className="ni-m-form-label">Confirm Password</label><input className="ni-m-form-input" type="password" value={form.confirmPassword} onChange={e => setForm(f => ({ ...f, confirmPassword: e.target.value }))} placeholder="At least 6 characters" /></div>
           {error && <div className="ni-error">{error}</div>}
           <button className="ni-m-btn" onClick={handleSignup} disabled={submitting || !form.email || !form.password || !form.confirmPassword}>
             {submitting ? 'Creating account…' : 'Create My Account →'}
