@@ -114,8 +114,10 @@ export async function GET(_request: NextRequest) {
     ),
   );
 
-  // Fetch influencers + ad-activity in parallel now that we know the ids.
-  const [influencersRes, adActivityRes] = await Promise.all([
+  // Fetch influencers + ad-activity + ad-perf snapshot in parallel.
+  // Daily rows give us last_activity_at AND ad_spend_30d in one pass.
+  // creator_ad_performance.ads jsonb gives ads_live (count of ACTIVE ads).
+  const [influencersRes, adActivityRes, adPerfRes] = await Promise.all([
     influencerIds.length > 0
       ? db
           .from("influencers")
@@ -127,6 +129,11 @@ export async function GET(_request: NextRequest) {
           .select("influencer_id, date, spend, impressions")
           .in("influencer_id", influencerIds)
           .gte("date", yearAgoDay)
+      : Promise.resolve({ data: [] as any[] }),
+    influencerIds.length > 0
+      ? (db.from("creator_ad_performance") as any)
+          .select("influencer_id, ads")
+          .in("influencer_id", influencerIds)
       : Promise.resolve({ data: [] as any[] }),
   ]);
 
@@ -171,14 +178,29 @@ export async function GET(_request: NextRequest) {
     if (!prev || ts > prev) lastSubmissionByCreator.set(id, ts);
   }
 
-  // 7. Last ad activity per influencer (max date with any spend or impressions).
+  // 7. Last ad activity + 30d ad spend per influencer, both from the daily table.
   const lastAdActivityByInfluencer = new Map<string, string>();
+  const adSpend30dByInfluencer = new Map<string, number>();
   for (const row of (adActivityRes.data || []) as any[]) {
-    if (!(Number(row.spend) > 0 || Number(row.impressions) > 0)) continue;
     const id = String(row.influencer_id);
     const d = String(row.date).slice(0, 10);
-    const prev = lastAdActivityByInfluencer.get(id);
-    if (!prev || d > prev) lastAdActivityByInfluencer.set(id, d);
+    const spend = Number(row.spend || 0);
+    const impressions = Number(row.impressions || 0);
+    if (spend > 0 || impressions > 0) {
+      const prev = lastAdActivityByInfluencer.get(id);
+      if (!prev || d > prev) lastAdActivityByInfluencer.set(id, d);
+    }
+    if (d >= thirtyAgoDay && d <= todayDay) {
+      adSpend30dByInfluencer.set(id, (adSpend30dByInfluencer.get(id) || 0) + spend);
+    }
+  }
+
+  // 7b. Ads live count per influencer — scan the cached jsonb ads array.
+  const adsLiveByInfluencer = new Map<string, number>();
+  for (const row of (adPerfRes.data || []) as any[]) {
+    const ads = Array.isArray(row.ads) ? row.ads : [];
+    const active = ads.filter((a: any) => a?.effective_status === "ACTIVE").length;
+    adsLiveByInfluencer.set(String(row.influencer_id), active);
   }
 
   // 8. Build response rows.
@@ -199,6 +221,7 @@ export async function GET(_request: NextRequest) {
     }
     const lastActivityAt = candidates.length > 0 ? candidates.sort().slice(-1)[0] : null;
 
+    const influencerId = invite?.influencer_id ?? null;
     return {
       creator_id: c.id,
       creator_name: c.creator_name || null,
@@ -212,6 +235,10 @@ export async function GET(_request: NextRequest) {
       commission_rate: c.commission_rate,
       revenue_30d: rev ? Math.round(rev.revenue_30d * 100) / 100 : 0,
       orders_30d: rev?.orders_30d || 0,
+      ad_spend_30d: influencerId
+        ? Math.round((adSpend30dByInfluencer.get(influencerId) || 0) * 100) / 100
+        : 0,
+      ads_live: influencerId ? adsLiveByInfluencer.get(influencerId) || 0 : 0,
       pending_requests_count: pendingByCreator.get(c.id) || 0,
       last_activity_at: lastActivityAt,
     };
