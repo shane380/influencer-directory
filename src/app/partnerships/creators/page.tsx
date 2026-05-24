@@ -132,13 +132,13 @@ interface Creator {
   } | null;
   shopify_code_status: "active" | "pending" | "failed" | null;
   has_affiliate: boolean;
-  revenue_30d: number;
-  ad_spend_30d: number;
+  revenue_mtd: number;
+  ad_spend_mtd: number;
   ads_live: number;
   last_activity_at: string | null;
 }
 
-type SortKey = "revenue_30d" | "ad_spend_30d" | "ads_live" | "last_activity_at" | "name";
+type SortKey = "revenue_mtd" | "ad_spend_mtd" | "ads_live" | "last_activity_at" | "name";
 type SortDir = "asc" | "desc";
 
 function relativeTime(iso: string | null): string {
@@ -233,7 +233,7 @@ export default function CreatorsListPage() {
   // Pending Invites collapsed row at bottom
   const [pendingInvitesExpanded, setPendingInvitesExpanded] = useState(false);
   // Active partners sort
-  const [sortKey, setSortKey] = useState<SortKey>("revenue_30d");
+  const [sortKey, setSortKey] = useState<SortKey>("revenue_mtd");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   // Action queue
@@ -336,8 +336,8 @@ export default function CreatorsListPage() {
           : null,
         shopify_code_status: p.shopify_code_status,
         has_affiliate: p.has_affiliate,
-        revenue_30d: p.revenue_30d || 0,
-        ad_spend_30d: p.ad_spend_30d || 0,
+        revenue_mtd: p.revenue_mtd || 0,
+        ad_spend_mtd: p.ad_spend_mtd || 0,
         ads_live: p.ads_live || 0,
         last_activity_at: p.last_activity_at,
       }));
@@ -1313,11 +1313,11 @@ export default function CreatorsListPage() {
                       else { setSortKey(k); setSortDir("asc"); }
                     }} align="left" />
                     <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Code</th>
-                    <SortableHeader label="Affiliate revenue" sortKey="revenue_30d" currentKey={sortKey} dir={sortDir} onSort={(k) => {
+                    <SortableHeader label="Affiliate revenue · MTD" sortKey="revenue_mtd" currentKey={sortKey} dir={sortDir} onSort={(k) => {
                       if (k === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
                       else { setSortKey(k); setSortDir("desc"); }
                     }} align="right" />
-                    <SortableHeader label="Whitelisting spend" sortKey="ad_spend_30d" currentKey={sortKey} dir={sortDir} onSort={(k) => {
+                    <SortableHeader label="Whitelisting spend · MTD" sortKey="ad_spend_mtd" currentKey={sortKey} dir={sortDir} onSort={(k) => {
                       if (k === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
                       else { setSortKey(k); setSortDir("desc"); }
                     }} align="right" />
@@ -1397,11 +1397,11 @@ export default function CreatorsListPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-gray-900">
-                        ${(creator.revenue_30d || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        ${(creator.revenue_mtd || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </td>
                       <td className="px-4 py-3 text-right text-gray-700">
-                        {creator.ad_spend_30d > 0
-                          ? `$${creator.ad_spend_30d.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+                        {creator.ad_spend_mtd > 0
+                          ? `$${creator.ad_spend_mtd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
                           : <span className="text-gray-400">—</span>}
                       </td>
                       <td className="px-4 py-3 text-right text-gray-700">

@@ -27,9 +27,10 @@ export async function GET(_request: NextRequest) {
   today.setUTCHours(0, 0, 0, 0);
   const todayDay = dayOnly(today);
 
-  const thirtyAgo = new Date(today);
-  thirtyAgo.setUTCDate(thirtyAgo.getUTCDate() - 29);
-  const thirtyAgoDay = dayOnly(thirtyAgo);
+  // Revenue + ad-spend columns are MTD (current calendar month → today), so
+  // sums per partner reconcile with the KPI row in the page header.
+  const monthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+  const monthStartDay = dayOnly(monthStart);
 
   // last_activity_at lookbacks bounded to 1y — anything older won't affect
   // ordering of an "active partners" table and keeps payloads modest.
@@ -115,7 +116,7 @@ export async function GET(_request: NextRequest) {
   );
 
   // Fetch influencers + ad-activity + ad-perf snapshot in parallel.
-  // Daily rows give us last_activity_at AND ad_spend_30d in one pass.
+  // Daily rows give us last_activity_at AND ad_spend_mtd in one pass.
   // creator_ad_performance.ads jsonb gives ads_live (count of ACTIVE ads).
   const [influencersRes, adActivityRes, adPerfRes] = await Promise.all([
     influencerIds.length > 0
@@ -146,15 +147,16 @@ export async function GET(_request: NextRequest) {
     });
   }
 
-  // 4. Aggregate revenue per affiliate_code (30d window only).
-  const revenueByCode = new Map<string, { revenue_30d: number; orders_30d: number; lastOrderDay: string | null }>();
+  // 4. Aggregate revenue per affiliate_code over the MTD window.
+  // lastOrderDay scans the full year query window — independent of the MTD bucket.
+  const revenueByCode = new Map<string, { revenue_mtd: number; orders_mtd: number; lastOrderDay: string | null }>();
   for (const row of (revenueRes.data || []) as any[]) {
     const code = String(row.affiliate_code).toUpperCase();
-    const acc = revenueByCode.get(code) || { revenue_30d: 0, orders_30d: 0, lastOrderDay: null };
+    const acc = revenueByCode.get(code) || { revenue_mtd: 0, orders_mtd: 0, lastOrderDay: null };
     const d = String(row.date).slice(0, 10);
-    if (d >= thirtyAgoDay && d <= todayDay) {
-      acc.revenue_30d += Number(row.gross_amount || 0);
-      acc.orders_30d += Number(row.order_count || 0);
+    if (d >= monthStartDay && d <= todayDay) {
+      acc.revenue_mtd += Number(row.gross_amount || 0);
+      acc.orders_mtd += Number(row.order_count || 0);
     }
     if (Number(row.order_count || 0) > 0) {
       if (!acc.lastOrderDay || d > acc.lastOrderDay) acc.lastOrderDay = d;
@@ -178,9 +180,9 @@ export async function GET(_request: NextRequest) {
     if (!prev || ts > prev) lastSubmissionByCreator.set(id, ts);
   }
 
-  // 7. Last ad activity + 30d ad spend per influencer, both from the daily table.
+  // 7. Last ad activity + MTD ad spend per influencer, both from the daily table.
   const lastAdActivityByInfluencer = new Map<string, string>();
-  const adSpend30dByInfluencer = new Map<string, number>();
+  const adSpendMtdByInfluencer = new Map<string, number>();
   for (const row of (adActivityRes.data || []) as any[]) {
     const id = String(row.influencer_id);
     const d = String(row.date).slice(0, 10);
@@ -190,8 +192,8 @@ export async function GET(_request: NextRequest) {
       const prev = lastAdActivityByInfluencer.get(id);
       if (!prev || d > prev) lastAdActivityByInfluencer.set(id, d);
     }
-    if (d >= thirtyAgoDay && d <= todayDay) {
-      adSpend30dByInfluencer.set(id, (adSpend30dByInfluencer.get(id) || 0) + spend);
+    if (d >= monthStartDay && d <= todayDay) {
+      adSpendMtdByInfluencer.set(id, (adSpendMtdByInfluencer.get(id) || 0) + spend);
     }
   }
 
@@ -233,10 +235,10 @@ export async function GET(_request: NextRequest) {
       shopify_code_status: invite?.shopify_code_status ?? null,
       has_affiliate: invite?.has_affiliate ?? false,
       commission_rate: c.commission_rate,
-      revenue_30d: rev ? Math.round(rev.revenue_30d * 100) / 100 : 0,
-      orders_30d: rev?.orders_30d || 0,
-      ad_spend_30d: influencerId
-        ? Math.round((adSpend30dByInfluencer.get(influencerId) || 0) * 100) / 100
+      revenue_mtd: rev ? Math.round(rev.revenue_mtd * 100) / 100 : 0,
+      orders_mtd: rev?.orders_mtd || 0,
+      ad_spend_mtd: influencerId
+        ? Math.round((adSpendMtdByInfluencer.get(influencerId) || 0) * 100) / 100
         : 0,
       ads_live: influencerId ? adsLiveByInfluencer.get(influencerId) || 0 : 0,
       pending_requests_count: pendingByCreator.get(c.id) || 0,
