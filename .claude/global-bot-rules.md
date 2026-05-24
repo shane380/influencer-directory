@@ -68,6 +68,12 @@ limits above, do not open the PR — comment instead (see §4).
 
 ## 6. PR workflow
 
+- **Actually open the PR yourself — do not stop at a branch.** After pushing
+  your commits to `claude/issue-<number>-<short-slug>`, you MUST run
+  `gh pr create --draft --base main --head <your-branch> --title "<short title>" --body "<body from §8>"`
+  to formally open the draft PR. Pushing a branch and leaving a "Create PR" link
+  is **not** task completion — the downstream pipeline (CI, preview deploy,
+  Slack relay, review, merge) only starts once a real PR exists.
 - Open every PR as a **draft**. Never mark it ready for review. Never merge it,
   and never enable auto-merge. A human promotes and merges.
 - Request review and link the originating issue (e.g. `Fixes #123`).
