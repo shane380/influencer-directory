@@ -67,14 +67,39 @@ function formatMoney(n: number): string {
 function formatMoneyDecimals(n: number): string {
   return `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
-function previousMonthName(): string {
-  const d = new Date();
-  d.setUTCDate(1);
-  d.setUTCMonth(d.getUTCMonth() - 1);
-  return d.toLocaleDateString("en", { month: "long" });
+// Range label for the apples-to-apples MoM comparison.
+// The growth_pct_vs_last_month from the API compares current MTD (May 1→today)
+// against the same day-of-month range in the previous month (April 1→same DoM).
+// This produces the human-readable "April 1–24" label for that prior window.
+function previousMonthMatchRangeLabel(): string {
+  const today = new Date();
+  const dom = today.getUTCDate();
+  const prev = new Date(today);
+  prev.setUTCDate(1);
+  prev.setUTCMonth(prev.getUTCMonth() - 1);
+  const monthName = prev.toLocaleDateString("en", { month: "long" });
+  return dom === 1 ? `${monthName} 1` : `${monthName} 1–${dom}`;
 }
 function currentMonthName(): string {
   return new Date().toLocaleDateString("en", { month: "long" });
+}
+
+// Title-case a display name for the Top partners card. Idempotent — only used at
+// render time, never mutates upstream data.
+function toTitleCase(s: string | null | undefined): string {
+  if (!s) return "";
+  return s
+    .toLowerCase()
+    .split(/(\s+|-)/)
+    .map((part) => (/^\s+$/.test(part) || part === "-" ? part : part.charAt(0).toUpperCase() + part.slice(1)))
+    .join("");
+}
+
+function initialsFor(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "?";
+  if (words.length === 1) return words[0].charAt(0).toUpperCase();
+  return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
 }
 
 interface Creator {
@@ -834,8 +859,8 @@ export default function CreatorsListPage() {
                   value={formatMoney(aggregateRevenue.current_month.revenue)}
                   subtitle={
                     aggregateRevenue.current_month.growth_pct_vs_last_month == null
-                      ? `vs ${previousMonthName()}`
-                      : `${aggregateRevenue.current_month.growth_pct_vs_last_month >= 0 ? "↑" : "↓"} ${Math.abs(aggregateRevenue.current_month.growth_pct_vs_last_month)}% vs ${previousMonthName()}`
+                      ? `vs ${previousMonthMatchRangeLabel()}`
+                      : `${aggregateRevenue.current_month.growth_pct_vs_last_month >= 0 ? "↑" : "↓"} ${Math.abs(aggregateRevenue.current_month.growth_pct_vs_last_month)}% vs ${previousMonthMatchRangeLabel()}`
                   }
                   subtitleTone={
                     aggregateRevenue.current_month.growth_pct_vs_last_month == null
@@ -1009,6 +1034,7 @@ export default function CreatorsListPage() {
                         rank === 1
                           ? "bg-amber-50 text-amber-800"
                           : "bg-gray-100 text-gray-500";
+                      const displayName = toTitleCase(p.name) || p.handle || p.affiliate_code;
                       return (
                         <a
                           key={p.creator_id}
@@ -1016,12 +1042,23 @@ export default function CreatorsListPage() {
                           className="flex items-center gap-2 py-1.5 px-1 -mx-1 rounded hover:bg-gray-50 transition-colors"
                         >
                           <span
-                            className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-medium ${rankClasses}`}
+                            className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-medium flex-shrink-0 ${rankClasses}`}
                           >
                             {rank}
                           </span>
+                          {p.photo ? (
+                            <img
+                              src={p.photo}
+                              alt=""
+                              className="w-8 h-8 rounded-full object-cover bg-gray-200 flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-medium flex-shrink-0">
+                              {initialsFor(displayName)}
+                            </div>
+                          )}
                           <span className="flex-1 min-w-0 text-sm text-gray-900 truncate">
-                            {p.name || p.handle || p.affiliate_code}
+                            {displayName}
                           </span>
                           <span className="text-sm font-medium text-gray-900">{formatMoney(p.revenue)}</span>
                         </a>
