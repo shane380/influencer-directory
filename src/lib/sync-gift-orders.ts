@@ -28,6 +28,10 @@ type GiftOrderRow = {
   line_items: LineItem[];
   tags: string;
   order_status: string;
+  fulfillment_status: string | null;
+  delivery_status: string | null;
+  tracking_url: string | null;
+  tracking_number: string | null;
   synced_at: string;
 };
 
@@ -98,6 +102,10 @@ function toRow(order: any, influencerId: string, nowISO: string): GiftOrderRow {
     line_items: lineItems,
     tags: order.tags || "",
     order_status: deriveOrderStatus(order),
+    fulfillment_status: order.fulfillment_status || null,
+    delivery_status: order.fulfillments?.[0]?.shipment_status || null,
+    tracking_url: order.fulfillments?.[0]?.tracking_url || null,
+    tracking_number: order.fulfillments?.[0]?.tracking_number || null,
     synced_at: nowISO,
   };
 }
