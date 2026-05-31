@@ -357,6 +357,8 @@ export default function AdminCreatorProfile() {
       file_count: files.length,
       files,
       notes: s.notes,
+      status: s.status,
+      admin_feedback: s.admin_feedback,
     };
   }, [reviewingId, submissions, influencer, creator]);
 
@@ -388,7 +390,6 @@ export default function AdminCreatorProfile() {
             : s,
         ),
       );
-      setReviewingId(null);
     }
   }
 

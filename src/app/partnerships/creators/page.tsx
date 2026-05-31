@@ -265,6 +265,8 @@ export default function CreatorsListPage() {
     files: Array<{ name: string; r2_url?: string; mime_type?: string }>;
     notes?: string;
     created_at: string;
+    status: "pending" | "approved" | "revision_requested";
+    admin_feedback: string | null;
   }>>([]);
   const [reviewingSubmission, setReviewingSubmission] = useState<string | null>(null);
   const [reviewSaving, setReviewSaving] = useState(false);
@@ -440,6 +442,8 @@ export default function CreatorsListPage() {
           files,
           notes: sub.notes,
           created_at: sub.created_at,
+          status: "pending" as const,
+          admin_feedback: null,
         };
       }));
 
@@ -842,11 +846,33 @@ export default function CreatorsListPage() {
         }),
       });
       if (res.ok) {
-        setPendingSubmissions((prev) => prev.filter((s) => s.id !== submissionId));
-        setReviewingSubmission(null);
+        // When the modal is open for this submission, leave it in the list with
+        // the new status so the modal can render its approved/revision state.
+        // The list is closed out when the user dismisses the modal (see below).
+        if (reviewingSubmission === submissionId) {
+          setPendingSubmissions((prev) =>
+            prev.map((s) =>
+              s.id === submissionId
+                ? {
+                    ...s,
+                    status: action,
+                    admin_feedback:
+                      action === "revision_requested" ? feedback || null : s.admin_feedback,
+                  }
+                : s,
+            ),
+          );
+        } else {
+          setPendingSubmissions((prev) => prev.filter((s) => s.id !== submissionId));
+        }
       }
     } catch {}
     setReviewSaving(false);
+  }
+
+  function closeReviewModal() {
+    setReviewingSubmission(null);
+    setPendingSubmissions((prev) => prev.filter((s) => s.status === "pending"));
   }
 
   return (
@@ -1123,7 +1149,8 @@ export default function CreatorsListPage() {
 
           {/* Inbox — unified action queue across submissions, outfits, gift cards */}
           {(() => {
-            const submissionsCount = pendingSubmissions.length;
+            const visibleSubmissions = pendingSubmissions.filter((s) => s.status === "pending");
+            const submissionsCount = visibleSubmissions.length;
             const outfitsCount = pendingRequests.length;
             const giftCardsCount = pendingOneOffs.length;
             const total = submissionsCount + outfitsCount + giftCardsCount;
@@ -1141,11 +1168,11 @@ export default function CreatorsListPage() {
                   expanded={inboxExpanded === "submissions"}
                   onToggle={() => setInboxExpanded((p) => (p === "submissions" ? null : "submissions"))}
                 >
-                  {pendingSubmissions.length === 0 ? (
+                  {visibleSubmissions.length === 0 ? (
                     <div className="px-4 py-3 text-xs text-gray-500">No pending submissions.</div>
                   ) : (
                     <div className="px-4 py-3 space-y-2">
-                      {pendingSubmissions.map((sub) => {
+                      {visibleSubmissions.map((sub) => {
                         const [yr, mo] = (sub.month || "").split("-");
                         const monthLabel = yr && mo
                           ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString("en", { month: "long", year: "numeric" })
@@ -2247,7 +2274,7 @@ export default function CreatorsListPage() {
         return (
           <SubmissionReviewModal
             submission={sub}
-            onClose={() => setReviewingSubmission(null)}
+            onClose={closeReviewModal}
             onAction={(id, action, feedback) => handleReviewAction(id, action, feedback)}
           />
         );

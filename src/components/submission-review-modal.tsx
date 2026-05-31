@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X } from "lucide-react";
+import { Check, Download, X } from "lucide-react";
 
 export interface SubmissionForReview {
   id: string;
@@ -11,6 +11,8 @@ export interface SubmissionForReview {
   file_count: number;
   files: Array<{ name: string; r2_url?: string; mime_type?: string }>;
   notes?: string | null;
+  status?: "pending" | "approved" | "revision_requested" | string | null;
+  admin_feedback?: string | null;
 }
 
 interface Props {
@@ -27,6 +29,9 @@ export function SubmissionReviewModal({ submission, onClose, onAction }: Props) 
   const [feedback, setFeedback] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const status = submission.status || "pending";
+  const downloadableFiles = submission.files.filter((f) => !!f.r2_url);
+
   const [yr, mo] = (submission.month || "").split("-");
   const monthLabel = yr && mo
     ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString("en", { month: "long", year: "numeric" })
@@ -39,6 +44,25 @@ export function SubmissionReviewModal({ submission, onClose, onAction }: Props) 
       await onAction(submission.id, action, feedback);
     } finally {
       setSaving(false);
+    }
+  }
+
+  function handleDownloadAll() {
+    if (downloadableFiles.length === 0) return;
+    if (downloadableFiles.length === 1) {
+      const f = downloadableFiles[0];
+      const a = document.createElement("a");
+      a.href = f.r2_url!;
+      a.download = f.name || "";
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      return;
+    }
+    for (const f of downloadableFiles) {
+      window.open(f.r2_url!, "_blank", "noopener,noreferrer");
     }
   }
 
@@ -129,32 +153,65 @@ export function SubmissionReviewModal({ submission, onClose, onAction }: Props) 
           </div>
 
           <div className="w-64 p-6 flex flex-col gap-4">
-            <button
-              onClick={() => handle("approved")}
-              disabled={saving}
-              className="w-full py-2.5 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-            >
-              {saving ? "Saving..." : "Approve"}
-            </button>
-            <div className="border-t pt-4">
-              <label className="block text-xs font-medium text-gray-500 mb-2">
-                Request Revision
-              </label>
-              <textarea
-                placeholder="What changes are needed?"
-                value={feedback}
-                onChange={(e) => setFeedback(e.target.value)}
-                rows={4}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-amber-300"
-              />
-              <button
-                onClick={() => handle("revision_requested")}
-                disabled={saving || !feedback.trim()}
-                className="w-full mt-2 py-2 text-sm font-medium border border-amber-400 text-amber-700 rounded-lg hover:bg-amber-50 transition-colors disabled:opacity-50"
-              >
-                Request Revision
-              </button>
-            </div>
+            {status === "approved" ? (
+              <>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 text-green-700 text-sm font-medium">
+                  <Check className="h-4 w-4" />
+                  Content Approved
+                </div>
+                <button
+                  onClick={handleDownloadAll}
+                  disabled={downloadableFiles.length === 0}
+                  className="w-full py-2.5 text-sm font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  {downloadableFiles.length > 1 ? `Download (${downloadableFiles.length})` : "Download"}
+                </button>
+              </>
+            ) : status === "revision_requested" ? (
+              <>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 text-amber-700 text-sm font-medium">
+                  Revisions Requested
+                </div>
+                {submission.admin_feedback && (
+                  <div>
+                    <div className="text-xs font-medium text-gray-500 mb-2">Feedback sent</div>
+                    <div className="text-sm text-gray-700 whitespace-pre-wrap border border-gray-200 rounded-lg px-3 py-2 bg-gray-50">
+                      {submission.admin_feedback}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => handle("approved")}
+                  disabled={saving}
+                  className="w-full py-2.5 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                >
+                  {saving ? "Saving..." : "Approve"}
+                </button>
+                <div className="border-t pt-4">
+                  <label className="block text-xs font-medium text-gray-500 mb-2">
+                    Request Revision
+                  </label>
+                  <textarea
+                    placeholder="What changes are needed?"
+                    value={feedback}
+                    onChange={(e) => setFeedback(e.target.value)}
+                    rows={4}
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-amber-300"
+                  />
+                  <button
+                    onClick={() => handle("revision_requested")}
+                    disabled={saving || !feedback.trim()}
+                    className="w-full mt-2 py-2 text-sm font-medium border border-amber-400 text-amber-700 rounded-lg hover:bg-amber-50 transition-colors disabled:opacity-50"
+                  >
+                    Request Revision
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
