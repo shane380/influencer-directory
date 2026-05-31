@@ -19,9 +19,17 @@ interface ShopifyFulfillment {
   shipment_status: string | null;
 }
 
+interface ShopifyLineItem {
+  title: string;
+  variant_title: string | null;
+  sku: string | null;
+  quantity: number;
+}
+
 interface ShopifyOrder {
   id: number;
   name: string;
+  created_at?: string;
   cancelled_at: string | null;
   financial_status: string;
   fulfillment_status: string | null;
@@ -29,6 +37,9 @@ interface ShopifyOrder {
   tags: string;
   note: string | null;
   note_attributes: { name: string; value: string }[];
+  total_price?: string;
+  customer?: { id: number } | null;
+  line_items?: ShopifyLineItem[];
 }
 
 function determineStatus(order: ShopifyOrder): {
@@ -105,7 +116,70 @@ async function updateOrderStatus(
     .eq("shopify_real_order_id", realOrderId);
 }
 
+// Fulfillment status for the gift_orders cache: placed | shipped | delivered.
+function giftOrderStatus(order: ShopifyOrder): string {
+  const ff = order.fulfillments || [];
+  if (ff.some((f) => f.shipment_status === "delivered")) return "delivered";
+  if (order.fulfillment_status === "fulfilled" || ff.length > 0) return "shipped";
+  return "placed";
+}
+
+// Upsert an order into gift_orders if its customer is one of our influencers.
+// Webhooks capture orders at creation, so they're recorded regardless of the
+// Shopify Orders API's 60-day read window (the app lacks read_all_orders).
+async function upsertGiftOrderFromWebhook(order: ShopifyOrder) {
+  const customerId = order.customer?.id ? String(order.customer.id) : null;
+  if (!customerId) return;
+
+  const supabase = getSupabase();
+
+  // Match the customer to an influencer (shopify_customer_id may be comma-listed).
+  const { data: matches } = await (supabase.from("influencers") as any)
+    .select("id, shopify_customer_id")
+    .or(`shopify_customer_id.eq.${customerId},shopify_customer_id.ilike.%${customerId}%`);
+  const inf = ((matches as any[]) || []).find((m) =>
+    String(m.shopify_customer_id || "")
+      .split(",")
+      .map((s) => s.trim())
+      .includes(customerId),
+  );
+  if (!inf) return; // not an influencer order — ignore
+
+  const total = parseFloat(order.total_price || "0");
+  const lineItems = (order.line_items || []).map((li) => ({
+    product_name: li.title,
+    variant_title: li.variant_title || null,
+    sku: li.sku || "",
+    quantity: li.quantity,
+  }));
+
+  await (supabase.from("gift_orders") as any).upsert(
+    {
+      shopify_order_id: String(order.id),
+      shopify_customer_id: customerId,
+      influencer_id: inf.id,
+      order_number: order.name || "",
+      order_date: order.created_at || new Date().toISOString(),
+      total_amount: total,
+      is_gift: total === 0,
+      line_items: lineItems,
+      tags: order.tags || "",
+      order_status: giftOrderStatus(order),
+      synced_at: new Date().toISOString(),
+    },
+    { onConflict: "shopify_order_id" },
+  );
+}
+
+async function deleteGiftOrderFromWebhook(orderId: string) {
+  const supabase = getSupabase();
+  await (supabase.from("gift_orders") as any).delete().eq("shopify_order_id", orderId);
+}
+
 async function handleOrderCreate(order: ShopifyOrder) {
+  // Record the gift in gift_orders (independent of the draft-order linking below).
+  await upsertGiftOrderFromWebhook(order);
+
   const supabase = getSupabase();
   const realOrderId = String(order.id);
   const now = new Date().toISOString();
@@ -154,6 +228,7 @@ async function handleOrderFulfilled(order: ShopifyOrder) {
   const realOrderId = String(order.id);
   const { status, tracking_number, tracking_url } = determineStatus(order);
   await updateOrderStatus(realOrderId, status, tracking_number, tracking_url);
+  await upsertGiftOrderFromWebhook(order);
   console.log(`Webhook: orders/fulfilled — order ${realOrderId} → ${status}`);
 }
 
@@ -161,12 +236,14 @@ async function handleFulfillmentUpdate(order: ShopifyOrder) {
   const realOrderId = String(order.id);
   const { status, tracking_number, tracking_url } = determineStatus(order);
   await updateOrderStatus(realOrderId, status, tracking_number, tracking_url);
+  await upsertGiftOrderFromWebhook(order);
   console.log(`Webhook: fulfillments/update — order ${realOrderId} → ${status}`);
 }
 
 async function handleOrderCancelled(order: ShopifyOrder) {
   const realOrderId = String(order.id);
   await updateOrderStatus(realOrderId, null, null, null, true);
+  await deleteGiftOrderFromWebhook(realOrderId);
   console.log(`Webhook: orders/cancelled — order ${realOrderId} → cleared`);
 }
 
