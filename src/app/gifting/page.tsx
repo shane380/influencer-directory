@@ -67,10 +67,12 @@ function initials(name: string): string {
 }
 
 function monthLabel(dateStr: string): string {
-  // dateStr is "YYYY-MM-01"
+  // dateStr is "YYYY-MM-01" representing a calendar month. Format in UTC so a
+  // negative-offset local timezone doesn't roll midnight back to the prior month.
   const [y, m] = dateStr.split("-");
   return new Date(Date.UTC(parseInt(y, 10), parseInt(m, 10) - 1, 1)).toLocaleString("en", {
     month: "short",
+    timeZone: "UTC",
   });
 }
 
