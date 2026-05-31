@@ -377,8 +377,14 @@ export default function CreatorsListPage() {
         return;
       }
 
-      // Action-queue enrichment uses the same creator metadata we already have
-      const creatorMap = new Map(enriched.map((c: any) => [c.id, c]));
+      // Action-queue enrichment uses the same creator metadata we already have.
+      // Keyed by raw creators.id because pending requests/submissions reference
+      // that UUID directly (c.id is now a prefixed row_id after the pivot).
+      const creatorMap = new Map(
+        enriched
+          .filter((c: any) => c.creator_id)
+          .map((c: any) => [c.creator_id as string, c])
+      );
 
       const { data: allPendingReqs } = await supabase
         .from("creator_sample_requests" as any)
