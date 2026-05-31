@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { Sidebar } from "@/components/sidebar";
 import { KpiCard } from "@/components/partnerships/kpi-card";
 import { RangePicker, type RangeOption } from "@/components/partnerships/range-picker";
+import { Search, X, Plus, Check } from "lucide-react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -42,6 +43,14 @@ type PrPartner = {
   last_product: string | null;
   weeks_since: number | null;
   status: GiftStatus;
+};
+
+type SearchResult = {
+  id: string;
+  name: string;
+  instagram_handle: string | null;
+  profile_photo_url: string | null;
+  partnership_type: string;
 };
 
 const statusDot: Record<GiftStatus, string> = {
@@ -87,6 +96,24 @@ export default function GiftingDashboardPage() {
   const [prList, setPrList] = useState<PrPartner[] | null>(null);
   const [prLoading, setPrLoading] = useState(true);
 
+  // Add-to-PR-list modal
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [addingId, setAddingId] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  const fetchPrList = useCallback(() => {
+    return fetch(`/api/gifting/pr-list`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        setPrList(data?.partners || []);
+        setPrLoading(false);
+      })
+      .catch(() => setPrLoading(false));
+  }, []);
+
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -129,14 +156,63 @@ export default function GiftingDashboardPage() {
 
   // PR list — fetched once.
   useEffect(() => {
-    fetch(`/api/gifting/pr-list`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        setPrList(data?.partners || []);
-        setPrLoading(false);
-      })
-      .catch(() => setPrLoading(false));
-  }, []);
+    fetchPrList();
+  }, [fetchPrList]);
+
+  // Debounced influencer search for the add modal.
+  useEffect(() => {
+    if (!showAddModal) return;
+    const q = searchQuery.trim();
+    if (!q) {
+      setSearchResults([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      const { data } = await (supabase.from("influencers") as any)
+        .select("id, name, instagram_handle, profile_photo_url, partnership_type")
+        .or(`name.ilike.%${q}%,instagram_handle.ilike.%${q}%`)
+        .order("name", { ascending: true })
+        .limit(20);
+      setSearchResults((data as SearchResult[]) || []);
+      setSearching(false);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery, showAddModal, supabase]);
+
+  async function handleAddToPrList(inf: SearchResult) {
+    setAddingId(inf.id);
+    const { error } = await (supabase.from("influencers") as any)
+      .update({ partnership_type: "pr_list" })
+      .eq("id", inf.id);
+    if (!error) {
+      // Reflect the change in the open search list and refresh the table beneath.
+      setSearchResults((prev) =>
+        prev.map((r) => (r.id === inf.id ? { ...r, partnership_type: "pr_list" } : r)),
+      );
+      await fetchPrList();
+    }
+    setAddingId(null);
+  }
+
+  function closeAddModal() {
+    setShowAddModal(false);
+    setSearchQuery("");
+    setSearchResults([]);
+  }
+
+  // Remove from the PR list = demote back to regular recurring gifting.
+  async function handleRemoveFromPrList(p: PrPartner, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!window.confirm(`Remove ${p.name} from the PR list?`)) return;
+    setRemovingId(p.influencer_id);
+    const { error } = await (supabase.from("influencers") as any)
+      .update({ partnership_type: "gifted_recurring" })
+      .eq("id", p.influencer_id);
+    if (!error) await fetchPrList();
+    setRemovingId(null);
+  }
 
   const onPrList = prList?.length ?? 0;
   const dueSoon = (prList || []).filter((p) => p.status === "yellow").length;
@@ -248,10 +324,19 @@ export default function GiftingDashboardPage() {
           {/* PR list table */}
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h2 className="text-sm font-medium text-gray-900">PR List</h2>
-              <span className="text-xs text-gray-400">
-                Recurring gifting · target every 30–45 days
-              </span>
+              <div className="flex items-center gap-3">
+                <h2 className="text-sm font-medium text-gray-900">PR List</h2>
+                <span className="text-xs text-gray-400">
+                  Recurring gifting · target every 30–45 days
+                </span>
+              </div>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-md hover:bg-gray-800 transition-colors"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add to PR list
+              </button>
             </div>
 
             {prLoading ? (
@@ -260,7 +345,7 @@ export default function GiftingDashboardPage() {
               <div className="px-6 py-12 text-center">
                 <p className="text-sm text-gray-500">No influencers on the PR list yet.</p>
                 <p className="text-xs text-gray-400 mt-1">
-                  Set an influencer&apos;s partnership type to &quot;PR List&quot; to add them here.
+                  Use &quot;Add to PR list&quot; above to graduate an influencer to recurring gifting.
                 </p>
               </div>
             ) : (
@@ -270,6 +355,7 @@ export default function GiftingDashboardPage() {
                     <th className="px-6 py-2.5 font-medium">Partner</th>
                     <th className="px-6 py-2.5 font-medium">Since last gift</th>
                     <th className="px-6 py-2.5 font-medium">Last sent</th>
+                    <th className="px-6 py-2.5 font-medium w-px" />
                   </tr>
                 </thead>
                 <tbody>
@@ -277,7 +363,7 @@ export default function GiftingDashboardPage() {
                     <tr
                       key={p.influencer_id}
                       onClick={() => router.push(`/partnerships/creators/${p.influencer_id}`)}
-                      className="border-b border-gray-50 last:border-b-0 hover:bg-gray-50 transition-colors cursor-pointer"
+                      className="group border-b border-gray-50 last:border-b-0 hover:bg-gray-50 transition-colors cursor-pointer"
                     >
                       <td className="px-6 py-3">
                         <div className="flex items-center gap-3 min-w-0">
@@ -322,6 +408,20 @@ export default function GiftingDashboardPage() {
                           {p.last_product || "—"}
                         </span>
                       </td>
+                      <td className="px-6 py-3 text-right">
+                        <button
+                          onClick={(e) => handleRemoveFromPrList(p, e)}
+                          disabled={removingId === p.influencer_id}
+                          title="Remove from PR list"
+                          className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity disabled:opacity-50"
+                        >
+                          {removingId === p.influencer_id ? (
+                            <span className="text-xs text-gray-400">Removing…</span>
+                          ) : (
+                            <X className="h-4 w-4" />
+                          )}
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -330,6 +430,108 @@ export default function GiftingDashboardPage() {
           </div>
         </div>
       </main>
+
+      {/* Add-to-PR-list modal */}
+      {showAddModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-4 pt-24"
+          onClick={closeAddModal}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
+              <h3 className="text-sm font-medium text-gray-900">Add to PR list</h3>
+              <button
+                onClick={closeAddModal}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  autoFocus
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by name or handle…"
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300"
+                />
+              </div>
+
+              <div className="mt-3 max-h-80 overflow-y-auto">
+                {searching ? (
+                  <div className="py-8 text-center text-sm text-gray-400">Searching…</div>
+                ) : searchQuery.trim() === "" ? (
+                  <div className="py-8 text-center text-sm text-gray-400">
+                    Start typing to find an influencer.
+                  </div>
+                ) : searchResults.length === 0 ? (
+                  <div className="py-8 text-center text-sm text-gray-400">No matches found.</div>
+                ) : (
+                  <ul className="space-y-1">
+                    {searchResults.map((r) => {
+                      const onList = r.partnership_type === "pr_list";
+                      return (
+                        <li
+                          key={r.id}
+                          className="flex items-center gap-3 px-2 py-2 rounded-md hover:bg-gray-50"
+                        >
+                          {r.profile_photo_url ? (
+                            <Image
+                              src={r.profile_photo_url}
+                              alt={r.name}
+                              width={32}
+                              height={32}
+                              className="rounded-full flex-shrink-0 object-cover h-8 w-8"
+                              unoptimized
+                            />
+                          ) : (
+                            <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                              <span className="text-xs font-medium text-gray-500">
+                                {initials(r.name)}
+                              </span>
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium text-gray-900 truncate">
+                              {r.name}
+                            </div>
+                            {r.instagram_handle && (
+                              <div className="text-xs text-gray-400 truncate">
+                                @{r.instagram_handle.replace(/^@/, "")}
+                              </div>
+                            )}
+                          </div>
+                          {onList ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-emerald-600 flex-shrink-0">
+                              <Check className="h-3.5 w-3.5" />
+                              On list
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleAddToPrList(r)}
+                              disabled={addingId === r.id}
+                              className="px-2.5 py-1 text-xs bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors disabled:opacity-50 flex-shrink-0"
+                            >
+                              {addingId === r.id ? "Adding…" : "Add"}
+                            </button>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
