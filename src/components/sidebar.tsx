@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Campaign } from "@/types/database";
 import {
   Users,
-  Megaphone,
+  Gift,
   DollarSign,
   Share2,
   Heart,
@@ -43,6 +43,7 @@ interface GroupedCampaigns {
 
 export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: SidebarProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [giftingExpanded, setGiftingExpanded] = useState(false);
   const [campaignsExpanded, setCampaignsExpanded] = useState(false);
   const [partnersExpanded, setPartnersExpanded] = useState(false);
   const [groupedCampaigns, setGroupedCampaigns] = useState<GroupedCampaigns[]>([]);
@@ -69,10 +70,16 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
 
   const supabase = createClient();
 
-  // Auto-expand Partners submenu when on a partners page
+  // Auto-expand submenus when on a matching page
   useEffect(() => {
     if (pathname?.startsWith('/partnerships/creators') || pathname?.startsWith('/partnerships/campaigns')) {
       setPartnersExpanded(true);
+    }
+    if (pathname?.startsWith('/gifting') || pathname?.startsWith('/campaigns')) {
+      setGiftingExpanded(true);
+    }
+    if (pathname?.startsWith('/campaigns')) {
+      setCampaignsExpanded(true);
     }
   }, [pathname]);
 
@@ -196,7 +203,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
 
   const navItems = [
     { id: "influencers", label: "Influencers", icon: Users },
-    { id: "campaigns", label: "Campaigns", icon: Megaphone, expandable: true },
+    { id: "gifting", label: "Gifting/PR", icon: Gift, expandable: true },
     { id: "paid_collabs", label: "Paid Collabs", icon: DollarSign },
     { id: "whitelisting", label: "Whitelisting", icon: Share2 },
     { id: "partners", label: "Partners", icon: Heart, expandable: true },
@@ -204,8 +211,8 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
   ];
 
   const handleNavClick = (id: string) => {
-    if (id === "campaigns") {
-      setCampaignsExpanded(!campaignsExpanded);
+    if (id === "gifting") {
+      setGiftingExpanded(!giftingExpanded);
     } else if (id === "partners") {
       setPartnersExpanded(!partnersExpanded);
     } else if (id === "payments") {
@@ -252,7 +259,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id ||
-              (item.id === "campaigns" && pathname?.startsWith("/campaigns")) ||
+              (item.id === "gifting" && (pathname?.startsWith("/gifting") || pathname?.startsWith("/campaigns"))) ||
               (item.id === "partners" && (pathname?.startsWith("/partnerships/creators") || pathname?.startsWith("/partnerships/campaigns"))) ||
               (item.id === "payments" && pathname?.startsWith("/partnerships/payments"));
 
@@ -286,7 +293,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                     )}
                   </span>
                   {isHovered && item.expandable && (
-                    (item.id === "campaigns" ? campaignsExpanded : item.id === "partners" ? partnersExpanded : false) ? (
+                    (item.id === "gifting" ? giftingExpanded : item.id === "partners" ? partnersExpanded : false) ? (
                       <ChevronDown className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
                     ) : (
                       <ChevronRight className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
@@ -329,41 +336,78 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                   </ul>
                 )}
 
-                {/* Campaigns submenu */}
-                {isHovered && item.id === "campaigns" && campaignsExpanded && (
+                {/* Gifting/PR submenu */}
+                {isHovered && item.id === "gifting" && giftingExpanded && (
                   <ul
                     className="mt-1 ml-3 pl-3 border-l border-gray-200 space-y-1"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <li>
+                      <Link
+                        href="/gifting"
+                        onClick={(e) => e.stopPropagation()}
+                        className={`block px-2 py-1.5 text-sm rounded-md transition-colors ${
+                          pathname === "/gifting"
+                            ? "text-gray-900 bg-gray-100 font-medium"
+                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                        }`}
+                      >
+                        Dashboard
+                      </Link>
+                    </li>
+                    <li>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          router.push("/?tab=campaigns");
+                          setCampaignsExpanded(!campaignsExpanded);
                         }}
-                        className="w-full text-left px-2 py-1.5 text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
+                        className={`w-full flex items-center justify-between px-2 py-1.5 text-sm rounded-md transition-colors ${
+                          pathname?.startsWith("/campaigns")
+                            ? "text-gray-900 bg-gray-100 font-medium"
+                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                        }`}
                       >
-                        View All
+                        <span>Campaigns</span>
+                        {campaignsExpanded ? (
+                          <ChevronDown className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                        ) : (
+                          <ChevronRight className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                        )}
                       </button>
+                      {campaignsExpanded && (
+                        <ul className="mt-1 ml-2 pl-2 border-l border-gray-200 space-y-1">
+                          <li>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.push("/?tab=campaigns");
+                              }}
+                              className="w-full text-left px-2 py-1.5 text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
+                            >
+                              View All
+                            </button>
+                          </li>
+                          {loadingCampaigns ? (
+                            <li className="px-2 py-1.5 text-sm text-gray-400">Loading...</li>
+                          ) : (
+                            groupedCampaigns.slice(0, 6).map((group) => (
+                              <li key={group.monthKey}>
+                                <button
+                                  onClick={(e) => handleMonthClick(e, group.monthKey)}
+                                  className={`w-full text-left px-2 py-1.5 text-sm rounded-md transition-colors truncate ${
+                                    pathname === `/campaigns/month/${group.monthKey}`
+                                      ? "text-gray-900 bg-gray-100 font-medium"
+                                      : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                                  }`}
+                                >
+                                  {group.label}
+                                </button>
+                              </li>
+                            ))
+                          )}
+                        </ul>
+                      )}
                     </li>
-                    {loadingCampaigns ? (
-                      <li className="px-2 py-1.5 text-sm text-gray-400">Loading...</li>
-                    ) : (
-                      groupedCampaigns.slice(0, 6).map((group) => (
-                        <li key={group.monthKey}>
-                          <button
-                            onClick={(e) => handleMonthClick(e, group.monthKey)}
-                            className={`w-full text-left px-2 py-1.5 text-sm rounded-md transition-colors truncate ${
-                              pathname === `/campaigns/month/${group.monthKey}`
-                                ? "text-gray-900 bg-gray-100 font-medium"
-                                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-                            }`}
-                          >
-                            {group.label}
-                          </button>
-                        </li>
-                      ))
-                    )}
                   </ul>
                 )}
               </li>
