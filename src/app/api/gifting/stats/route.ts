@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
   );
 
   // Pull gift orders from the earliest month we chart through today.
-  const { data: rows } = await (db.from("influencer_orders") as any)
+  const { data: rows } = await (db.from("gift_orders") as any)
     .select("order_date")
     .eq("is_gift", true)
     .gte("order_date", earliestMonthStartDay)

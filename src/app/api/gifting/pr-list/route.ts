@@ -51,8 +51,9 @@ export async function GET() {
 
   const ids = list.map((i) => i.id);
 
-  // Most recent order per influencer. Pull ordered desc and keep the first seen.
-  const { data: orders } = await (db.from("influencer_orders") as any)
+  // Most recent gift per influencer (orders tagged "influencer"). Pull ordered
+  // desc and keep the first seen.
+  const { data: orders } = await (db.from("gift_orders") as any)
     .select("influencer_id, order_date, line_items")
     .in("influencer_id", ids)
     .order("order_date", { ascending: false });
