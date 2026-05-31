@@ -54,16 +54,20 @@ export async function GET() {
   // Most recent gift per influencer (orders tagged "influencer"). Pull ordered
   // desc and keep the first seen.
   const { data: orders } = await (db.from("gift_orders") as any)
-    .select("influencer_id, order_date, line_items")
+    .select("influencer_id, order_date, line_items, order_status")
     .in("influencer_id", ids)
     .order("order_date", { ascending: false });
 
-  const lastOrderByInfluencer = new Map<string, { order_date: string; line_items: any }>();
+  const lastOrderByInfluencer = new Map<
+    string,
+    { order_date: string; line_items: any; order_status: string | null }
+  >();
   for (const o of (orders as any[]) || []) {
     if (!lastOrderByInfluencer.has(o.influencer_id)) {
       lastOrderByInfluencer.set(o.influencer_id, {
         order_date: o.order_date,
         line_items: o.line_items,
+        order_status: o.order_status || null,
       });
     }
   }
@@ -83,6 +87,7 @@ export async function GET() {
       photo: inf.profile_photo_url as string | null,
       last_gift_date: last?.order_date || null,
       last_product: last ? firstProductName(last.line_items) : null,
+      order_status: last?.order_status || null,
       weeks_since: weeksSince,
       status: statusForWeeks(weeksSince),
     };

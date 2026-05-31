@@ -7,7 +7,9 @@ import { createClient } from "@/lib/supabase/client";
 import { Sidebar } from "@/components/sidebar";
 import { KpiCard } from "@/components/partnerships/kpi-card";
 import { RangePicker, type RangeOption } from "@/components/partnerships/range-picker";
-import { Search, X, Plus, Check } from "lucide-react";
+import { InfluencerDialog } from "@/components/influencer-dialog";
+import type { Influencer } from "@/types/database";
+import { Search, X, Plus, Check, ShoppingCart } from "lucide-react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -41,6 +43,7 @@ type PrPartner = {
   photo: string | null;
   last_gift_date: string | null;
   last_product: string | null;
+  order_status: string | null;
   weeks_since: number | null;
   status: GiftStatus;
 };
@@ -57,6 +60,18 @@ const statusDot: Record<GiftStatus, string> = {
   green: "bg-emerald-500",
   yellow: "bg-amber-500",
   red: "bg-red-500",
+};
+
+// Order fulfillment status — mirrors the campaign tables' Order column styling.
+const orderDots: Record<string, string> = {
+  placed: "bg-amber-400",
+  shipped: "bg-purple-400",
+  delivered: "bg-green-500",
+};
+const orderLabels: Record<string, string> = {
+  placed: "Placed",
+  shipped: "Shipped",
+  delivered: "Delivered",
 };
 
 function initials(name: string): string {
@@ -105,6 +120,10 @@ export default function GiftingDashboardPage() {
   const [searching, setSearching] = useState(false);
   const [addingId, setAddingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
+
+  // Influencer profile modal (opened by clicking a row)
+  const [profileInfluencer, setProfileInfluencer] = useState<Influencer | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const fetchPrList = useCallback(() => {
     return fetch(`/api/gifting/pr-list`)
@@ -202,6 +221,18 @@ export default function GiftingDashboardPage() {
     setShowAddModal(false);
     setSearchQuery("");
     setSearchResults([]);
+  }
+
+  // Open the influencer profile modal — fetch the full record by id.
+  async function openProfile(influencerId: string) {
+    const { data } = await (supabase.from("influencers") as any)
+      .select("*")
+      .eq("id", influencerId)
+      .single();
+    if (data) {
+      setProfileInfluencer(data as Influencer);
+      setProfileOpen(true);
+    }
   }
 
   // Remove from the PR list = demote back to regular recurring gifting.
@@ -357,6 +388,7 @@ export default function GiftingDashboardPage() {
                     <th className="px-6 py-2.5 font-medium">Partner</th>
                     <th className="px-6 py-2.5 font-medium">Since last gift</th>
                     <th className="px-6 py-2.5 font-medium">Last sent</th>
+                    <th className="px-6 py-2.5 font-medium">Order</th>
                     <th className="px-6 py-2.5 font-medium w-px" />
                   </tr>
                 </thead>
@@ -364,7 +396,7 @@ export default function GiftingDashboardPage() {
                   {prList.map((p) => (
                     <tr
                       key={p.influencer_id}
-                      onClick={() => router.push(`/partnerships/creators/${p.influencer_id}`)}
+                      onClick={() => openProfile(p.influencer_id)}
                       className="group border-b border-gray-50 last:border-b-0 hover:bg-gray-50 transition-colors cursor-pointer"
                     >
                       <td className="px-6 py-3">
@@ -409,6 +441,22 @@ export default function GiftingDashboardPage() {
                         <span className="text-sm text-gray-500 truncate block max-w-xs">
                           {p.last_product || "—"}
                         </span>
+                      </td>
+                      <td className="px-6 py-3">
+                        {p.order_status ? (
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={`h-2 w-2 rounded-full flex-shrink-0 ${
+                                orderDots[p.order_status] || "bg-gray-300"
+                              }`}
+                            />
+                            <span className="text-sm text-gray-600">
+                              {orderLabels[p.order_status] || p.order_status}
+                            </span>
+                          </div>
+                        ) : (
+                          <ShoppingCart className="h-4 w-4 text-gray-300" />
+                        )}
                       </td>
                       <td className="px-6 py-3 text-right">
                         <button
@@ -534,6 +582,21 @@ export default function GiftingDashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Influencer profile modal */}
+      <InfluencerDialog
+        open={profileOpen}
+        onClose={() => {
+          setProfileOpen(false);
+          setProfileInfluencer(null);
+        }}
+        onSave={() => {
+          setProfileOpen(false);
+          setProfileInfluencer(null);
+          fetchPrList();
+        }}
+        influencer={profileInfluencer}
+      />
     </div>
   );
 }

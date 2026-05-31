@@ -7,7 +7,8 @@ import { getShopifyAccessToken, getShopifyStoreUrl } from "@/lib/shopify";
 // signal is "this order went to one of our influencers and was free."
 
 const API_VERSION = "2024-01";
-const ORDER_FIELDS = "id,name,created_at,cancelled_at,total_price,tags,customer,line_items";
+const ORDER_FIELDS =
+  "id,name,created_at,cancelled_at,total_price,tags,customer,line_items,fulfillment_status,fulfillments";
 
 type LineItem = {
   product_name: string;
@@ -26,8 +27,20 @@ type GiftOrderRow = {
   is_gift: boolean;
   line_items: LineItem[];
   tags: string;
+  order_status: string;
   synced_at: string;
 };
+
+// Derive a simple fulfillment status from a Shopify order.
+//   delivered: a fulfillment reports delivered
+//   shipped:   the order is fulfilled / has a fulfillment in transit
+//   placed:    a real order exists but isn't fulfilled yet
+function deriveOrderStatus(order: any): string {
+  const fulfillments: any[] = order.fulfillments || [];
+  if (fulfillments.some((f) => f.shipment_status === "delivered")) return "delivered";
+  if (order.fulfillment_status === "fulfilled" || fulfillments.length > 0) return "shipped";
+  return "placed";
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -84,6 +97,7 @@ function toRow(order: any, influencerId: string, nowISO: string): GiftOrderRow {
     is_gift: total === 0,
     line_items: lineItems,
     tags: order.tags || "",
+    order_status: deriveOrderStatus(order),
     synced_at: nowISO,
   };
 }
