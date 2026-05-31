@@ -1,13 +1,13 @@
 import { getShopifyAccessToken, getShopifyStoreUrl } from "@/lib/shopify";
 
-// Pulls real Shopify orders tagged "influencer" and upserts them into the
-// gift_orders cache. Uses the GraphQL Admin API so we filter by tag server-side
-// and only walk the orders that matter. Draft orders are NOT included — the
-// `orders` connection returns placed orders only, so gifts that were created as
-// a draft but never completed don't count.
+// Recipient-based gift sync: for every influencer with a Shopify customer ID,
+// pull that customer's orders and record the $0 ones as gifts. This is
+// tag-independent — it catches warehouse/WMS-fulfilled gifts (tagged
+// "sent-to-wms") and app-created ones (tagged "influencer") alike, because the
+// signal is "this order went to one of our influencers and was free."
 
 const API_VERSION = "2024-01";
-const PAGE_SIZE = 50;
+const ORDER_FIELDS = "id,name,created_at,cancelled_at,total_price,tags,customer,line_items";
 
 type LineItem = {
   product_name: string;
@@ -29,44 +29,75 @@ type GiftOrderRow = {
   synced_at: string;
 };
 
-function numericId(gid: string | null | undefined): string | null {
-  if (!gid) return null;
-  const parts = String(gid).split("/");
-  return parts[parts.length - 1] || null;
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
-const ORDERS_QUERY = `
-  query GiftOrders($cursor: String, $query: String!) {
-    orders(first: ${PAGE_SIZE}, after: $cursor, query: $query, sortKey: CREATED_AT) {
-      pageInfo { hasNextPage endCursor }
-      edges {
-        node {
-          id
-          name
-          createdAt
-          cancelledAt
-          tags
-          totalPriceSet { shopMoney { amount } }
-          customer { id }
-          lineItems(first: 50) {
-            edges { node { title quantity sku variantTitle } }
-          }
-        }
-      }
-    }
+function nextPageUrl(linkHeader: string | null): string | null {
+  if (!linkHeader) return null;
+  const m = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
+  return m ? m[1] : null;
+}
+
+// Fetch with basic 429 backoff (Shopify rate limiting).
+async function shopFetch(url: string, token: string, attempt = 0): Promise<Response> {
+  const res: Response = await fetch(url, {
+    headers: { "X-Shopify-Access-Token": token, "Content-Type": "application/json" },
+  });
+  if (res.status === 429 && attempt < 6) {
+    const retryAfter = Number(res.headers.get("Retry-After") || "2");
+    await sleep(Math.max(1, retryAfter) * 1000);
+    return shopFetch(url, token, attempt + 1);
   }
-`;
+  return res;
+}
+
+// Walk all pages of an orders.json query.
+async function fetchAllOrders(initialUrl: string, token: string): Promise<any[]> {
+  const out: any[] = [];
+  let url: string | null = initialUrl;
+  while (url) {
+    const res = await shopFetch(url, token);
+    if (!res.ok) break;
+    const data = await res.json();
+    out.push(...(data.orders || []));
+    url = nextPageUrl(res.headers.get("Link"));
+  }
+  return out;
+}
+
+function toRow(order: any, influencerId: string, nowISO: string): GiftOrderRow {
+  const total = parseFloat(order.total_price);
+  const lineItems: LineItem[] = (order.line_items || []).map((li: any) => ({
+    product_name: li.title,
+    variant_title: li.variant_title || null,
+    sku: li.sku || "",
+    quantity: li.quantity,
+  }));
+  return {
+    shopify_order_id: String(order.id),
+    shopify_customer_id: order.customer?.id ? String(order.customer.id) : null,
+    influencer_id: influencerId,
+    order_number: order.name || "",
+    order_date: order.created_at,
+    total_amount: total,
+    is_gift: total === 0,
+    line_items: lineItems,
+    tags: order.tags || "",
+    synced_at: nowISO,
+  };
+}
 
 /**
- * Sync orders tagged "influencer" into the gift_orders table.
+ * Sync orders for every influencer (by Shopify customer ID, with email fallback)
+ * into the gift_orders table. $0 orders are flagged is_gift.
  * @param db a Supabase client created with the service-role key.
- * @param opts.sinceISO only sync orders created on/after this ISO date (default: 2024-01-01).
- * @returns counts for logging.
+ * @param opts.sinceISO only sync orders created on/after this ISO date (default 2024-01-01).
  */
 export async function syncGiftOrders(
   db: any,
   opts: { sinceISO?: string } = {},
-): Promise<{ fetched: number; upserted: number; matched: number; unmatched: number }> {
+): Promise<{ influencers: number; fetched: number; gifts: number; upserted: number }> {
   const storeUrl = getShopifyStoreUrl();
   const accessToken = await getShopifyAccessToken();
   if (!storeUrl || !accessToken) {
@@ -74,98 +105,60 @@ export async function syncGiftOrders(
   }
 
   const sinceISO = opts.sinceISO || "2024-01-01T00:00:00Z";
-  const sinceDay = sinceISO.slice(0, 10);
-  const searchQuery = `tag:influencer created_at:>=${sinceDay}`;
+  const base = `https://${storeUrl}/admin/api/${API_VERSION}/orders.json`;
+  const common = `status=any&limit=250&fields=${ORDER_FIELDS}&created_at_min=${encodeURIComponent(sinceISO)}`;
 
-  // Build a customer_id -> influencer_id map. influencers.shopify_customer_id can
-  // hold multiple comma-separated ids, so index each one.
   const { data: influencers } = await db
     .from("influencers")
-    .select("id, shopify_customer_id")
+    .select("id, shopify_customer_id, email")
     .not("shopify_customer_id", "is", null);
-  const customerToInfluencer = new Map<string, string>();
-  for (const inf of (influencers as any[]) || []) {
-    for (const cid of String(inf.shopify_customer_id || "").split(",")) {
-      const trimmed = cid.trim();
-      if (trimmed) customerToInfluencer.set(trimmed, inf.id);
-    }
-  }
 
-  const endpoint = `https://${storeUrl}/admin/api/${API_VERSION}/graphql.json`;
-  const rows: GiftOrderRow[] = [];
-  let matched = 0;
-  let unmatched = 0;
-  let cursor: string | null = null;
-  let hasNext = true;
+  const list = (influencers as any[]) || [];
+  const rowsById = new Map<string, GiftOrderRow>(); // dedupe by shopify_order_id
   const nowISO = new Date().toISOString();
+  let processed = 0;
 
-  while (hasNext) {
-    const res: Response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "X-Shopify-Access-Token": accessToken,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        query: ORDERS_QUERY,
-        variables: { cursor, query: searchQuery },
-      }),
-    });
-    if (!res.ok) {
-      throw new Error(`Shopify GraphQL error: ${res.status} ${await res.text()}`);
-    }
-    const json = await res.json();
-    if (json.errors) {
-      throw new Error(`Shopify GraphQL errors: ${JSON.stringify(json.errors)}`);
+  for (const inf of list) {
+    processed++;
+    const customerIds = String(inf.shopify_customer_id || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const collected: any[] = [];
+    for (const cid of customerIds) {
+      const orders = await fetchAllOrders(`${base}?customer_id=${cid}&${common}`, accessToken);
+      collected.push(...orders);
+      await sleep(120); // gentle throttle under Shopify's rate limit
     }
 
-    const conn = json.data?.orders;
-    for (const edge of conn?.edges || []) {
-      const node = edge.node;
-      // Skip cancelled orders — they were not actually sent.
-      if (node.cancelledAt) continue;
-
-      const customerId = numericId(node.customer?.id);
-      const influencerId = customerId ? customerToInfluencer.get(customerId) || null : null;
-      if (influencerId) matched++;
-      else unmatched++;
-
-      const total = parseFloat(node.totalPriceSet?.shopMoney?.amount || "0");
-      const lineItems: LineItem[] = (node.lineItems?.edges || []).map((li: any) => ({
-        product_name: li.node.title,
-        variant_title: li.node.variantTitle || null,
-        sku: li.node.sku || "",
-        quantity: li.node.quantity,
-      }));
-
-      rows.push({
-        shopify_order_id: numericId(node.id) as string,
-        shopify_customer_id: customerId,
-        influencer_id: influencerId,
-        order_number: node.name || "",
-        order_date: node.createdAt,
-        total_amount: total,
-        is_gift: total === 0,
-        line_items: lineItems,
-        tags: Array.isArray(node.tags) ? node.tags.join(", ") : String(node.tags || ""),
-        synced_at: nowISO,
-      });
+    // Email fallback only when the customer ID(s) returned nothing.
+    if (collected.length === 0 && inf.email) {
+      const orders = await fetchAllOrders(
+        `${base}?email=${encodeURIComponent(inf.email)}&${common}`,
+        accessToken,
+      );
+      collected.push(...orders);
+      await sleep(120);
     }
 
-    hasNext = !!conn?.pageInfo?.hasNextPage;
-    cursor = conn?.pageInfo?.endCursor || null;
+    for (const order of collected) {
+      if (order.cancelled_at) continue; // not actually sent
+      const row = toRow(order, inf.id, nowISO);
+      rowsById.set(row.shopify_order_id, row);
+    }
   }
 
-  // Upsert in chunks to stay within payload limits.
+  const rows = Array.from(rowsById.values());
+  const gifts = rows.filter((r) => r.is_gift).length;
+
   let upserted = 0;
   for (let i = 0; i < rows.length; i += 500) {
     const chunk = rows.slice(i, i + 500);
-    const { error } = await db
-      .from("gift_orders")
-      .upsert(chunk, { onConflict: "shopify_order_id" });
+    const { error } = await db.from("gift_orders").upsert(chunk, { onConflict: "shopify_order_id" });
     if (error) throw new Error(`gift_orders upsert failed: ${error.message}`);
     upserted += chunk.length;
   }
 
-  return { fetched: rows.length, upserted, matched, unmatched };
+  return { influencers: processed, fetched: rows.length, gifts, upserted };
 }
