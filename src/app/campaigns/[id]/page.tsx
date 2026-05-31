@@ -115,6 +115,7 @@ const partnershipTypeLabels: Record<PartnershipType, string> = {
   gifted_soft_ask: "Gifted Soft Ask",
   gifted_deliverable_ask: "Gifted Deliverable Ask",
   gifted_recurring: "Gifted Recurring",
+  pr_list: "PR List",
   paid: "Paid",
   whitelisting: "Whitelisting",
 };
@@ -126,6 +127,7 @@ const partnershipTypeColors: Record<PartnershipType, string> = {
   gifted_soft_ask: "bg-gray-50 text-gray-600",
   gifted_deliverable_ask: "bg-gray-50 text-gray-600",
   gifted_recurring: "bg-gray-50 text-gray-600",
+  pr_list: "bg-gray-50 text-gray-600",
   paid: "bg-gray-50 text-gray-600",
   whitelisting: "bg-gray-50 text-gray-600",
 };
@@ -137,6 +139,7 @@ const partnershipDots: Record<PartnershipType, string> = {
   gifted_soft_ask: "bg-blue-400",
   gifted_deliverable_ask: "bg-amber-400",
   gifted_recurring: "bg-emerald-400",
+  pr_list: "bg-pink-500",
   paid: "bg-purple-500",
   whitelisting: "bg-teal-400",
 };
@@ -670,6 +673,7 @@ export default function CampaignDetailPage() {
               { value: "gifted_soft_ask", label: "Gifted Soft Ask" },
               { value: "gifted_deliverable_ask", label: "Gifted Deliverable Ask" },
               { value: "gifted_recurring", label: "Gifted Recurring" },
+              { value: "pr_list", label: "PR List" },
               { value: "paid", label: "Paid" },
               { value: "whitelisting", label: "Whitelisting" },
             ]}
@@ -914,6 +918,7 @@ export default function CampaignDetailPage() {
                         <option value="gifted_soft_ask">Soft Ask</option>
                         <option value="gifted_deliverable_ask">Deliverable</option>
                         <option value="gifted_recurring">Recurring</option>
+                        <option value="pr_list">PR List</option>
                         <option value="paid">Paid</option>
                         <option value="whitelisting">Whitelisting</option>
                       </Select>
