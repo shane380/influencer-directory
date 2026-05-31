@@ -509,14 +509,10 @@ export function InfluencerDialog({
     console.log("Refreshing orders for customer ID:", influencer.shopify_customer_id, "name:", influencer.name);
     setRefreshingOrders(true);
     try {
-      const response = await fetch("/api/shopify/orders/sync", {
+      const response = await fetch("/api/gifting/sync-influencer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          influencer_id: influencer.id,
-          shopify_customer_id: influencer.shopify_customer_id,
-          influencer_name: influencer.name,
-        }),
+        body: JSON.stringify({ influencer_id: influencer.id }),
       });
 
       const data = await response.json();
@@ -562,16 +558,12 @@ export function InfluencerDialog({
         }
       }
 
-      // Sync orders for the new customer
+      // Sync orders for the new customer into gift_orders
       setRefreshingOrders(true);
-      const syncResponse = await fetch("/api/shopify/orders/sync", {
+      const syncResponse = await fetch("/api/gifting/sync-influencer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          influencer_id: influencer.id,
-          shopify_customer_id: newIds,
-          influencer_name: influencer.name,
-        }),
+        body: JSON.stringify({ influencer_id: influencer.id }),
       });
 
       if (syncResponse.ok) {

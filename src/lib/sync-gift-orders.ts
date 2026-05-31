@@ -110,7 +110,7 @@ function toRow(order: any, influencerId: string, nowISO: string): GiftOrderRow {
  */
 export async function syncGiftOrders(
   db: any,
-  opts: { sinceISO?: string } = {},
+  opts: { sinceISO?: string; influencerIds?: string[] } = {},
 ): Promise<{ influencers: number; fetched: number; gifts: number; upserted: number }> {
   const storeUrl = getShopifyStoreUrl();
   const accessToken = await getShopifyAccessToken();
@@ -122,10 +122,14 @@ export async function syncGiftOrders(
   const base = `https://${storeUrl}/admin/api/${API_VERSION}/orders.json`;
   const common = `status=any&limit=250&fields=${ORDER_FIELDS}&created_at_min=${encodeURIComponent(sinceISO)}`;
 
-  const { data: influencers } = await db
+  let influencerQuery = db
     .from("influencers")
     .select("id, shopify_customer_id, email")
     .not("shopify_customer_id", "is", null);
+  if (opts.influencerIds && opts.influencerIds.length > 0) {
+    influencerQuery = influencerQuery.in("id", opts.influencerIds);
+  }
+  const { data: influencers } = await influencerQuery;
 
   const list = (influencers as any[]) || [];
   const rowsById = new Map<string, GiftOrderRow>(); // dedupe by shopify_order_id

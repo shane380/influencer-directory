@@ -362,7 +362,7 @@ export default function CampaignsPage() {
     setWardrobeLoading(true);
     try {
       const { data: orders } = await (supabase
-        .from("influencer_orders") as any)
+        .from("gift_orders") as any)
         .select("line_items")
         .in("influencer_id", influencerIds);
       const seen = new Set<string>();

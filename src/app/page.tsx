@@ -419,7 +419,7 @@ function HomePageContent() {
       if (ids.length > 0) {
         const [ordersResult, contentResult, dealsResult] = await Promise.all([
           supabase
-            .from("influencer_orders")
+            .from("gift_orders")
             .select("*")
             .in("influencer_id", ids)
             .eq("is_gift", true),

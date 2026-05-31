@@ -21,9 +21,10 @@ export async function GET(
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch cached orders for this influencer
+    // Fetch cached orders for this influencer from gift_orders (single source
+    // of truth, kept current by the nightly cron + webhook).
     const { data: orders, error } = await supabase
-      .from("influencer_orders")
+      .from("gift_orders")
       .select("*")
       .eq("influencer_id", influencerId)
       .order("order_date", { ascending: false });
