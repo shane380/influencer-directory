@@ -8,7 +8,8 @@ import { Sidebar } from "@/components/sidebar";
 import { KpiCard } from "@/components/partnerships/kpi-card";
 import { RangePicker, type RangeOption } from "@/components/partnerships/range-picker";
 import { InfluencerDialog } from "@/components/influencer-dialog";
-import type { Influencer } from "@/types/database";
+import { OrderDialog } from "@/components/order-dialog";
+import type { Influencer, CampaignInfluencer } from "@/types/database";
 import { Search, X, Plus, Check, ShoppingCart } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -125,6 +126,10 @@ export default function GiftingDashboardPage() {
   const [profileInfluencer, setProfileInfluencer] = useState<Influencer | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
 
+  // Order dialog (opened by clicking the Order cell)
+  const [orderInfluencer, setOrderInfluencer] = useState<Influencer | null>(null);
+  const [orderOpen, setOrderOpen] = useState(false);
+
   const fetchPrList = useCallback(() => {
     return fetch(`/api/gifting/pr-list`)
       .then((r) => (r.ok ? r.json() : null))
@@ -223,16 +228,58 @@ export default function GiftingDashboardPage() {
     setSearchResults([]);
   }
 
-  // Open the influencer profile modal — fetch the full record by id.
-  async function openProfile(influencerId: string) {
+  async function fetchInfluencer(influencerId: string): Promise<Influencer | null> {
     const { data } = await (supabase.from("influencers") as any)
       .select("*")
       .eq("id", influencerId)
       .single();
-    if (data) {
-      setProfileInfluencer(data as Influencer);
+    return (data as Influencer) || null;
+  }
+
+  // Open the influencer profile modal — fetch the full record by id.
+  async function openProfile(influencerId: string) {
+    const inf = await fetchInfluencer(influencerId);
+    if (inf) {
+      setProfileInfluencer(inf);
       setProfileOpen(true);
     }
+  }
+
+  // Open the order dialog for an influencer (no campaign context).
+  async function openOrderDialog(influencerId: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    const inf = await fetchInfluencer(influencerId);
+    if (inf) {
+      setOrderInfluencer(inf);
+      setOrderOpen(true);
+    }
+  }
+
+  // A campaign-less "virtual" campaign_influencer so OrderDialog works outside a
+  // campaign (same pattern the whitelisting tab uses).
+  function virtualCampaignInfluencer(inf: Influencer): CampaignInfluencer {
+    return {
+      id: `virtual-${inf.id}`,
+      campaign_id: "",
+      influencer_id: inf.id,
+      compensation: null,
+      notes: null,
+      added_at: new Date().toISOString(),
+      status: inf.relationship_status,
+      partnership_type: inf.partnership_type,
+      shopify_order_id: null,
+      shopify_order_status: null,
+      tracking_number: null,
+      tracking_url: null,
+      order_status_updated_at: null,
+      shopify_real_order_id: null,
+      product_selections: null,
+      content_posted: "none",
+      approval_status: null,
+      approval_note: null,
+      approved_at: null,
+      approved_by: null,
+    };
   }
 
   // Remove from the PR list = demote back to regular recurring gifting.
@@ -442,20 +489,27 @@ export default function GiftingDashboardPage() {
                           {p.last_product || "—"}
                         </span>
                       </td>
-                      <td className="px-6 py-3">
+                      <td className="px-6 py-3" onClick={(e) => e.stopPropagation()}>
                         {p.order_status ? (
-                          <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={(e) => openOrderDialog(p.influencer_id, e)}
+                            className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900"
+                          >
                             <span
                               className={`h-2 w-2 rounded-full flex-shrink-0 ${
                                 orderDots[p.order_status] || "bg-gray-300"
                               }`}
                             />
-                            <span className="text-sm text-gray-600">
-                              {orderLabels[p.order_status] || p.order_status}
-                            </span>
-                          </div>
+                            {orderLabels[p.order_status] || p.order_status}
+                          </button>
                         ) : (
-                          <ShoppingCart className="h-4 w-4 text-gray-300" />
+                          <button
+                            onClick={(e) => openOrderDialog(p.influencer_id, e)}
+                            title="Create order"
+                            className="text-gray-300 hover:text-gray-600"
+                          >
+                            <ShoppingCart className="h-4 w-4" />
+                          </button>
                         )}
                       </td>
                       <td className="px-6 py-3 text-right">
@@ -597,6 +651,24 @@ export default function GiftingDashboardPage() {
         }}
         influencer={profileInfluencer}
       />
+
+      {/* Order dialog */}
+      {orderInfluencer && (
+        <OrderDialog
+          open={orderOpen}
+          onClose={() => {
+            setOrderOpen(false);
+            setOrderInfluencer(null);
+          }}
+          onSave={() => {
+            setOrderOpen(false);
+            setOrderInfluencer(null);
+            fetchPrList();
+          }}
+          influencer={orderInfluencer}
+          campaignInfluencer={virtualCampaignInfluencer(orderInfluencer)}
+        />
+      )}
     </div>
   );
 }
