@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { syncCodeRevenue } from "@/lib/code-revenue-sync";
 
+// Match the other sync crons. The Shopify REST scan in syncCodeRevenue is the
+// slow part; a 7-day window finishes in ~10s, but give backfills headroom.
+export const maxDuration = 300;
+
 // GET: Daily cron — refresh code-revenue cache for the trailing window.
-// Runs after the Meta sync. Defaults to a 400-day rolling window (12M + buffer)
-// so the partnerships overview can serve 6M and 12M ranges directly from the
-// cached creator_code_revenue_daily table without a fresh Shopify scan.
-// Pass `?days=N` (capped at 730) for one-shot backfills. Upsert uses
-// (affiliate_code, date) as the conflict key, so a wider window is idempotent —
-// existing rows get overwritten with the latest figures and missing rows get
-// inserted, no duplicates.
+// Runs after the Meta sync. Defaults to a 7-day rolling window: the daily run
+// only needs to (re)capture recent orders and late refunds, and the upsert on
+// (affiliate_code, date) is idempotent so older rows stay put. A short window
+// keeps the run well under the function timeout — a full 400-day scan exceeds
+// the 300s limit and 504s before any rows are written.
+// Pass `?days=N` to backfill more (e.g. ?days=120). Single-call backfills are
+// bounded by the 300s timeout to roughly ~150 days; go wider in chunks.
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
@@ -16,7 +20,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const daysParam = parseInt(request.nextUrl.searchParams.get("days") || "400", 10);
+  const daysParam = parseInt(request.nextUrl.searchParams.get("days") || "7", 10);
   const days = Math.max(1, Math.min(daysParam, 730)); // cap at 2 years
 
   const today = new Date();
