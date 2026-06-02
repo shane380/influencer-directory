@@ -69,7 +69,8 @@ type WhitelistingStats = {
 };
 
 type TopPartner = {
-  creator_id: string;
+  creator_id: string | null;
+  influencer_id: string | null;
   name: string | null;
   handle: string | null;
   photo: string | null;
@@ -1067,7 +1068,7 @@ export default function CreatorsListPage() {
               {/* Top partners card */}
               <div className="bg-white border border-gray-200 rounded-lg px-4 py-3.5">
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-[13px] font-medium text-gray-900">Top partners</h2>
+                  <h2 className="text-[13px] font-medium text-gray-900">Top affiliates</h2>
                   <span className="text-[10px] text-gray-500 uppercase tracking-wider">{currentMonthName()}</span>
                 </div>
                 {topPartnersLoading ? (
@@ -1087,12 +1088,9 @@ export default function CreatorsListPage() {
                           ? "bg-amber-50 text-amber-800"
                           : "bg-gray-100 text-gray-500";
                       const displayName = toTitleCase(p.name) || p.handle || p.affiliate_code;
-                      return (
-                        <a
-                          key={p.creator_id}
-                          href={`/partnerships/creators/${p.creator_id}`}
-                          className="flex items-center gap-2 py-1.5 px-1 -mx-1 rounded hover:bg-gray-50 transition-colors"
-                        >
+                      const rowClass = "flex items-center gap-2 py-1.5 px-1 -mx-1 rounded transition-colors";
+                      const inner = (
+                        <>
                           <span
                             className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-medium flex-shrink-0 ${rankClasses}`}
                           >
@@ -1113,7 +1111,21 @@ export default function CreatorsListPage() {
                             {displayName}
                           </span>
                           <span className="text-sm font-medium text-gray-900">{formatMoney(p.revenue)}</span>
+                        </>
+                      );
+                      // Only partners (with a creator account) have a detail page to link to.
+                      return p.creator_id ? (
+                        <a
+                          key={p.affiliate_code}
+                          href={`/partnerships/creators/${p.creator_id}`}
+                          className={`${rowClass} hover:bg-gray-50`}
+                        >
+                          {inner}
                         </a>
+                      ) : (
+                        <div key={p.affiliate_code} className={rowClass}>
+                          {inner}
+                        </div>
                       );
                     })}
                   </div>

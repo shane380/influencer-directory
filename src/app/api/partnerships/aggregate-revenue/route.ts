@@ -82,15 +82,22 @@ export async function GET(request: NextRequest) {
   // Query window — wide enough to cover range + previous period + previous calendar month.
   const queryStartDay = [prevStartDay, previousMonthStartDay].sort()[0];
 
-  // 1. Active creator affiliate codes
-  const { data: creators } = await (db.from("creators") as any)
-    .select("affiliate_code")
-    .not("affiliate_code", "is", null);
+  // 1. Every affiliate code — partner codes (creators) AND legacy/standalone
+  // affiliate codes (legacy_affiliates), so the totals reflect ALL affiliate
+  // revenue regardless of partnership type.
+  const [{ data: creators }, { data: legacy }] = await Promise.all([
+    (db.from("creators") as any).select("affiliate_code").not("affiliate_code", "is", null),
+    (db.from("legacy_affiliates") as any)
+      .select("discount_code")
+      .eq("status", "active")
+      .not("discount_code", "is", null),
+  ]);
   const activeCodes = Array.from(
     new Set(
-      (creators || [])
-        .map((c: any) => String(c.affiliate_code || "").toUpperCase())
-        .filter(Boolean),
+      [
+        ...(creators || []).map((c: any) => String(c.affiliate_code || "").toUpperCase()),
+        ...(legacy || []).map((l: any) => String(l.discount_code || "").toUpperCase()),
+      ].filter(Boolean),
     ),
   );
   if (activeCodes.length === 0) {

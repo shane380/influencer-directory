@@ -41,32 +41,62 @@ export async function GET(request: NextRequest) {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  // 1. Pull active creators with their affiliate codes + invite mapping for influencer join.
-  const { data: creators } = await (db.from("creators") as any)
-    .select("id, creator_name, affiliate_code, commission_rate, invite_id")
-    .not("affiliate_code", "is", null);
+  // 1. Pull partner codes (creators) AND standalone/legacy affiliate codes, so
+  // the ranking covers every affiliate regardless of partnership type.
+  const [{ data: creators }, { data: legacy }] = await Promise.all([
+    (db.from("creators") as any)
+      .select("id, creator_name, affiliate_code, invite_id")
+      .not("affiliate_code", "is", null),
+    (db.from("legacy_affiliates") as any)
+      .select("name, discount_code, influencer_id")
+      .eq("status", "active")
+      .not("discount_code", "is", null),
+  ]);
 
-  type Creator = {
-    id: string;
-    creator_name: string | null;
-    affiliate_code: string;
-    commission_rate: number | null;
-    invite_id: string | null;
-  };
-  const creatorList: Creator[] = (creators as any[] || []).map((c) => ({
-    id: c.id,
-    creator_name: c.creator_name,
-    affiliate_code: String(c.affiliate_code || "").toUpperCase(),
-    commission_rate: c.commission_rate,
-    invite_id: c.invite_id,
-  })).filter((c) => c.affiliate_code);
+  // Resolve each partner's influencer via the invite chain.
+  const creatorRows = ((creators as any[]) || [])
+    .map((c) => ({
+      id: c.id as string,
+      creator_name: (c.creator_name as string | null) ?? null,
+      code: String(c.affiliate_code || "").toUpperCase(),
+      invite_id: (c.invite_id as string | null) ?? null,
+    }))
+    .filter((c) => c.code);
+  const inviteIds = creatorRows.map((c) => c.invite_id).filter(Boolean) as string[];
+  let inviteInfluencer = new Map<string, string | null>();
+  if (inviteIds.length > 0) {
+    const { data: invites } = await (db.from("creator_invites") as any)
+      .select("id, influencer_id")
+      .in("id", inviteIds);
+    inviteInfluencer = new Map(
+      ((invites as any[]) || []).map((i) => [String(i.id), i.influencer_id || null]),
+    );
+  }
 
-  if (creatorList.length === 0) {
-    return NextResponse.json({ month: monthParam || dayOnly(new Date()).slice(0, 7), partners: [] });
+  // One entry per code. Partner rows win; legacy fills codes no partner owns.
+  type Entry = { code: string; name: string | null; influencer_id: string | null; creator_id: string | null };
+  const entryByCode = new Map<string, Entry>();
+  for (const c of creatorRows) {
+    if (entryByCode.has(c.code)) continue;
+    entryByCode.set(c.code, {
+      code: c.code,
+      name: c.creator_name,
+      influencer_id: c.invite_id ? inviteInfluencer.get(c.invite_id) ?? null : null,
+      creator_id: c.id,
+    });
+  }
+  for (const l of (legacy as any[]) || []) {
+    const code = String(l.discount_code || "").toUpperCase();
+    if (!code || entryByCode.has(code)) continue;
+    entryByCode.set(code, { code, name: l.name || null, influencer_id: l.influencer_id || null, creator_id: null });
+  }
+
+  const codes = Array.from(entryByCode.keys());
+  if (codes.length === 0) {
+    return NextResponse.json({ month: start.slice(0, 7), partners: [] });
   }
 
   // 2. Daily revenue rows for the month
-  const codes = Array.from(new Set(creatorList.map((c) => c.affiliate_code)));
   const { data: revRows } = await (db.from("creator_code_revenue_daily") as any)
     .select("affiliate_code, gross_amount, order_count")
     .in("affiliate_code", codes)
@@ -82,13 +112,13 @@ export async function GET(request: NextRequest) {
     revByCode.set(code, acc);
   }
 
-  // 3. Build ranked list, then pull influencer name/handle/photo for the top N.
-  const ranked = creatorList
-    .map((c) => {
-      const r = revByCode.get(c.affiliate_code) || { revenue: 0, orders: 0 };
-      return { ...c, revenue: r.revenue, orders: r.orders };
+  // 3. Rank every affiliate by revenue, take top N.
+  const ranked = Array.from(entryByCode.values())
+    .map((e) => {
+      const r = revByCode.get(e.code) || { revenue: 0, orders: 0 };
+      return { ...e, revenue: r.revenue, orders: r.orders };
     })
-    .filter((c) => c.revenue > 0)
+    .filter((e) => e.revenue > 0)
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, limit);
 
@@ -96,23 +126,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ month: start.slice(0, 7), partners: [] });
   }
 
-  const inviteIds = ranked.map((c) => c.invite_id).filter(Boolean) as string[];
-  let invitesById = new Map<string, { influencer_id: string | null }>();
-  if (inviteIds.length > 0) {
-    const { data: invites } = await (db.from("creator_invites") as any)
-      .select("id, influencer_id")
-      .in("id", inviteIds);
-    invitesById = new Map(
-      ((invites as any[]) || []).map((i) => [String(i.id), { influencer_id: i.influencer_id }]),
-    );
-  }
-
+  // 4. Join influencer profiles (name/handle/photo) for the top N.
   const influencerIds = Array.from(
-    new Set(
-      Array.from(invitesById.values())
-        .map((v) => v.influencer_id)
-        .filter(Boolean) as string[],
-    ),
+    new Set(ranked.map((e) => e.influencer_id).filter(Boolean) as string[]),
   );
   let influencersById = new Map<string, { name: string | null; instagram_handle: string | null; profile_photo_url: string | null }>();
   if (influencerIds.length > 0) {
@@ -123,26 +139,22 @@ export async function GET(request: NextRequest) {
     influencersById = new Map(
       ((infs as any[]) || []).map((i) => [
         String(i.id),
-        {
-          name: i.name,
-          instagram_handle: i.instagram_handle,
-          profile_photo_url: i.profile_photo_url,
-        },
+        { name: i.name, instagram_handle: i.instagram_handle, profile_photo_url: i.profile_photo_url },
       ]),
     );
   }
 
-  const partners = ranked.map((c) => {
-    const invite = c.invite_id ? invitesById.get(c.invite_id) : null;
-    const inf = invite?.influencer_id ? influencersById.get(invite.influencer_id) : null;
+  const partners = ranked.map((e) => {
+    const inf = e.influencer_id ? influencersById.get(e.influencer_id) : null;
     return {
-      creator_id: c.id,
-      name: inf?.name || c.creator_name || null,
+      creator_id: e.creator_id,
+      influencer_id: e.influencer_id,
+      name: inf?.name || e.name || null,
       handle: inf?.instagram_handle || null,
       photo: inf?.profile_photo_url || null,
-      affiliate_code: c.affiliate_code,
-      revenue: Math.round(c.revenue * 100) / 100,
-      orders: c.orders,
+      affiliate_code: e.code,
+      revenue: Math.round(e.revenue * 100) / 100,
+      orders: e.orders,
     };
   });
 
