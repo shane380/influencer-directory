@@ -345,8 +345,8 @@ export function AddInfluencerDialog({
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
-      inf.name.toLowerCase().includes(query) ||
-      inf.instagram_handle.toLowerCase().includes(query)
+      (inf.name || "").toLowerCase().includes(query) ||
+      (inf.instagram_handle || "").toLowerCase().includes(query)
     );
   });
 
