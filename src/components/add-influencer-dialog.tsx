@@ -168,7 +168,7 @@ export function AddInfluencerDialog({
         username: profile.username,
         full_name: profile.full_name || profile.username,
         profile_pic_url: profile.profile_pic_url,
-        follower_count: profile.follower_count,
+        follower_count: profile.follower_count ?? 0,
       });
     } catch (err: any) {
       setError(err.message || "Failed to lookup Instagram profile");
@@ -411,7 +411,7 @@ export function AddInfluencerDialog({
                   <p className="font-medium">{instagramPreview.full_name}</p>
                   <p className="text-sm text-gray-600">@{instagramPreview.username}</p>
                   <p className="text-xs text-gray-500">
-                    {instagramPreview.follower_count.toLocaleString()} followers
+                    {(instagramPreview.follower_count ?? 0).toLocaleString()} followers
                   </p>
                 </div>
               </div>

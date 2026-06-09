@@ -56,9 +56,9 @@ export async function GET(request: NextRequest) {
       username: userData.username,
       full_name: userData.full_name,
       profile_pic_url: profilePicUrl,
-      follower_count: userData.follower_count,
-      following_count: userData.following_count,
-      media_count: userData.media_count,
+      follower_count: userData.follower_count ?? 0,
+      following_count: userData.following_count ?? 0,
+      media_count: userData.media_count ?? 0,
       is_private: userData.is_private,
       is_verified: userData.is_verified,
     });
