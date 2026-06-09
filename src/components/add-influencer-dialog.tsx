@@ -147,18 +147,32 @@ export function AddInfluencerDialog({
         return;
       }
 
-      // Try Apify first (better rate limits), fall back to RapidAPI if not configured
-      let response = await fetch(`/api/instagram-apify?handle=${encodeURIComponent(username)}`);
+      // Try Apify first (better rate limits), fall back to RapidAPI on any failure
+      let response: Response;
+      try {
+        const apifyController = new AbortController();
+        const apifyTimeout = setTimeout(() => apifyController.abort(), 20000);
+        response = await fetch(`/api/instagram-apify?handle=${encodeURIComponent(username)}`, {
+          signal: apifyController.signal,
+        });
+        clearTimeout(apifyTimeout);
 
-      // If Apify returns 500 (likely not configured), fall back to RapidAPI
-      if (!response.ok && response.status === 500) {
-        console.log("Apify not configured, falling back to RapidAPI");
+        if (!response.ok) {
+          throw new Error("Apify failed");
+        }
+      } catch {
+        // Apify failed or timed out — fall back to RapidAPI
+        console.log("Apify failed, falling back to RapidAPI");
         response = await fetch(`/api/instagram?handle=${encodeURIComponent(username)}`);
       }
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to fetch Instagram profile");
+        let errorMsg = "Failed to fetch Instagram profile";
+        try {
+          const data = await response.json();
+          errorMsg = data.error || errorMsg;
+        } catch {}
+        throw new Error(errorMsg);
       }
 
       const profile = await response.json();

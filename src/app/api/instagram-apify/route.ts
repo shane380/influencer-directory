@@ -24,11 +24,11 @@ export async function GET(request: NextRequest) {
       token: process.env.APIFY_API_TOKEN,
     });
 
-    // Run the Instagram Profile Scraper
+    // Run the Instagram Profile Scraper (15s timeout to avoid Vercel function timeout)
     const run = await client.actor("apify/instagram-profile-scraper").call({
       usernames: [cleanHandle],
       resultsLimit: 1,
-    });
+    }, { waitSecs: 15 });
 
     // Fetch results from the dataset
     const { items } = await client.dataset(run.defaultDatasetId).listItems();
