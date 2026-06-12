@@ -250,8 +250,11 @@ export default function CampaignDetailPage() {
   const supabase = createClient();
 
   const fetchProfiles = useCallback(async () => {
+    // Owners are internal team members only (admins/managers) — creator
+    // accounts also live in `profiles` but must not appear as assignable owners.
     const { data } = await (supabase.from("profiles") as any)
       .select("*")
+      .or("is_admin.eq.true,is_manager.eq.true")
       .order("display_name");
     if (data) {
       setProfiles(data);
