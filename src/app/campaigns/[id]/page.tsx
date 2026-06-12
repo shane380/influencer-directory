@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -237,6 +237,9 @@ export default function CampaignDetailPage() {
   const [contentFilter, setContentFilter] = useState<string>("all");
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>("all");
   const [approvalFilter, setApprovalFilter] = useState<string>("approved");
+  // Apply the stage-based default for the approval filter only once, on first load,
+  // so it never overrides a filter the user has changed manually.
+  const approvalDefaultApplied = useRef(false);
   const [ownerFilter, setOwnerFilter] = useState<string>("all");
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [selectedApprovalInfluencer, setSelectedApprovalInfluencer] = useState<CampaignInfluencerWithDetails | null>(null);
@@ -290,6 +293,17 @@ export default function CampaignDetailPage() {
     }
     setCampaign(data);
   }, [supabase, campaignId, router]);
+
+  // Smart default for the approval filter, applied once the campaign loads:
+  // Planning campaigns open showing ALL influencers (nobody is approved yet),
+  // while Active/Completed campaigns open showing only Approved.
+  useEffect(() => {
+    if (!campaign || approvalDefaultApplied.current) return;
+    approvalDefaultApplied.current = true;
+    if (campaign.status === "planning") {
+      setApprovalFilter("all");
+    }
+  }, [campaign]);
 
   const fetchCampaignInfluencers = useCallback(async () => {
     setLoading(true);
