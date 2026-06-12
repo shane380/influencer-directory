@@ -794,7 +794,7 @@ export default function CampaignDetailPage() {
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="text-[13px]">
                   <TableHead className="w-10">
                     <Checkbox
                       checked={selectedIds.size === filteredInfluencers.length && filteredInfluencers.length > 0}
@@ -818,12 +818,12 @@ export default function CampaignDetailPage() {
                     </button>
                   </TableHead>
                   <TableHead className="w-full min-w-[200px]">Notes</TableHead>
-                  <TableHead>Partnership</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Owner</TableHead>
-                  <TableHead>Order</TableHead>
-                  <TableHead>Content Posted</TableHead>
-                  <TableHead>Deal</TableHead>
+                  <TableHead className="w-[120px]">Partnership</TableHead>
+                  <TableHead className="w-[120px]">Status</TableHead>
+                  <TableHead className="w-[120px]">Owner</TableHead>
+                  <TableHead className="w-[76px]">Order</TableHead>
+                  <TableHead className="w-[100px]">Content Posted</TableHead>
+                  <TableHead className="w-[120px]">Deal</TableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -924,11 +924,11 @@ export default function CampaignDetailPage() {
                       }}
                     >
                       {ci.influencer.notes_summary ? (
-                        <p className={`text-sm text-gray-600 line-clamp-2 px-1.5 py-1 ${inlineEditBox}`}>
+                        <p className={`text-[13px] text-gray-600 line-clamp-2 px-1.5 py-1 ${inlineEditBox}`}>
                           {ci.influencer.notes_summary}
                         </p>
                       ) : (
-                        <span className={`inline-flex items-center gap-1 text-sm text-gray-300 px-1.5 py-1 ${inlineEditBox}`}>
+                        <span className={`inline-flex items-center gap-1 text-[13px] text-gray-300 px-1.5 py-1 ${inlineEditBox}`}>
                           <Plus className="h-3.5 w-3.5" />
                           Add note
                         </span>
@@ -939,7 +939,7 @@ export default function CampaignDetailPage() {
                       <Select
                         value={ci.partnership_type}
                         onChange={(e) => handlePartnershipTypeChange(ci.id, ci.influencer_id, e.target.value as PartnershipType)}
-                        className="text-xs h-8 w-[84px] bg-transparent border-0 text-gray-600 px-0 focus:ring-0 cursor-pointer"
+                        className="text-[13px] h-8 w-[84px] bg-transparent border-0 text-gray-600 px-0 focus:ring-0 cursor-pointer"
                         truncate
                         hideChevron
                         title={partnershipTypeLabels[ci.partnership_type]}
@@ -961,7 +961,7 @@ export default function CampaignDetailPage() {
                         <Select
                           value={ci.status}
                           onChange={(e) => handleStatusChange(ci.id, e.target.value as RelationshipStatus)}
-                          className="text-xs h-8 w-[88px] bg-transparent border-0 text-gray-700 px-0 focus:ring-0 cursor-pointer"
+                          className="text-[13px] h-8 w-[88px] bg-transparent border-0 text-gray-700 px-0 focus:ring-0 cursor-pointer"
                           truncate
                           hideChevron
                           title={statusLabels[ci.status]}
@@ -984,7 +984,7 @@ export default function CampaignDetailPage() {
                       <Select
                         value={ci.influencer.assigned_to || ""}
                         onChange={(e) => handleOwnerChange(ci.influencer.id, e.target.value || null)}
-                        className="text-xs h-8 w-[80px] bg-transparent border-0 text-gray-600 px-0 focus:ring-0 cursor-pointer"
+                        className="text-[13px] h-8 w-[80px] bg-transparent border-0 text-gray-600 px-0 focus:ring-0 cursor-pointer"
                         truncate
                         hideChevron
                         title={profiles.find(p => p.id === ci.influencer.assigned_to)?.display_name || "—"}
@@ -1001,7 +1001,7 @@ export default function CampaignDetailPage() {
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {ci.shopify_order_id ? (
                         <button
-                          className={`inline-flex items-center gap-1.5 text-xs text-gray-600 px-1.5 py-1 ${inlineEditBox}`}
+                          className={`inline-flex items-center gap-1.5 text-[13px] text-gray-600 px-1.5 py-1 ${inlineEditBox}`}
                           onClick={() => handleOpenOrderDialog(ci)}
                         >
                           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${orderDots[ci.shopify_order_status || "draft"]}`}></span>
@@ -1009,7 +1009,7 @@ export default function CampaignDetailPage() {
                         </button>
                       ) : ci.product_selections && (ci.product_selections as any[]).length > 0 ? (
                         <button
-                          className={`inline-flex items-center gap-1.5 text-xs text-gray-600 px-1.5 py-1 ${inlineEditBox}`}
+                          className={`inline-flex items-center gap-1.5 text-[13px] text-gray-600 px-1.5 py-1 ${inlineEditBox}`}
                           onClick={() => handleOpenOrderDialog(ci)}
                         >
                           <span className="w-2 h-2 rounded-full flex-shrink-0 bg-purple-400"></span>
@@ -1017,7 +1017,7 @@ export default function CampaignDetailPage() {
                         </button>
                       ) : (
                         <button
-                          className={`inline-flex items-center text-xs text-gray-400 px-1.5 py-1 ${inlineEditBox}`}
+                          className={`inline-flex items-center text-[13px] text-gray-400 px-1.5 py-1 ${inlineEditBox}`}
                           onClick={() => handleOpenOrderDialog(ci)}
                         >
                           <ShoppingCart className="h-4 w-4" />
@@ -1031,7 +1031,7 @@ export default function CampaignDetailPage() {
                           <Select
                             value={ci.content_posted}
                             onChange={(e) => handleContentPostedChange(ci.id, e.target.value as ContentPostedType)}
-                            className="text-xs h-8 w-[64px] bg-transparent border-0 text-gray-700 px-0 focus:ring-0 cursor-pointer"
+                            className="text-[13px] h-8 w-[64px] bg-transparent border-0 text-gray-700 px-0 focus:ring-0 cursor-pointer"
                             truncate
                             hideChevron
                             title={contentPostedLabels[ci.content_posted]}
@@ -1048,7 +1048,7 @@ export default function CampaignDetailPage() {
                         <Select
                           value="none"
                           onChange={(e) => handleContentPostedChange(ci.id, e.target.value as ContentPostedType)}
-                          className="text-xs h-8 w-[44px] bg-transparent border-0 text-gray-300 px-0 focus:ring-0 cursor-pointer"
+                          className="text-[13px] h-8 w-[44px] bg-transparent border-0 text-gray-300 px-0 focus:ring-0 cursor-pointer"
                           truncate
                           hideChevron
                           title="—"
