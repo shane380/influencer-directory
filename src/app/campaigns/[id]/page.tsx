@@ -211,6 +211,12 @@ interface CampaignInfluencerWithDetails extends CampaignInfluencer {
   influencer: Influencer;
 }
 
+// Shared hover affordance for every inline-editable table cell: a thin rounded
+// outline appears around the value on hover so all editable columns react the
+// same way. Add per-element display/padding alongside it.
+const inlineEditBox =
+  "rounded-md border border-transparent transition-colors cursor-pointer hover:border-gray-300";
+
 export default function CampaignDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -825,7 +831,7 @@ export default function CampaignDetailPage() {
                 {filteredInfluencers.map((ci) => (
                   <TableRow
                     key={ci.id}
-                    className="group cursor-pointer hover:bg-gray-50 transition-colors"
+                    className="cursor-pointer hover:bg-gray-50 transition-colors"
                     data-state={selectedIds.has(ci.influencer_id) ? "selected" : undefined}
                     onClick={() => handleOpenInfluencerDialog(ci.influencer)}
                   >
@@ -918,21 +924,22 @@ export default function CampaignDetailPage() {
                       }}
                     >
                       {ci.influencer.notes_summary ? (
-                        <p className="text-sm text-gray-600 line-clamp-2 cursor-pointer hover:text-gray-900">
+                        <p className={`text-sm text-gray-600 line-clamp-2 px-1.5 py-1 ${inlineEditBox}`}>
                           {ci.influencer.notes_summary}
                         </p>
                       ) : (
-                        <span className="flex items-center gap-1 text-sm text-gray-300 cursor-pointer hover:text-purple-600">
+                        <span className={`inline-flex items-center gap-1 text-sm text-gray-300 px-1.5 py-1 ${inlineEditBox}`}>
                           <Plus className="h-3.5 w-3.5" />
                           Add note
                         </span>
                       )}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
+                      <span className={`inline-flex items-center px-1.5 ${inlineEditBox}`}>
                       <Select
                         value={ci.partnership_type}
                         onChange={(e) => handlePartnershipTypeChange(ci.id, ci.influencer_id, e.target.value as PartnershipType)}
-                        className="text-xs h-8 w-[84px] bg-transparent border-0 text-gray-600 px-0 focus:ring-0"
+                        className="text-xs h-8 w-[84px] bg-transparent border-0 text-gray-600 px-0 focus:ring-0 cursor-pointer"
                         truncate
                         hideChevron
                         title={partnershipTypeLabels[ci.partnership_type]}
@@ -946,14 +953,15 @@ export default function CampaignDetailPage() {
                         <option value="paid">Paid</option>
                         <option value="whitelisting">Whitelisting</option>
                       </Select>
+                      </span>
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center gap-1.5">
+                      <div className={`inline-flex items-center gap-1.5 px-1.5 ${inlineEditBox}`}>
                         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${statusDots[ci.status]}`}></span>
                         <Select
                           value={ci.status}
                           onChange={(e) => handleStatusChange(ci.id, e.target.value as RelationshipStatus)}
-                          className="text-xs h-8 w-[88px] bg-transparent border-0 text-gray-700 px-0 focus:ring-0"
+                          className="text-xs h-8 w-[88px] bg-transparent border-0 text-gray-700 px-0 focus:ring-0 cursor-pointer"
                           truncate
                           hideChevron
                           title={statusLabels[ci.status]}
@@ -972,10 +980,11 @@ export default function CampaignDetailPage() {
                       </div>
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
+                      <span className={`inline-flex items-center px-1.5 ${inlineEditBox}`}>
                       <Select
                         value={ci.influencer.assigned_to || ""}
                         onChange={(e) => handleOwnerChange(ci.influencer.id, e.target.value || null)}
-                        className="text-xs h-8 w-[80px] bg-transparent border-0 text-gray-600 px-0 focus:ring-0"
+                        className="text-xs h-8 w-[80px] bg-transparent border-0 text-gray-600 px-0 focus:ring-0 cursor-pointer"
                         truncate
                         hideChevron
                         title={profiles.find(p => p.id === ci.influencer.assigned_to)?.display_name || "—"}
@@ -987,11 +996,12 @@ export default function CampaignDetailPage() {
                           </option>
                         ))}
                       </Select>
+                      </span>
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {ci.shopify_order_id ? (
                         <button
-                          className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900"
+                          className={`inline-flex items-center gap-1.5 text-xs text-gray-600 px-1.5 py-1 ${inlineEditBox}`}
                           onClick={() => handleOpenOrderDialog(ci)}
                         >
                           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${orderDots[ci.shopify_order_status || "draft"]}`}></span>
@@ -999,7 +1009,7 @@ export default function CampaignDetailPage() {
                         </button>
                       ) : ci.product_selections && (ci.product_selections as any[]).length > 0 ? (
                         <button
-                          className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900"
+                          className={`inline-flex items-center gap-1.5 text-xs text-gray-600 px-1.5 py-1 ${inlineEditBox}`}
                           onClick={() => handleOpenOrderDialog(ci)}
                         >
                           <span className="w-2 h-2 rounded-full flex-shrink-0 bg-purple-400"></span>
@@ -1007,7 +1017,7 @@ export default function CampaignDetailPage() {
                         </button>
                       ) : (
                         <button
-                          className="text-xs text-gray-400 hover:text-gray-600"
+                          className={`inline-flex items-center text-xs text-gray-400 px-1.5 py-1 ${inlineEditBox}`}
                           onClick={() => handleOpenOrderDialog(ci)}
                         >
                           <ShoppingCart className="h-4 w-4" />
@@ -1016,12 +1026,12 @@ export default function CampaignDetailPage() {
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {ci.content_posted && ci.content_posted !== "none" ? (
-                        <div className="flex items-center gap-1.5">
+                        <div className={`inline-flex items-center gap-1.5 px-1.5 ${inlineEditBox}`}>
                           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${contentDots[ci.content_posted]}`}></span>
                           <Select
                             value={ci.content_posted}
                             onChange={(e) => handleContentPostedChange(ci.id, e.target.value as ContentPostedType)}
-                            className="text-xs h-8 w-[64px] bg-transparent border-0 text-gray-700 px-0 focus:ring-0"
+                            className="text-xs h-8 w-[64px] bg-transparent border-0 text-gray-700 px-0 focus:ring-0 cursor-pointer"
                             truncate
                             hideChevron
                             title={contentPostedLabels[ci.content_posted]}
@@ -1034,10 +1044,11 @@ export default function CampaignDetailPage() {
                           </Select>
                         </div>
                       ) : (
+                        <span className={`inline-flex items-center px-1.5 ${inlineEditBox}`}>
                         <Select
                           value="none"
                           onChange={(e) => handleContentPostedChange(ci.id, e.target.value as ContentPostedType)}
-                          className="text-xs h-8 w-[44px] bg-transparent border-0 text-gray-300 px-0 focus:ring-0"
+                          className="text-xs h-8 w-[44px] bg-transparent border-0 text-gray-300 px-0 focus:ring-0 cursor-pointer"
                           truncate
                           hideChevron
                           title="—"
@@ -1048,6 +1059,7 @@ export default function CampaignDetailPage() {
                           <option value="reel">Reel</option>
                           <option value="tiktok">TikTok</option>
                         </Select>
+                        </span>
                       )}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
