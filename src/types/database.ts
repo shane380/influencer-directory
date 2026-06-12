@@ -51,6 +51,7 @@ export interface Influencer {
   top_size: ClothingSize | null;
   bottoms_size: ClothingSize | null;
   notes: string | null;
+  notes_summary: string | null;
   last_contacted_at: string | null;
   created_by: string | null;
   assigned_to: string | null;
@@ -392,6 +393,28 @@ export interface InfluencerOrderInsert {
   line_items?: OrderLineItem[];
 }
 
+// Influencer Notes (relationship-context activity log; notes follow the influencer)
+
+export type InfluencerNoteType = 'note' | 'summary_edit';
+
+export interface InfluencerNote {
+  id: string;
+  influencer_id: string;
+  author_id: string | null;
+  author_name: string;
+  body: string;
+  type: InfluencerNoteType;
+  created_at: string;
+}
+
+export interface InfluencerNoteInsert {
+  influencer_id: string;
+  author_id?: string | null;
+  author_name: string;
+  body: string;
+  type?: InfluencerNoteType;
+}
+
 // Campaign Order History Types
 
 export interface CampaignOrderHistory {
@@ -521,6 +544,12 @@ export interface Database {
         Row: InfluencerOrder;
         Insert: InfluencerOrderInsert;
         Update: Partial<InfluencerOrderInsert>;
+        Relationships: [];
+      };
+      influencer_notes: {
+        Row: InfluencerNote;
+        Insert: InfluencerNoteInsert;
+        Update: Partial<InfluencerNoteInsert>;
         Relationships: [];
       };
       content: {

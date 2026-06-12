@@ -49,6 +49,7 @@ import {
   Trash2,
   ShoppingCart,
   ExternalLink,
+  Link2,
   Clock,
   CheckCircle2,
   XCircle,
@@ -225,6 +226,7 @@ export default function CampaignDetailPage() {
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [influencerDialogOpen, setInfluencerDialogOpen] = useState(false);
+  const [dialogInitialTab, setDialogInitialTab] = useState<string>("overview");
   const [campaignDialogOpen, setCampaignDialogOpen] = useState(false);
   const [addInfluencerDialogOpen, setAddInfluencerDialogOpen] = useState(false);
   const [selectedInfluencer, setSelectedInfluencer] = useState<Influencer | null>(null);
@@ -381,14 +383,17 @@ export default function CampaignDetailPage() {
     }
   };
 
-  const handleOpenInfluencerDialog = (influencer?: Influencer) => {
+  const handleOpenInfluencerDialog = (influencer?: Influencer, tab: string = "overview") => {
     setSelectedInfluencer(influencer || null);
+    setDialogInitialTab(tab);
     setInfluencerDialogOpen(true);
   };
 
   const handleCloseInfluencerDialog = () => {
     setInfluencerDialogOpen(false);
     setSelectedInfluencer(null);
+    // Refresh so any note/summary edits made in the modal show in the table.
+    fetchCampaignInfluencers();
   };
 
   const handleInfluencerSave = () => {
@@ -795,47 +800,19 @@ export default function CampaignDetailPage() {
                       }}
                     />
                   </TableHead>
-                  <TableHead className="w-12"></TableHead>
                   <TableHead>
                     <button
                       className="flex items-center gap-1 hover:text-gray-900"
                       onClick={() => handleSort("name")}
                     >
-                      Name
+                      Influencer
                       <ArrowUpDown className="h-4 w-4" />
                     </button>
                   </TableHead>
-                  <TableHead>Handle</TableHead>
-                  <TableHead>
-                    <button
-                      className="flex items-center gap-1 hover:text-gray-900"
-                      onClick={() => handleSort("follower_count")}
-                    >
-                      Followers
-                      <ArrowUpDown className="h-4 w-4" />
-                    </button>
-                  </TableHead>
+                  <TableHead className="min-w-[220px]">Notes</TableHead>
                   <TableHead>Partnership</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Owner</TableHead>
-                  <TableHead>
-                    <button
-                      className="flex items-center gap-1 hover:text-gray-900"
-                      onClick={() => handleSort("added_at")}
-                    >
-                      Added
-                      <ArrowUpDown className="h-4 w-4" />
-                    </button>
-                  </TableHead>
-                  <TableHead>
-                    <button
-                      className="flex items-center gap-1 hover:text-gray-900"
-                      onClick={() => handleSort("updated_at")}
-                    >
-                      Modified
-                      <ArrowUpDown className="h-4 w-4" />
-                    </button>
-                  </TableHead>
                   <TableHead>Order</TableHead>
                   <TableHead>Content Posted</TableHead>
                   <TableHead>Deal</TableHead>
@@ -867,58 +844,89 @@ export default function CampaignDetailPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      <div className="w-14 h-14 flex-shrink-0">
-                        {ci.influencer.profile_photo_url ? (
-                          <Image
-                            src={ci.influencer.profile_photo_url}
-                            alt={ci.influencer.name}
-                            width={56}
-                            height={56}
-                            className="rounded-full object-cover w-full h-full"
-                            unoptimized
-                          />
-                        ) : (
-                          <div className="w-full h-full rounded-full bg-gray-200 flex items-center justify-center">
-                            <span className="text-gray-500 text-lg font-medium">
-                              {ci.influencer.name.charAt(0).toUpperCase()}
-                            </span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 flex-shrink-0">
+                          {ci.influencer.profile_photo_url ? (
+                            <Image
+                              src={ci.influencer.profile_photo_url}
+                              alt={ci.influencer.name}
+                              width={40}
+                              height={40}
+                              className="rounded-full object-cover w-full h-full"
+                              unoptimized
+                            />
+                          ) : (
+                            <div className="w-full h-full rounded-full bg-gray-200 flex items-center justify-center">
+                              <span className="text-gray-500 text-sm font-medium">
+                                {ci.influencer.name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold text-gray-900 truncate">{ci.influencer.name}</span>
+                            {ci.approval_status && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenApprovalDialog(ci);
+                                }}
+                                className={`inline-flex items-center justify-center w-5 h-5 rounded-full flex-shrink-0 transition-colors ${
+                                  ci.approval_status === "pending"
+                                    ? "bg-amber-100 text-amber-600 hover:bg-amber-200"
+                                    : ci.approval_status === "approved"
+                                    ? "bg-green-100 text-green-600 hover:bg-green-200"
+                                    : "bg-red-100 text-red-600 hover:bg-red-200"
+                                }`}
+                                title={
+                                  ci.approval_status === "pending"
+                                    ? "Pending approval"
+                                    : ci.approval_status === "approved"
+                                    ? "Approved"
+                                    : "Declined"
+                                }
+                              >
+                                {ci.approval_status === "pending" && <Clock className="h-3 w-3" />}
+                                {ci.approval_status === "approved" && <CheckCircle2 className="h-3 w-3" />}
+                                {ci.approval_status === "declined" && <XCircle className="h-3 w-3" />}
+                              </button>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        {ci.influencer.name}
-                        {ci.approval_status && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenApprovalDialog(ci);
-                            }}
-                            className={`inline-flex items-center justify-center w-5 h-5 rounded-full transition-colors ${
-                              ci.approval_status === "pending"
-                                ? "bg-amber-100 text-amber-600 hover:bg-amber-200"
-                                : ci.approval_status === "approved"
-                                ? "bg-green-100 text-green-600 hover:bg-green-200"
-                                : "bg-red-100 text-red-600 hover:bg-red-200"
-                            }`}
-                            title={
-                              ci.approval_status === "pending"
-                                ? "Pending approval"
-                                : ci.approval_status === "approved"
-                                ? "Approved"
-                                : "Declined"
-                            }
+                          <span className="text-xs text-gray-400 tabular-nums">
+                            {formatNumber(ci.influencer.follower_count)} followers
+                          </span>
+                          <a
+                            href={`https://instagram.com/${ci.influencer.instagram_handle}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:underline w-fit"
                           >
-                            {ci.approval_status === "pending" && <Clock className="h-3 w-3" />}
-                            {ci.approval_status === "approved" && <CheckCircle2 className="h-3 w-3" />}
-                            {ci.approval_status === "declined" && <XCircle className="h-3 w-3" />}
-                          </button>
-                        )}
+                            <Link2 className="h-3 w-3" />
+                            @{ci.influencer.instagram_handle}
+                          </a>
+                        </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-xs text-gray-600">@{ci.influencer.instagram_handle}</TableCell>
-                    <TableCell className="text-xs text-gray-600">{formatNumber(ci.influencer.follower_count)}</TableCell>
+                    <TableCell
+                      className="max-w-[320px]"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenInfluencerDialog(ci.influencer, "notes");
+                      }}
+                    >
+                      {ci.influencer.notes_summary ? (
+                        <p className="text-sm text-gray-600 line-clamp-2 cursor-pointer hover:text-gray-900">
+                          {ci.influencer.notes_summary}
+                        </p>
+                      ) : (
+                        <span className="flex items-center gap-1 text-sm text-gray-300 cursor-pointer hover:text-purple-600">
+                          <Plus className="h-3.5 w-3.5" />
+                          Add note
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <Select
                         value={ci.partnership_type}
@@ -976,8 +984,6 @@ export default function CampaignDetailPage() {
                         ))}
                       </Select>
                     </TableCell>
-                    <TableCell className="text-gray-600">{formatDate(ci.added_at)}</TableCell>
-                    <TableCell className="text-gray-600">{formatDate(ci.influencer.updated_at)}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {ci.shopify_order_id ? (
                         <button
@@ -1088,6 +1094,7 @@ export default function CampaignDetailPage() {
         onClose={handleCloseInfluencerDialog}
         onSave={handleInfluencerSave}
         influencer={selectedInfluencer}
+        initialTab={dialogInitialTab}
       />
 
       <CampaignDialog

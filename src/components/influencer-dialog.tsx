@@ -20,6 +20,7 @@ import { InfluencerCampaignsTab } from "@/components/influencer-campaigns-tab";
 import { InfluencerContentTab } from "@/components/influencer-content-tab";
 import { InfluencerSubmissionsTab } from "@/components/influencer-submissions-tab";
 import { InfluencerContractsTab } from "@/components/influencer-contracts-tab";
+import { InfluencerNotesTab } from "@/components/influencer-notes-tab";
 import { DealDialog } from "@/components/deal-dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { AlertTriangle, Pencil, Plus, DollarSign } from "lucide-react";
+import { AlertTriangle, Pencil, Plus, DollarSign, MessageCircle } from "lucide-react";
 
 interface InfluencerDialogProps {
   open: boolean;
@@ -781,6 +782,12 @@ export function InfluencerDialog({
                 {(influencer.partnership_type === "paid" || influencer.whitelisting_enabled) && (
                   <TabsTrigger value="contracts">Contracts</TabsTrigger>
                 )}
+                <TabsTrigger value="notes">
+                  <span className="flex items-center gap-1.5">
+                    {activeTab === "notes" && <MessageCircle className="h-3.5 w-3.5 text-purple-600" />}
+                    Notes
+                  </span>
+                </TabsTrigger>
               </TabsList>
 
               {/* Fixed size container for tab content to prevent modal resizing */}
@@ -1037,6 +1044,10 @@ export function InfluencerDialog({
                     <InfluencerContractsTab influencer={influencer} />
                   </TabsContent>
                 )}
+
+                <TabsContent value="notes" className="mt-0 h-full w-full">
+                  <InfluencerNotesTab influencerId={influencer.id} />
+                </TabsContent>
               </div>
             </Tabs>
           ) : (
