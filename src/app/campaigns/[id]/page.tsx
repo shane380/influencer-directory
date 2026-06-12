@@ -49,7 +49,6 @@ import {
   Trash2,
   ShoppingCart,
   ExternalLink,
-  Link2,
   Clock,
   CheckCircle2,
   XCircle,
@@ -865,7 +864,7 @@ export default function CampaignDetailPage() {
                         </div>
                         <div className="flex flex-col min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <span className="font-semibold text-gray-900 truncate">{ci.influencer.name}</span>
+                            <span className="text-[15px] font-semibold text-gray-900 truncate">{ci.influencer.name}</span>
                             {ci.approval_status && (
                               <button
                                 onClick={(e) => {
@@ -893,7 +892,7 @@ export default function CampaignDetailPage() {
                               </button>
                             )}
                           </div>
-                          <span className="text-xs text-gray-400 tabular-nums">
+                          <span className="text-[12.5px] text-gray-400 tabular-nums">
                             {formatNumber(ci.influencer.follower_count)} followers
                           </span>
                           <a
@@ -901,9 +900,8 @@ export default function CampaignDetailPage() {
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
-                            className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:underline w-fit"
+                            className="text-[12.5px] font-medium text-purple-600 hover:underline w-fit"
                           >
-                            <Link2 className="h-3 w-3" />
                             @{ci.influencer.instagram_handle}
                           </a>
                         </div>
