@@ -802,7 +802,7 @@ export default function CampaignDetailPage() {
                       }}
                     />
                   </TableHead>
-                  <TableHead>
+                  <TableHead className="w-[240px]">
                     <button
                       className="flex items-center gap-1 hover:text-gray-900"
                       onClick={() => handleSort("name")}
@@ -811,7 +811,7 @@ export default function CampaignDetailPage() {
                       <ArrowUpDown className="h-4 w-4" />
                     </button>
                   </TableHead>
-                  <TableHead className="min-w-[220px]">Notes</TableHead>
+                  <TableHead className="w-full min-w-[200px]">Notes</TableHead>
                   <TableHead>Partnership</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Owner</TableHead>
@@ -845,21 +845,21 @@ export default function CampaignDetailPage() {
                         }}
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="w-[240px]">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 flex-shrink-0">
+                        <div className="w-12 h-12 flex-shrink-0">
                           {ci.influencer.profile_photo_url ? (
                             <Image
                               src={ci.influencer.profile_photo_url}
                               alt={ci.influencer.name}
-                              width={40}
-                              height={40}
+                              width={48}
+                              height={48}
                               className="rounded-full object-cover w-full h-full"
                               unoptimized
                             />
                           ) : (
                             <div className="w-full h-full rounded-full bg-gray-200 flex items-center justify-center">
-                              <span className="text-gray-500 text-sm font-medium">
+                              <span className="text-gray-500 text-base font-medium">
                                 {ci.influencer.name.charAt(0).toUpperCase()}
                               </span>
                             </div>
@@ -911,7 +911,7 @@ export default function CampaignDetailPage() {
                       </div>
                     </TableCell>
                     <TableCell
-                      className="max-w-[320px]"
+                      className="w-full"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleOpenInfluencerDialog(ci.influencer, "notes");
