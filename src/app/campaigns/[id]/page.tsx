@@ -934,7 +934,7 @@ export default function CampaignDetailPage() {
                         onChange={(e) => handlePartnershipTypeChange(ci.id, ci.influencer_id, e.target.value as PartnershipType)}
                         className="text-xs h-8 w-[84px] bg-transparent border-0 text-gray-600 px-0 focus:ring-0"
                         truncate
-                        chevronOnHover
+                        hideChevron
                         title={partnershipTypeLabels[ci.partnership_type]}
                       >
                         <option value="unassigned">Unassigned</option>
@@ -955,7 +955,7 @@ export default function CampaignDetailPage() {
                           onChange={(e) => handleStatusChange(ci.id, e.target.value as RelationshipStatus)}
                           className="text-xs h-8 w-[88px] bg-transparent border-0 text-gray-700 px-0 focus:ring-0"
                           truncate
-                          chevronOnHover
+                          hideChevron
                           title={statusLabels[ci.status]}
                         >
                           <option value="prospect">Prospect</option>
@@ -977,7 +977,7 @@ export default function CampaignDetailPage() {
                         onChange={(e) => handleOwnerChange(ci.influencer.id, e.target.value || null)}
                         className="text-xs h-8 w-[80px] bg-transparent border-0 text-gray-600 px-0 focus:ring-0"
                         truncate
-                        chevronOnHover
+                        hideChevron
                         title={profiles.find(p => p.id === ci.influencer.assigned_to)?.display_name || "—"}
                       >
                         <option value="">—</option>
@@ -1023,7 +1023,7 @@ export default function CampaignDetailPage() {
                             onChange={(e) => handleContentPostedChange(ci.id, e.target.value as ContentPostedType)}
                             className="text-xs h-8 w-[64px] bg-transparent border-0 text-gray-700 px-0 focus:ring-0"
                             truncate
-                            chevronOnHover
+                            hideChevron
                             title={contentPostedLabels[ci.content_posted]}
                           >
                             <option value="none">—</option>
@@ -1039,7 +1039,7 @@ export default function CampaignDetailPage() {
                           onChange={(e) => handleContentPostedChange(ci.id, e.target.value as ContentPostedType)}
                           className="text-xs h-8 w-[44px] bg-transparent border-0 text-gray-300 px-0 focus:ring-0"
                           truncate
-                          chevronOnHover
+                          hideChevron
                           title="—"
                         >
                           <option value="none">—</option>

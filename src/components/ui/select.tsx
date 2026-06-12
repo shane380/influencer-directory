@@ -4,14 +4,13 @@ import { ChevronDown } from "lucide-react";
 
 export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   truncate?: boolean;
-  // When true, the chevron is hidden until the nearest `group` ancestor (e.g. a
-  // table row) is hovered — used for inline-editable table cells so the arrow
-  // doesn't permanently take up horizontal space.
-  chevronOnHover?: boolean;
+  // When true, the dropdown chevron is not rendered at all — used for
+  // inline-editable table cells where the arrow just wastes horizontal space.
+  hideChevron?: boolean;
 }
 
 const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
-  ({ className, children, truncate, chevronOnHover, ...props }, ref) => {
+  ({ className, children, truncate, hideChevron, ...props }, ref) => {
     return (
       <div className="relative inline-block">
         <select
@@ -25,12 +24,9 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
         >
           {children}
         </select>
-        <ChevronDown
-          className={cn(
-            "absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none",
-            chevronOnHover && "opacity-0 transition-opacity group-hover:opacity-100"
-          )}
-        />
+        {!hideChevron && (
+          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
+        )}
       </div>
     );
   }
