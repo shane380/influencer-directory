@@ -808,7 +808,7 @@ export default function CampaignDetailPage() {
                       }}
                     />
                   </TableHead>
-                  <TableHead className="w-[240px]">
+                  <TableHead className="w-[200px]">
                     <button
                       className="flex items-center gap-1 hover:text-gray-900"
                       onClick={() => handleSort("name")}
@@ -851,7 +851,7 @@ export default function CampaignDetailPage() {
                         }}
                       />
                     </TableCell>
-                    <TableCell className="w-[240px]">
+                    <TableCell className="w-[200px]">
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 flex-shrink-0">
                           {ci.influencer.profile_photo_url ? (
@@ -901,7 +901,7 @@ export default function CampaignDetailPage() {
                               </button>
                             )}
                           </div>
-                          <span className="text-[12.5px] text-gray-400 tabular-nums">
+                          <span className="text-[12.5px] text-gray-400 tabular-nums truncate">
                             {formatNumber(ci.influencer.follower_count)} followers
                           </span>
                           <a
@@ -909,7 +909,7 @@ export default function CampaignDetailPage() {
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
-                            className="text-[12.5px] font-medium text-purple-600 hover:underline w-fit"
+                            className="text-[12.5px] font-medium text-purple-600 hover:underline truncate max-w-full"
                           >
                             @{ci.influencer.instagram_handle}
                           </a>
