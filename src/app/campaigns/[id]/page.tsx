@@ -825,7 +825,7 @@ export default function CampaignDetailPage() {
                 {filteredInfluencers.map((ci) => (
                   <TableRow
                     key={ci.id}
-                    className="cursor-pointer hover:bg-gray-50 transition-colors"
+                    className="group cursor-pointer hover:bg-gray-50 transition-colors"
                     data-state={selectedIds.has(ci.influencer_id) ? "selected" : undefined}
                     onClick={() => handleOpenInfluencerDialog(ci.influencer)}
                   >
@@ -932,8 +932,9 @@ export default function CampaignDetailPage() {
                       <Select
                         value={ci.partnership_type}
                         onChange={(e) => handlePartnershipTypeChange(ci.id, ci.influencer_id, e.target.value as PartnershipType)}
-                        className="text-xs h-8 w-[100px] bg-transparent border-0 text-gray-600 px-0 focus:ring-0"
+                        className="text-xs h-8 w-[84px] bg-transparent border-0 text-gray-600 px-0 focus:ring-0"
                         truncate
+                        chevronOnHover
                         title={partnershipTypeLabels[ci.partnership_type]}
                       >
                         <option value="unassigned">Unassigned</option>
@@ -952,8 +953,9 @@ export default function CampaignDetailPage() {
                         <Select
                           value={ci.status}
                           onChange={(e) => handleStatusChange(ci.id, e.target.value as RelationshipStatus)}
-                          className="text-xs h-8 w-[110px] bg-transparent border-0 text-gray-700 px-0 focus:ring-0"
+                          className="text-xs h-8 w-[88px] bg-transparent border-0 text-gray-700 px-0 focus:ring-0"
                           truncate
+                          chevronOnHover
                           title={statusLabels[ci.status]}
                         >
                           <option value="prospect">Prospect</option>
@@ -973,8 +975,9 @@ export default function CampaignDetailPage() {
                       <Select
                         value={ci.influencer.assigned_to || ""}
                         onChange={(e) => handleOwnerChange(ci.influencer.id, e.target.value || null)}
-                        className="text-xs h-8 w-[90px] bg-transparent border-0 text-gray-600 px-0 focus:ring-0"
+                        className="text-xs h-8 w-[80px] bg-transparent border-0 text-gray-600 px-0 focus:ring-0"
                         truncate
+                        chevronOnHover
                         title={profiles.find(p => p.id === ci.influencer.assigned_to)?.display_name || "—"}
                       >
                         <option value="">—</option>
@@ -1018,8 +1021,9 @@ export default function CampaignDetailPage() {
                           <Select
                             value={ci.content_posted}
                             onChange={(e) => handleContentPostedChange(ci.id, e.target.value as ContentPostedType)}
-                            className="text-xs h-8 w-[75px] bg-transparent border-0 text-gray-700 px-0 focus:ring-0"
+                            className="text-xs h-8 w-[64px] bg-transparent border-0 text-gray-700 px-0 focus:ring-0"
                             truncate
+                            chevronOnHover
                             title={contentPostedLabels[ci.content_posted]}
                           >
                             <option value="none">—</option>
@@ -1033,8 +1037,9 @@ export default function CampaignDetailPage() {
                         <Select
                           value="none"
                           onChange={(e) => handleContentPostedChange(ci.id, e.target.value as ContentPostedType)}
-                          className="text-xs h-8 w-[60px] bg-transparent border-0 text-gray-300 px-0 focus:ring-0"
+                          className="text-xs h-8 w-[44px] bg-transparent border-0 text-gray-300 px-0 focus:ring-0"
                           truncate
+                          chevronOnHover
                           title="—"
                         >
                           <option value="none">—</option>
