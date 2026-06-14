@@ -1903,8 +1903,8 @@ export default function CreatorDashboard() {
         return (
           <div className="cd-m-earnings">
             <div className="cd-m-earnings-head">
-              <div className="cd-m-earnings-eyebrow">Total Earnings · Combined</div>
-              <div className="cd-m-earnings-title">Your Earnings</div>
+              <div className="cd-m-earnings-eyebrow">Combined · All Sources</div>
+              <div className="cd-m-earnings-title">Total Earnings</div>
             </div>
             <div className="cd-m-earnings-hero">
               <div className="cd-skel cd-skel-stat-lg" style={{ marginBottom: 8 }} />
@@ -1917,8 +1917,8 @@ export default function CreatorDashboard() {
         <div className="cd-earnings">
           <div className="cd-earnings-head">
             <div>
-              <div className="cd-earnings-eyebrow">Total Earnings · Combined</div>
-              <div className="cd-earnings-title">Your Earnings</div>
+              <div className="cd-earnings-eyebrow">Combined · All Sources</div>
+              <div className="cd-earnings-title">Total Earnings</div>
             </div>
           </div>
           <div className="cd-earnings-hero">
@@ -1944,8 +1944,8 @@ export default function CreatorDashboard() {
       return (
         <div className="cd-m-earnings">
           <div className="cd-m-earnings-head">
-            <div className="cd-m-earnings-eyebrow">Total Earnings · Combined</div>
-            <div className="cd-m-earnings-title">Your Earnings</div>
+            <div className="cd-m-earnings-eyebrow">Combined · All Sources</div>
+            <div className="cd-m-earnings-title">Total Earnings</div>
           </div>
           <div className="cd-m-earnings-hero">
             <div className="cd-m-earnings-sublabel">{monthName} — In Progress</div>
@@ -1970,8 +1970,8 @@ export default function CreatorDashboard() {
       <div className="cd-earnings">
         <div className="cd-earnings-head">
           <div>
-            <div className="cd-earnings-eyebrow">Total Earnings · Combined</div>
-            <div className="cd-earnings-title">Your Earnings</div>
+            <div className="cd-earnings-eyebrow">Combined · All Sources</div>
+            <div className="cd-earnings-title">Total Earnings</div>
           </div>
           {getScorePill(adsTotals.spend, false)}
         </div>
@@ -2007,7 +2007,7 @@ export default function CreatorDashboard() {
           <div className="cd-m-earnings">
             <div className="cd-m-earnings-head">
               <div className="cd-m-earnings-eyebrow">Ad Spend Commission</div>
-              <div className="cd-m-earnings-title">Your Earnings</div>
+              <div className="cd-m-earnings-title">Ad Spend Earnings</div>
             </div>
             <div className="cd-m-earnings-hero">
               <div className="cd-skel cd-skel-stat-lg" style={{ marginBottom: 8 }} />
@@ -2024,7 +2024,7 @@ export default function CreatorDashboard() {
           <div className="cd-earnings-head">
             <div>
               <div className="cd-earnings-eyebrow">Ad Spend Commission</div>
-              <div className="cd-earnings-title">Your Earnings</div>
+              <div className="cd-earnings-title">Ad Spend Earnings</div>
             </div>
           </div>
           <div className="cd-earnings-hero">
@@ -2072,7 +2072,7 @@ export default function CreatorDashboard() {
         <div className="cd-m-earnings">
           <div className="cd-m-earnings-head">
             <div className="cd-m-earnings-eyebrow">Ad Spend Commission</div>
-            <div className="cd-m-earnings-title">Your Earnings</div>
+            <div className="cd-m-earnings-title">Ad Spend Earnings</div>
           </div>
           <div className="cd-m-earnings-hero">
             <div className="cd-m-earnings-sublabel">{monthName} — In Progress</div>
@@ -2102,7 +2102,7 @@ export default function CreatorDashboard() {
         <div className="cd-earnings-head">
           <div>
             <div className="cd-earnings-eyebrow">Ad Spend Commission</div>
-            <div className="cd-earnings-title">Your Earnings</div>
+            <div className="cd-earnings-title">Ad Spend Earnings</div>
           </div>
           {getScorePill(totalSpend, false)}
         </div>
@@ -2230,7 +2230,7 @@ export default function CreatorDashboard() {
           <div className="cd-m-aff-sales">
             <div className="cd-m-aff-sales-head">
               <div className="cd-m-aff-sales-eyebrow">Affiliate Sales</div>
-              <div className="cd-m-aff-sales-title">Your Code</div>
+              <div className="cd-m-aff-sales-title">Affiliate Earnings</div>
             </div>
             <div className="cd-m-earnings-hero">
               <div className="cd-skel cd-skel-stat-lg" style={{ marginBottom: 8 }} />
@@ -2247,7 +2247,7 @@ export default function CreatorDashboard() {
         <div className="cd-aff-sales">
           <div className="cd-aff-sales-head">
             <div className="cd-aff-sales-eyebrow">Affiliate Sales</div>
-            <div className="cd-aff-sales-title">Your Code</div>
+            <div className="cd-aff-sales-title">Affiliate Earnings</div>
           </div>
           <div className="cd-earnings-hero">
             <div>
@@ -2282,7 +2282,7 @@ export default function CreatorDashboard() {
         <div className="cd-m-aff-sales">
           <div className="cd-m-aff-sales-head">
             <div className="cd-m-aff-sales-eyebrow">Affiliate Sales{affiliateCode ? ` · ${affiliateCode}` : ''}</div>
-            <div className="cd-m-aff-sales-title">Your Code</div>
+            <div className="cd-m-aff-sales-title">Affiliate Earnings</div>
           </div>
           <div className="cd-m-earnings-hero">
             <div className="cd-m-earnings-sublabel">{monthName} — In Progress</div>
@@ -2321,7 +2321,7 @@ export default function CreatorDashboard() {
       <div className="cd-aff-sales">
         <div className="cd-aff-sales-head">
           <div className="cd-aff-sales-eyebrow">Affiliate Sales{affiliateCode ? ` · Code ${affiliateCode}` : ''}</div>
-          <div className="cd-aff-sales-title">Your Code</div>
+          <div className="cd-aff-sales-title">Affiliate Earnings</div>
         </div>
         <div className="cd-earnings-hero">
           <div>
