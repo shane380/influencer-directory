@@ -866,10 +866,10 @@ export default function CreatorDashboard() {
   const [affiliateData, setAffiliateData] = useState(null) // { orders, summary }
   const [affiliateHistory, setAffiliateHistory] = useState([]) // [{ month, orders, summary }]
   const [affiliateLoading, setAffiliateLoading] = useState(false)
-  // Legacy (GoAffPro) affiliate row, if this creator is paid via the legacy path
-  // rather than the partner-invite `has_affiliate` flag. Mirrors how
-  // /api/admin/payments/calculate decides affiliate commission.
-  const [legacyAffiliate, setLegacyAffiliate] = useState(null)
+  // Resolved affiliate config from /api/creator/affiliate-config. Computed
+  // server-side because legacy_affiliates is RLS service-role-only and the
+  // browser client cannot read it. Shape: { enabled, rate, code, source }.
+  const [affiliateConfig, setAffiliateConfig] = useState(null)
 
   // Code change request
   const [codeChangeOpen, setCodeChangeOpen] = useState(false)
@@ -979,23 +979,22 @@ export default function CreatorDashboard() {
       }
       if (!infData) setAdsLoading(false)
 
-      // Resolve legacy (GoAffPro) affiliate status. A legacy affiliate who was
-      // later onboarded as a partner is paid via the legacy path (their
+      // Resolve affiliate status server-side. A legacy (GoAffPro) affiliate who
+      // was later onboarded as a partner is paid via the legacy path (their
       // legacy_affiliates.commission_rate, e.g. 25%), NOT the partner-invite
-      // `has_affiliate` flag — so the dashboard must source affiliate sales the
-      // same way /api/admin/payments/calculate does, or it underpays/hides.
-      let legacyRow = null
+      // `has_affiliate` flag. legacy_affiliates is RLS service-role-only, so the
+      // browser client cannot read it — this endpoint does the lookup and
+      // returns { enabled, rate, code, source } the same way the payment
+      // calculator decides affiliate commission.
+      let cfg = null
       try {
-        if (infData?.id) {
-          const { data } = await supabase.from('legacy_affiliates').select('*').eq('influencer_id', infData.id).eq('status', 'active').maybeSingle()
-          legacyRow = data || null
-        }
-        if (!legacyRow && creatorData.affiliate_code) {
-          const { data } = await supabase.from('legacy_affiliates').select('*').ilike('discount_code', creatorData.affiliate_code).eq('status', 'active').maybeSingle()
-          legacyRow = data || null
-        }
+        const cfgUrl = urlCreatorId
+          ? `/api/creator/affiliate-config?creator_id=${encodeURIComponent(urlCreatorId)}`
+          : '/api/creator/affiliate-config'
+        const cfgRes = await fetch(cfgUrl)
+        if (cfgRes.ok) cfg = await cfgRes.json()
       } catch {}
-      setLegacyAffiliate(legacyRow)
+      setAffiliateConfig(cfg)
 
       // Phase 1 done — render the page shell immediately
       setLoading(false)
@@ -1047,7 +1046,7 @@ export default function CreatorDashboard() {
       }
 
       // Code change requests
-      if (inviteData?.has_affiliate || legacyRow) {
+      if (cfg?.enabled) {
         bgTasks.push((async () => {
           try {
             const ccRes = await fetch('/api/creator/code-change-request')
@@ -1057,19 +1056,16 @@ export default function CreatorDashboard() {
         })())
       }
 
-      // Affiliate sales — enabled by either the partner-invite flag OR an active
-      // legacy affiliate row. Rate + code are sourced to match the payment
-      // calculator: legacy → legacy_affiliates rate/code, otherwise partner rate.
-      const affiliateEnabled = inviteData?.has_affiliate || !!legacyRow
-      const affiliateCodeToUse = legacyRow?.discount_code || creatorData.affiliate_code
+      // Affiliate sales — enabled, rate and code all come from the server-side
+      // affiliate config (partner flag OR active legacy row, matched to payments).
+      const affiliateEnabled = !!cfg?.enabled
+      const affiliateCodeToUse = cfg?.code
       if (affiliateEnabled && affiliateCodeToUse) {
         setAffiliateLoading(true)
         bgTasks.push((async () => {
           try {
             const now = new Date()
-            const rate = legacyRow
-              ? (legacyRow.commission_rate || 25)
-              : (creatorData.commission_rate || inviteData.ad_spend_percentage || 10)
+            const rate = cfg.rate || 10
             const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
             // Fetch current month + last 3 months in parallel
@@ -1468,16 +1464,16 @@ export default function CreatorDashboard() {
   const handle = influencer?.instagram_handle ? `@${influencer.instagram_handle}` : ''
   const photoUrl = influencer?.profile_photo_url
   const initials = creatorName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-  // Affiliate status is true via the partner-invite flag OR an active legacy
-  // (GoAffPro) row. Commission rate is sourced to match the payment calculator:
-  // legacy affiliates are paid at legacy_affiliates.commission_rate (e.g. 25%),
-  // not the partner rate.
-  const hasAffiliate = invite?.has_affiliate === true || !!legacyAffiliate
-  const commissionRate = legacyAffiliate
-    ? (legacyAffiliate.commission_rate || 25)
+  // Affiliate status comes from the server-side config (partner flag OR active
+  // legacy row). Rate is sourced to match the payment calculator: legacy
+  // affiliates are paid at legacy_affiliates.commission_rate (e.g. 25%), not the
+  // partner rate. While the config is still loading, fall back to the invite flag.
+  const hasAffiliate = affiliateConfig ? !!affiliateConfig.enabled : (invite?.has_affiliate === true)
+  const commissionRate = affiliateConfig?.enabled
+    ? (affiliateConfig.rate || 0)
     : (invite?.has_affiliate === true ? (invite?.commission_rate || creator?.commission_rate || 0) : 0)
   const videosPerMonth = invite?.videos_per_month || '—'
-  const affiliateCode = legacyAffiliate?.discount_code || creator?.affiliate_code || ''
+  const affiliateCode = affiliateConfig?.code || creator?.affiliate_code || ''
   const adsRunning = ads.filter(a => a.status === 'ACTIVE').length
 
   // --- SHARED SECTION RENDERERS ---
