@@ -1056,17 +1056,17 @@ export default function CreatorDashboard() {
         })())
       }
 
-      // Affiliate sales — enabled, rate and code all come from the server-side
-      // affiliate config (partner flag OR active legacy row, matched to payments).
-      // One hybrid endpoint: current month net-exact (live Shopify) + prior-month
-      // history from the pre-aggregated table (fast), instead of 4 live scans.
-      const affiliateEnabled = !!cfg?.enabled
-      const affiliateCodeToUse = cfg?.code
-      if (affiliateEnabled && affiliateCodeToUse) {
+      // Affiliate sales — one hybrid endpoint that resolves identity server-side
+      // and returns current month net-exact (live Shopify) + prior-month history
+      // net-exact from creator_payments (gross fallback), instead of 4 live scans.
+      if (cfg?.enabled && cfg?.code) {
         setAffiliateLoading(true)
         bgTasks.push((async () => {
           try {
-            const res = await fetch(`/api/creator/affiliate-data?code=${encodeURIComponent(affiliateCodeToUse)}&rate=${cfg.rate || 10}`)
+            const dataUrl = urlCreatorId
+              ? `/api/creator/affiliate-data?creator_id=${encodeURIComponent(urlCreatorId)}`
+              : '/api/creator/affiliate-data'
+            const res = await fetch(dataUrl)
             if (res.ok) {
               const data = await res.json()
               setAffiliateData({ orders: data.orders || [], summary: data.summary })
