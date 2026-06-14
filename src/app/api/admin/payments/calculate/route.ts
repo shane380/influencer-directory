@@ -28,12 +28,17 @@ export async function GET(request: NextRequest) {
     .select("*")
     .eq("month", month);
 
-  // Build lookup: key = "{influencerId}-{type}[-{dealId}]" → existing row
+  // Build lookup: key = "{owner}-{type}[-{dealId}]" → existing row.
+  // Legacy affiliate rows are keyed by legacy_affiliate_id, NOT influencer_id:
+  // their influencer_id can be null (e.g. created before the influencer backfill),
+  // and keying those by influencer_id collapses every null-influencer legacy row
+  // onto one map entry — defeating dedup and producing duplicate commission rows.
   const existingMap = new Map<string, any>();
   for (const p of existingPayments || []) {
+    const owner = p.legacy_affiliate_id ? `legacy:${p.legacy_affiliate_id}` : `inf:${p.influencer_id}`;
     const key = p.deal_id
-      ? `${p.influencer_id}-${p.payment_type}-${p.deal_id}`
-      : `${p.influencer_id}-${p.payment_type}`;
+      ? `${owner}-${p.payment_type}-${p.deal_id}`
+      : `${owner}-${p.payment_type}`;
     existingMap.set(key, p);
   }
 
@@ -117,7 +122,7 @@ export async function GET(request: NextRequest) {
   const affiliateCreators = creators.filter((c: any) => {
     const invite = inviteMap.get(c.invite_id);
     if (!invite?.has_affiliate || !c.affiliate_code) return false;
-    const key = `${invite.influencer?.id}-affiliate_commission`;
+    const key = `inf:${invite.influencer?.id}-affiliate_commission`;
     const existing = existingMap.get(key);
     // Skip if already locked (non-pending) — regardless of past/current month
     if (existing && existing.status !== "pending") return false;
@@ -128,7 +133,7 @@ export async function GET(request: NextRequest) {
     const invite = inviteMap.get(c.invite_id);
     const influencerId = invite.influencer.id;
     const rate = c.commission_rate || invite?.ad_spend_percentage || 10;
-    const key = `${influencerId}-affiliate_commission`;
+    const key = `inf:${influencerId}-affiliate_commission`;
     const existing = existingMap.get(key);
 
     // Past month with existing row: use stored data, skip Shopify
@@ -194,7 +199,7 @@ export async function GET(request: NextRequest) {
       .select("*");
     // Update existingMap so the rows below get real IDs
     for (const row of inserted || []) {
-      const key = `${row.influencer_id}-affiliate_commission`;
+      const key = `inf:${row.influencer_id}-affiliate_commission`;
       existingMap.set(key, row);
     }
   }
@@ -445,7 +450,7 @@ export async function GET(request: NextRequest) {
 
     // Ad spend commission
     if (invite.has_ad_spend) {
-      const key = `${influencerId}-ad_spend_commission`;
+      const key = `inf:${influencerId}-ad_spend_commission`;
       const existing = existingMap.get(key);
       processedKeys.add(key);
 
@@ -477,7 +482,7 @@ export async function GET(request: NextRequest) {
 
     // Retainer
     if (invite.has_retainer) {
-      const key = `${influencerId}-retainer`;
+      const key = `inf:${influencerId}-retainer`;
       const existing = existingMap.get(key);
       processedKeys.add(key);
 
@@ -506,7 +511,7 @@ export async function GET(request: NextRequest) {
 
     // Affiliate commission
     if (invite.has_affiliate) {
-      const key = `${influencerId}-affiliate_commission`;
+      const key = `inf:${influencerId}-affiliate_commission`;
       const existing = existingMap.get(key);
       processedKeys.add(key);
 
@@ -537,7 +542,7 @@ export async function GET(request: NextRequest) {
     // Paid collabs
     const creatorDeals = dealsByInfluencer.get(influencerId) || [];
     for (const deal of creatorDeals) {
-      const key = `${influencerId}-paid_collab-${deal.id}`;
+      const key = `inf:${influencerId}-paid_collab-${deal.id}`;
       const existing = existingMap.get(key);
       processedKeys.add(key);
 
@@ -618,8 +623,8 @@ export async function GET(request: NextRequest) {
     if (processedLegacyIds.has(p.id)) return false;
     if (p.legacy_affiliate_id) return false;
     const key = p.deal_id
-      ? `${p.influencer_id}-${p.payment_type}-${p.deal_id}`
-      : `${p.influencer_id}-${p.payment_type}`;
+      ? `inf:${p.influencer_id}-${p.payment_type}-${p.deal_id}`
+      : `inf:${p.influencer_id}-${p.payment_type}`;
     return !processedKeys.has(key);
   });
 

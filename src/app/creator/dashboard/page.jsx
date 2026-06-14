@@ -800,7 +800,7 @@ const CSS = `
 `
 
 const TABS = ['ads', 'campaigns', 'wardrobe', 'submit', 'settings']
-const TAB_LABELS = { wardrobe: 'Wardrobe & Orders', ads: 'Ads', campaigns: 'Campaigns', submit: 'Submit Content', settings: 'Account Info' }
+const TAB_LABELS = { wardrobe: 'Wardrobe & Orders', ads: 'Stats', campaigns: 'Campaigns', submit: 'Submit Content', settings: 'Account Info' }
 const TAB_LABELS_SHORT = { wardrobe: 'Wardrobe', ads: 'Ads', campaigns: 'Campaigns', submit: 'Submit Content', settings: 'Payment' }
 
 export default function CreatorDashboard() {
@@ -866,6 +866,10 @@ export default function CreatorDashboard() {
   const [affiliateData, setAffiliateData] = useState(null) // { orders, summary }
   const [affiliateHistory, setAffiliateHistory] = useState([]) // [{ month, orders, summary }]
   const [affiliateLoading, setAffiliateLoading] = useState(false)
+  // Legacy (GoAffPro) affiliate row, if this creator is paid via the legacy path
+  // rather than the partner-invite `has_affiliate` flag. Mirrors how
+  // /api/admin/payments/calculate decides affiliate commission.
+  const [legacyAffiliate, setLegacyAffiliate] = useState(null)
 
   // Code change request
   const [codeChangeOpen, setCodeChangeOpen] = useState(false)
@@ -975,6 +979,24 @@ export default function CreatorDashboard() {
       }
       if (!infData) setAdsLoading(false)
 
+      // Resolve legacy (GoAffPro) affiliate status. A legacy affiliate who was
+      // later onboarded as a partner is paid via the legacy path (their
+      // legacy_affiliates.commission_rate, e.g. 25%), NOT the partner-invite
+      // `has_affiliate` flag — so the dashboard must source affiliate sales the
+      // same way /api/admin/payments/calculate does, or it underpays/hides.
+      let legacyRow = null
+      try {
+        if (infData?.id) {
+          const { data } = await supabase.from('legacy_affiliates').select('*').eq('influencer_id', infData.id).eq('status', 'active').maybeSingle()
+          legacyRow = data || null
+        }
+        if (!legacyRow && creatorData.affiliate_code) {
+          const { data } = await supabase.from('legacy_affiliates').select('*').ilike('discount_code', creatorData.affiliate_code).eq('status', 'active').maybeSingle()
+          legacyRow = data || null
+        }
+      } catch {}
+      setLegacyAffiliate(legacyRow)
+
       // Phase 1 done — render the page shell immediately
       setLoading(false)
 
@@ -1025,7 +1047,7 @@ export default function CreatorDashboard() {
       }
 
       // Code change requests
-      if (inviteData?.has_affiliate) {
+      if (inviteData?.has_affiliate || legacyRow) {
         bgTasks.push((async () => {
           try {
             const ccRes = await fetch('/api/creator/code-change-request')
@@ -1035,13 +1057,19 @@ export default function CreatorDashboard() {
         })())
       }
 
-      // Affiliate sales
-      if (inviteData?.has_affiliate && creatorData.affiliate_code) {
+      // Affiliate sales — enabled by either the partner-invite flag OR an active
+      // legacy affiliate row. Rate + code are sourced to match the payment
+      // calculator: legacy → legacy_affiliates rate/code, otherwise partner rate.
+      const affiliateEnabled = inviteData?.has_affiliate || !!legacyRow
+      const affiliateCodeToUse = legacyRow?.discount_code || creatorData.affiliate_code
+      if (affiliateEnabled && affiliateCodeToUse) {
         setAffiliateLoading(true)
         bgTasks.push((async () => {
           try {
             const now = new Date()
-            const rate = creatorData.commission_rate || inviteData.ad_spend_percentage || 10
+            const rate = legacyRow
+              ? (legacyRow.commission_rate || 25)
+              : (creatorData.commission_rate || inviteData.ad_spend_percentage || 10)
             const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
             // Fetch current month + last 3 months in parallel
@@ -1053,7 +1081,7 @@ export default function CreatorDashboard() {
 
             const results = await Promise.all(
               months.map(m =>
-                fetch(`/api/shopify/affiliate-orders?discount_code=${encodeURIComponent(creatorData.affiliate_code)}&month=${m}&commission_rate=${rate}`)
+                fetch(`/api/shopify/affiliate-orders?discount_code=${encodeURIComponent(affiliateCodeToUse)}&month=${m}&commission_rate=${rate}`)
                   .then(r => r.json())
                   .catch(() => null)
               )
@@ -1440,10 +1468,16 @@ export default function CreatorDashboard() {
   const handle = influencer?.instagram_handle ? `@${influencer.instagram_handle}` : ''
   const photoUrl = influencer?.profile_photo_url
   const initials = creatorName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-  const hasAffiliate = invite?.has_affiliate === true
-  const commissionRate = hasAffiliate ? (invite?.commission_rate || creator?.commission_rate || 0) : 0
+  // Affiliate status is true via the partner-invite flag OR an active legacy
+  // (GoAffPro) row. Commission rate is sourced to match the payment calculator:
+  // legacy affiliates are paid at legacy_affiliates.commission_rate (e.g. 25%),
+  // not the partner rate.
+  const hasAffiliate = invite?.has_affiliate === true || !!legacyAffiliate
+  const commissionRate = legacyAffiliate
+    ? (legacyAffiliate.commission_rate || 25)
+    : (invite?.has_affiliate === true ? (invite?.commission_rate || creator?.commission_rate || 0) : 0)
   const videosPerMonth = invite?.videos_per_month || '—'
-  const affiliateCode = creator?.affiliate_code || ''
+  const affiliateCode = legacyAffiliate?.discount_code || creator?.affiliate_code || ''
   const adsRunning = ads.filter(a => a.status === 'ACTIVE').length
 
   // --- SHARED SECTION RENDERERS ---
@@ -2102,7 +2136,7 @@ export default function CreatorDashboard() {
   }
 
   function renderAffiliateSales(mobile) {
-    if (!invite?.has_affiliate) return null
+    if (!hasAffiliate) return null
     if (affiliateLoading) return <div style={{ fontSize: 12, color: '#aaa', padding: '20px 0' }}>Loading affiliate data…</div>
     if (!affiliateData?.summary) return null
 
@@ -4986,7 +5020,7 @@ export default function CreatorDashboard() {
                 )
               })()}
 
-              {affiliateCode && invite?.has_affiliate && (
+              {affiliateCode && hasAffiliate && (
                 <div style={{ padding: '10px 16px', borderTop: '0.5px solid #e8e8e8' }}>
                   <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                     <div style={{ minWidth: 0, flex: 1 }}>
@@ -5172,7 +5206,7 @@ export default function CreatorDashboard() {
               </div>
               <div className="cd-m-section-body">
                 {renderContactInfo(true)}
-                {affiliateCode && invite?.has_affiliate && (
+                {affiliateCode && hasAffiliate && (
                   <div style={{ background: '#f9f9f9', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
                     <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                       <div style={{ minWidth: 0, flex: 1 }}>
