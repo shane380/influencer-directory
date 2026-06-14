@@ -1058,35 +1058,20 @@ export default function CreatorDashboard() {
 
       // Affiliate sales — enabled, rate and code all come from the server-side
       // affiliate config (partner flag OR active legacy row, matched to payments).
+      // One hybrid endpoint: current month net-exact (live Shopify) + prior-month
+      // history from the pre-aggregated table (fast), instead of 4 live scans.
       const affiliateEnabled = !!cfg?.enabled
       const affiliateCodeToUse = cfg?.code
       if (affiliateEnabled && affiliateCodeToUse) {
         setAffiliateLoading(true)
         bgTasks.push((async () => {
           try {
-            const now = new Date()
-            const rate = cfg.rate || 10
-            const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-
-            // Fetch current month + last 3 months in parallel
-            const months = [currentMonth]
-            for (let i = 1; i <= 3; i++) {
-              const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-              months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+            const res = await fetch(`/api/creator/affiliate-data?code=${encodeURIComponent(affiliateCodeToUse)}&rate=${cfg.rate || 10}`)
+            if (res.ok) {
+              const data = await res.json()
+              setAffiliateData({ orders: data.orders || [], summary: data.summary })
+              setAffiliateHistory(data.history || [])
             }
-
-            const results = await Promise.all(
-              months.map(m =>
-                fetch(`/api/shopify/affiliate-orders?discount_code=${encodeURIComponent(affiliateCodeToUse)}&month=${m}&commission_rate=${rate}`)
-                  .then(r => r.json())
-                  .catch(() => null)
-              )
-            )
-
-            if (results[0]) setAffiliateData(results[0])
-            setAffiliateHistory(
-              results.slice(1).filter(Boolean).map((r, i) => ({ month: months[i + 1], ...r }))
-            )
           } catch (err) {
             console.error('Failed to fetch affiliate data:', err)
           }
@@ -2133,7 +2118,55 @@ export default function CreatorDashboard() {
 
   function renderAffiliateSales(mobile) {
     if (!hasAffiliate) return null
-    if (affiliateLoading) return <div style={{ fontSize: 12, color: '#aaa', padding: '20px 0' }}>Loading affiliate data…</div>
+
+    // While the data loads, render the section shell with the numbers in a
+    // pending (skeleton) state so it doesn't pop in / shift the layout.
+    if (affiliateLoading && !affiliateData?.summary) {
+      const skelStat = (label) => (
+        <div className={mobile ? 'cd-m-aff-sales-stat' : 'cd-aff-sales-stat'}>
+          <div className={mobile ? 'cd-m-aff-sales-stat-label' : 'cd-aff-sales-stat-label'}>{label}</div>
+          <div className="cd-skel cd-skel-stat" style={{ marginTop: mobile ? 4 : 6 }} />
+        </div>
+      )
+      if (mobile) {
+        return (
+          <div className="cd-m-aff-sales">
+            <div className="cd-m-aff-sales-head">
+              <div className="cd-m-aff-sales-eyebrow">Affiliate Sales</div>
+              <div className="cd-m-aff-sales-title">Your Code</div>
+            </div>
+            <div className="cd-m-aff-sales-stats">
+              {skelStat('Orders')}
+              {skelStat('Net Sales')}
+              {skelStat('Earned')}
+            </div>
+            <div className="cd-m-progress" style={{ padding: '14px 20px' }}>
+              <div className="cd-skel cd-skel-line-sm" />
+              <div className="cd-m-progress-track" style={{ marginTop: 8 }}><div className="cd-m-progress-fill" style={{ width: '0%' }} /></div>
+            </div>
+          </div>
+        )
+      }
+      return (
+        <div className="cd-aff-sales">
+          <div className="cd-aff-sales-head">
+            <div className="cd-aff-sales-eyebrow">Affiliate Sales</div>
+            <div className="cd-aff-sales-title">Your Code</div>
+          </div>
+          <div className="cd-aff-sales-hero">
+            {skelStat('Orders')}
+            {skelStat('Gross Sales')}
+            {skelStat('Net Sales')}
+            {skelStat('Your Earnings')}
+          </div>
+          <div className="cd-progress-wrap">
+            <div className="cd-skel cd-skel-line-sm" />
+            <div className="cd-progress-track" style={{ marginTop: 8 }}><div className="cd-progress-fill" style={{ width: '0%' }} /></div>
+          </div>
+        </div>
+      )
+    }
+
     if (!affiliateData?.summary) return null
 
     const s = affiliateData.summary
