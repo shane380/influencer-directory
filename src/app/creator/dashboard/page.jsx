@@ -1461,6 +1461,15 @@ export default function CreatorDashboard() {
   const affiliateCode = affiliateConfig?.code || creator?.affiliate_code || ''
   const adsRunning = ads.filter(a => a.status === 'ACTIVE').length
 
+  // Current-month earnings shared by the combined header and the two detail cards,
+  // so the three numbers are always consistent. Mirrors the per-card math below.
+  const earningsRate = (invite?.ad_spend_percentage || commissionRate || 10) / 100
+  const earningsNow = new Date()
+  const earningsMonthKey = `${earningsNow.getFullYear()}-${String(earningsNow.getMonth() + 1).padStart(2, '0')}`
+  const currentAdSpend = (adsMonthly.find(m => m.month === earningsMonthKey)?.spend) || adsTotals.spend
+  const currentAdEarned = Math.round(currentAdSpend * earningsRate)
+  const currentAffEarned = Math.round(affiliateData?.summary?.commission_owed || 0)
+
   // --- SHARED SECTION RENDERERS ---
 
 
@@ -1880,6 +1889,114 @@ export default function CreatorDashboard() {
     return months.map(m => ({ ...m, active: subMonths.has(m.key) || m.isCurrent }))
   }
 
+  function renderCombinedEarnings(mobile) {
+    // Only partners with BOTH income types get a combined total; for a single
+    // income source it would just duplicate the one card below.
+    if (!(invite?.has_ad_spend && hasAffiliate)) return null
+
+    const monthName = earningsNow.toLocaleString('en', { month: 'long', year: 'numeric' })
+
+    // Wait until both data sources have resolved so the total is never partial.
+    const loading = adsLoading || (affiliateLoading && !affiliateData?.summary) || !affiliateData?.summary
+    if (loading) {
+      if (mobile) {
+        return (
+          <div className="cd-m-earnings">
+            <div className="cd-m-earnings-head">
+              <div className="cd-m-earnings-eyebrow">Total Earnings · Combined</div>
+              <div className="cd-m-earnings-title">Your Earnings</div>
+            </div>
+            <div className="cd-m-earnings-hero">
+              <div className="cd-skel cd-skel-stat-lg" style={{ marginBottom: 8 }} />
+              <div className="cd-skel cd-skel-line-sm" />
+            </div>
+          </div>
+        )
+      }
+      return (
+        <div className="cd-earnings">
+          <div className="cd-earnings-head">
+            <div>
+              <div className="cd-earnings-eyebrow">Total Earnings · Combined</div>
+              <div className="cd-earnings-title">Your Earnings</div>
+            </div>
+          </div>
+          <div className="cd-earnings-hero">
+            <div>
+              <div className="cd-skel cd-skel-line-sm" style={{ marginBottom: 12 }} />
+              <div className="cd-skel cd-skel-stat-lg" style={{ width: 120, height: 60 }} />
+            </div>
+          </div>
+          <div className="cd-progress-wrap">
+            <div className="cd-skel cd-skel-line" style={{ width: '100%', height: 3 }} />
+          </div>
+        </div>
+      )
+    }
+
+    const combined = currentAdEarned + currentAffEarned
+    const milestone = Math.ceil((combined + 1) / 500) * 500
+    const progress = milestone > 0 ? Math.min((combined / milestone) * 100, 100) : 0
+    const remaining = milestone - combined
+    const breakdown = `$${currentAffEarned.toLocaleString()} affiliate sales · $${currentAdEarned.toLocaleString()} ad commission`
+
+    if (mobile) {
+      return (
+        <div className="cd-m-earnings">
+          <div className="cd-m-earnings-head">
+            <div className="cd-m-earnings-eyebrow">Total Earnings · Combined</div>
+            <div className="cd-m-earnings-title">Your Earnings</div>
+          </div>
+          <div className="cd-m-earnings-hero">
+            <div className="cd-m-earnings-sublabel">{monthName} — In Progress</div>
+            <div className="cd-m-earnings-amount">
+              <span className="cd-m-earnings-currency">$</span>
+              <span className="cd-m-earnings-val">{combined.toLocaleString()}</span>
+            </div>
+            <div className="cd-m-earnings-context">{breakdown}</div>
+          </div>
+          <div className="cd-m-progress">
+            <div className="cd-m-progress-header">
+              <span className="cd-m-progress-label">Progress to ${milestone}</span>
+              <span className="cd-m-progress-val">${combined} of ${milestone}</span>
+            </div>
+            <div className="cd-m-progress-track"><div className="cd-m-progress-fill" style={{ width: `${progress}%` }} /></div>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="cd-earnings">
+        <div className="cd-earnings-head">
+          <div>
+            <div className="cd-earnings-eyebrow">Total Earnings · Combined</div>
+            <div className="cd-earnings-title">Your Earnings</div>
+          </div>
+          {getScorePill(adsTotals.spend, false)}
+        </div>
+        <div className="cd-earnings-hero">
+          <div>
+            <div className="cd-earnings-sublabel">{monthName} — In Progress</div>
+            <div className="cd-earnings-amount">
+              <span className="cd-earnings-currency">$</span>
+              <span className="cd-earnings-val">{combined.toLocaleString()}</span>
+            </div>
+            <div className="cd-earnings-context">{breakdown}</div>
+          </div>
+        </div>
+        <div className="cd-progress-wrap">
+          <div className="cd-progress-header">
+            <span className="cd-progress-label">Progress to ${milestone.toLocaleString()} milestone</span>
+            <span className="cd-progress-val">${combined.toLocaleString()} of ${milestone.toLocaleString()}</span>
+          </div>
+          <div className="cd-progress-track"><div className="cd-progress-fill" style={{ width: `${progress}%` }} /></div>
+          <div className="cd-progress-note">${remaining.toLocaleString()} away.</div>
+        </div>
+      </div>
+    )
+  }
+
   function renderEarnings(mobile) {
     if (!invite?.has_ad_spend) return null
 
@@ -1937,11 +2054,6 @@ export default function CreatorDashboard() {
     const currentSpend = currentMonthData?.spend || totalSpend
     const currentEarned = Math.round(currentSpend * rate)
 
-    // Projection
-    const dayOfMonth = now.getDate()
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
-    const projection = dayOfMonth > 0 ? Math.round((currentSpend / dayOfMonth) * daysInMonth * rate) : 0
-
     // Milestone
     const milestone = Math.ceil((currentEarned + 1) / 500) * 500
     const progress = milestone > 0 ? Math.min((currentEarned / milestone) * 100, 100) : 0
@@ -1970,10 +2082,6 @@ export default function CreatorDashboard() {
             </div>
             <div className="cd-m-earnings-context">from ${currentSpend.toLocaleString()} in ad spend</div>
           </div>
-          <div className="cd-m-earnings-proj">
-            <div className="cd-m-earnings-proj-label">Month-end projection</div>
-            <div className="cd-m-earnings-proj-val">${projection.toLocaleString()}</div>
-          </div>
           <div className="cd-m-progress">
             <div className="cd-m-progress-header">
               <span className="cd-m-progress-label">Progress to ${milestone}</span>
@@ -1983,7 +2091,7 @@ export default function CreatorDashboard() {
           </div>
           <div className="cd-m-payment">
             <div className="cd-m-payment-left">Next payment — {nextPayDate}</div>
-            <div className="cd-m-payment-amount">~${projection.toLocaleString()}</div>
+            <div className="cd-m-payment-amount">~${currentEarned.toLocaleString()}</div>
           </div>
         </div>
       )
@@ -2007,11 +2115,6 @@ export default function CreatorDashboard() {
             </div>
             <div className="cd-earnings-context">from ${currentSpend.toLocaleString()} in ad spend on your content</div>
           </div>
-          <div className="cd-earnings-right">
-            <div className="cd-earnings-proj-label">Month-end projection</div>
-            <div className="cd-earnings-proj-val">${projection.toLocaleString()}</div>
-            <div className="cd-earnings-proj-note">Based on current spend velocity</div>
-          </div>
         </div>
         <div className="cd-progress-wrap">
           <div className="cd-progress-header">
@@ -2019,7 +2122,7 @@ export default function CreatorDashboard() {
             <span className="cd-progress-val">${currentEarned.toLocaleString()} of ${milestone.toLocaleString()}</span>
           </div>
           <div className="cd-progress-track"><div className="cd-progress-fill" style={{ width: `${progress}%` }} /></div>
-          <div className="cd-progress-note">${remaining.toLocaleString()} away{projection >= milestone ? ` — on track to hit this in ${now.toLocaleString('en', { month: 'long' })}.` : '.'}</div>
+          <div className="cd-progress-note">${remaining.toLocaleString()} away.</div>
         </div>
         {adsMonthly.length > 0 && (
           <div className="cd-breakdown">
@@ -2055,7 +2158,7 @@ export default function CreatorDashboard() {
             <div className="cd-payment-left">Next payment</div>
             <div className="cd-payment-date">Paid {nextPayDate} via e-transfer</div>
           </div>
-          <div className="cd-payment-amount">~${projection.toLocaleString()}</div>
+          <div className="cd-payment-amount">~${currentEarned.toLocaleString()}</div>
         </div>
       </div>
     )
@@ -2122,12 +2225,6 @@ export default function CreatorDashboard() {
     // While the data loads, render the section shell with the numbers in a
     // pending (skeleton) state so it doesn't pop in / shift the layout.
     if (affiliateLoading && !affiliateData?.summary) {
-      const skelStat = (label) => (
-        <div className={mobile ? 'cd-m-aff-sales-stat' : 'cd-aff-sales-stat'}>
-          <div className={mobile ? 'cd-m-aff-sales-stat-label' : 'cd-aff-sales-stat-label'}>{label}</div>
-          <div className="cd-skel cd-skel-stat" style={{ marginTop: mobile ? 4 : 6 }} />
-        </div>
-      )
       if (mobile) {
         return (
           <div className="cd-m-aff-sales">
@@ -2135,10 +2232,9 @@ export default function CreatorDashboard() {
               <div className="cd-m-aff-sales-eyebrow">Affiliate Sales</div>
               <div className="cd-m-aff-sales-title">Your Code</div>
             </div>
-            <div className="cd-m-aff-sales-stats">
-              {skelStat('Orders')}
-              {skelStat('Net Sales')}
-              {skelStat('Earned')}
+            <div className="cd-m-earnings-hero">
+              <div className="cd-skel cd-skel-stat-lg" style={{ marginBottom: 8 }} />
+              <div className="cd-skel cd-skel-line-sm" />
             </div>
             <div className="cd-m-progress" style={{ padding: '14px 20px' }}>
               <div className="cd-skel cd-skel-line-sm" />
@@ -2153,11 +2249,11 @@ export default function CreatorDashboard() {
             <div className="cd-aff-sales-eyebrow">Affiliate Sales</div>
             <div className="cd-aff-sales-title">Your Code</div>
           </div>
-          <div className="cd-aff-sales-hero">
-            {skelStat('Orders')}
-            {skelStat('Gross Sales')}
-            {skelStat('Net Sales')}
-            {skelStat('Your Earnings')}
+          <div className="cd-earnings-hero">
+            <div>
+              <div className="cd-skel cd-skel-line-sm" style={{ marginBottom: 12 }} />
+              <div className="cd-skel cd-skel-stat-lg" style={{ width: 120, height: 60 }} />
+            </div>
           </div>
           <div className="cd-progress-wrap">
             <div className="cd-skel cd-skel-line-sm" />
@@ -2185,22 +2281,16 @@ export default function CreatorDashboard() {
       return (
         <div className="cd-m-aff-sales">
           <div className="cd-m-aff-sales-head">
-            <div className="cd-m-aff-sales-eyebrow">Affiliate Sales</div>
+            <div className="cd-m-aff-sales-eyebrow">Affiliate Sales{affiliateCode ? ` · ${affiliateCode}` : ''}</div>
             <div className="cd-m-aff-sales-title">Your Code</div>
           </div>
-          <div className="cd-m-aff-sales-stats">
-            <div className="cd-m-aff-sales-stat">
-              <div className="cd-m-aff-sales-stat-label">Orders</div>
-              <div className="cd-m-aff-sales-stat-val">{s.order_count}</div>
+          <div className="cd-m-earnings-hero">
+            <div className="cd-m-earnings-sublabel">{monthName} — In Progress</div>
+            <div className="cd-m-earnings-amount">
+              <span className="cd-m-earnings-currency">$</span>
+              <span className="cd-m-earnings-val">{Math.round(s.commission_owed).toLocaleString()}</span>
             </div>
-            <div className="cd-m-aff-sales-stat">
-              <div className="cd-m-aff-sales-stat-label">Net Sales</div>
-              <div className="cd-m-aff-sales-stat-val">${s.total_net.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-            </div>
-            <div className="cd-m-aff-sales-stat">
-              <div className="cd-m-aff-sales-stat-label">Earned</div>
-              <div className="cd-m-aff-sales-stat-val">${s.commission_owed.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-            </div>
+            <div className="cd-m-earnings-context">from {s.order_count} {s.order_count === 1 ? 'order' : 'orders'} · {Math.round(rate)}% rate</div>
           </div>
           <div className="cd-m-progress" style={{ padding: '14px 20px' }}>
             <div className="cd-m-progress-header">
@@ -2230,25 +2320,17 @@ export default function CreatorDashboard() {
     return (
       <div className="cd-aff-sales">
         <div className="cd-aff-sales-head">
-          <div className="cd-aff-sales-eyebrow">Affiliate Sales</div>
+          <div className="cd-aff-sales-eyebrow">Affiliate Sales{affiliateCode ? ` · Code ${affiliateCode}` : ''}</div>
           <div className="cd-aff-sales-title">Your Code</div>
         </div>
-        <div className="cd-aff-sales-hero">
-          <div className="cd-aff-sales-stat">
-            <div className="cd-aff-sales-stat-label">{monthName} Orders</div>
-            <div className="cd-aff-sales-stat-val">{s.order_count}</div>
-          </div>
-          <div className="cd-aff-sales-stat">
-            <div className="cd-aff-sales-stat-label">Gross Sales</div>
-            <div className="cd-aff-sales-stat-val">${s.total_gross.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-          </div>
-          <div className="cd-aff-sales-stat">
-            <div className="cd-aff-sales-stat-label">Net Sales</div>
-            <div className="cd-aff-sales-stat-val">${s.total_net.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-          </div>
-          <div className="cd-aff-sales-stat">
-            <div className="cd-aff-sales-stat-label">Your Earnings</div>
-            <div className="cd-aff-sales-stat-val">${s.commission_owed.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+        <div className="cd-earnings-hero">
+          <div>
+            <div className="cd-earnings-sublabel">{monthName} — In Progress</div>
+            <div className="cd-earnings-amount">
+              <span className="cd-earnings-currency">$</span>
+              <span className="cd-earnings-val">{Math.round(s.commission_owed).toLocaleString()}</span>
+            </div>
+            <div className="cd-earnings-context">from {s.order_count} {s.order_count === 1 ? 'order' : 'orders'} this month · {Math.round(rate)}% rate</div>
           </div>
         </div>
         <div className="cd-progress-wrap">
@@ -4851,6 +4933,7 @@ export default function CreatorDashboard() {
     if (activeTab === 'ads') {
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {renderCombinedEarnings(false)}
           {renderEarnings(false)}
           {renderAffiliateSales(false)}
           {renderMomentum(false)}
@@ -5212,6 +5295,7 @@ export default function CreatorDashboard() {
             {/* Live Ads */}
             <div style={activeTab !== 'ads' ? { display: 'none' } : undefined}>
               <div className="cd-m-section-body" style={{ padding: '16px 0' }}>
+                {renderCombinedEarnings(true)}
                 {renderEarnings(true)}
                 {renderAffiliateSales(true)}
                 {renderMomentum(true)}
