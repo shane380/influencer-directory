@@ -216,6 +216,9 @@ function extractCollection(campaignName: string): string {
   return campaignName;
 }
 
+const inlineEditBox =
+  "rounded-md border border-transparent transition-colors cursor-pointer hover:border-gray-300";
+
 export default function MonthCampaignViewPage() {
   const params = useParams();
   const router = useRouter();
@@ -236,6 +239,7 @@ export default function MonthCampaignViewPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [influencerDialogOpen, setInfluencerDialogOpen] = useState(false);
   const [selectedInfluencer, setSelectedInfluencer] = useState<Influencer | null>(null);
+  const [dialogInitialTab, setDialogInitialTab] = useState<string>("overview");
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   const [selectedCampaignInfluencer, setSelectedCampaignInfluencer] = useState<CampaignInfluencerWithDetails | null>(null);
@@ -425,8 +429,9 @@ export default function MonthCampaignViewPage() {
     }
   };
 
-  const handleOpenInfluencerDialog = (influencer?: Influencer) => {
+  const handleOpenInfluencerDialog = (influencer?: Influencer, tab: string = "overview") => {
     setSelectedInfluencer(influencer || null);
+    setDialogInitialTab(tab);
     setInfluencerDialogOpen(true);
   };
 
@@ -862,32 +867,22 @@ export default function MonthCampaignViewPage() {
                       );
                     })()}
                   </TableHead>
-                  <TableHead className="w-12"></TableHead>
-                  <TableHead>
+                  <TableHead className="w-[200px]">
                     <button
                       className="flex items-center gap-1 hover:text-gray-900"
                       onClick={() => handleSort("name")}
                     >
-                      Name
+                      Influencer
                       <ArrowUpDown className="h-4 w-4" />
                     </button>
                   </TableHead>
-                  <TableHead>Handle</TableHead>
+                  <TableHead className="w-full min-w-[200px]">Notes</TableHead>
                   <TableHead>
                     <button
                       className="flex items-center gap-1 hover:text-gray-900"
                       onClick={() => handleSort("collection")}
                     >
                       Collection
-                      <ArrowUpDown className="h-4 w-4" />
-                    </button>
-                  </TableHead>
-                  <TableHead>
-                    <button
-                      className="flex items-center gap-1 hover:text-gray-900"
-                      onClick={() => handleSort("follower_count")}
-                    >
-                      Followers
                       <ArrowUpDown className="h-4 w-4" />
                     </button>
                   </TableHead>
@@ -942,58 +937,89 @@ export default function MonthCampaignViewPage() {
                         }}
                       />
                     </TableCell>
-                    <TableCell>
-                      <div className="w-14 h-14 flex-shrink-0">
-                        {ci.influencer.profile_photo_url ? (
-                          <Image
-                            src={ci.influencer.profile_photo_url}
-                            alt={ci.influencer.name}
-                            width={56}
-                            height={56}
-                            className="rounded-full object-cover w-full h-full"
-                            unoptimized
-                          />
-                        ) : (
-                          <div className="w-full h-full rounded-full bg-gray-200 flex items-center justify-center">
-                            <span className="text-gray-500 text-lg font-medium">
-                              {ci.influencer.name.charAt(0).toUpperCase()}
-                            </span>
+                    <TableCell className="w-[200px]">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 flex-shrink-0">
+                          {ci.influencer.profile_photo_url ? (
+                            <Image
+                              src={ci.influencer.profile_photo_url}
+                              alt={ci.influencer.name}
+                              width={48}
+                              height={48}
+                              className="rounded-full object-cover w-full h-full"
+                              unoptimized
+                            />
+                          ) : (
+                            <div className="w-full h-full rounded-full bg-gray-200 flex items-center justify-center">
+                              <span className="text-gray-500 text-base font-medium">
+                                {ci.influencer.name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[15px] font-semibold text-gray-900 truncate">{ci.influencer.name}</span>
+                            {ci.approval_status && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenApprovalDialog(ci);
+                                }}
+                                className={`inline-flex items-center justify-center w-5 h-5 rounded-full flex-shrink-0 transition-colors ${
+                                  ci.approval_status === "pending"
+                                    ? "bg-amber-100 text-amber-600 hover:bg-amber-200"
+                                    : ci.approval_status === "approved"
+                                    ? "bg-green-100 text-green-600 hover:bg-green-200"
+                                    : "bg-red-100 text-red-600 hover:bg-red-200"
+                                }`}
+                                title={
+                                  ci.approval_status === "pending"
+                                    ? "Pending approval"
+                                    : ci.approval_status === "approved"
+                                    ? "Approved"
+                                    : "Declined"
+                                }
+                              >
+                                {ci.approval_status === "pending" && <Clock className="h-3 w-3" />}
+                                {ci.approval_status === "approved" && <CheckCircle2 className="h-3 w-3" />}
+                                {ci.approval_status === "declined" && <XCircle className="h-3 w-3" />}
+                              </button>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        {ci.influencer.name}
-                        {ci.approval_status && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenApprovalDialog(ci);
-                            }}
-                            className={`inline-flex items-center justify-center w-5 h-5 rounded-full transition-colors ${
-                              ci.approval_status === "pending"
-                                ? "bg-amber-100 text-amber-600 hover:bg-amber-200"
-                                : ci.approval_status === "approved"
-                                ? "bg-green-100 text-green-600 hover:bg-green-200"
-                                : "bg-red-100 text-red-600 hover:bg-red-200"
-                            }`}
-                            title={
-                              ci.approval_status === "pending"
-                                ? "Pending approval"
-                                : ci.approval_status === "approved"
-                                ? "Approved"
-                                : "Declined"
-                            }
+                          <span className="text-[12.5px] text-gray-400 tabular-nums truncate">
+                            {formatNumber(ci.influencer.follower_count)} followers
+                          </span>
+                          <a
+                            href={`https://instagram.com/${ci.influencer.instagram_handle}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[12.5px] font-medium text-purple-600 hover:underline truncate max-w-full"
                           >
-                            {ci.approval_status === "pending" && <Clock className="h-3 w-3" />}
-                            {ci.approval_status === "approved" && <CheckCircle2 className="h-3 w-3" />}
-                            {ci.approval_status === "declined" && <XCircle className="h-3 w-3" />}
-                          </button>
-                        )}
+                            @{ci.influencer.instagram_handle}
+                          </a>
+                        </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-xs text-gray-600">@{ci.influencer.instagram_handle}</TableCell>
+                    <TableCell
+                      className="w-full"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenInfluencerDialog(ci.influencer, "notes");
+                      }}
+                    >
+                      {ci.influencer.notes_summary ? (
+                        <p className={`text-[13px] text-gray-600 line-clamp-2 px-1.5 py-1 ${inlineEditBox}`}>
+                          {ci.influencer.notes_summary}
+                        </p>
+                      ) : (
+                        <span className={`inline-flex items-center gap-1 text-[13px] text-gray-300 px-1.5 py-1 ${inlineEditBox}`}>
+                          <Plus className="h-3.5 w-3.5" />
+                          Add note
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-1.5">
                         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${collectionDots[ci.collection] || "bg-gray-300"}`}></span>
@@ -1012,7 +1038,6 @@ export default function MonthCampaignViewPage() {
                         </Select>
                       </div>
                     </TableCell>
-                    <TableCell className="text-xs text-gray-600">{formatNumber(ci.influencer.follower_count)}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <Select
                         value={ci.partnership_type}
@@ -1183,6 +1208,7 @@ export default function MonthCampaignViewPage() {
         onClose={handleCloseInfluencerDialog}
         onSave={handleInfluencerSave}
         influencer={selectedInfluencer}
+        initialTab={dialogInitialTab}
       />
 
       {selectedCampaignInfluencer && (
