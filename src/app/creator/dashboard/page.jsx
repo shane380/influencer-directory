@@ -1466,7 +1466,7 @@ export default function CreatorDashboard() {
   const earningsRate = (invite?.ad_spend_percentage || commissionRate || 10) / 100
   const earningsNow = new Date()
   const earningsMonthKey = `${earningsNow.getFullYear()}-${String(earningsNow.getMonth() + 1).padStart(2, '0')}`
-  const currentAdSpend = (adsMonthly.find(m => m.month === earningsMonthKey)?.spend) || adsTotals.spend
+  const currentAdSpend = (adsMonthly.find(m => m.month === earningsMonthKey)?.spend) || 0
   const currentAdEarned = Math.round(currentAdSpend * earningsRate)
   const currentAffEarned = Math.round(affiliateData?.summary?.commission_owed || 0)
 
@@ -2051,7 +2051,7 @@ export default function CreatorDashboard() {
     const now = new Date()
     const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
     const currentMonthData = adsMonthly.find(m => m.month === currentMonthKey)
-    const currentSpend = currentMonthData?.spend || totalSpend
+    const currentSpend = currentMonthData?.spend || 0
     const currentEarned = Math.round(currentSpend * rate)
 
     // Milestone

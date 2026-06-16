@@ -124,12 +124,17 @@ interface DailyAdRow {
 
 interface SyncResult {
   ads: AdResult[];
-  totals: { spend: number; impressions: number };
-  monthly: { month: string; spend: number; impressions: number }[];
-  mtd: { spend: number; impressions: number };
-  lastMtd: { spend: number; impressions: number };
+  // Lifetime totals come from a single account-level summary call (no per-ad
+  // expansion). null means that call failed and the caller should preserve the
+  // previously-stored totals. monthly / MTD are NOT here — the caller derives them
+  // from the full daily table after the fresh daily rows are upserted.
+  totals: { spend: number; impressions: number; purchase_value: number } | null;
   daily: DailyAdRow[];
   adsLiveCount: number;
+  // Set when the ads-list/gallery request failed but the lighter daily insights
+  // call still succeeded. A partial sync: payment-critical daily data is fresh,
+  // but the ad gallery could not be refreshed.
+  adsListError: string | null;
 }
 
 // Meta returns action_values / outbound_clicks / purchase_roas as arrays of
@@ -181,46 +186,58 @@ async function fetchAdsForHandle(
     `&limit=50` +
     `&access_token=${accessToken}`;
 
+  // The ads-list request is the heaviest Meta call (creative fields + lifetime
+  // per-ad insights for every matching ad) and is the first to hit Meta's
+  // "reduce the amount of data" error as a creator accumulates ads. We must NOT
+  // let it abort the sync: the monthly/MTD/daily numbers that drive payments come
+  // from a separate, lighter insights call below. So on failure we record the
+  // error, skip the gallery refresh, and continue — the caller preserves the
+  // previous gallery and still persists the fresh payment data.
   const listData = await metaFetch(listUrl);
 
+  let adsListError: string | null = null;
+  let rawAds: any[] = [];
   if (listData.error) {
-    throw new Error(`Meta API error: ${listData.error.message}`);
+    adsListError = `Meta API error: ${listData.error.message}`;
+    console.error(
+      `[meta-sync] Ads-list call failed for ${handle} — gallery will be preserved, monthly data still refreshes: ${adsListError}`
+    );
+  } else {
+    rawAds = listData.data || [];
   }
 
-  const rawAds = listData.data || [];
-
-  // Date ranges for MTD comparison
+  // The daily-insights window only needs to cover what Meta can still restate
+  // (~28 days of attribution) plus a buffer — older days are already permanently
+  // stored in creator_ad_performance_daily and never change. 35 days covers the
+  // restatement horizon and the whole current month at month-end payment time.
   const now = new Date();
-  const todayDay = now.getDate();
-  const currentMonthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-  const currentEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(todayDay).padStart(2, "0")}`;
-  const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const lastMonthStart = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, "0")}-01`;
-  const lastMonthLastDay = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
-  const lastCompareDay = Math.min(todayDay, lastMonthLastDay);
-  const lastMonthEnd = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, "0")}-${String(lastCompareDay).padStart(2, "0")}`;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const windowStart = new Date(now);
+  windowStart.setDate(windowStart.getDate() - 35);
+  const since = `${windowStart.getFullYear()}-${pad(windowStart.getMonth() + 1)}-${pad(windowStart.getDate())}`;
+  const until = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
-  const monthMap: Record<string, { spend: number; impressions: number }> = {};
-  let mtd = { spend: 0, impressions: 0 };
-  let lastMtd = { spend: 0, impressions: 0 };
   // Per-day, per-ad rows that we'll persist to creator_ad_performance_daily.
-  // Keyed by `${ad_id}:${date}` for in-memory dedupe across pagination.
+  // Keyed by `${ad_id}:${date}` for in-memory dedupe across pagination. Monthly /
+  // MTD totals are NOT computed here anymore — the caller derives them from the
+  // full daily table after these rows are upserted, so correctness no longer
+  // depends on how wide a window we pull.
   const dailyMap = new Map<string, DailyAdRow>();
 
-  // Single account-level insights call: get daily data for all ads in one request
-  // Filtered to ads matching this handle via the ad name filter
+  // Account-level daily insights, filtered to this handle's ads. Paginated.
   try {
     const insightsFiltering = JSON.stringify([
       { field: "ad.name", operator: "CONTAIN", value: handle },
     ]);
     const dailyFields =
       "ad_id,spend,impressions,outbound_clicks,action_values,purchase_roas";
+    const timeRange = encodeURIComponent(JSON.stringify({ since, until }));
     let insightsPageUrl: string | null =
       `https://graph.facebook.com/${META_API_VERSION}/${actId}/insights?` +
       `fields=${dailyFields}` +
       `&level=ad` +
       `&time_increment=1` +
-      `&date_preset=last_90d` +
+      `&time_range=${timeRange}` +
       `&filtering=${encodeURIComponent(insightsFiltering)}` +
       `&limit=500` +
       `&access_token=${accessToken}`;
@@ -232,26 +249,11 @@ async function fetchAdsForHandle(
       }
       for (const row of insightsData.data || []) {
         const dateStr = row.date_start?.substring(0, 10);
-        const monthKey = dateStr?.substring(0, 7);
         const spend = parseFloat(row.spend || "0");
         const impressions = parseInt(row.impressions || "0");
         const outboundClicks = sumActionValue(row.outbound_clicks);
         const purchaseValue = sumActionValue(row.action_values, "purchase");
         const purchaseRoas = pickActionValue(row.purchase_roas, "purchase");
-
-        if (monthKey) {
-          if (!monthMap[monthKey]) monthMap[monthKey] = { spend: 0, impressions: 0 };
-          monthMap[monthKey].spend += spend;
-          monthMap[monthKey].impressions += impressions;
-        }
-        if (dateStr && dateStr >= currentMonthStart && dateStr <= currentEnd) {
-          mtd.spend += spend;
-          mtd.impressions += impressions;
-        }
-        if (dateStr && dateStr >= lastMonthStart && dateStr <= lastMonthEnd) {
-          lastMtd.spend += spend;
-          lastMtd.impressions += impressions;
-        }
 
         if (dateStr && row.ad_id) {
           dailyMap.set(`${row.ad_id}:${dateStr}`, {
@@ -273,13 +275,7 @@ async function fetchAdsForHandle(
     console.error(`[meta-sync] Account-level insights failed for ${handle}:`, err);
   }
 
-  const monthly = Object.entries(monthMap)
-    .sort(([a], [b]) => b.localeCompare(a))
-    .map(([month, vals]) => ({ month, ...vals }));
-
   // Build ads array — download thumbnails to R2
-  let totalSpend = 0;
-  let totalImpressions = 0;
   const r2Enabled = !!(process.env.R2_ACCOUNT_ID && process.env.R2_BUCKET_NAME);
   const creatorFolder = influencerId || handle;
 
@@ -298,9 +294,6 @@ async function fetchAdsForHandle(
     const outboundCtr = sumActionValue(insights?.outbound_clicks_ctr);
     const purchaseValue = sumActionValue(insights?.action_values, "purchase");
     const purchaseRoas = pickActionValue(insights?.purchase_roas, "purchase");
-
-    totalSpend += spend;
-    totalImpressions += impressions;
 
     // Get best available image and mirror to R2
     const metaImageUrl = getBestImageUrl(ad);
@@ -352,14 +345,44 @@ async function fetchAdsForHandle(
 
   const adsLiveCount = ads.filter((a) => a.effective_status === "ACTIVE").length;
 
+  // Lifetime totals: a single account-level summary (one row, no per-ad or daily
+  // expansion), so it stays tiny and can't trip Meta's "reduce the amount of data"
+  // limit the way the per-ad lifetime insights expansion does. Independent of the
+  // ads-list call, so totals refresh even when the gallery call fails.
+  let totals: { spend: number; impressions: number; purchase_value: number } | null = null;
+  try {
+    const totalsFiltering = JSON.stringify([
+      { field: "ad.name", operator: "CONTAIN", value: handle },
+    ]);
+    const totalsUrl =
+      `https://graph.facebook.com/${META_API_VERSION}/${actId}/insights?` +
+      `fields=spend,impressions,action_values` +
+      `&level=account` +
+      `&date_preset=maximum` +
+      `&filtering=${encodeURIComponent(totalsFiltering)}` +
+      `&access_token=${accessToken}`;
+    const totalsData = await metaFetch(totalsUrl);
+    if (totalsData.error) {
+      console.warn(`[meta-sync] Lifetime totals call failed for ${handle}: ${totalsData.error.message}`);
+    } else {
+      const row = totalsData.data?.[0];
+      // No row = no matching ad spend for this handle → genuine zeros (not a failure).
+      totals = {
+        spend: parseFloat(row?.spend || "0"),
+        impressions: parseInt(row?.impressions || "0"),
+        purchase_value: Math.round(sumActionValue(row?.action_values, "purchase") * 100) / 100,
+      };
+    }
+  } catch (err) {
+    console.warn(`[meta-sync] Lifetime totals call threw for ${handle}:`, err);
+  }
+
   return {
     ads,
-    totals: { spend: totalSpend, impressions: totalImpressions },
-    monthly,
-    mtd,
-    lastMtd,
+    totals,
     daily: Array.from(dailyMap.values()),
     adsLiveCount,
+    adsListError,
   };
 }
 
@@ -431,6 +454,80 @@ export function getServiceClient() {
   });
 }
 
+/**
+ * Derive monthly totals + MTD/last-MTD from the stored daily table (the
+ * source-of-truth), independent of how wide a window we pulled from Meta. Pages
+ * through all rows so a creator with >1000 daily rows isn't silently truncated.
+ */
+async function deriveMonthlyFromDaily(
+  db: any,
+  handle: string,
+  now: Date
+): Promise<{
+  monthly: { month: string; spend: number; impressions: number }[];
+  mtd: { spend: number; impressions: number };
+  lastMtd: { spend: number; impressions: number };
+}> {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const y = now.getFullYear();
+  const mo = now.getMonth();
+  const todayDay = now.getDate();
+  const currentMonthStart = `${y}-${pad(mo + 1)}-01`;
+  const currentEnd = `${y}-${pad(mo + 1)}-${pad(todayDay)}`;
+  const lastMonthDate = new Date(y, mo - 1, 1);
+  const lmY = lastMonthDate.getFullYear();
+  const lmMo = lastMonthDate.getMonth();
+  const lastMonthStart = `${lmY}-${pad(lmMo + 1)}-01`;
+  const lastMonthLastDay = new Date(y, mo, 0).getDate();
+  const lastCompareDay = Math.min(todayDay, lastMonthLastDay);
+  const lastMonthEnd = `${lmY}-${pad(lmMo + 1)}-${pad(lastCompareDay)}`;
+
+  const byMonth: Record<string, { spend: number; impressions: number }> = {};
+  const mtd = { spend: 0, impressions: 0 };
+  const lastMtd = { spend: 0, impressions: 0 };
+
+  const PAGE = 1000;
+  let from = 0;
+  for (;;) {
+    const { data, error } = await (db.from("creator_ad_performance_daily") as any)
+      .select("date, spend, impressions")
+      .eq("instagram_handle", handle)
+      .order("date", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) {
+      console.warn(`[meta-sync] daily read-back failed for ${handle}:`, error.message);
+      break;
+    }
+    if (!data || data.length === 0) break;
+    for (const r of data) {
+      const date = typeof r.date === "string" ? r.date.slice(0, 10) : String(r.date).slice(0, 10);
+      const mk = date.slice(0, 7);
+      const spend = Number(r.spend || 0);
+      const impressions = Number(r.impressions || 0);
+      if (!byMonth[mk]) byMonth[mk] = { spend: 0, impressions: 0 };
+      byMonth[mk].spend += spend;
+      byMonth[mk].impressions += impressions;
+      if (date >= currentMonthStart && date <= currentEnd) {
+        mtd.spend += spend;
+        mtd.impressions += impressions;
+      }
+      if (date >= lastMonthStart && date <= lastMonthEnd) {
+        lastMtd.spend += spend;
+        lastMtd.impressions += impressions;
+      }
+    }
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+
+  const monthly = Object.entries(byMonth)
+    .map(([month, v]) => ({ month, spend: Math.round(v.spend * 100) / 100, impressions: v.impressions }))
+    .sort((a, b) => b.month.localeCompare(a.month));
+  mtd.spend = Math.round(mtd.spend * 100) / 100;
+  lastMtd.spend = Math.round(lastMtd.spend * 100) / 100;
+  return { monthly, mtd, lastMtd };
+}
+
 export async function syncCreator(
   handle: string,
   influencerId: string | null,
@@ -449,42 +546,21 @@ export async function syncCreator(
   try {
     const result = await fetchAdsForHandle(handle, accessToken, actId, influencerId);
 
-    // Fetch existing row to preserve mux_playback_ids and historical monthly data
+    // Fetch existing row to preserve mux_playback_ids, historical monthly data,
+    // and (on a partial sync) the previous gallery + lifetime totals.
     const { data: existingRow } = await (db.from("creator_ad_performance") as any)
-      .select("ads, monthly")
+      .select("ads, monthly, totals")
       .eq("instagram_handle", handle)
       .single();
 
-    // Process video uploads to Mux (skips ads that already have playback IDs)
+    // Process video uploads to Mux (skips ads that already have playback IDs).
+    // No-op when the gallery call failed (result.ads is empty).
     await processVideoUploads(result.ads, existingRow?.ads || null, accessToken);
 
-    // Merge monthly data: fresh API data overwrites recent months,
-    // but historical months outside the API window are preserved
-    const existingMonthly = (existingRow?.monthly || []) as { month: string; spend: number; impressions: number }[];
-    const freshMonths = new Set(result.monthly.map((m: any) => m.month));
-    const preserved = existingMonthly.filter((m) => !freshMonths.has(m.month));
-    const mergedMonthly = [...result.monthly, ...preserved]
-      .sort((a, b) => b.month.localeCompare(a.month));
-
-    await (db.from("creator_ad_performance") as any).upsert(
-      {
-        instagram_handle: handle,
-        influencer_id: influencerId,
-        ads: result.ads,
-        totals: result.totals,
-        monthly: mergedMonthly,
-        mtd: result.mtd,
-        last_mtd: result.lastMtd,
-        sync_error: null,
-        synced_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "instagram_handle" }
-    );
-
-    // Persist per-day, per-ad rows (the daily insights call already happens
-    // above; we just stop discarding the data). Upsert is keyed on
-    // (instagram_handle, ad_id, date) so re-syncs overwrite without dupes.
+    // Persist the freshly-fetched per-day, per-ad rows FIRST, so the monthly/MTD
+    // derivation below reads them back as part of the full daily history. Upsert is
+    // keyed on (instagram_handle, ad_id, date) so re-syncs overwrite without dupes,
+    // and a narrower window never deletes older stored days.
     if (result.daily.length > 0) {
       const dailyRows = result.daily.map((d) => ({
         instagram_handle: handle,
@@ -497,7 +573,6 @@ export async function syncCreator(
         purchase_value: d.purchase_value,
         purchase_roas: d.purchase_roas,
       }));
-      // Chunk to keep payloads modest (Meta returns up to ~90d × N ads).
       const CHUNK = 500;
       for (let i = 0; i < dailyRows.length; i += CHUNK) {
         const { error: dailyErr } = await (db.from("creator_ad_performance_daily") as any).upsert(
@@ -510,6 +585,55 @@ export async function syncCreator(
         }
       }
     }
+
+    // Derive monthly / MTD from the full daily table (the source-of-truth), so the
+    // numbers payments read no longer depend on how wide a window we pulled.
+    const now = new Date();
+    const derived = await deriveMonthlyFromDaily(db, handle, now);
+
+    // Refresh ONLY the months inside the fresh daily window from the daily table.
+    // Older months are preserved exactly as already stored: the daily table can be
+    // incomplete at its far edge (so re-deriving would understate them), and past
+    // payouts were locked against the stored values — we do not restate settled
+    // history here. (Note: stored historical months predating the daily table may be
+    // understated by an older sync bug; correcting that is a separate, deliberate
+    // backfill, not part of this path.)
+    const windowStart = new Date(now);
+    windowStart.setDate(windowStart.getDate() - 35);
+    const windowStartMonth = `${windowStart.getFullYear()}-${String(windowStart.getMonth() + 1).padStart(2, "0")}`;
+    const existingMonthly = (existingRow?.monthly || []) as { month: string; spend: number; impressions: number }[];
+    const mergedByMonth = new Map(existingMonthly.map((m) => [m.month, m]));
+    for (const m of derived.monthly) {
+      if (m.month >= windowStartMonth) mergedByMonth.set(m.month, m);
+    }
+    const mergedMonthly = Array.from(mergedByMonth.values())
+      .sort((a, b) => b.month.localeCompare(a.month));
+
+    // On a partial sync (gallery call failed) keep the previous gallery rather than
+    // wiping it. Lifetime totals have their own independent account-level source, so
+    // use the fresh value when available and fall back to the stored one only if that
+    // call failed (result.totals === null).
+    const galleryFailed = !!result.adsListError;
+    const adsToWrite = galleryFailed ? (existingRow?.ads ?? []) : result.ads;
+    const totalsToWrite = result.totals ?? existingRow?.totals ?? { spend: 0, impressions: 0, purchase_value: 0 };
+
+    await (db.from("creator_ad_performance") as any).upsert(
+      {
+        instagram_handle: handle,
+        influencer_id: influencerId,
+        ads: adsToWrite,
+        totals: totalsToWrite,
+        monthly: mergedMonthly,
+        mtd: derived.mtd,
+        last_mtd: derived.lastMtd,
+        // Record the gallery failure so admins know the gallery is stale, even
+        // though monthly/totals refreshed successfully. null on a clean sync.
+        sync_error: result.adsListError,
+        synced_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "instagram_handle" }
+    );
 
     // Write today's ads-live snapshot. Historical days can't be backfilled,
     // so the chart series will be empty until enough days accumulate.
@@ -527,7 +651,12 @@ export async function syncCreator(
       console.warn(`[meta-sync] ads-live upsert failed for ${handle}:`, liveErr.message);
     }
 
-    console.log(`[meta-sync] Synced ${handle}: ${result.ads.length} ads, ${result.daily.length} daily rows, $${result.totals.spend.toFixed(2)} total spend`);
+    if (result.adsListError) {
+      console.warn(`[meta-sync] Partial sync ${handle}: gallery preserved (list call failed), ${result.daily.length} daily rows refreshed, ${mergedMonthly.length} months`);
+    } else {
+      const totalSpend = totalsToWrite?.spend ?? 0;
+      console.log(`[meta-sync] Synced ${handle}: ${result.ads.length} ads, ${result.daily.length} daily rows, $${totalSpend.toFixed(2)} total spend`);
+    }
     return { success: true };
   } catch (err: any) {
     const errorMsg = err.message || "Unknown error";
