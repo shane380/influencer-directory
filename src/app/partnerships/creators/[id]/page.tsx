@@ -330,11 +330,12 @@ export default function AdminCreatorProfile() {
     return Math.round((adPerf.mtd?.spend || 0) + (adPerf.lastMtd?.spend || 0));
   }, [adPerf]);
 
-  // Lifetime ROAS = sum(purchase_value) / sum(spend) across all ads
+  // Lifetime ROAS = lifetime purchase value / lifetime spend, both from the
+  // account-level totals. Per-ad figures are only "since tracking", so we don't mix
+  // bases (since-tracking revenue over lifetime spend would understate ROAS).
   const lifetimeRoas = useMemo(() => {
-    if (!adPerf?.ads?.length) return null;
-    const totalRevenue = adPerf.ads.reduce((s, a) => s + (a.purchase_value || 0), 0);
-    const totalSpend = adPerf.totals?.spend || 0;
+    const totalSpend = adPerf?.totals?.spend || 0;
+    const totalRevenue = (adPerf?.totals as any)?.purchase_value || 0;
     if (!totalSpend) return null;
     return totalRevenue / totalSpend;
   }, [adPerf]);
@@ -815,7 +816,7 @@ export default function AdminCreatorProfile() {
                 <thead className="bg-gray-50 text-gray-500">
                   <tr>
                     <th className="text-left px-4 py-2 font-medium text-xs">Ad</th>
-                    <th className="text-right px-4 py-2 font-medium text-xs">Spend</th>
+                    <th className="text-right px-4 py-2 font-medium text-xs">Spend (since tracking)</th>
                     <th className="text-right px-4 py-2 font-medium text-xs">ROAS</th>
                     <th className="text-right px-4 py-2 font-medium text-xs">CTR</th>
                   </tr>

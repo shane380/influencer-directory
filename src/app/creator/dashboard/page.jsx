@@ -2578,7 +2578,7 @@ export default function CreatorDashboard() {
                     )}
                     {showSpendData && (
                       <div className="cd-m-ad-stats-strip">
-                        <div className="cd-m-ad-stat"><div className="cd-m-ad-stat-l">Spent</div><div className="cd-m-ad-stat-v">{formatSpend(ad.spend)}</div></div>
+                        <div className="cd-m-ad-stat"><div className="cd-m-ad-stat-l">Spend Since Tracking</div><div className="cd-m-ad-stat-v">{formatSpend(ad.spend)}</div></div>
                         <div className="cd-m-ad-stat"><div className="cd-m-ad-stat-l">Impressions</div><div className="cd-m-ad-stat-v">{formatImpressions(ad.impressions)}</div></div>
                         <div className="cd-m-ad-stat"><div className="cd-m-ad-stat-l">Performance</div><div style={{ marginTop: 4 }}>{getScorePill(ad.spend, true)}</div></div>
                       </div>
@@ -2702,7 +2702,7 @@ export default function CreatorDashboard() {
                   )}
                   {showSpendData && (
                     <div className="cd-ad-stats-strip">
-                      <div className="cd-ad-stat"><div className="cd-ad-stat-l">Total Spent</div><div className="cd-ad-stat-v">${parseFloat(ad.spend).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div></div>
+                      <div className="cd-ad-stat"><div className="cd-ad-stat-l">Spend Since Tracking</div><div className="cd-ad-stat-v">${parseFloat(ad.spend).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div></div>
                       <div className="cd-ad-stat"><div className="cd-ad-stat-l">Impressions</div><div className="cd-ad-stat-v">{formatImpressions(ad.impressions)}</div></div>
                       <div className="cd-ad-stat"><div className="cd-ad-stat-l">Performance</div><div style={{ marginTop: 4 }}>{getScorePill(ad.spend, false)}</div></div>
                     </div>

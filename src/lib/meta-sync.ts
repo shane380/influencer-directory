@@ -171,39 +171,45 @@ async function fetchAdsForHandle(
     { field: "name", operator: "CONTAIN", value: handle },
   ]);
 
-  const insightsFields =
-    "spend,impressions,outbound_clicks,outbound_clicks_ctr,action_values,purchase_roas";
+  // Creative/status only — NO per-ad insights expansion. The lifetime per-ad
+  // insights (insights.date_preset(maximum)) was the heavy part that tripped Meta's
+  // "reduce the amount of data" limit on large accounts. Per-ad spend/impressions/
+  // ROAS/CTR are now rebuilt from the stored daily table by the caller.
   // adset{id,name} — including `id` alongside `name` avoids Meta's URL parser
   // mistaking single-subfield `adset{name}` for brace value-substitution syntax.
   const fields =
     `name,status,effective_status,adset{id,name},` +
-    `creative{thumbnail_url,image_url,object_story_spec{video_data{image_url,video_id}},asset_feed_spec{videos{video_id}}},` +
-    `insights.date_preset(maximum){${insightsFields}}`;
-  const listUrl =
+    `creative{thumbnail_url,image_url,object_story_spec{video_data{image_url,video_id}},asset_feed_spec{videos{video_id}}}`;
+  // Page through the ads list in SMALL pages, following paging.next. Even without
+  // the per-ad insights, creative-field expansion across many ads still trips Meta's
+  // "reduce the amount of data" limit in one large page (a heavy creator fails at
+  // limit=10 but succeeds at limit=5), and the old call never paginated (silently
+  // capped at the first 50 ads). Small pages return the full gallery reliably.
+  const PAGE_SIZE = 5;
+  let listUrl: string | null =
     `https://graph.facebook.com/${META_API_VERSION}/${actId}/ads?` +
     `fields=${fields}` +
     `&filtering=${encodeURIComponent(filtering)}` +
-    `&limit=50` +
+    `&limit=${PAGE_SIZE}` +
     `&access_token=${accessToken}`;
 
-  // The ads-list request is the heaviest Meta call (creative fields + lifetime
-  // per-ad insights for every matching ad) and is the first to hit Meta's
-  // "reduce the amount of data" error as a creator accumulates ads. We must NOT
-  // let it abort the sync: the monthly/MTD/daily numbers that drive payments come
-  // from a separate, lighter insights call below. So on failure we record the
-  // error, skip the gallery refresh, and continue — the caller preserves the
-  // previous gallery and still persists the fresh payment data.
-  const listData = await metaFetch(listUrl);
-
+  // Resilient path preserved: if any page fails, record the error, discard partial
+  // pages, and continue — the caller keeps the previous gallery while monthly/daily
+  // payment data still refreshes from the separate daily call.
   let adsListError: string | null = null;
   let rawAds: any[] = [];
-  if (listData.error) {
-    adsListError = `Meta API error: ${listData.error.message}`;
-    console.error(
-      `[meta-sync] Ads-list call failed for ${handle} — gallery will be preserved, monthly data still refreshes: ${adsListError}`
-    );
-  } else {
-    rawAds = listData.data || [];
+  while (listUrl) {
+    const listData = await metaFetch(listUrl);
+    if (listData.error) {
+      adsListError = `Meta API error: ${listData.error.message}`;
+      console.error(
+        `[meta-sync] Ads-list call failed for ${handle} — gallery will be preserved, monthly data still refreshes: ${adsListError}`
+      );
+      rawAds = [];
+      break;
+    }
+    rawAds.push(...(listData.data || []));
+    listUrl = listData.paging?.next || null;
   }
 
   // The daily-insights window only needs to cover what Meta can still restate
@@ -287,14 +293,6 @@ async function fetchAdsForHandle(
       .replace(new RegExp(`@?${handle}\\s*\\/\\/\\s*`, "i"), "")
       .trim();
 
-    const insights = ad.insights?.data?.[0];
-    const spend = parseFloat(insights?.spend || "0");
-    const impressions = parseInt(insights?.impressions || "0");
-    const outboundClicks = sumActionValue(insights?.outbound_clicks);
-    const outboundCtr = sumActionValue(insights?.outbound_clicks_ctr);
-    const purchaseValue = sumActionValue(insights?.action_values, "purchase");
-    const purchaseRoas = pickActionValue(insights?.purchase_roas, "purchase");
-
     // Get best available image and mirror to R2
     const metaImageUrl = getBestImageUrl(ad);
     let thumbnailUrl = metaImageUrl;
@@ -331,12 +329,13 @@ async function fetchAdsForHandle(
       status: ad.status,
       effective_status: ad.effective_status || ad.status,
       adset_name: ad.adset?.name || null,
-      spend: spend.toFixed(2),
-      impressions: String(impressions),
-      outbound_clicks: Math.round(outboundClicks),
-      outbound_clicks_ctr: Math.round(outboundCtr * 100) / 100,
-      purchase_value: Math.round(purchaseValue * 100) / 100,
-      purchase_roas: purchaseRoas,
+      // Metrics are placeholders here — enriched from the daily table in syncCreator.
+      spend: "0.00",
+      impressions: "0",
+      outbound_clicks: 0,
+      outbound_clicks_ctr: 0,
+      purchase_value: 0,
+      purchase_roas: null,
       thumbnailUrl,
       video_id: videoId ? String(videoId) : null,
       mux_playback_id: null, // will be filled in by processVideoUploads
@@ -454,10 +453,18 @@ export function getServiceClient() {
   });
 }
 
+interface PerAdAgg {
+  spend: number;
+  impressions: number;
+  purchase_value: number;
+  outbound_clicks: number;
+}
+
 /**
- * Derive monthly totals + MTD/last-MTD from the stored daily table (the
- * source-of-truth), independent of how wide a window we pulled from Meta. Pages
- * through all rows so a creator with >1000 daily rows isn't silently truncated.
+ * Derive monthly totals + MTD/last-MTD AND per-ad lifetime-since-tracking
+ * aggregates from the stored daily table (the source-of-truth), independent of how
+ * wide a window we pulled from Meta. Pages through all rows so a creator with >1000
+ * daily rows isn't silently truncated.
  */
 async function deriveMonthlyFromDaily(
   db: any,
@@ -467,6 +474,7 @@ async function deriveMonthlyFromDaily(
   monthly: { month: string; spend: number; impressions: number }[];
   mtd: { spend: number; impressions: number };
   lastMtd: { spend: number; impressions: number };
+  perAd: Map<string, PerAdAgg>;
 }> {
   const pad = (n: number) => String(n).padStart(2, "0");
   const y = now.getFullYear();
@@ -485,12 +493,13 @@ async function deriveMonthlyFromDaily(
   const byMonth: Record<string, { spend: number; impressions: number }> = {};
   const mtd = { spend: 0, impressions: 0 };
   const lastMtd = { spend: 0, impressions: 0 };
+  const perAd = new Map<string, PerAdAgg>();
 
   const PAGE = 1000;
   let from = 0;
   for (;;) {
     const { data, error } = await (db.from("creator_ad_performance_daily") as any)
-      .select("date, spend, impressions")
+      .select("date, spend, impressions, ad_id, purchase_value, outbound_clicks")
       .eq("instagram_handle", handle)
       .order("date", { ascending: true })
       .range(from, from + PAGE - 1);
@@ -515,6 +524,15 @@ async function deriveMonthlyFromDaily(
         lastMtd.spend += spend;
         lastMtd.impressions += impressions;
       }
+      const adId = r.ad_id ? String(r.ad_id) : null;
+      if (adId) {
+        let a = perAd.get(adId);
+        if (!a) { a = { spend: 0, impressions: 0, purchase_value: 0, outbound_clicks: 0 }; perAd.set(adId, a); }
+        a.spend += spend;
+        a.impressions += impressions;
+        a.purchase_value += Number(r.purchase_value || 0);
+        a.outbound_clicks += Number(r.outbound_clicks || 0);
+      }
     }
     if (data.length < PAGE) break;
     from += PAGE;
@@ -525,7 +543,7 @@ async function deriveMonthlyFromDaily(
     .sort((a, b) => b.month.localeCompare(a.month));
   mtd.spend = Math.round(mtd.spend * 100) / 100;
   lastMtd.spend = Math.round(lastMtd.spend * 100) / 100;
-  return { monthly, mtd, lastMtd };
+  return { monthly, mtd, lastMtd, perAd };
 }
 
 export async function syncCreator(
@@ -586,10 +604,28 @@ export async function syncCreator(
       }
     }
 
-    // Derive monthly / MTD from the full daily table (the source-of-truth), so the
-    // numbers payments read no longer depend on how wide a window we pulled.
+    // Derive monthly / MTD (+ per-ad aggregates) from the full daily table (the
+    // source-of-truth), so the numbers payments read no longer depend on how wide a
+    // window we pulled.
     const now = new Date();
     const derived = await deriveMonthlyFromDaily(db, handle, now);
+
+    // Enrich the gallery's per-ad metrics from the daily table. The ads-list call no
+    // longer returns insights, so spend/impressions/purchase_value/CTR come from our
+    // stored per-day rows (lifetime-since-tracking). No-op when the gallery call
+    // failed (result.ads is empty). Ads with no daily rows yet stay at $0.
+    for (const ad of result.ads) {
+      const agg = derived.perAd.get(ad.id);
+      if (!agg) continue;
+      ad.spend = agg.spend.toFixed(2);
+      ad.impressions = String(agg.impressions);
+      ad.outbound_clicks = Math.round(agg.outbound_clicks);
+      ad.outbound_clicks_ctr = agg.impressions > 0
+        ? Math.round((agg.outbound_clicks / agg.impressions) * 100 * 100) / 100
+        : 0;
+      ad.purchase_value = Math.round(agg.purchase_value * 100) / 100;
+      ad.purchase_roas = null; // dashboards compute ROAS as purchase_value / spend
+    }
 
     // Refresh ONLY the months inside the fresh daily window from the daily table.
     // Older months are preserved exactly as already stored: the daily table can be
