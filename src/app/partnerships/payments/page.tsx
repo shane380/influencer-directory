@@ -92,11 +92,16 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 function getMonthOptions() {
   const opts: { value: string; label: string }[] = [];
   const now = new Date();
-  for (let i = 2; i >= -1; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+  // Show every month from the start of operations (Jan 2026) through next month,
+  // newest first. A fixed rolling window used to age older months off the picker,
+  // making past runs (corrections, top-ups, reconciliation) unreachable.
+  const start = new Date(2026, 0, 1);
+  const d = new Date(now.getFullYear(), now.getMonth() + 1, 1); // next month
+  while (d >= start) {
     const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     const label = d.toLocaleString("en", { month: "long", year: "numeric" });
     opts.push({ value: val, label });
+    d.setMonth(d.getMonth() - 1);
   }
   return opts;
 }
@@ -131,6 +136,9 @@ export default function PaymentsPage() {
   const [legacyForm, setLegacyForm] = useState({ name: "", discount_code: "", commission_rate: "25", payment_method: "", payment_detail: "", notes: "" });
   const [legacySaving, setLegacySaving] = useState(false);
   const [legacyEditing, setLegacyEditing] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState<{ name: string } | null>(null);
+  const [historyData, setHistoryData] = useState<any>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const monthOptions = getMonthOptions();
 
   useEffect(() => {
@@ -278,6 +286,20 @@ export default function PaymentsPage() {
       }
     } catch {}
     setPaymentInfoLoading(false);
+  }
+
+  async function openHistory(opts: { influencerId?: string; legacyAffiliateId?: string; name: string }) {
+    setHistoryOpen({ name: opts.name });
+    setHistoryData(null);
+    setHistoryLoading(true);
+    try {
+      const param = opts.influencerId
+        ? `influencer_id=${opts.influencerId}`
+        : `legacy_affiliate_id=${opts.legacyAffiliateId}`;
+      const res = await fetch(`/api/admin/payments/history?${param}`);
+      if (res.ok) setHistoryData(await res.json());
+    } catch {}
+    setHistoryLoading(false);
   }
 
   function startEditingPaymentInfo(influencerId: string) {
@@ -451,7 +473,8 @@ export default function PaymentsPage() {
   const totalUnpaid = totalOwed - totalPaid;
   const pendingCount = payments.filter((p) => p.status === "pending").length;
 
-  const monthLabel = new Date(month + "-01").toLocaleString("en", {
+  const [monthLabelYear, monthLabelMonth] = month.split("-").map(Number);
+  const monthLabel = new Date(monthLabelYear, monthLabelMonth - 1, 1).toLocaleString("en", {
     month: "long",
     year: "numeric",
   });
@@ -553,6 +576,14 @@ export default function PaymentsPage() {
                       @{group.influencer?.instagram_handle || "—"}
                     </div>
                   </div>
+                  {group.influencer && (
+                    <button
+                      className="text-[10px] text-gray-400 hover:text-gray-600 hover:underline uppercase tracking-wider mr-1"
+                      onClick={() => openHistory({ influencerId: group.influencer!.id, name: group.influencer!.name })}
+                    >
+                      History
+                    </button>
+                  )}
                   {/* Payment info — one per creator, admin/manager only */}
                   {(currentUser?.isAdmin || currentUser?.isManager) && group.influencer && (
                     <div className="relative">
@@ -877,6 +908,14 @@ export default function PaymentsPage() {
                         <div className="text-sm font-medium text-gray-900">{group.legacyAffiliate?.name || "Unknown"}</div>
                         <div className="text-xs text-gray-400">{group.legacyAffiliate?.discount_code || "—"} · {group.legacyAffiliate?.commission_rate || 25}%</div>
                       </div>
+                      {group.legacyAffiliate && (
+                        <button
+                          className="text-[10px] text-gray-400 hover:text-gray-600 hover:underline uppercase tracking-wider mr-1"
+                          onClick={() => openHistory({ legacyAffiliateId: group.legacyAffiliate!.id, name: group.legacyAffiliate!.name })}
+                        >
+                          History
+                        </button>
+                      )}
                       <div className="text-sm font-medium text-gray-700">
                         ${group.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </div>
@@ -1004,6 +1043,14 @@ export default function PaymentsPage() {
                     <div className="text-sm font-medium text-gray-900">{group.influencer?.name || "Unknown"}</div>
                     <div className="text-xs text-gray-400">@{group.influencer?.instagram_handle || "—"}</div>
                   </div>
+                  {group.influencer && (
+                    <button
+                      className="text-[10px] text-gray-400 hover:text-gray-600 hover:underline uppercase tracking-wider mr-1"
+                      onClick={() => openHistory({ influencerId: group.influencer!.id, name: group.influencer!.name })}
+                    >
+                      History
+                    </button>
+                  )}
                   {/* Payment info — one per creator, admin/manager only */}
                   {(currentUser?.isAdmin || currentUser?.isManager) && group.influencer && (
                     <div className="relative">
@@ -1397,6 +1444,79 @@ export default function PaymentsPage() {
                 <div className="font-semibold text-gray-900">
                   Commission: ${auditData.summary.commission_owed?.toFixed(2)}
                 </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Per-creator payout history modal */}
+      {historyOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { setHistoryOpen(null); setHistoryData(null); }}>
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <div>
+                <div className="text-sm font-semibold text-gray-900">Payout History — {historyOpen.name}</div>
+                {historyData && (
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    {historyData.months.length} month{historyData.months.length !== 1 ? "s" : ""} · ${historyData.totalPaid?.toFixed(2) || "0.00"} paid to date
+                    {historyData.totalOutstanding > 0 ? ` · $${historyData.totalOutstanding.toFixed(2)} outstanding` : ""}
+                  </div>
+                )}
+              </div>
+              <button onClick={() => { setHistoryOpen(null); setHistoryData(null); }} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              {historyLoading ? (
+                <div className="text-center py-12 text-gray-400 text-sm">Loading history...</div>
+              ) : !historyData?.months?.length ? (
+                <div className="text-center py-12 text-gray-400 text-sm">No payout records yet.</div>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-gray-50 border-b">
+                    <tr>
+                      <th className="text-left px-5 py-2 font-medium text-gray-500">Month</th>
+                      <th className="text-left px-4 py-2 font-medium text-gray-500">Types</th>
+                      <th className="text-left px-4 py-2 font-medium text-gray-500">Status</th>
+                      <th className="text-right px-4 py-2 font-medium text-gray-500">Owed</th>
+                      <th className="text-right px-5 py-2 font-medium text-gray-500">Paid</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historyData.months.map((m: any) => {
+                      const sc = STATUS_CONFIG[m.status] || STATUS_CONFIG.pending;
+                      return (
+                        <tr key={m.month} className="border-b border-gray-50">
+                          <td className="px-5 py-2.5 text-gray-900 whitespace-nowrap">
+                            {(() => {
+                              const [yy, mm] = m.month.split("-").map(Number);
+                              return new Date(yy, mm - 1, 1).toLocaleString("en", { month: "long", year: "numeric" });
+                            })()}
+                          </td>
+                          <td className="px-4 py-2.5 text-gray-500">
+                            {m.types.filter((t: string) => t !== "refund_adjustment").map((t: string) => (TYPE_CONFIG[t]?.label || t)).join(", ")}
+                            {m.adjustment < 0 && (
+                              <div className="text-[10px] text-red-500 mt-0.5">incl. {`-$${Math.abs(m.adjustment).toFixed(2)}`} refund credit (unsettled)</div>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${sc.color}`}>{sc.label}</span>
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-gray-700">${m.owed.toFixed(2)}</td>
+                          <td className="px-5 py-2.5 text-right font-medium text-gray-900">{m.paid > 0 ? `$${m.paid.toFixed(2)}` : "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            {historyData?.months?.length > 0 && (
+              <div className="px-6 py-3 border-t bg-gray-50 flex items-center justify-between text-xs">
+                <div className="text-gray-500">Total owed all-time: ${historyData.totalOwed?.toFixed(2)}</div>
+                <div className="font-semibold text-gray-900">Total paid: ${historyData.totalPaid?.toFixed(2)}</div>
               </div>
             )}
           </div>

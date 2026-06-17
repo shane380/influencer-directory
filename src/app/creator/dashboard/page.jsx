@@ -866,6 +866,10 @@ export default function CreatorDashboard() {
   const [affiliateData, setAffiliateData] = useState(null) // { orders, summary }
   const [affiliateHistory, setAffiliateHistory] = useState([]) // [{ month, orders, summary }]
   const [affiliateLoading, setAffiliateLoading] = useState(false)
+  // Payment history (Account Info tab): what the creator has actually been paid,
+  // plus anything owed-but-unpaid. From /api/creator/payout-history.
+  const [payoutHistory, setPayoutHistory] = useState(null) // { paid, outstanding, totalPaid }
+  const [payoutLoading, setPayoutLoading] = useState(false)
   // Resolved affiliate config from /api/creator/affiliate-config. Computed
   // server-side because legacy_affiliates is RLS service-role-only and the
   // browser client cannot read it. Shape: { enabled, rate, code, source }.
@@ -1078,6 +1082,24 @@ export default function CreatorDashboard() {
           setAffiliateLoading(false)
         })())
       }
+
+      // Payout history — what the creator has been paid + anything owed. Always
+      // fetched (ad-spend/retainer creators have payouts even without affiliate).
+      setPayoutLoading(true)
+      bgTasks.push((async () => {
+        try {
+          const url = urlCreatorId
+            ? `/api/creator/payout-history?creator_id=${encodeURIComponent(urlCreatorId)}`
+            : '/api/creator/payout-history'
+          const res = await fetch(url)
+          if (res.ok) {
+            setPayoutHistory(await res.json())
+          }
+        } catch (err) {
+          console.error('Failed to fetch payout history:', err)
+        }
+        setPayoutLoading(false)
+      })())
 
       // Past requests + submissions + campaigns in parallel
       bgTasks.push((async () => {
@@ -4927,6 +4949,76 @@ export default function CreatorDashboard() {
     )
   }
 
+  function renderPayoutHistory() {
+    const PAYOUT_TYPE_LABELS = {
+      ad_spend_commission: 'Ad Spend',
+      affiliate_commission: 'Affiliate',
+      legacy_affiliate_commission: 'Affiliate',
+      retainer: 'Retainer',
+      paid_collab: 'Paid Collab',
+      refund_adjustment: 'Refund Adjustment',
+    }
+    const fmtMonth = (m) => {
+      const [y, mo] = String(m).split('-').map(Number)
+      if (!y || !mo) return m
+      return new Date(y, mo - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    }
+    const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null
+    const fmtAmt = (n) => '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+    const paid = payoutHistory?.paid || []
+    const outstanding = payoutHistory?.outstanding || []
+    const totalPaid = payoutHistory?.totalPaid || 0
+    const outstandingTotal = outstanding.reduce((s, o) => s + (Number(o.amount) || 0), 0)
+
+    return (
+      <div style={{ marginTop: 36 }}>
+        <div style={{ fontSize: 9, letterSpacing: '0.4em', textTransform: 'uppercase', color: '#aaa', display: 'flex', alignItems: 'center', gap: 14, marginBottom: 22 }}>
+          Payment History
+          <span style={{ flex: 1, height: 1, background: '#e8e8e8' }} />
+        </div>
+
+        {payoutLoading && !payoutHistory ? (
+          <div style={{ fontSize: 13, color: '#aaa', fontWeight: 300 }}>Loading…</div>
+        ) : (paid.length === 0 && outstanding.length === 0) ? (
+          <div style={{ fontSize: 13, color: '#aaa', fontWeight: 300 }}>No payouts recorded yet.</div>
+        ) : (
+          <div>
+            {outstanding.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: '#faf8f3', border: '1px solid #efe9dd', borderRadius: 3, marginBottom: 20 }}>
+                <div style={{ fontSize: 12, color: '#7a6a48', fontWeight: 400 }}>
+                  Owed &amp; not yet paid{outstanding.length > 1 ? ` (${outstanding.length} items)` : ''}
+                </div>
+                <div style={{ fontSize: 14, color: '#7a6a48', fontWeight: 500 }}>{fmtAmt(outstandingTotal)}</div>
+              </div>
+            )}
+
+            {paid.length > 0 && (
+              <div>
+                {paid.map((p, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 0', borderBottom: i < paid.length - 1 ? '1px solid #f1f1f1' : 'none' }}>
+                    <div>
+                      <div style={{ fontSize: 13, color: '#111' }}>{fmtMonth(p.month)}</div>
+                      <div style={{ fontSize: 11, color: '#aaa', fontWeight: 300, marginTop: 2 }}>
+                        {PAYOUT_TYPE_LABELS[p.payment_type] || p.payment_type}
+                        {fmtDate(p.paid_at) ? ` · Paid ${fmtDate(p.paid_at)}` : ''}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 13, color: '#111', fontWeight: 500 }}>{fmtAmt(p.amount)}</div>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 16, marginTop: 4 }}>
+                  <div style={{ fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#999' }}>Total Paid</div>
+                  <div style={{ fontSize: 14, color: '#111', fontWeight: 600 }}>{fmtAmt(totalPaid)}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   // --- DESKTOP RENDER ---
   function renderDesktopCard() {
     // Ads tab renders its own card structure (earnings + momentum)
@@ -5031,6 +5123,7 @@ export default function CreatorDashboard() {
           <div className="cd-card-body">
             {renderContactInfo(false)}
             {renderSettings(false)}
+            {renderPayoutHistory()}
           </div>
         </div>
       )
@@ -5338,6 +5431,7 @@ export default function CreatorDashboard() {
                   </div>
                 )}
                 {renderSettings(true)}
+                {renderPayoutHistory()}
               </div>
             </div>
           </div>

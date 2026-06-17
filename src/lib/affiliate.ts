@@ -1,5 +1,33 @@
 import { getShopifyAccessToken, getShopifyStoreUrl } from "./shopify";
 
+// Shopify REST rate-limits aggressively (≈2 req/s) and occasionally returns
+// transient 5xx. A naive `if (!res.ok) break` in a pagination loop silently
+// truncates the order set — which undercounts commission and UNDERPAYS creators
+// (the May-2026 March underpayment was caused by exactly this). Retry on
+// 429/5xx with backoff (honouring Retry-After); the caller throws if a page
+// still can't be fetched, so a partial scan is never treated as complete.
+async function shopifyFetch(url: string, accessToken: string, tries = 6): Promise<Response> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < tries; attempt++) {
+    try {
+      const res = await fetch(url, {
+        headers: { "X-Shopify-Access-Token": accessToken, "Content-Type": "application/json" },
+      });
+      if (res.status === 429 || res.status >= 500) {
+        const retryAfter = Number(res.headers.get("Retry-After")) || 0;
+        const waitMs = retryAfter > 0 ? retryAfter * 1000 : Math.min(500 * 2 ** attempt, 8000);
+        await new Promise((r) => setTimeout(r, waitMs));
+        continue;
+      }
+      return res;
+    } catch (e) {
+      lastErr = e;
+      await new Promise((r) => setTimeout(r, Math.min(500 * 2 ** attempt, 8000)));
+    }
+  }
+  throw new Error(`Shopify request failed after ${tries} attempts: ${url.split("?")[0]}${lastErr ? ` (${lastErr})` : ""}`);
+}
+
 export interface RefundAdjustment {
   order_id: number;
   order_number: number | string;
@@ -57,9 +85,7 @@ export async function checkRefundAdjustments(
 
   while (pageUrl) {
     try {
-      const res: Response = await fetch(pageUrl, {
-        headers: { "X-Shopify-Access-Token": accessToken, "Content-Type": "application/json" },
-      });
+      const res: Response = await shopifyFetch(pageUrl, accessToken);
       if (!res.ok) break;
 
       const data = await res.json();
@@ -89,9 +115,9 @@ export async function checkRefundAdjustments(
     const storedOrder = storedOrderMap.get(order.id)!;
 
     try {
-      const refundRes = await fetch(
+      const refundRes = await shopifyFetch(
         `https://${storeUrl}/admin/api/2024-01/orders/${order.id}/refunds.json`,
-        { headers: { "X-Shopify-Access-Token": accessToken, "Content-Type": "application/json" } }
+        accessToken
       );
       if (!refundRes.ok) continue;
 
@@ -183,11 +209,11 @@ export async function calculateAffiliateCommission(
   }
 
   while (pageUrl) {
-    const res: Response = await fetch(pageUrl, {
-      headers: { "X-Shopify-Access-Token": accessToken, "Content-Type": "application/json" },
-    });
+    const res: Response = await shopifyFetch(pageUrl, accessToken);
 
-    if (!res.ok) break;
+    // Throw rather than break: a non-OK response mid-pagination means we'd
+    // otherwise count only a partial order set and undercount the commission.
+    if (!res.ok) throw new Error(`Shopify orders page returned ${res.status} for ${discountCode} ${month ?? "all"}`);
 
     const data = await res.json();
     const codeUpper = discountCode.toUpperCase();
@@ -218,20 +244,18 @@ export async function calculateAffiliateCommission(
     const results = await Promise.all(batch.map(async (order) => {
       const grossAmount = parseFloat(order.subtotal_price || "0");
       let refundAmount = 0;
-      try {
-        const refundRes = await fetch(
-          `https://${storeUrl}/admin/api/2024-01/orders/${order.id}/refunds.json`,
-          { headers: { "X-Shopify-Access-Token": accessToken, "Content-Type": "application/json" } }
-        );
-        if (refundRes.ok) {
-          const refundData = await refundRes.json();
-          for (const refund of refundData.refunds || []) {
-            for (const lineItem of refund.refund_line_items || []) {
-              refundAmount += parseFloat(lineItem.subtotal || "0");
-            }
+      const refundRes = await shopifyFetch(
+        `https://${storeUrl}/admin/api/2024-01/orders/${order.id}/refunds.json`,
+        accessToken
+      );
+      if (refundRes.ok) {
+        const refundData = await refundRes.json();
+        for (const refund of refundData.refunds || []) {
+          for (const lineItem of refund.refund_line_items || []) {
+            refundAmount += parseFloat(lineItem.subtotal || "0");
           }
         }
-      } catch {}
+      }
       return { order, grossAmount, refundAmount: Math.round(refundAmount * 100) / 100 };
     }));
 
@@ -417,10 +441,11 @@ export async function calculateBulkAffiliateCommissions(
   let pageUrl: string | null = `https://${storeUrl}/admin/api/2024-01/orders.json?status=any&limit=250&created_at_min=${startDate}&created_at_max=${endDate}`;
 
   while (pageUrl) {
-    const res: Response = await fetch(pageUrl, {
-      headers: { "X-Shopify-Access-Token": accessToken, "Content-Type": "application/json" },
-    });
-    if (!res.ok) break;
+    const res: Response = await shopifyFetch(pageUrl, accessToken);
+
+    // Throw rather than break: a partial order set here silently undercounts
+    // commission across every code in this batch and underpays creators.
+    if (!res.ok) throw new Error(`Shopify orders page returned ${res.status} for bulk ${month}`);
 
     const data = await res.json();
     for (const order of data.orders || []) {
@@ -450,20 +475,18 @@ export async function calculateBulkAffiliateCommissions(
     const batchResults = await Promise.all(batch.map(async ({ order, codeUpper }) => {
       const grossAmount = parseFloat(order.subtotal_price || "0");
       let refundAmount = 0;
-      try {
-        const refundRes = await fetch(
-          `https://${storeUrl}/admin/api/2024-01/orders/${order.id}/refunds.json`,
-          { headers: { "X-Shopify-Access-Token": accessToken, "Content-Type": "application/json" } }
-        );
-        if (refundRes.ok) {
-          const refundData = await refundRes.json();
-          for (const refund of refundData.refunds || []) {
-            for (const lineItem of refund.refund_line_items || []) {
-              refundAmount += parseFloat(lineItem.subtotal || "0");
-            }
+      const refundRes = await shopifyFetch(
+        `https://${storeUrl}/admin/api/2024-01/orders/${order.id}/refunds.json`,
+        accessToken
+      );
+      if (refundRes.ok) {
+        const refundData = await refundRes.json();
+        for (const refund of refundData.refunds || []) {
+          for (const lineItem of refund.refund_line_items || []) {
+            refundAmount += parseFloat(lineItem.subtotal || "0");
           }
         }
-      } catch {}
+      }
       return { codeUpper, order, grossAmount, refundAmount: Math.round(refundAmount * 100) / 100 };
     }));
     processedOrders.push(...batchResults);

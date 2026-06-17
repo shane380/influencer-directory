@@ -213,14 +213,44 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // When a creator's payout is marked paid, settle any of THAT creator's pending
+  // refund clawbacks for the same month in the same stroke — so a refund credit
+  // nets into the payout instead of being stranded as a permanently-pending row.
+  let settledAdjustments = 0;
+  if (updates.status === "paid" && data.payment_type !== "refund_adjustment") {
+    let adjQuery = (supabase.from as any)("creator_payments")
+      .select("id, amount_owed")
+      .eq("month", data.month)
+      .eq("payment_type", "refund_adjustment")
+      .eq("status", "pending");
+    if (data.legacy_affiliate_id) adjQuery = adjQuery.eq("legacy_affiliate_id", data.legacy_affiliate_id);
+    else if (data.influencer_id) adjQuery = adjQuery.eq("influencer_id", data.influencer_id);
+    else adjQuery = null;
+
+    if (adjQuery) {
+      const { data: adjustments } = await adjQuery;
+      for (const adj of adjustments || []) {
+        await (supabase.from as any)("creator_payments")
+          .update({
+            status: "paid",
+            paid_at: updates.paid_at,
+            paid_by: updates.paid_by || data.paid_by || null,
+            amount_paid: adj.amount_owed, // negative — records the clawback as settled
+          })
+          .eq("id", adj.id);
+        settledAdjustments++;
+      }
+    }
+  }
+
   // Audit log for update
   await supabase.from("payment_audit_log").insert({
     user_id: admin.id,
     user_email: admin.email,
     action: "update_payment",
     target_influencer_id: data.influencer_id,
-    metadata: { payment_id: data.id, status: data.status, updates: Object.keys(updates) },
+    metadata: { payment_id: data.id, status: data.status, updates: Object.keys(updates), settled_refund_adjustments: settledAdjustments },
   });
 
-  return NextResponse.json({ payment: data });
+  return NextResponse.json({ payment: data, settledAdjustments });
 }
