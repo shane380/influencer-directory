@@ -134,12 +134,12 @@ export default function PaymentsV2Mockup() {
                   <td className="px-3 py-3 text-right text-gray-700">{cell(r.retainer)}</td>
                   <td className="px-3 py-3 text-right">
                     {r.adSpend > 0 ? (
-                      <button onClick={() => setBreakdown({ row: r, type: "ad" })} className="text-blue-600 underline decoration-dotted decoration-blue-300 underline-offset-2 hover:decoration-blue-600 cursor-pointer">${money(r.adSpend)}</button>
+                      <button onClick={() => setBreakdown({ row: r, type: "ad" })} className="text-gray-700 cursor-pointer hover:text-gray-900" title="Click to see the breakdown">${money(r.adSpend)}</button>
                     ) : <span className="text-gray-400">—</span>}
                   </td>
                   <td className="px-3 py-3 text-right">
                     {r.affiliate > 0 ? (
-                      <button onClick={() => setBreakdown({ row: r, type: "aff" })} className="text-blue-600 underline decoration-dotted decoration-blue-300 underline-offset-2 hover:decoration-blue-600 cursor-pointer">${money(r.affiliate)}</button>
+                      <button onClick={() => setBreakdown({ row: r, type: "aff" })} className="text-gray-700 cursor-pointer hover:text-gray-900" title="Click to see the breakdown">${money(r.affiliate)}</button>
                     ) : <span className="text-gray-400">—</span>}
                   </td>
                   <td className="px-3 py-3 text-right font-medium text-gray-900">${money(r.earned)}</td>
