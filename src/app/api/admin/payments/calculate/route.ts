@@ -121,8 +121,7 @@ export async function GET(request: NextRequest) {
   // Past months: use stored calculation_details; only call Shopify if no existing row
   // Current month: always call Shopify live
   const affiliateResults = new Map<string, { amount: number; notes: string; details: any }>();
-  const rowsToAutoInsert: any[] = []; // New past-month rows to persist
-  const rowsToUpdate: { id: string; amount_owed: number; notes: string; calculation_details: any }[] = []; // Refresh non-finalized past-month rows
+  const rowsToAutoInsert: any[] = []; // For persisting first-view past-month calculations
 
   const affiliateCreators = creators.filter((c: any) => {
     const invite = inviteMap.get(c.invite_id);
@@ -141,9 +140,10 @@ export async function GET(request: NextRequest) {
     const key = `inf:${influencerId}-affiliate_commission`;
     const existing = existingMap.get(key);
 
-    // Finalized row: use stored data, skip Shopify (locked). Non-finalized rows
-    // (even past months) recompute live so a buggy/stale value self-corrects.
-    if (existing?.finalized_at && existing?.calculation_details) {
+    // Past month with stored data: reuse it (cheap, no Shopify). A live recompute
+    // only happens for the current month or rows never computed. Truing up stale
+    // historical values is a controlled batch job, not a per-view side effect.
+    if (isPastMonth && existing?.calculation_details) {
       const details = existing.calculation_details;
       affiliateResults.set(influencerId, {
         amount: details.commission_owed ?? existing.amount_owed ?? 0,
@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
       return;
     }
 
-    // Not finalized: calculate live (and refresh the stored row for past months)
+    // Past month with NO existing row, or current month: calculate live
     const excluded = excludedByInfluencer.get(influencerId) || [];
     try {
       const result = await calculateAffiliateCommission(c.affiliate_code, month, rate / 100, excluded);
@@ -166,34 +166,24 @@ export async function GET(request: NextRequest) {
         details: detailsWithOrders,
       });
 
-      // Persist for past months: insert if new, refresh if an existing
-      // non-finalized row (so a corrected value replaces the stale one).
-      if (isPastMonth) {
-        const noteStr = result.summary.order_count > 0
-          ? `${result.summary.order_count} orders, $${result.summary.total_gross.toFixed(2)} gross, -$${result.summary.total_refunds.toFixed(2)} refunds, $${result.summary.total_net.toFixed(2)} net × ${rate}%`
-          : "No orders this month";
-        if (!existing) {
-          const paymentMethod = c.payment_method || null;
-          let paymentDetail = null;
-          if (paymentMethod === "paypal") paymentDetail = c.paypal_email || null;
-          else if (paymentMethod) paymentDetail = getMaskedAccount(c);
-          rowsToAutoInsert.push({
-            influencer_id: influencerId,
-            month,
-            payment_type: "affiliate_commission",
-            amount_owed: result.summary.commission_owed,
-            payment_method: paymentMethod,
-            payment_detail: paymentDetail,
-            notes: noteStr,
-            calculation_details: detailsWithOrders,
-          });
-        } else {
-          rowsToUpdate.push({ id: existing.id, amount_owed: result.summary.commission_owed, notes: noteStr, calculation_details: detailsWithOrders });
-          // Keep existingMap fresh so the assembly below uses the refreshed value.
-          existing.amount_owed = result.summary.commission_owed;
-          existing.notes = noteStr;
-          existing.calculation_details = detailsWithOrders;
-        }
+      // Past month first-view: persist so future loads are instant.
+      if (isPastMonth && !existing) {
+        const paymentMethod = c.payment_method || null;
+        let paymentDetail = null;
+        if (paymentMethod === "paypal") paymentDetail = c.paypal_email || null;
+        else if (paymentMethod) paymentDetail = getMaskedAccount(c);
+        rowsToAutoInsert.push({
+          influencer_id: influencerId,
+          month,
+          payment_type: "affiliate_commission",
+          amount_owed: result.summary.commission_owed,
+          payment_method: paymentMethod,
+          payment_detail: paymentDetail,
+          notes: result.summary.order_count > 0
+            ? `${result.summary.order_count} orders, $${result.summary.total_gross.toFixed(2)} gross, -$${result.summary.total_refunds.toFixed(2)} refunds, $${result.summary.total_net.toFixed(2)} net × ${rate}%`
+            : "No orders this month",
+          calculation_details: detailsWithOrders,
+        });
       }
     } catch {
       affiliateResults.set(influencerId, {
@@ -217,13 +207,6 @@ export async function GET(request: NextRequest) {
       existingMap.set(key, row);
     }
   }
-  // Refresh non-finalized past-month rows whose value changed.
-  for (const u of rowsToUpdate) {
-    await (supabase.from as any)("creator_payments")
-      .update({ amount_owed: u.amount_owed, notes: u.notes, calculation_details: u.calculation_details })
-      .eq("id", u.id);
-  }
-  rowsToUpdate.length = 0;
 
   // 7b. Calculate legacy affiliate commissions
   const { data: legacyAffiliates } = await (supabase.from as any)("legacy_affiliates")
@@ -240,7 +223,7 @@ export async function GET(request: NextRequest) {
       (p) => p.legacy_affiliate_id === la.id && p.payment_type === "legacy_affiliate_commission"
     );
     if (isLocked(existingLegacy)) continue; // locked
-    if (existingLegacy?.finalized_at && existingLegacy?.calculation_details) {
+    if (isPastMonth && existingLegacy?.calculation_details) {
       const details = existingLegacy.calculation_details;
       legacyResults.set(la.id, {
         amount: details.commission_owed ?? existingLegacy.amount_owed ?? 0,
@@ -279,28 +262,20 @@ export async function GET(request: NextRequest) {
         const existingLegacy = [...existingMap.values()].find(
           (p) => p.legacy_affiliate_id === la.id && p.payment_type === "legacy_affiliate_commission"
         );
-        if (isPastMonth) {
-          const noteStr = result.summary.order_count > 0
-            ? `${result.summary.order_count} orders, $${result.summary.total_gross.toFixed(2)} gross, -$${result.summary.total_refunds.toFixed(2)} refunds, $${result.summary.total_net.toFixed(2)} net × ${rate}%`
-            : "No orders this month";
-          if (!existingLegacy) {
-            legacyRowsToInsert.push({
-              legacy_affiliate_id: la.id,
-              influencer_id: la.influencer_id || null,
-              month,
-              payment_type: "legacy_affiliate_commission",
-              amount_owed: result.summary.commission_owed,
-              payment_method: la.payment_method || null,
-              payment_detail: la.payment_detail || null,
-              notes: noteStr,
-              calculation_details: detailsWithOrders,
-            });
-          } else {
-            rowsToUpdate.push({ id: existingLegacy.id, amount_owed: result.summary.commission_owed, notes: noteStr, calculation_details: detailsWithOrders });
-            existingLegacy.amount_owed = result.summary.commission_owed;
-            existingLegacy.notes = noteStr;
-            existingLegacy.calculation_details = detailsWithOrders;
-          }
+        if (isPastMonth && !existingLegacy) {
+          legacyRowsToInsert.push({
+            legacy_affiliate_id: la.id,
+            influencer_id: la.influencer_id || null,
+            month,
+            payment_type: "legacy_affiliate_commission",
+            amount_owed: result.summary.commission_owed,
+            payment_method: la.payment_method || null,
+            payment_detail: la.payment_detail || null,
+            notes: result.summary.order_count > 0
+              ? `${result.summary.order_count} orders, $${result.summary.total_gross.toFixed(2)} gross, -$${result.summary.total_refunds.toFixed(2)} refunds, $${result.summary.total_net.toFixed(2)} net × ${rate}%`
+              : "No orders this month",
+            calculation_details: detailsWithOrders,
+          });
         }
       }
     } catch {
@@ -315,13 +290,6 @@ export async function GET(request: NextRequest) {
       .insert(legacyRowsToInsert)
       .select("*");
   }
-  // Refresh non-finalized legacy rows whose value changed.
-  for (const u of rowsToUpdate) {
-    await (supabase.from as any)("creator_payments")
-      .update({ amount_owed: u.amount_owed, notes: u.notes, calculation_details: u.calculation_details })
-      .eq("id", u.id);
-  }
-  rowsToUpdate.length = 0;
 
   // 8. Catch refunds that landed on already-paid recent orders, so a sale
   //    refunded after its month was paid is clawed back on the next payout.
