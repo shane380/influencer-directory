@@ -31,6 +31,18 @@ export async function GET(request: NextRequest) {
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+  // Auto-finalize earnings whose 45-day refund window has closed: lock every
+  // not-yet-finalized row for months ending ≥45 days ago. After this, the
+  // calculate route stops recomputing those months (refunds become clawbacks).
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 45);
+  const cm = new Date(cutoff.getFullYear(), cutoff.getMonth() - 1, 1); // month before cutoff's month
+  const cutoffMonth = `${cm.getFullYear()}-${String(cm.getMonth() + 1).padStart(2, "0")}`;
+  await (supabase.from as any)("creator_payments")
+    .update({ finalized_at: new Date().toISOString() })
+    .is("finalized_at", null)
+    .lte("month", cutoffMonth);
+
   // Fetch existing payment records for this month (skip what's already saved)
   const { data: existingPayments } = await (supabase.from as any)("creator_payments")
     .select("influencer_id, payment_type, deal_id")

@@ -42,6 +42,10 @@ export async function GET(request: NextRequest) {
     existingMap.set(key, p);
   }
 
+  // A row is locked (use stored value, don't recompute) once it's finalized
+  // (45-day refund window closed) or explicitly excluded (old status='skipped').
+  const isLocked = (r: any) => !!(r && (r.finalized_at || r.excluded));
+
   // 2. Fetch all creators with invites
   const { data: creators } = await (supabase.from as any)("creators")
     .select("id, creator_name, invite_id, affiliate_code, commission_rate, payment_method, paypal_email, bank_institution, bank_account_number, bank_account_number_enc");
@@ -117,15 +121,16 @@ export async function GET(request: NextRequest) {
   // Past months: use stored calculation_details; only call Shopify if no existing row
   // Current month: always call Shopify live
   const affiliateResults = new Map<string, { amount: number; notes: string; details: any }>();
-  const rowsToAutoInsert: any[] = []; // For persisting first-view past-month calculations
+  const rowsToAutoInsert: any[] = []; // New past-month rows to persist
+  const rowsToUpdate: { id: string; amount_owed: number; notes: string; calculation_details: any }[] = []; // Refresh non-finalized past-month rows
 
   const affiliateCreators = creators.filter((c: any) => {
     const invite = inviteMap.get(c.invite_id);
     if (!invite?.has_affiliate || !c.affiliate_code) return false;
     const key = `inf:${invite.influencer?.id}-affiliate_commission`;
     const existing = existingMap.get(key);
-    // Skip if already locked (non-pending) — regardless of past/current month
-    if (existing && existing.status !== "pending") return false;
+    // Skip only if locked (finalized/excluded). Non-locked rows refresh, even past ones.
+    if (isLocked(existing)) return false;
     return true;
   });
 
@@ -136,8 +141,9 @@ export async function GET(request: NextRequest) {
     const key = `inf:${influencerId}-affiliate_commission`;
     const existing = existingMap.get(key);
 
-    // Past month with existing row: use stored data, skip Shopify
-    if (isPastMonth && existing?.calculation_details) {
+    // Finalized row: use stored data, skip Shopify (locked). Non-finalized rows
+    // (even past months) recompute live so a buggy/stale value self-corrects.
+    if (existing?.finalized_at && existing?.calculation_details) {
       const details = existing.calculation_details;
       affiliateResults.set(influencerId, {
         amount: details.commission_owed ?? existing.amount_owed ?? 0,
@@ -147,7 +153,7 @@ export async function GET(request: NextRequest) {
       return;
     }
 
-    // Past month with NO existing row, or current month: calculate live
+    // Not finalized: calculate live (and refresh the stored row for past months)
     const excluded = excludedByInfluencer.get(influencerId) || [];
     try {
       const result = await calculateAffiliateCommission(c.affiliate_code, month, rate / 100, excluded);
@@ -160,26 +166,34 @@ export async function GET(request: NextRequest) {
         details: detailsWithOrders,
       });
 
-      // Past month first-view: persist to DB so future loads are instant
-      if (isPastMonth && !existing) {
-        const paymentMethod = c.payment_method || null;
-        let paymentDetail = null;
-        if (paymentMethod === "paypal") paymentDetail = c.paypal_email || null;
-        else if (paymentMethod) {
-          paymentDetail = getMaskedAccount(c);
+      // Persist for past months: insert if new, refresh if an existing
+      // non-finalized row (so a corrected value replaces the stale one).
+      if (isPastMonth) {
+        const noteStr = result.summary.order_count > 0
+          ? `${result.summary.order_count} orders, $${result.summary.total_gross.toFixed(2)} gross, -$${result.summary.total_refunds.toFixed(2)} refunds, $${result.summary.total_net.toFixed(2)} net × ${rate}%`
+          : "No orders this month";
+        if (!existing) {
+          const paymentMethod = c.payment_method || null;
+          let paymentDetail = null;
+          if (paymentMethod === "paypal") paymentDetail = c.paypal_email || null;
+          else if (paymentMethod) paymentDetail = getMaskedAccount(c);
+          rowsToAutoInsert.push({
+            influencer_id: influencerId,
+            month,
+            payment_type: "affiliate_commission",
+            amount_owed: result.summary.commission_owed,
+            payment_method: paymentMethod,
+            payment_detail: paymentDetail,
+            notes: noteStr,
+            calculation_details: detailsWithOrders,
+          });
+        } else {
+          rowsToUpdate.push({ id: existing.id, amount_owed: result.summary.commission_owed, notes: noteStr, calculation_details: detailsWithOrders });
+          // Keep existingMap fresh so the assembly below uses the refreshed value.
+          existing.amount_owed = result.summary.commission_owed;
+          existing.notes = noteStr;
+          existing.calculation_details = detailsWithOrders;
         }
-        rowsToAutoInsert.push({
-          influencer_id: influencerId,
-          month,
-          payment_type: "affiliate_commission",
-          amount_owed: result.summary.commission_owed,
-          payment_method: paymentMethod,
-          payment_detail: paymentDetail,
-          notes: result.summary.order_count > 0
-            ? `${result.summary.order_count} orders, $${result.summary.total_gross.toFixed(2)} gross, -$${result.summary.total_refunds.toFixed(2)} refunds, $${result.summary.total_net.toFixed(2)} net × ${rate}%`
-            : "No orders this month",
-          calculation_details: detailsWithOrders,
-        });
       }
     } catch {
       affiliateResults.set(influencerId, {
@@ -203,6 +217,13 @@ export async function GET(request: NextRequest) {
       existingMap.set(key, row);
     }
   }
+  // Refresh non-finalized past-month rows whose value changed.
+  for (const u of rowsToUpdate) {
+    await (supabase.from as any)("creator_payments")
+      .update({ amount_owed: u.amount_owed, notes: u.notes, calculation_details: u.calculation_details })
+      .eq("id", u.id);
+  }
+  rowsToUpdate.length = 0;
 
   // 7b. Calculate legacy affiliate commissions
   const { data: legacyAffiliates } = await (supabase.from as any)("legacy_affiliates")
@@ -218,8 +239,8 @@ export async function GET(request: NextRequest) {
     const existingLegacy = [...existingMap.values()].find(
       (p) => p.legacy_affiliate_id === la.id && p.payment_type === "legacy_affiliate_commission"
     );
-    if (existingLegacy && existingLegacy.status !== "pending") continue;
-    if (isPastMonth && existingLegacy?.calculation_details) {
+    if (isLocked(existingLegacy)) continue; // locked
+    if (existingLegacy?.finalized_at && existingLegacy?.calculation_details) {
       const details = existingLegacy.calculation_details;
       legacyResults.set(la.id, {
         amount: details.commission_owed ?? existingLegacy.amount_owed ?? 0,
@@ -258,20 +279,28 @@ export async function GET(request: NextRequest) {
         const existingLegacy = [...existingMap.values()].find(
           (p) => p.legacy_affiliate_id === la.id && p.payment_type === "legacy_affiliate_commission"
         );
-        if (isPastMonth && !existingLegacy) {
-          legacyRowsToInsert.push({
-            legacy_affiliate_id: la.id,
-            influencer_id: la.influencer_id || null,
-            month,
-            payment_type: "legacy_affiliate_commission",
-            amount_owed: result.summary.commission_owed,
-            payment_method: la.payment_method || null,
-            payment_detail: la.payment_detail || null,
-            notes: result.summary.order_count > 0
-              ? `${result.summary.order_count} orders, $${result.summary.total_gross.toFixed(2)} gross, -$${result.summary.total_refunds.toFixed(2)} refunds, $${result.summary.total_net.toFixed(2)} net × ${rate}%`
-              : "No orders this month",
-            calculation_details: detailsWithOrders,
-          });
+        if (isPastMonth) {
+          const noteStr = result.summary.order_count > 0
+            ? `${result.summary.order_count} orders, $${result.summary.total_gross.toFixed(2)} gross, -$${result.summary.total_refunds.toFixed(2)} refunds, $${result.summary.total_net.toFixed(2)} net × ${rate}%`
+            : "No orders this month";
+          if (!existingLegacy) {
+            legacyRowsToInsert.push({
+              legacy_affiliate_id: la.id,
+              influencer_id: la.influencer_id || null,
+              month,
+              payment_type: "legacy_affiliate_commission",
+              amount_owed: result.summary.commission_owed,
+              payment_method: la.payment_method || null,
+              payment_detail: la.payment_detail || null,
+              notes: noteStr,
+              calculation_details: detailsWithOrders,
+            });
+          } else {
+            rowsToUpdate.push({ id: existingLegacy.id, amount_owed: result.summary.commission_owed, notes: noteStr, calculation_details: detailsWithOrders });
+            existingLegacy.amount_owed = result.summary.commission_owed;
+            existingLegacy.notes = noteStr;
+            existingLegacy.calculation_details = detailsWithOrders;
+          }
         }
       }
     } catch {
@@ -286,6 +315,13 @@ export async function GET(request: NextRequest) {
       .insert(legacyRowsToInsert)
       .select("*");
   }
+  // Refresh non-finalized legacy rows whose value changed.
+  for (const u of rowsToUpdate) {
+    await (supabase.from as any)("creator_payments")
+      .update({ amount_owed: u.amount_owed, notes: u.notes, calculation_details: u.calculation_details })
+      .eq("id", u.id);
+  }
+  rowsToUpdate.length = 0;
 
   // 8. Catch refunds that landed on already-paid recent orders, so a sale
   //    refunded after its month was paid is clawed back on the next payout.
@@ -478,7 +514,7 @@ export async function GET(request: NextRequest) {
       const existing = existingMap.get(key);
       processedKeys.add(key);
 
-      if (existing && existing.status !== "pending") {
+      if (isLocked(existing)) {
         allPayments.push({ ...existing, influencer, deal: null });
       } else {
         const spend = adSpendMap.get(handle) || 0;
@@ -510,7 +546,7 @@ export async function GET(request: NextRequest) {
       const existing = existingMap.get(key);
       processedKeys.add(key);
 
-      if (existing && existing.status !== "pending") {
+      if (isLocked(existing)) {
         allPayments.push({ ...existing, influencer, deal: null });
       } else {
         allPayments.push({
@@ -539,7 +575,7 @@ export async function GET(request: NextRequest) {
       const existing = existingMap.get(key);
       processedKeys.add(key);
 
-      if (existing && existing.status !== "pending") {
+      if (isLocked(existing)) {
         allPayments.push({ ...existing, influencer, deal: null });
       } else {
         const aff = affiliateResults.get(influencerId) || { amount: 0, notes: "No affiliate code", details: null };
@@ -570,7 +606,7 @@ export async function GET(request: NextRequest) {
       const existing = existingMap.get(key);
       processedKeys.add(key);
 
-      if (existing && existing.status !== "pending") {
+      if (isLocked(existing)) {
         allPayments.push({
           ...existing,
           influencer,
@@ -615,7 +651,7 @@ export async function GET(request: NextRequest) {
       payment_detail: la.payment_detail,
     };
 
-    if (existingLegacy && existingLegacy.status !== "pending") {
+    if (isLocked(existingLegacy)) {
       allPayments.push({ ...existingLegacy, influencer: null, deal: null, legacyAffiliate: legacyMeta });
     } else {
       const aff = legacyResults.get(la.id) || { amount: 0, notes: "No orders this month", details: null };
