@@ -101,11 +101,16 @@ const sortedMonths = [...MONTHS].sort();
 const lo = `${sortedMonths[0]}-01`;
 const [ly, lm] = sortedMonths[sortedMonths.length - 1].split("-").map(Number);
 const hi = `${new Date(ly, lm, 1).toISOString().slice(0, 10)}`;
-const { data: adDaily } = await db.from("creator_ad_performance_daily").select("instagram_handle, date, spend").gte("date", lo).lt("date", hi);
+// Paginate — 6 months of daily ad rows exceeds Supabase's 1000-row default,
+// which silently truncated ad-spend (Charlene's full-run total came out wrong).
 const adSpendMap = new Map();
-for (const r of adDaily || []) {
-  const k = `${r.instagram_handle}|${String(r.date).slice(0, 7)}`;
-  adSpendMap.set(k, (adSpendMap.get(k) || 0) + Number(r.spend || 0));
+for (let from = 0; ; from += 1000) {
+  const { data: adDaily } = await db.from("creator_ad_performance_daily").select("instagram_handle, date, spend").gte("date", lo).lt("date", hi).range(from, from + 999);
+  for (const r of adDaily || []) {
+    const k = `${r.instagram_handle}|${String(r.date).slice(0, 7)}`;
+    adSpendMap.set(k, (adSpendMap.get(k) || 0) + Number(r.spend || 0));
+  }
+  if (!adDaily || adDaily.length < 1000) break;
 }
 // Confirmed paid collabs, keyed by the month of campaign.start_date.
 const { data: deals } = await db.from("campaign_deals").select("id, influencer_id, total_deal_value, campaign:campaigns!campaign_deals_campaign_id_fkey(start_date)").eq("deal_status", "confirmed");

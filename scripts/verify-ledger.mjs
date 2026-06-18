@@ -48,10 +48,13 @@ for (const e of ev || []) {
 
 // old creator_payments owed per creator/month
 const { data: oldRows } = await db.from("creator_payments").select("influencer_id, legacy_affiliate_id, amount_owed, excluded").eq("month", PERIOD);
+const legToInf = new Map((legacy || []).map((l) => [l.id, l.influencer_id]));
 const oldByKey = new Map();
 for (const p of oldRows || []) {
   if (p.excluded) continue;
-  const key = p.influencer_id ? `inf:${p.influencer_id}` : `legacy:${p.legacy_affiliate_id}`;
+  // align with the new merged identity: a linked legacy row maps to its influencer
+  let infId = p.influencer_id || (p.legacy_affiliate_id ? legToInf.get(p.legacy_affiliate_id) : null);
+  const key = infId ? `inf:${infId}` : `legacy:${p.legacy_affiliate_id}`;
   oldByKey.set(key, r2((oldByKey.get(key) || 0) + Number(p.amount_owed || 0)));
 }
 
@@ -70,12 +73,18 @@ for (const k of keys) {
 console.log(`   (${movedCount} creators changed by >$0.50 — expected, the old numbers were buggy)\n`);
 
 // 2. independent Shopify truth for top legacy codes
-console.log("2. INDEPENDENT SHOPIFY RE-SCAN (truth) vs ledger — top legacy affiliates");
-const topLegacy = (legacy || []).map((l) => ({ l, amt: newByKey.get(`legacy:${l.id}`) || 0 })).filter((x) => x.amt > 50).sort((a, b) => b.amt - a.amt).slice(0, 5);
+console.log("2. INDEPENDENT SHOPIFY RE-SCAN (truth) vs ledger — affiliate portion per legacy code");
+// isolate the affiliate+refund events per legacy code (the merged total also has ad-spend)
+const affByLegacy = new Map();
+for (const e of ev || []) {
+  if (e.legacy_affiliate_id && (e.event_type === "affiliate" || e.event_type === "refund"))
+    affByLegacy.set(e.legacy_affiliate_id, r2((affByLegacy.get(e.legacy_affiliate_id) || 0) + Number(e.amount)));
+}
+const topLegacy = (legacy || []).map((l) => ({ l, amt: affByLegacy.get(l.id) || 0 })).filter((x) => x.amt > 50).sort((a, b) => b.amt - a.amt).slice(0, 5);
 let pass = 0, fail = 0;
 for (const { l } of topLegacy) {
   const truth = await netExact(l.discount_code, PERIOD, (l.commission_rate || 25) / 100);
-  const ledger = newByKey.get(`legacy:${l.id}`) || 0;
+  const ledger = affByLegacy.get(l.id) || 0;
   const ok = Math.abs(truth - ledger) <= 1.0;
   if (ok) pass++; else fail++;
   console.log(`   ${l.name.padEnd(22)} ledger $${ledger.toFixed(2).padStart(9)}  shopify $${truth.toFixed(2).padStart(9)}  ${ok ? "✓" : "✗ MISMATCH"}`);
@@ -85,10 +94,10 @@ console.log(`   ${pass} pass, ${fail} mismatch\n`);
 // 3. consolidation check — creators that merge partner+legacy
 console.log("3. CONSOLIDATION — creators with both partner (inf:) and legacy streams");
 const { data: ev2 } = await db.from("commission_events").select("influencer_id, legacy_affiliate_id").eq("period", PERIOD);
-const hasInf = new Set(), legToInf = new Map();
-for (const e of ev2 || []) { if (e.influencer_id && !e.legacy_affiliate_id) hasInf.add(e.influencer_id); if (e.influencer_id && e.legacy_affiliate_id) legToInf.set(e.legacy_affiliate_id, e.influencer_id); }
+const hasInf = new Set(), legToInfEv = new Map();
+for (const e of ev2 || []) { if (e.influencer_id && !e.legacy_affiliate_id) hasInf.add(e.influencer_id); if (e.influencer_id && e.legacy_affiliate_id) legToInfEv.set(e.legacy_affiliate_id, e.influencer_id); }
 let merges = 0;
-for (const [legId, infId] of legToInf) { if (hasInf.has(infId)) { merges++; console.log(`   ${(infName.get(infId) || infId)} — merges legacy + partner into one row ✓`); } }
+for (const [legId, infId] of legToInfEv) { if (hasInf.has(infId)) { merges++; console.log(`   ${(infName.get(infId) || infId)} — merges legacy + partner into one row ✓`); } }
 const orphanLegacy = (ev2 || []).filter((e) => e.legacy_affiliate_id && !e.influencer_id).length;
 console.log(`   ${merges} merged; legacy rows with no influencer link stand alone (expected).\n`);
 
