@@ -12,23 +12,23 @@ import { Sidebar } from "@/components/sidebar";
 type Row = {
   name: string;
   handle: string;
+  payInfo: string; // where money is sent (method + detail)
   retainer: number;
   adSpend: number;
   affiliate: number;
   paid: number; // recorded payouts so far
-  method?: string;
   paidDate?: string; // when fully settled
 };
 
 // Hardcoded sample creators (mix of the three streams; some paid/partial).
 const SAMPLE: Row[] = [
-  { name: "Mariana Nunes", handle: "maanuness", retainer: 789.0, adSpend: 0, affiliate: 0, paid: 0 },
-  { name: "Daisy McDermott", handle: "daisymcdermott", retainer: 0, adSpend: 0, affiliate: 1909.55, paid: 687.9, method: "PayPal" },
-  { name: "Molly Dalton", handle: "mollydalton", retainer: 0, adSpend: 0, affiliate: 1282.45, paid: 0 },
-  { name: "Rooted with Lily", handle: "rootedwithlily", retainer: 0, adSpend: 170.21, affiliate: 10.85, paid: 0 },
-  { name: "Lissa DeLorenzo", handle: "lissade", retainer: 0, adSpend: 42.61, affiliate: 11.46, paid: 0 },
-  { name: "Charlene Lee", handle: "hiicharlee", retainer: 0, adSpend: 47.6, affiliate: 0, paid: 0 },
-  { name: "Kaya Lachowsky", handle: "kayalachowsky", retainer: 0, adSpend: 59.69, affiliate: 0, paid: 59.69, method: "Bank", paidDate: "Mar 12" },
+  { name: "Mariana Nunes", handle: "maanuness", payInfo: "PayPal · mariananunes@gmail.com", retainer: 789.0, adSpend: 0, affiliate: 0, paid: 0 },
+  { name: "Daisy McDermott", handle: "daisymcdermott", payInfo: "PayPal · daisymcdermott@gmail.com", retainer: 0, adSpend: 0, affiliate: 1909.55, paid: 687.9 },
+  { name: "Molly Dalton", handle: "mollydalton", payInfo: "PayPal · mollydalton", retainer: 0, adSpend: 0, affiliate: 1282.45, paid: 0 },
+  { name: "Rooted with Lily", handle: "rootedwithlily", payInfo: "PayPal · lilyscilabro@gmail.com", retainer: 0, adSpend: 170.21, affiliate: 10.85, paid: 0 },
+  { name: "Lissa DeLorenzo", handle: "lissade", payInfo: "PayPal · delorenzolissa@gmail.com", retainer: 0, adSpend: 42.61, affiliate: 11.46, paid: 0 },
+  { name: "Charlene Lee", handle: "hiicharlee", payInfo: "Bank ···9337", retainer: 0, adSpend: 47.6, affiliate: 0, paid: 0 },
+  { name: "Kaya Lachowsky", handle: "kayalachowsky", payInfo: "Bank ···8235", retainer: 0, adSpend: 59.69, affiliate: 0, paid: 59.69, paidDate: "Mar 12" },
 ];
 
 const money = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -39,6 +39,7 @@ type ComputedRow = Row & { earned: number; balance: number; status: string };
 export default function PaymentsV2Mockup() {
   const router = useRouter();
   const [payFor, setPayFor] = useState<ComputedRow | null>(null);
+  const [historyFor, setHistoryFor] = useState<ComputedRow | null>(null);
 
   const rows: ComputedRow[] = SAMPLE.map((r) => {
     const earned = r.retainer + r.adSpend + r.affiliate;
@@ -115,7 +116,12 @@ export default function PaymentsV2Mockup() {
                       </div>
                       <div>
                         <div className="font-medium text-gray-900">{r.name}</div>
-                        <div className="text-xs text-gray-400">@{r.handle}{r.method ? ` · ${r.method}` : ""}</div>
+                        <div className="text-xs text-gray-400">@{r.handle}</div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[11px] text-gray-500">{r.payInfo}</span>
+                          <span className="text-gray-300">·</span>
+                          <button onClick={() => setHistoryFor(r)} className="text-[11px] text-blue-500 hover:underline">History</button>
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -190,6 +196,50 @@ export default function PaymentsV2Mockup() {
             <div className="px-6 py-4 border-t flex justify-end gap-2">
               <button onClick={() => setPayFor(null)} className="px-4 py-2 text-sm text-gray-600">Cancel</button>
               <button onClick={() => setPayFor(null)} className="px-4 py-2 bg-gray-900 text-white rounded text-sm font-medium">Record</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* History modal (stub) — per-creator earnings + payments over time */}
+      {historyFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setHistoryFor(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b">
+              <div className="text-sm font-semibold text-gray-900">{historyFor.name} — History</div>
+              <div className="text-xs text-gray-500 mt-0.5">{historyFor.payInfo}</div>
+            </div>
+            <div className="overflow-y-auto flex-1 p-6 space-y-5">
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-gray-400 mb-2">Earned by month</div>
+                <table className="w-full text-xs">
+                  <tbody>
+                    {[
+                      { m: "March 2026", e: historyFor.earned, paid: historyFor.paid },
+                      { m: "February 2026", e: 1206.81, paid: 0 },
+                      { m: "January 2026", e: 725.81, paid: 0 },
+                    ].map((x) => (
+                      <tr key={x.m} className="border-b border-gray-50">
+                        <td className="py-2 text-gray-700">{x.m}</td>
+                        <td className="py-2 text-right text-gray-900">${money(x.e)} earned</td>
+                        <td className="py-2 text-right text-gray-500">{x.paid > 0 ? `$${money(x.paid)} paid` : "unpaid"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-gray-400 mb-2">Payments received</div>
+                {historyFor.paid > 0 ? (
+                  <div className="text-xs text-gray-700">May 17, 2026 · ${money(historyFor.paid)} · PayPal</div>
+                ) : (
+                  <div className="text-xs text-gray-400">No payments recorded yet.</div>
+                )}
+              </div>
+            </div>
+            <div className="px-6 py-3 border-t bg-gray-50 flex items-center justify-between text-xs">
+              <span className="text-gray-500">Stub — real version pulls from the events + payouts ledgers</span>
+              <button onClick={() => setHistoryFor(null)} className="text-gray-600">Close</button>
             </div>
           </div>
         </div>
