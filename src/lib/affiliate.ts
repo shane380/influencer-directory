@@ -52,8 +52,10 @@ export interface RefundAdjustmentResult {
 export async function checkRefundAdjustments(
   storedOrders: AffiliateOrder[],
   discountCode: string,
-  month: string,
-  commissionRate: number
+  commissionRate: number,
+  // Per-order refund level already clawed back by earlier adjustment rows, so a
+  // refund is never deducted twice when a widened lookback re-scans a month.
+  alreadyAdjusted?: Map<number, number>,
 ): Promise<RefundAdjustmentResult> {
   if (!storedOrders || storedOrders.length === 0) {
     return { adjustments: [], total_commission_delta: 0 };
@@ -65,23 +67,34 @@ export async function checkRefundAdjustments(
     return { adjustments: [], total_commission_delta: 0 };
   }
 
-  // Build lookup of non-excluded stored orders by ID
+  // Build lookup of non-excluded stored orders by ID, and the date span they
+  // cover (the lookback window may merge orders from more than one month).
   const storedOrderMap = new Map<number, AffiliateOrder>();
+  let minTime = Infinity;
+  let maxTime = -Infinity;
   for (const order of storedOrders) {
     if (!order.excluded) {
       storedOrderMap.set(order.order_id, order);
+      const t = new Date(order.created_at).getTime();
+      if (Number.isFinite(t)) {
+        if (t < minTime) minTime = t;
+        if (t > maxTime) maxTime = t;
+      }
     }
   }
+  if (!Number.isFinite(minTime)) {
+    return { adjustments: [], total_commission_delta: 0 };
+  }
 
-  // Single API call: fetch refunded/partially_refunded orders in the month
-  const [year, mon] = month.split("-").map(Number);
-  const startDate = new Date(year, mon - 1, 1).toISOString();
-  const endDate = new Date(year, mon, 1).toISOString();
+  // Fetch refunded/partially_refunded orders spanning the stored orders' range.
+  const startDate = new Date(minTime);
+  startDate.setHours(0, 0, 0, 0);
+  const endDate = new Date(maxTime + 2 * 24 * 60 * 60 * 1000); // pad to include the last day
   const codeUpper = discountCode.toUpperCase();
 
   const refundedOrders: any[] = [];
   let pageUrl: string | null =
-    `https://${storeUrl}/admin/api/2024-01/orders.json?status=any&financial_status=refunded,partially_refunded&limit=250&created_at_min=${startDate}&created_at_max=${endDate}`;
+    `https://${storeUrl}/admin/api/2024-01/orders.json?status=any&financial_status=refunded,partially_refunded&limit=250&created_at_min=${startDate.toISOString()}&created_at_max=${endDate.toISOString()}`;
 
   while (pageUrl) {
     try {
@@ -130,7 +143,12 @@ export async function checkRefundAdjustments(
       }
       currentRefund = Math.round(currentRefund * 100) / 100;
 
-      const previousRefund = storedOrder.refund_amount || 0;
+      // Baseline = the most refund we've already accounted for on this order
+      // (original calc, or a prior adjustment), so we only claw back what's new.
+      const previousRefund = Math.max(
+        storedOrder.refund_amount || 0,
+        alreadyAdjusted?.get(storedOrder.order_id) ?? 0,
+      );
       const delta = Math.round((currentRefund - previousRefund) * 100) / 100;
 
       if (delta > 0.01) {

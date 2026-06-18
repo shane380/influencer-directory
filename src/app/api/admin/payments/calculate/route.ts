@@ -287,112 +287,138 @@ export async function GET(request: NextRequest) {
       .select("*");
   }
 
-  // 8. Check previous month for new refunds (only when viewing current month)
+  // 8. Catch refunds that landed on already-paid recent orders, so a sale
+  //    refunded after its month was paid is clawed back on the next payout.
+  //    Look back REFUND_LOOKBACK_DAYS rather than just the previous calendar
+  //    month, so late returns near a month boundary aren't missed. A per-order
+  //    guard (alreadyAdjusted) ensures each refund is only ever clawed back once,
+  //    even though the window can re-scan a month it already covered.
+  const REFUND_LOOKBACK_DAYS = 45;
   const refundAdjustmentPayments: any[] = [];
   if (!isPastMonth) {
-    // Calculate previous month string
-    const [y, m] = month.split("-").map(Number);
-    const prevDate = new Date(y, m - 2, 1);
-    const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
+    const [cy, cm] = month.split("-").map(Number);
+    const currentMonthStart = new Date(cy, cm - 1, 1);
+    const windowStart = new Date();
+    windowStart.setDate(windowStart.getDate() - REFUND_LOOKBACK_DAYS);
+    const lookbackMonths: string[] = [];
+    const cursor = new Date(windowStart.getFullYear(), windowStart.getMonth(), 1);
+    while (cursor < currentMonthStart) {
+      lookbackMonths.push(`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`);
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+    if (lookbackMonths.length === 0) {
+      const pd = new Date(cy, cm - 2, 1);
+      lookbackMonths.push(`${pd.getFullYear()}-${String(pd.getMonth() + 1).padStart(2, "0")}`);
+    }
 
-    // Fetch previous month's affiliate payment rows that have stored orders
+    // Stored commission rows across the lookback window.
     const { data: prevPayments } = await (supabase.from as any)("creator_payments")
-      .select("*")
-      .eq("month", prevMonth)
-      .eq("payment_type", "affiliate_commission");
+      .select("*").in("month", lookbackMonths).eq("payment_type", "affiliate_commission");
+    const { data: prevLegacyPayments } = await (supabase.from as any)("creator_payments")
+      .select("*").in("month", lookbackMonths).eq("payment_type", "legacy_affiliate_commission");
 
-    // Also fetch any existing refund_adjustment rows for this month to avoid duplicates
+    // Adjustments already created for THIS month — don't recreate them this run.
     const { data: existingRefundAdjs } = await (supabase.from as any)("creator_payments")
-      .select("influencer_id, legacy_affiliate_id, notes")
+      .select("influencer_id, legacy_affiliate_id")
       .eq("month", month)
       .eq("payment_type", "refund_adjustment");
-
-    const existingRefundKeys = new Set(
-      (existingRefundAdjs || []).map((r: any) => r.influencer_id)
+    const existingAffKeys = new Set(
+      (existingRefundAdjs || []).filter((r: any) => r.influencer_id && !r.legacy_affiliate_id).map((r: any) => r.influencer_id)
+    );
+    const existingLegacyKeys = new Set(
+      (existingRefundAdjs || []).filter((r: any) => r.legacy_affiliate_id).map((r: any) => r.legacy_affiliate_id)
     );
 
-    const refundPromises = (prevPayments || [])
-      .filter((pp: any) => pp.calculation_details?.orders && !existingRefundKeys.has(pp.influencer_id))
-      .map(async (pp: any) => {
-        const storedOrders = pp.calculation_details.orders;
-        const commissionRate = pp.calculation_details.commission_rate;
-        if (!storedOrders || !commissionRate) return;
+    // ALL prior adjustments → per-owner per-order refund level already clawed
+    // back, so a refund caught in an earlier month is never deducted again.
+    const { data: allAdjs } = await (supabase.from as any)("creator_payments")
+      .select("influencer_id, legacy_affiliate_id, calculation_details")
+      .eq("payment_type", "refund_adjustment");
+    const adjustedByOwner = new Map<string, Map<number, number>>();
+    for (const a of allAdjs || []) {
+      const key = a.legacy_affiliate_id ? `leg:${a.legacy_affiliate_id}` : `inf:${a.influencer_id}`;
+      let omap = adjustedByOwner.get(key);
+      if (!omap) { omap = new Map(); adjustedByOwner.set(key, omap); }
+      for (const adj of a.calculation_details?.adjustments || []) {
+        if ((adj.current_refund || 0) > (omap.get(adj.order_id) || 0)) omap.set(adj.order_id, adj.current_refund || 0);
+      }
+    }
 
-        // Find the creator's discount code
+    // Merge each creator's stored orders across the lookback months → one
+    // adjustment row per creator per month.
+    const affByInfluencer = new Map<string, { orders: any[]; rate: number }>();
+    for (const pp of prevPayments || []) {
+      if (!pp.calculation_details?.orders || !pp.calculation_details?.commission_rate) continue;
+      let g = affByInfluencer.get(pp.influencer_id);
+      if (!g) { g = { orders: [], rate: pp.calculation_details.commission_rate }; affByInfluencer.set(pp.influencer_id, g); }
+      g.orders.push(...pp.calculation_details.orders);
+    }
+
+    const refundPromises = [...affByInfluencer.entries()]
+      .filter(([influencerId]) => !existingAffKeys.has(influencerId))
+      .map(async ([influencerId, group]) => {
         const creator = creators.find((c: any) => {
           const invite = inviteMap.get(c.invite_id);
-          return invite?.influencer?.id === pp.influencer_id;
+          return invite?.influencer?.id === influencerId;
         });
         if (!creator?.affiliate_code) return;
 
         try {
-          const result = await checkRefundAdjustments(storedOrders, creator.affiliate_code, prevMonth, commissionRate);
+          const result = await checkRefundAdjustments(
+            group.orders, creator.affiliate_code, group.rate, adjustedByOwner.get(`inf:${influencerId}`),
+          );
           if (result.adjustments.length > 0 && result.total_commission_delta < -0.01) {
             const invite = inviteMap.get(creator.invite_id);
             const influencer = invite?.influencer || null;
             const paymentMethod = creator.payment_method || null;
             let paymentDetail = null;
             if (paymentMethod === "paypal") paymentDetail = creator.paypal_email || null;
-            else if (paymentMethod) {
-              paymentDetail = getMaskedAccount(creator);
-            }
+            else if (paymentMethod) paymentDetail = getMaskedAccount(creator);
 
-            const orderNotes = result.adjustments
-              .map((a) => `Refund on ${prevMonth} order #${a.order_number}`)
-              .join("; ");
+            const orderNotes = result.adjustments.map((a) => `Refund on order #${a.order_number}`).join("; ");
 
-            // Insert the refund adjustment row
             const { data: inserted } = await (supabase.from as any)("creator_payments")
               .insert({
-                influencer_id: pp.influencer_id,
+                influencer_id: influencerId,
                 month,
                 payment_type: "refund_adjustment",
                 amount_owed: result.total_commission_delta,
                 payment_method: paymentMethod,
                 payment_detail: paymentDetail,
                 notes: orderNotes,
-                calculation_details: { prev_month: prevMonth, adjustments: result.adjustments },
+                calculation_details: { lookback_days: REFUND_LOOKBACK_DAYS, adjustments: result.adjustments },
               })
-              .select("*")
-              .single();
+              .select("*").single();
 
-            if (inserted) {
-              refundAdjustmentPayments.push({ ...inserted, influencer, deal: null });
-            }
+            if (inserted) refundAdjustmentPayments.push({ ...inserted, influencer, deal: null });
           }
         } catch {
           // Skip refund check failures silently
         }
       });
-
     await Promise.all(refundPromises);
 
-    // 8b. Refund adjustments for legacy affiliates
-    const { data: prevLegacyPayments } = await (supabase.from as any)("creator_payments")
-      .select("*")
-      .eq("month", prevMonth)
-      .eq("payment_type", "legacy_affiliate_commission");
+    // 8b. Same, for legacy affiliates (keyed by legacy_affiliate_id).
+    const legacyByAffiliate = new Map<string, { orders: any[]; rate: number }>();
+    for (const pp of prevLegacyPayments || []) {
+      if (!pp.calculation_details?.orders || !pp.calculation_details?.commission_rate || !pp.legacy_affiliate_id) continue;
+      let g = legacyByAffiliate.get(pp.legacy_affiliate_id);
+      if (!g) { g = { orders: [], rate: pp.calculation_details.commission_rate }; legacyByAffiliate.set(pp.legacy_affiliate_id, g); }
+      g.orders.push(...pp.calculation_details.orders);
+    }
 
-    const existingLegacyRefundKeys = new Set(
-      (existingRefundAdjs || []).filter((r: any) => r.legacy_affiliate_id).map((r: any) => r.legacy_affiliate_id)
-    );
-
-    const legacyRefundPromises = (prevLegacyPayments || [])
-      .filter((pp: any) => pp.calculation_details?.orders && pp.legacy_affiliate_id && !existingLegacyRefundKeys.has(pp.legacy_affiliate_id))
-      .map(async (pp: any) => {
-        const storedOrders = pp.calculation_details.orders;
-        const commissionRate = pp.calculation_details.commission_rate;
-        if (!storedOrders || !commissionRate) return;
-
-        const la = (legacyAffiliates || []).find((l: any) => l.id === pp.legacy_affiliate_id);
+    const legacyRefundPromises = [...legacyByAffiliate.entries()]
+      .filter(([legacyId]) => !existingLegacyKeys.has(legacyId))
+      .map(async ([legacyId, group]) => {
+        const la = (legacyAffiliates || []).find((l: any) => l.id === legacyId);
         if (!la) return;
 
         try {
-          const result = await checkRefundAdjustments(storedOrders, la.discount_code, prevMonth, commissionRate);
+          const result = await checkRefundAdjustments(
+            group.orders, la.discount_code, group.rate, adjustedByOwner.get(`leg:${legacyId}`),
+          );
           if (result.adjustments.length > 0 && result.total_commission_delta < -0.01) {
-            const orderNotes = result.adjustments
-              .map((a) => `Refund on ${prevMonth} order #${a.order_number}`)
-              .join("; ");
+            const orderNotes = result.adjustments.map((a) => `Refund on order #${a.order_number}`).join("; ");
 
             const { data: inserted } = await (supabase.from as any)("creator_payments")
               .insert({
@@ -404,10 +430,9 @@ export async function GET(request: NextRequest) {
                 payment_method: la.payment_method || null,
                 payment_detail: la.payment_detail || null,
                 notes: orderNotes,
-                calculation_details: { prev_month: prevMonth, adjustments: result.adjustments },
+                calculation_details: { lookback_days: REFUND_LOOKBACK_DAYS, adjustments: result.adjustments },
               })
-              .select("*")
-              .single();
+              .select("*").single();
 
             if (inserted) {
               refundAdjustmentPayments.push({
@@ -422,7 +447,6 @@ export async function GET(request: NextRequest) {
           // Skip
         }
       });
-
     await Promise.all(legacyRefundPromises);
   }
 
