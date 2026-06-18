@@ -14,21 +14,26 @@ type Row = {
   handle: string;
   payInfo: string; // where money is sent (method + detail)
   retainer: number;
-  adSpend: number;
-  affiliate: number;
+  adSpend: number; // commission $
+  affiliate: number; // commission $
   paid: number; // recorded payouts so far
   paidDate?: string; // when fully settled
+  // verification detail (so the column amounts are clickable to show the math)
+  adRate?: number; // % of spend
+  affRate?: number; // % of net
+  affOrders?: number;
+  affRefunds?: number;
 };
 
 // Hardcoded sample creators (mix of the three streams; some paid/partial).
 const SAMPLE: Row[] = [
   { name: "Mariana Nunes", handle: "maanuness", payInfo: "PayPal · mariananunes@gmail.com", retainer: 789.0, adSpend: 0, affiliate: 0, paid: 0 },
-  { name: "Daisy McDermott", handle: "daisymcdermott", payInfo: "PayPal · daisymcdermott@gmail.com", retainer: 0, adSpend: 0, affiliate: 1909.55, paid: 687.9 },
-  { name: "Molly Dalton", handle: "mollydalton", payInfo: "PayPal · mollydalton", retainer: 0, adSpend: 0, affiliate: 1282.45, paid: 0 },
-  { name: "Rooted with Lily", handle: "rootedwithlily", payInfo: "PayPal · lilyscilabro@gmail.com", retainer: 0, adSpend: 170.21, affiliate: 10.85, paid: 0 },
-  { name: "Lissa DeLorenzo", handle: "lissade", payInfo: "PayPal · delorenzolissa@gmail.com", retainer: 0, adSpend: 42.61, affiliate: 11.46, paid: 0 },
-  { name: "Charlene Lee", handle: "hiicharlee", payInfo: "Bank ···9337", retainer: 0, adSpend: 47.6, affiliate: 0, paid: 0 },
-  { name: "Kaya Lachowsky", handle: "kayalachowsky", payInfo: "Bank ···8235", retainer: 0, adSpend: 59.69, affiliate: 0, paid: 59.69, paidDate: "Mar 12" },
+  { name: "Daisy McDermott", handle: "daisymcdermott", payInfo: "PayPal · daisymcdermott@gmail.com", retainer: 0, adSpend: 0, affiliate: 1909.55, paid: 687.9, affRate: 25, affOrders: 57, affRefunds: 921.01 },
+  { name: "Molly Dalton", handle: "mollydalton", payInfo: "PayPal · mollydalton", retainer: 0, adSpend: 0, affiliate: 1282.45, paid: 0, affRate: 25, affOrders: 36, affRefunds: 644.98 },
+  { name: "Rooted with Lily", handle: "rootedwithlily", payInfo: "PayPal · lilyscilabro@gmail.com", retainer: 0, adSpend: 170.21, affiliate: 10.85, paid: 0, adRate: 5, affRate: 10, affOrders: 1, affRefunds: 0 },
+  { name: "Lissa DeLorenzo", handle: "lissade", payInfo: "PayPal · delorenzolissa@gmail.com", retainer: 0, adSpend: 42.61, affiliate: 11.46, paid: 0, adRate: 5, affRate: 10, affOrders: 1, affRefunds: 0 },
+  { name: "Charlene Lee", handle: "hiicharlee", payInfo: "Bank ···9337", retainer: 0, adSpend: 47.6, affiliate: 0, paid: 0, adRate: 5 },
+  { name: "Kaya Lachowsky", handle: "kayalachowsky", payInfo: "Bank ···8235", retainer: 0, adSpend: 59.69, affiliate: 0, paid: 59.69, paidDate: "Mar 12", adRate: 5 },
 ];
 
 const money = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -40,6 +45,7 @@ export default function PaymentsV2Mockup() {
   const router = useRouter();
   const [payFor, setPayFor] = useState<ComputedRow | null>(null);
   const [historyFor, setHistoryFor] = useState<ComputedRow | null>(null);
+  const [breakdown, setBreakdown] = useState<{ row: ComputedRow; type: "ad" | "aff" } | null>(null);
 
   const rows: ComputedRow[] = SAMPLE.map((r) => {
     const earned = r.retainer + r.adSpend + r.affiliate;
@@ -126,8 +132,16 @@ export default function PaymentsV2Mockup() {
                     </div>
                   </td>
                   <td className="px-3 py-3 text-right text-gray-700">{cell(r.retainer)}</td>
-                  <td className="px-3 py-3 text-right text-gray-700">{cell(r.adSpend)}</td>
-                  <td className="px-3 py-3 text-right text-gray-700">{cell(r.affiliate)}</td>
+                  <td className="px-3 py-3 text-right">
+                    {r.adSpend > 0 ? (
+                      <button onClick={() => setBreakdown({ row: r, type: "ad" })} className="text-gray-700 hover:text-blue-600 hover:underline decoration-dotted underline-offset-2">${money(r.adSpend)}</button>
+                    ) : <span className="text-gray-400">—</span>}
+                  </td>
+                  <td className="px-3 py-3 text-right">
+                    {r.affiliate > 0 ? (
+                      <button onClick={() => setBreakdown({ row: r, type: "aff" })} className="text-gray-700 hover:text-blue-600 hover:underline decoration-dotted underline-offset-2">${money(r.affiliate)}</button>
+                    ) : <span className="text-gray-400">—</span>}
+                  </td>
                   <td className="px-3 py-3 text-right font-medium text-gray-900">${money(r.earned)}</td>
                   <td className="px-3 py-3 text-right text-gray-700">{r.paid > 0 ? `$${money(r.paid)}` : "—"}</td>
                   <td className={`px-3 py-3 text-right font-semibold ${r.balance > 0.01 ? "text-amber-600" : "text-green-600"}`}>
@@ -244,6 +258,54 @@ export default function PaymentsV2Mockup() {
           </div>
         </div>
       )}
+
+      {/* Stream breakdown — click an Ad Spend / Affiliate amount to verify the math */}
+      {breakdown && (() => {
+        const r = breakdown.row;
+        const Line = ({ label, value, strong }: { label: string; value: string; strong?: boolean }) => (
+          <div className={`flex items-center justify-between py-1.5 ${strong ? "border-t mt-1 pt-2 font-semibold text-gray-900" : "text-gray-600"}`}>
+            <span>{label}</span><span className="tabular-nums">{value}</span>
+          </div>
+        );
+        const adSpendBasis = r.adRate ? r.adSpend / (r.adRate / 100) : 0;
+        const affNet = r.affRate ? r.affiliate / (r.affRate / 100) : 0;
+        const affGross = affNet + (r.affRefunds || 0);
+        return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setBreakdown(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b">
+              <div className="text-sm font-semibold text-gray-900">
+                {breakdown.type === "ad" ? "Ad Spend commission" : "Affiliate commission"} — {r.name}
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5">March 2026</div>
+            </div>
+            <div className="px-6 py-4 text-sm">
+              {breakdown.type === "ad" ? (
+                <>
+                  <Line label="Ad spend (March)" value={`$${money(adSpendBasis)}`} />
+                  <Line label="Commission rate" value={`× ${r.adRate}%`} />
+                  <Line label="Commission" value={`$${money(r.adSpend)}`} strong />
+                </>
+              ) : (
+                <>
+                  <Line label={`${r.affOrders} orders · gross`} value={`$${money(affGross)}`} />
+                  <Line label="Refunds" value={`−$${money(r.affRefunds || 0)}`} />
+                  <Line label="Net" value={`$${money(affNet)}`} />
+                  <Line label="Commission rate" value={`× ${r.affRate}%`} />
+                  <Line label="Commission" value={`$${money(r.affiliate)}`} strong />
+                </>
+              )}
+            </div>
+            <div className="px-6 py-3 border-t bg-gray-50 flex items-center justify-between text-xs">
+              <button className="text-blue-500 hover:underline">
+                {breakdown.type === "ad" ? "View ad-by-ad →" : "Audit orders →"}
+              </button>
+              <button onClick={() => setBreakdown(null)} className="text-gray-600">Close</button>
+            </div>
+          </div>
+        </div>
+        );
+      })()}
     </div>
   );
 }
