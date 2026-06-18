@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
   const { data: rows } = await (db.from("creator_payouts") as any)
     .select("amount, sent_at, method")
     .or(orFilters.join(","))
+    .eq("is_test", false) // creators only ever see real payments
     .order("sent_at", { ascending: false });
 
   const payments = (rows || []).map((r: any) => ({

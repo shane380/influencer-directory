@@ -45,6 +45,27 @@ export default function PaymentsV2() {
   const [payForm, setPayForm] = useState({ amount: "", sent_at: "", method: "paypal", reference: "" });
   const [saving, setSaving] = useState(false);
   const [breakdown, setBreakdown] = useState<{ row: Creator; type: "ad" | "aff" } | null>(null);
+  const [revealed, setRevealed] = useState<Record<string, string>>({});
+  const [historyFor, setHistoryFor] = useState<Creator | null>(null);
+  const [historyData, setHistoryData] = useState<any>(null);
+
+  async function reveal(r: Creator) {
+    if (!r.influencerId || revealed[r.key]) return; // legacy detail already shown; partners decrypt on demand
+    try {
+      const res = await fetch(`/api/admin/payment-info?influencer_id=${r.influencerId}`);
+      if (res.ok) {
+        const d = await res.json();
+        const full = d.payment_method === "paypal" ? `PayPal · ${d.paypal_email || "—"}`
+          : `${d.bank_institution || "Bank"} · acct ${d.bank_account_number || "—"} · routing ${d.bank_routing_number || "—"}`;
+        setRevealed((p) => ({ ...p, [r.key]: full }));
+      }
+    } catch {}
+  }
+  async function openHistory(r: Creator) {
+    setHistoryFor(r); setHistoryData(null);
+    const param = r.influencerId ? `influencer_id=${r.influencerId}` : `legacy_affiliate_id=${r.legacyAffiliateId}`;
+    try { const res = await fetch(`/api/admin/payments-v2/history?${param}`); if (res.ok) setHistoryData(await res.json()); } catch {}
+  }
 
   useEffect(() => {
     const sb = createClient();
@@ -142,7 +163,11 @@ export default function PaymentsV2() {
                         <div>
                           <div className="font-medium text-gray-900">{r.name}</div>
                           <div className="text-xs text-gray-400">@{r.handle}</div>
-                          <div className="text-[11px] text-gray-500 mt-0.5">{r.payInfo}</div>
+                          <div className="flex items-center gap-2 mt-0.5 text-[11px]">
+                            <button onClick={() => reveal(r)} className="text-gray-500 hover:text-gray-800" title={r.influencerId ? "Click to reveal full details (logged)" : ""}>{revealed[r.key] || r.payInfo}</button>
+                            <span className="text-gray-300">·</span>
+                            <button onClick={() => openHistory(r)} className="text-blue-500 hover:underline">History</button>
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -244,6 +269,51 @@ export default function PaymentsV2() {
           </div>
         );
       })()}
+
+      {/* History — earned by month + payments received */}
+      {historyFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setHistoryFor(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b">
+              <div className="text-sm font-semibold text-gray-900">{historyFor.name} — History</div>
+              {historyData && <div className="text-xs text-gray-500 mt-0.5">Earned ${money(historyData.totalEarned)} · Paid ${money(historyData.totalPaid)} · Balance ${money(historyData.balance)}</div>}
+            </div>
+            <div className="overflow-y-auto flex-1 p-6 space-y-5">
+              {!historyData ? <div className="text-xs text-gray-400">Loading…</div> : (
+                <>
+                  <div>
+                    <div className="text-[11px] uppercase tracking-wider text-gray-400 mb-2">Earned by month</div>
+                    <table className="w-full text-xs">
+                      <tbody>
+                        {historyData.earnedByMonth.map((m: any) => (
+                          <tr key={m.period} className="border-b border-gray-50">
+                            <td className="py-2 text-gray-700">{periodLabel(m.period)}</td>
+                            <td className="py-2 text-right text-gray-900">${money(m.amount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div>
+                    <div className="text-[11px] uppercase tracking-wider text-gray-400 mb-2">Payments received</div>
+                    {historyData.payments.length ? (
+                      <div className="space-y-1">
+                        {historyData.payments.map((p: any, i: number) => (
+                          <div key={i} className="flex justify-between text-xs">
+                            <span className="text-gray-500">{p.sent_at} · {p.method || "—"}{p.covers_period ? ` · for ${periodLabel(p.covers_period)}` : ""}</span>
+                            <span className="text-gray-900">${money(p.amount)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : <div className="text-xs text-gray-400">No payments recorded yet.</div>}
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="px-6 py-3 border-t bg-gray-50 text-right"><button onClick={() => setHistoryFor(null)} className="text-gray-600 text-xs">Close</button></div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

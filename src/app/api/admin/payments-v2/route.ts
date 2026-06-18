@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdmin, getAdminClient } from "@/lib/admin-auth";
+import { isTestEnv } from "@/lib/payout-env";
 
 // Consolidated per-creator payments for a period, derived from the ledgers:
 //   earned  = SUM(commission_events.amount) in the period (refunds are negative)
@@ -49,7 +50,8 @@ export async function GET(request: NextRequest) {
   // Payouts allocated to this period.
   const { data: payouts } = await (db.from("creator_payouts") as any)
     .select("influencer_id, legacy_affiliate_id, amount, covers_period")
-    .eq("covers_period", period);
+    .eq("covers_period", period)
+    .eq("is_test", isTestEnv());
   const paidByKey = new Map<string, number>();
   for (const p of payouts || []) {
     const key = p.influencer_id ? `inf:${p.influencer_id}` : `legacy:${p.legacy_affiliate_id}`;

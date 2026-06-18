@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdmin, getAdminClient } from "@/lib/admin-auth";
+import { isTestEnv } from "@/lib/payout-env";
 
 // Actual payouts ledger — records of money really sent to a creator, separate
 // from the monthly "owed" rows. A creator's balance = total earned − sum(payouts).
@@ -18,6 +19,7 @@ export async function GET(request: NextRequest) {
   const supabase = getAdminClient();
   let query = (supabase.from("creator_payouts") as any)
     .select("id, influencer_id, legacy_affiliate_id, amount, sent_at, method, reference, note, recorded_by, created_at")
+    .eq("is_test", isTestEnv()) // prod sees real; preview/local sees its own test rows
     .order("sent_at", { ascending: false });
   if (influencerId) query = query.eq("influencer_id", influencerId);
   else query = query.eq("legacy_affiliate_id", legacyAffiliateId);
@@ -62,6 +64,7 @@ export async function POST(request: NextRequest) {
       reference: reference || null,
       note: note || null,
       recorded_by: admin.email || null,
+      is_test: isTestEnv(), // preview/local payments are flagged, never touch prod
     })
     .select()
     .single();
