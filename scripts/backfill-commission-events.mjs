@@ -94,8 +94,29 @@ const { data: creators } = await db.from("creators").select("id, creator_name, a
 const inviteIds = (creators || []).map((c) => c.invite_id).filter(Boolean);
 const { data: invites } = await db.from("creator_invites").select("id, influencer_id, has_affiliate, has_ad_spend, has_retainer, retainer_amount, ad_spend_percentage, commission_rate, influencer:influencers(id, instagram_handle)").in("id", inviteIds.length ? inviteIds : ["x"]);
 const inviteMap = new Map((invites || []).map((i) => [i.id, i]));
-const { data: adPerf } = await db.from("creator_ad_performance").select("instagram_handle, monthly");
-const adByHandle = new Map((adPerf || []).map((a) => [a.instagram_handle, typeof a.monthly === "string" ? JSON.parse(a.monthly) : a.monthly]));
+// Ad spend from the DAILY table (reliable), NOT creator_ad_performance.monthly
+// (the monthly blob decays for past months — it undercounted Charlene's March
+// at $912 vs the true $3,659). Map: "<handle>|YYYY-MM" -> summed spend.
+const sortedMonths = [...MONTHS].sort();
+const lo = `${sortedMonths[0]}-01`;
+const [ly, lm] = sortedMonths[sortedMonths.length - 1].split("-").map(Number);
+const hi = `${new Date(ly, lm, 1).toISOString().slice(0, 10)}`;
+const { data: adDaily } = await db.from("creator_ad_performance_daily").select("instagram_handle, date, spend").gte("date", lo).lt("date", hi);
+const adSpendMap = new Map();
+for (const r of adDaily || []) {
+  const k = `${r.instagram_handle}|${String(r.date).slice(0, 7)}`;
+  adSpendMap.set(k, (adSpendMap.get(k) || 0) + Number(r.spend || 0));
+}
+// Confirmed paid collabs, keyed by the month of campaign.start_date.
+const { data: deals } = await db.from("campaign_deals").select("id, influencer_id, total_deal_value, campaign:campaigns!campaign_deals_campaign_id_fkey(start_date)").eq("deal_status", "confirmed");
+const dealsByMonth = new Map();
+for (const d of deals || []) {
+  const sd = (Array.isArray(d.campaign) ? d.campaign[0] : d.campaign)?.start_date;
+  if (!sd) continue;
+  const mk = sd.slice(0, 7);
+  if (!dealsByMonth.has(mk)) dealsByMonth.set(mk, []);
+  dealsByMonth.get(mk).push(d);
+}
 
 // affiliate code set (partner + legacy)
 const codeSet = new Set();
@@ -116,10 +137,17 @@ for (const period of MONTHS) {
     const orders = byCode.get(la.discount_code.toUpperCase()) || [];
     const rate = (la.commission_rate || 25) / 100;
     const key = `legacy:${la.id}`;
+    const li = la.influencer_id || null; // carry influencer so it merges with partner streams
     for (const o of orders) {
-      if (o.gross > 0) allEvents.push(ev(key, null, la.id, "affiliate", "shopify_order", String(o.order_id), period, o.created_at, round2(o.gross * rate), rate, o.gross, { order_number: o.order_number, gross: o.gross }));
-      if (o.refund > 0) allEvents.push(ev(key, null, la.id, "refund", "shopify_refund", String(o.order_id), period, o.created_at, round2(-o.refund * rate), rate, o.refund, { order_number: o.order_number, refund: o.refund }));
+      if (o.gross > 0) allEvents.push(ev(key, li, la.id, "affiliate", "shopify_order", String(o.order_id), period, o.created_at, round2(o.gross * rate), rate, o.gross, { order_number: o.order_number, gross: o.gross }));
+      if (o.refund > 0) allEvents.push(ev(key, li, la.id, "refund", "shopify_refund", String(o.order_id), period, o.created_at, round2(-o.refund * rate), rate, o.refund, { order_number: o.order_number, refund: o.refund }));
     }
+  }
+
+  // Paid collabs for this period (one event per confirmed deal).
+  for (const d of dealsByMonth.get(period) || []) {
+    if (!d.influencer_id || !(d.total_deal_value > 0)) continue;
+    allEvents.push(ev(`inf:${d.influencer_id}`, d.influencer_id, null, "paid_collab", "campaign_deal", String(d.id), period, null, round2(d.total_deal_value), null, null, null));
   }
 
   // Partner affiliate + ad spend + retainer
@@ -137,7 +165,7 @@ for (const period of MONTHS) {
       }
     }
     if (inv.has_ad_spend) {
-      const spend = (adByHandle.get(inv.influencer.instagram_handle) || []).find((m) => m.month === period)?.spend || 0;
+      const spend = adSpendMap.get(`${inv.influencer.instagram_handle}|${period}`) || 0;
       const rate = (inv.ad_spend_percentage || 10) / 100;
       if (spend > 0) allEvents.push(ev(key, infId, null, "ad_spend", "meta_monthly", period, period, null, round2(spend * rate), rate, round2(spend), { spend: round2(spend) }));
     }

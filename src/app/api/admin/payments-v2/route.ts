@@ -77,15 +77,19 @@ export async function GET(request: NextRequest) {
 
   const round2 = (n: number) => Math.round(n * 100) / 100;
   const maskPay = (g: Grp): string => {
+    // Partner creator payment method first…
     if (g.influencerId) {
       const c = payByInf.get(g.influencerId);
-      if (!c?.payment_method) return "No payment method";
-      if (c.payment_method === "paypal") return `PayPal · ${c.paypal_email || "—"}`;
-      return `Bank${c.bank_institution ? " · " + c.bank_institution : ""}`;
+      if (c?.payment_method) {
+        return c.payment_method === "paypal" ? `PayPal · ${c.paypal_email || "—"}` : `Bank${c.bank_institution ? " · " + c.bank_institution : ""}`;
+      }
     }
+    // …else fall back to the legacy affiliate's payment info.
     const l = g.legacyAffiliateId ? legMap.get(g.legacyAffiliateId) : null;
-    if (!l?.payment_method) return "No payment method";
-    return l.payment_method === "paypal" ? `PayPal · ${l.payment_detail || "—"}` : `Bank · ${l.payment_detail || ""}`;
+    if (l?.payment_method) {
+      return l.payment_method === "paypal" ? `PayPal · ${l.payment_detail || "—"}` : `Bank · ${l.payment_detail || ""}`;
+    }
+    return "No payment method";
   };
 
   const creators = [...groups.values()].map((g) => {
