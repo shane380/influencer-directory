@@ -136,9 +136,12 @@ export default function PaymentsPage() {
   const [legacyForm, setLegacyForm] = useState({ name: "", discount_code: "", commission_rate: "25", payment_method: "", payment_detail: "", notes: "" });
   const [legacySaving, setLegacySaving] = useState(false);
   const [legacyEditing, setLegacyEditing] = useState<string | null>(null);
-  const [historyOpen, setHistoryOpen] = useState<{ name: string } | null>(null);
+  const [historyOpen, setHistoryOpen] = useState<{ name: string; influencerId?: string; legacyAffiliateId?: string } | null>(null);
   const [historyData, setHistoryData] = useState<any>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [payoutData, setPayoutData] = useState<any>(null); // { payouts, totalPaid }
+  const [payoutForm, setPayoutForm] = useState({ amount: "", sent_at: "", method: "paypal", reference: "" });
+  const [payoutSaving, setPayoutSaving] = useState(false);
   const monthOptions = getMonthOptions();
 
   useEffect(() => {
@@ -288,18 +291,74 @@ export default function PaymentsPage() {
     setPaymentInfoLoading(false);
   }
 
-  async function openHistory(opts: { influencerId?: string; legacyAffiliateId?: string; name: string }) {
-    setHistoryOpen({ name: opts.name });
-    setHistoryData(null);
-    setHistoryLoading(true);
+  const todayISO = () => new Date().toISOString().slice(0, 10);
+
+  async function loadPayouts(param: string) {
     try {
-      const param = opts.influencerId
-        ? `influencer_id=${opts.influencerId}`
-        : `legacy_affiliate_id=${opts.legacyAffiliateId}`;
-      const res = await fetch(`/api/admin/payments/history?${param}`);
-      if (res.ok) setHistoryData(await res.json());
+      const res = await fetch(`/api/admin/payouts?${param}`);
+      if (res.ok) setPayoutData(await res.json());
+    } catch {}
+  }
+
+  async function openHistory(opts: { influencerId?: string; legacyAffiliateId?: string; name: string }) {
+    setHistoryOpen({ name: opts.name, influencerId: opts.influencerId, legacyAffiliateId: opts.legacyAffiliateId });
+    setHistoryData(null);
+    setPayoutData(null);
+    setPayoutForm({ amount: "", sent_at: todayISO(), method: "paypal", reference: "" });
+    setHistoryLoading(true);
+    const param = opts.influencerId
+      ? `influencer_id=${opts.influencerId}`
+      : `legacy_affiliate_id=${opts.legacyAffiliateId}`;
+    try {
+      const [histRes] = await Promise.all([
+        fetch(`/api/admin/payments/history?${param}`),
+        loadPayouts(param),
+      ]);
+      if (histRes.ok) setHistoryData(await histRes.json());
     } catch {}
     setHistoryLoading(false);
+  }
+
+  async function recordPayout() {
+    if (!historyOpen) return;
+    const amt = Number(payoutForm.amount);
+    if (!Number.isFinite(amt) || amt === 0 || !payoutForm.sent_at) return;
+    setPayoutSaving(true);
+    try {
+      const res = await fetch("/api/admin/payouts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          influencer_id: historyOpen.influencerId || null,
+          legacy_affiliate_id: historyOpen.legacyAffiliateId || null,
+          amount: amt,
+          sent_at: payoutForm.sent_at,
+          method: payoutForm.method || null,
+          reference: payoutForm.reference || null,
+        }),
+      });
+      if (res.ok) {
+        const param = historyOpen.influencerId
+          ? `influencer_id=${historyOpen.influencerId}`
+          : `legacy_affiliate_id=${historyOpen.legacyAffiliateId}`;
+        await loadPayouts(param);
+        setPayoutForm({ amount: "", sent_at: todayISO(), method: "paypal", reference: "" });
+      }
+    } catch {}
+    setPayoutSaving(false);
+  }
+
+  async function deletePayout(id: string) {
+    if (!historyOpen) return;
+    try {
+      const res = await fetch(`/api/admin/payouts?id=${id}`, { method: "DELETE" });
+      if (res.ok) {
+        const param = historyOpen.influencerId
+          ? `influencer_id=${historyOpen.influencerId}`
+          : `legacy_affiliate_id=${historyOpen.legacyAffiliateId}`;
+        await loadPayouts(param);
+      }
+    } catch {}
   }
 
   function startEditingPaymentInfo(influencerId: string) {
@@ -1451,77 +1510,139 @@ export default function PaymentsPage() {
       )}
 
       {/* Per-creator payout history modal */}
-      {historyOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { setHistoryOpen(null); setHistoryData(null); }}>
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+      {historyOpen && (() => {
+        const earned = Number(historyData?.totalOwed || 0);
+        const paid = Number(payoutData?.totalPaid || 0);
+        const balance = Math.round((earned - paid) * 100) / 100;
+        const fmtPayDate = (d: string) => {
+          const [yy, mm, dd] = String(d).split("-").map(Number);
+          return new Date(yy, (mm || 1) - 1, dd || 1).toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" });
+        };
+        const close = () => { setHistoryOpen(null); setHistoryData(null); setPayoutData(null); };
+        return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={close}>
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[88vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b">
-              <div>
-                <div className="text-sm font-semibold text-gray-900">Payout History — {historyOpen.name}</div>
-                {historyData && (
-                  <div className="text-xs text-gray-500 mt-0.5">
-                    {historyData.months.length} month{historyData.months.length !== 1 ? "s" : ""} · ${historyData.totalPaid?.toFixed(2) || "0.00"} paid to date
-                    {historyData.totalOutstanding > 0 ? ` · $${historyData.totalOutstanding.toFixed(2)} outstanding` : ""}
+              <div className="text-sm font-semibold text-gray-900">{historyOpen.name}</div>
+              <button onClick={close} className="text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
+            </div>
+
+            {/* Earned / Paid / Balance — the honest summary */}
+            <div className="grid grid-cols-3 divide-x border-b text-center">
+              <div className="px-4 py-3">
+                <div className="text-[10px] uppercase tracking-wider text-gray-400">Earned</div>
+                <div className="text-base font-semibold text-gray-900">${earned.toFixed(2)}</div>
+              </div>
+              <div className="px-4 py-3">
+                <div className="text-[10px] uppercase tracking-wider text-gray-400">Paid</div>
+                <div className="text-base font-semibold text-gray-900">${paid.toFixed(2)}</div>
+              </div>
+              <div className="px-4 py-3">
+                <div className="text-[10px] uppercase tracking-wider text-gray-400">Balance owed</div>
+                <div className={`text-base font-semibold ${balance > 0.01 ? "text-amber-600" : "text-green-600"}`}>${balance.toFixed(2)}</div>
+              </div>
+            </div>
+
+            <div className="overflow-y-auto flex-1">
+              {/* Payments sent — the real ledger */}
+              <div className="px-6 pt-4 pb-2">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Payments sent</div>
+                </div>
+                {!payoutData?.payouts?.length ? (
+                  <div className="text-xs text-gray-400 py-2">No payments recorded yet.</div>
+                ) : (
+                  <div className="border rounded-lg divide-y">
+                    {payoutData.payouts.map((p: any) => (
+                      <div key={p.id} className="flex items-center justify-between px-3 py-2 text-xs">
+                        <div className="flex items-center gap-3">
+                          <span className="text-gray-900 font-medium w-20 text-right">${Number(p.amount).toFixed(2)}</span>
+                          <span className="text-gray-500">{fmtPayDate(p.sent_at)}</span>
+                          {p.method && <span className="text-gray-400">{p.method}</span>}
+                          {p.reference && <span className="text-gray-400 truncate max-w-[140px]" title={p.reference}>{p.reference}</span>}
+                        </div>
+                        <button onClick={() => deletePayout(p.id)} className="text-gray-300 hover:text-red-500" title="Remove">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
+
+                {/* Record a real transfer */}
+                <div className="flex flex-wrap items-end gap-2 mt-3 bg-gray-50 border rounded-lg p-3">
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Amount sent</label>
+                    <input type="number" step="0.01" value={payoutForm.amount} onChange={(e) => setPayoutForm({ ...payoutForm, amount: e.target.value })}
+                      className="w-24 border border-gray-200 rounded px-2 py-1 text-xs" placeholder="0.00" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Date sent</label>
+                    <input type="date" value={payoutForm.sent_at} onChange={(e) => setPayoutForm({ ...payoutForm, sent_at: e.target.value })}
+                      className="border border-gray-200 rounded px-2 py-1 text-xs" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Method</label>
+                    <select value={payoutForm.method} onChange={(e) => setPayoutForm({ ...payoutForm, method: e.target.value })}
+                      className="border border-gray-200 rounded px-2 py-1 text-xs">
+                      <option value="paypal">PayPal</option>
+                      <option value="bank">Bank</option>
+                      <option value="e_transfer">E-Transfer</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div className="flex-1 min-w-[120px]">
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Reference (optional)</label>
+                    <input type="text" value={payoutForm.reference} onChange={(e) => setPayoutForm({ ...payoutForm, reference: e.target.value })}
+                      className="w-full border border-gray-200 rounded px-2 py-1 text-xs" placeholder="PayPal txn id / note" />
+                  </div>
+                  <button onClick={recordPayout} disabled={payoutSaving || !payoutForm.amount || !payoutForm.sent_at}
+                    className="px-3 py-1.5 bg-gray-900 text-white rounded text-xs font-medium disabled:opacity-40">
+                    {payoutSaving ? "..." : "Record"}
+                  </button>
+                </div>
               </div>
-              <button onClick={() => { setHistoryOpen(null); setHistoryData(null); }} className="text-gray-400 hover:text-gray-600">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="overflow-y-auto flex-1">
-              {historyLoading ? (
-                <div className="text-center py-12 text-gray-400 text-sm">Loading history...</div>
-              ) : !historyData?.months?.length ? (
-                <div className="text-center py-12 text-gray-400 text-sm">No payout records yet.</div>
-              ) : (
-                <table className="w-full text-xs">
-                  <thead className="sticky top-0 bg-gray-50 border-b">
-                    <tr>
-                      <th className="text-left px-5 py-2 font-medium text-gray-500">Month</th>
-                      <th className="text-left px-4 py-2 font-medium text-gray-500">Types</th>
-                      <th className="text-left px-4 py-2 font-medium text-gray-500">Status</th>
-                      <th className="text-right px-4 py-2 font-medium text-gray-500">Owed</th>
-                      <th className="text-right px-5 py-2 font-medium text-gray-500">Paid</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {historyData.months.map((m: any) => {
-                      const sc = STATUS_CONFIG[m.status] || STATUS_CONFIG.pending;
-                      return (
-                        <tr key={m.month} className="border-b border-gray-50">
-                          <td className="px-5 py-2.5 text-gray-900 whitespace-nowrap">
-                            {(() => {
-                              const [yy, mm] = m.month.split("-").map(Number);
-                              return new Date(yy, mm - 1, 1).toLocaleString("en", { month: "long", year: "numeric" });
-                            })()}
+
+              {/* Earned by month — reference for what's owed */}
+              <div className="px-6 pt-4 pb-5">
+                <div className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Earned by month</div>
+                {historyLoading ? (
+                  <div className="text-xs text-gray-400 py-2">Loading…</div>
+                ) : !historyData?.months?.length ? (
+                  <div className="text-xs text-gray-400 py-2">No earnings recorded.</div>
+                ) : (
+                  <table className="w-full text-xs border rounded-lg overflow-hidden">
+                    <thead className="bg-gray-50 border-b">
+                      <tr>
+                        <th className="text-left px-3 py-2 font-medium text-gray-500">Month</th>
+                        <th className="text-left px-3 py-2 font-medium text-gray-500">Type</th>
+                        <th className="text-right px-3 py-2 font-medium text-gray-500">Earned</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historyData.months.map((m: any) => (
+                        <tr key={m.month} className="border-b border-gray-50 last:border-b-0">
+                          <td className="px-3 py-2 text-gray-900 whitespace-nowrap">
+                            {(() => { const [yy, mm] = m.month.split("-").map(Number); return new Date(yy, mm - 1, 1).toLocaleString("en", { month: "long", year: "numeric" }); })()}
                           </td>
-                          <td className="px-4 py-2.5 text-gray-500">
+                          <td className="px-3 py-2 text-gray-500">
                             {m.types.filter((t: string) => t !== "refund_adjustment").map((t: string) => (TYPE_CONFIG[t]?.label || t)).join(", ")}
                             {m.adjustment < 0 && (
-                              <div className="text-[10px] text-red-500 mt-0.5">incl. {`-$${Math.abs(m.adjustment).toFixed(2)}`} refund credit (unsettled)</div>
+                              <div className="text-[10px] text-red-500 mt-0.5">incl. -${Math.abs(m.adjustment).toFixed(2)} refund credit</div>
                             )}
                           </td>
-                          <td className="px-4 py-2.5">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${sc.color}`}>{sc.label}</span>
-                          </td>
-                          <td className="px-4 py-2.5 text-right text-gray-700">${m.owed.toFixed(2)}</td>
-                          <td className="px-5 py-2.5 text-right font-medium text-gray-900">{m.paid > 0 ? `$${m.paid.toFixed(2)}` : "—"}</td>
+                          <td className="px-3 py-2 text-right text-gray-700">${m.owed.toFixed(2)}</td>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-            {historyData?.months?.length > 0 && (
-              <div className="px-6 py-3 border-t bg-gray-50 flex items-center justify-between text-xs">
-                <div className="text-gray-500">Total owed all-time: ${historyData.totalOwed?.toFixed(2)}</div>
-                <div className="font-semibold text-gray-900">Total paid: ${historyData.totalPaid?.toFixed(2)}</div>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
-      )}
+        );
+      })()}
       </main>
     </div>
   );
