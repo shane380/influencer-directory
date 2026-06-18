@@ -868,7 +868,7 @@ export default function CreatorDashboard() {
   const [affiliateLoading, setAffiliateLoading] = useState(false)
   // Payment history (Account Info tab): what the creator has actually been paid,
   // plus anything owed-but-unpaid. From /api/creator/payout-history.
-  const [payoutHistory, setPayoutHistory] = useState(null) // { paid, outstanding, totalPaid }
+  const [payoutHistory, setPayoutHistory] = useState(null) // { payments, totalPaid } from creator_payouts ledger
   const [payoutLoading, setPayoutLoading] = useState(false)
   // Resolved affiliate config from /api/creator/affiliate-config. Computed
   // server-side because legacy_affiliates is RLS service-role-only and the
@@ -4950,69 +4950,45 @@ export default function CreatorDashboard() {
   }
 
   function renderPayoutHistory() {
-    const PAYOUT_TYPE_LABELS = {
-      ad_spend_commission: 'Ad Spend',
-      affiliate_commission: 'Affiliate',
-      legacy_affiliate_commission: 'Affiliate',
-      retainer: 'Retainer',
-      paid_collab: 'Paid Collab',
-      refund_adjustment: 'Refund Adjustment',
+    const METHOD_LABELS = { paypal: 'PayPal', bank: 'Bank', e_transfer: 'E-Transfer', other: 'Payment' }
+    const fmtDate = (d) => {
+      if (!d) return ''
+      const [y, mo, day] = String(d).split('-').map(Number)
+      if (!y || !mo) return d
+      return new Date(y, mo - 1, day || 1).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     }
-    const fmtMonth = (m) => {
-      const [y, mo] = String(m).split('-').map(Number)
-      if (!y || !mo) return m
-      return new Date(y, mo - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-    }
-    const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null
     const fmtAmt = (n) => '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-    const paid = payoutHistory?.paid || []
-    const outstanding = payoutHistory?.outstanding || []
+    // Real transfers from the payouts ledger (what the creator actually received).
+    const payments = payoutHistory?.payments || []
     const totalPaid = payoutHistory?.totalPaid || 0
-    const outstandingTotal = outstanding.reduce((s, o) => s + (Number(o.amount) || 0), 0)
 
     return (
       <div style={{ marginTop: 36 }}>
         <div style={{ fontSize: 9, letterSpacing: '0.4em', textTransform: 'uppercase', color: '#aaa', display: 'flex', alignItems: 'center', gap: 14, marginBottom: 22 }}>
-          Payment History
+          Payments Received
           <span style={{ flex: 1, height: 1, background: '#e8e8e8' }} />
         </div>
 
         {payoutLoading && !payoutHistory ? (
           <div style={{ fontSize: 13, color: '#aaa', fontWeight: 300 }}>Loading…</div>
-        ) : (paid.length === 0 && outstanding.length === 0) ? (
-          <div style={{ fontSize: 13, color: '#aaa', fontWeight: 300 }}>No payouts recorded yet.</div>
+        ) : payments.length === 0 ? (
+          <div style={{ fontSize: 13, color: '#aaa', fontWeight: 300 }}>No payments recorded yet.</div>
         ) : (
           <div>
-            {outstanding.length > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: '#faf8f3', border: '1px solid #efe9dd', borderRadius: 3, marginBottom: 20 }}>
-                <div style={{ fontSize: 12, color: '#7a6a48', fontWeight: 400 }}>
-                  Owed &amp; not yet paid{outstanding.length > 1 ? ` (${outstanding.length} items)` : ''}
+            {payments.map((p, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 0', borderBottom: i < payments.length - 1 ? '1px solid #f1f1f1' : 'none' }}>
+                <div>
+                  <div style={{ fontSize: 13, color: '#111' }}>{fmtDate(p.sent_at)}</div>
+                  {p.method && <div style={{ fontSize: 11, color: '#aaa', fontWeight: 300, marginTop: 2 }}>{METHOD_LABELS[p.method] || p.method}</div>}
                 </div>
-                <div style={{ fontSize: 14, color: '#7a6a48', fontWeight: 500 }}>{fmtAmt(outstandingTotal)}</div>
+                <div style={{ fontSize: 13, color: '#111', fontWeight: 500 }}>{fmtAmt(p.amount)}</div>
               </div>
-            )}
-
-            {paid.length > 0 && (
-              <div>
-                {paid.map((p, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 0', borderBottom: i < paid.length - 1 ? '1px solid #f1f1f1' : 'none' }}>
-                    <div>
-                      <div style={{ fontSize: 13, color: '#111' }}>{fmtMonth(p.month)}</div>
-                      <div style={{ fontSize: 11, color: '#aaa', fontWeight: 300, marginTop: 2 }}>
-                        {PAYOUT_TYPE_LABELS[p.payment_type] || p.payment_type}
-                        {fmtDate(p.paid_at) ? ` · Paid ${fmtDate(p.paid_at)}` : ''}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 13, color: '#111', fontWeight: 500 }}>{fmtAmt(p.amount)}</div>
-                  </div>
-                ))}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 16, marginTop: 4 }}>
-                  <div style={{ fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#999' }}>Total Paid</div>
-                  <div style={{ fontSize: 14, color: '#111', fontWeight: 600 }}>{fmtAmt(totalPaid)}</div>
-                </div>
-              </div>
-            )}
+            ))}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 16, marginTop: 4 }}>
+              <div style={{ fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#999' }}>Total Received</div>
+              <div style={{ fontSize: 14, color: '#111', fontWeight: 600 }}>{fmtAmt(totalPaid)}</div>
+            </div>
           </div>
         )}
       </div>
