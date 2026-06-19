@@ -208,6 +208,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
     { id: "whitelisting", label: "Whitelisting", icon: Share2 },
     { id: "partners", label: "Partners", icon: Heart, expandable: true },
     { id: "payments", label: "Payments", icon: CreditCard },
+    { id: "payments_v2", label: "Payments ✨", icon: CreditCard },
   ];
 
   const handleNavClick = (id: string) => {
@@ -217,6 +218,8 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
       setPartnersExpanded(!partnersExpanded);
     } else if (id === "payments") {
       router.push("/partnerships/payments");
+    } else if (id === "payments_v2") {
+      router.push("/partnerships/payments-v2");
     } else {
       router.push(`/?tab=${id}`);
     }
@@ -261,7 +264,8 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
             const isActive = activeTab === item.id ||
               (item.id === "gifting" && (pathname?.startsWith("/gifting") || pathname?.startsWith("/campaigns"))) ||
               (item.id === "partners" && (pathname?.startsWith("/partnerships/creators") || pathname?.startsWith("/partnerships/campaigns"))) ||
-              (item.id === "payments" && pathname?.startsWith("/partnerships/payments"));
+              (item.id === "payments" && pathname?.startsWith("/partnerships/payments") && !pathname.startsWith("/partnerships/payments-v2")) ||
+              (item.id === "payments_v2" && pathname?.startsWith("/partnerships/payments-v2"));
 
             const showBadgeDot = !isHovered && item.id === "influencers" && pendingCodeRequests > 0;
 
