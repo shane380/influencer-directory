@@ -14,6 +14,7 @@ export async function createInvite({
   dealStructure = null,
   dealType = null,
   retainerAmount = null,
+  retainerMonths = null,
   adSpendPercentage = null,
   adSpendMinimum = null,
   offerChoice = false,
@@ -53,6 +54,7 @@ export async function createInvite({
   if (dealStructure) upsertData.deal_structure = dealStructure
   if (dealType) upsertData.deal_type = dealType
   if (retainerAmount != null) upsertData.retainer_amount = retainerAmount
+  upsertData.retainer_months = retainerMonths != null && retainerMonths !== '' ? Number(retainerMonths) : null
   if (adSpendPercentage != null) upsertData.ad_spend_percentage = adSpendPercentage
   if (adSpendMinimum != null) upsertData.ad_spend_minimum = adSpendMinimum
   upsertData.offer_choice = offerChoice
