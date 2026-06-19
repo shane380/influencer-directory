@@ -138,6 +138,7 @@ interface Creator {
   } | null;
   shopify_code_status: "active" | "pending" | "failed" | null;
   has_affiliate: boolean;
+  has_retainer: boolean;
   revenue_mtd: number;
   ad_spend_mtd: number;
   ads_live: number;
@@ -350,6 +351,7 @@ export default function CreatorsListPage() {
           : null,
         shopify_code_status: p.shopify_code_status,
         has_affiliate: p.has_affiliate,
+        has_retainer: !!p.has_retainer,
         revenue_mtd: p.revenue_mtd || 0,
         ad_spend_mtd: p.ad_spend_mtd || 0,
         ads_live: p.ads_live || 0,
@@ -2398,14 +2400,22 @@ function RolePills({ creator }: { creator: Creator }) {
   // Partner is exclusive — when an influencer has a creator account, that's the
   // only pill we render even if they also have legacy/whitelisting data, because
   // those are captured in the columns to the right.
+  const pills: Array<{ label: string; classes: string }> = [];
   if (creator.is_partner) {
+    pills.push({ label: "Partner", classes: "bg-gray-100 text-gray-700" });
+    if (creator.has_retainer) {
+      pills.push({ label: "Retainer", classes: "bg-purple-50 text-purple-700" });
+    }
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-700">
-        Partner
-      </span>
+      <div className="flex flex-wrap gap-1">
+        {pills.map((p) => (
+          <span key={p.label} className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${p.classes}`}>
+            {p.label}
+          </span>
+        ))}
+      </div>
     );
   }
-  const pills: Array<{ label: string; classes: string }> = [];
   if (creator.is_affiliate) {
     pills.push({ label: "Affiliate", classes: "bg-emerald-50 text-emerald-700" });
   }

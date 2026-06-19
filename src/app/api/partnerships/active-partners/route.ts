@@ -70,7 +70,7 @@ export async function GET(_request: NextRequest) {
   const [invitesRes, pendingReqsRes, submissionsRes] = await Promise.all([
     inviteIds.length > 0
       ? (db.from("creator_invites") as any)
-          .select("id, influencer_id, shopify_code_status, has_affiliate")
+          .select("id, influencer_id, shopify_code_status, has_affiliate, has_retainer")
           .in("id", inviteIds)
       : Promise.resolve({ data: [] as any[] }),
     creatorIds.length > 0
@@ -87,12 +87,13 @@ export async function GET(_request: NextRequest) {
       : Promise.resolve({ data: [] as any[] }),
   ]);
 
-  const invitesById = new Map<string, { influencer_id: string | null; shopify_code_status: string | null; has_affiliate: boolean }>();
+  const invitesById = new Map<string, { influencer_id: string | null; shopify_code_status: string | null; has_affiliate: boolean; has_retainer: boolean }>();
   for (const inv of (invitesRes.data || []) as any[]) {
     invitesById.set(String(inv.id), {
       influencer_id: inv.influencer_id || null,
       shopify_code_status: inv.shopify_code_status || null,
       has_affiliate: !!inv.has_affiliate,
+      has_retainer: !!inv.has_retainer,
     });
   }
 
@@ -215,6 +216,7 @@ export async function GET(_request: NextRequest) {
     affiliate_code: string | null;
     shopify_code_status: string | null;
     has_affiliate: boolean;
+    has_retainer: boolean;
     commission_rate: number | null;
     revenue_mtd: number;
     orders_mtd: number;
@@ -242,6 +244,7 @@ export async function GET(_request: NextRequest) {
     affiliate_code: null,
     shopify_code_status: null,
     has_affiliate: false,
+    has_retainer: false,
     commission_rate: null,
     revenue_mtd: 0,
     orders_mtd: 0,
@@ -280,6 +283,7 @@ export async function GET(_request: NextRequest) {
       row.orders_mtd = rev?.orders_mtd || 0;
       row.shopify_code_status = invite?.shopify_code_status ?? null;
       row.has_affiliate = invite?.has_affiliate ?? false;
+      row.has_retainer = invite?.has_retainer ?? false;
       row.commission_rate = c.commission_rate;
       row.pending_requests_count = pendingByCreator.get(c.id) || 0;
       if (rev?.lastOrderDay) mergeActivity(row, `${rev.lastOrderDay}T00:00:00.000Z`);
@@ -303,6 +307,7 @@ export async function GET(_request: NextRequest) {
     if (code) partneredCodes.add(code);
     row.shopify_code_status = invite?.shopify_code_status ?? null;
     row.has_affiliate = invite?.has_affiliate ?? false;
+    row.has_retainer = invite?.has_retainer ?? false;
     row.commission_rate = c.commission_rate;
     row.pending_requests_count = pendingByCreator.get(c.id) || 0;
 
