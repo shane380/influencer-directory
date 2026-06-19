@@ -192,7 +192,7 @@ export function EditTermsModal({ inviteId, initialValues, onClose, onSaved }: Ed
             {dealType === "retainer" && (
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Monthly Rate (USD)</label>
+                  <label className="block text-xs text-gray-500 mb-1">Monthly Retainer Rate (USD)</label>
                   <input type="number" value={monthlyRate} onChange={(e) => setMonthlyRate(Number(e.target.value))} className={inputClass} />
                 </div>
                 <div>
