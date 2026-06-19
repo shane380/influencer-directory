@@ -368,48 +368,14 @@ export default function PaymentsV2() {
                         const paidForMonth = Math.round((paidByMonth[m.period] || 0) * 100) / 100;
                         const remaining = Math.round((m.amount - paidForMonth) * 100) / 100;
                         const settled = remaining <= 0.01;
-                        const open = histPayMonth === m.period;
                         return (
                           <div key={m.period} className="py-2">
                             <div className="flex items-center gap-3 text-xs">
                               <span className="text-gray-700 flex-1">{periodLabel(m.period)}</span>
                               <span className="text-gray-900 tabular-nums">${money(m.amount)}</span>
                               <span className={`tabular-nums w-16 text-right ${paidForMonth > 0 ? (settled ? "text-green-600" : "text-amber-600") : "text-gray-300"}`}>{paidForMonth > 0 ? `$${money(paidForMonth)}` : "—"}</span>
-                              {settled ? (
-                                <span className="text-green-600 w-20 text-right">✓ Paid</span>
-                              ) : open ? (
-                                <button onClick={() => setHistPayMonth(null)} className="text-gray-400 w-20 text-right hover:text-gray-600">Cancel</button>
-                              ) : (
-                                <button
-                                  onClick={() => { setHistPayMonth(m.period); setHistPayForm({ amount: money(remaining), sent_at: new Date().toISOString().slice(0, 10), method: guessMethod(historyFor!.payInfo), reference: "" }); }}
-                                  className="text-blue-500 hover:underline w-20 text-right">Record →</button>
-                              )}
+                              <span className={`w-20 text-right ${settled ? "text-green-600" : paidForMonth > 0 ? "text-amber-600" : "text-gray-300"}`}>{settled ? "✓ Paid" : paidForMonth > 0 ? "Partial" : "Unpaid"}</span>
                             </div>
-                            {open && (
-                              <div className="mt-2 bg-gray-50 border border-gray-200 rounded-lg p-3 grid grid-cols-2 gap-2">
-                                <div className="col-span-2">
-                                  <label className="block text-[10px] uppercase tracking-wider text-gray-400 mb-1">Amount sent</label>
-                                  <input type="number" step="0.01" value={histPayForm.amount} onChange={(e) => setHistPayForm({ ...histPayForm, amount: e.target.value })} className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs" />
-                                </div>
-                                <div>
-                                  <label className="block text-[10px] uppercase tracking-wider text-gray-400 mb-1">Date sent</label>
-                                  <input type="date" value={histPayForm.sent_at} onChange={(e) => setHistPayForm({ ...histPayForm, sent_at: e.target.value })} className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs" />
-                                </div>
-                                <div>
-                                  <label className="block text-[10px] uppercase tracking-wider text-gray-400 mb-1">Method</label>
-                                  <select value={histPayForm.method} onChange={(e) => setHistPayForm({ ...histPayForm, method: e.target.value })} className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs">
-                                    <option value="paypal">PayPal</option><option value="bank">Bank</option><option value="e_transfer">E-Transfer</option><option value="other">Other</option>
-                                  </select>
-                                </div>
-                                <div className="col-span-2">
-                                  <label className="block text-[10px] uppercase tracking-wider text-gray-400 mb-1">Reference (optional)</label>
-                                  <input value={histPayForm.reference} onChange={(e) => setHistPayForm({ ...histPayForm, reference: e.target.value })} className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs" placeholder="PayPal txn id / note" />
-                                </div>
-                                <div className="col-span-2 flex justify-end">
-                                  <button onClick={() => recordHistoryPayment(m.period)} disabled={histSaving || !histPayForm.amount || !histPayForm.sent_at} className="px-3 py-1.5 bg-gray-900 text-white rounded text-xs font-medium disabled:opacity-40">{histSaving ? "…" : `Record for ${periodLabel(m.period)}`}</button>
-                                </div>
-                              </div>
-                            )}
                           </div>
                         );
                       })}
