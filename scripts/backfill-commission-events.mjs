@@ -174,9 +174,10 @@ for (const period of MONTHS) {
       const rate = (inv.ad_spend_percentage || 10) / 100;
       if (spend > 0) allEvents.push(ev(key, infId, null, "ad_spend", "meta_monthly", period, period, null, round2(spend * rate), rate, round2(spend), { spend: round2(spend) }));
     }
-    if (inv.has_retainer && inv.retainer_amount > 0) {
-      allEvents.push(ev(key, infId, null, "retainer", "retainer", period, period, null, round2(inv.retainer_amount), null, null, null));
-    }
+    // Retainers are content-gated, NOT auto-billed by calendar month. Each
+    // installment earns only when Daisy marks its content received on the
+    // Content tab (source_type='retainer_installment', via /api/admin/retainer/mark).
+    // So we intentionally emit no auto retainer events here.
   }
 }
 

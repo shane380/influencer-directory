@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Sidebar } from "@/components/sidebar";
@@ -199,6 +199,30 @@ export default function AdminCreatorProfile() {
   const [period, setPeriod] = useState<Period>("30d");
   const [trend, setTrend] = useState<TrendData | null>(null);
   const [trendLoading, setTrendLoading] = useState(false);
+
+  // Retainer installments: Daisy marks each month's content received -> it earns.
+  const [retMarked, setRetMarked] = useState<{ installment_no: number; pay_period: string; amount: number }[]>([]);
+  const [markingN, setMarkingN] = useState<number | null>(null);
+  const [markPeriod, setMarkPeriod] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; });
+
+  const loadRetainer = useCallback(async () => {
+    if (!(invite as any)?.influencer_id) return;
+    try { const r = await fetch(`/api/admin/retainer/mark?influencer_id=${(invite as any).influencer_id}`); if (r.ok) setRetMarked((await r.json()).marked || []); } catch {}
+  }, [(invite as any)?.influencer_id]);
+  useEffect(() => { loadRetainer(); }, [loadRetainer]);
+
+  async function markInstallment(n: number, amount: number) {
+    const infId = (invite as any)?.influencer_id;
+    if (!infId || !markPeriod) return;
+    await fetch("/api/admin/retainer/mark", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ influencer_id: infId, installment_no: n, pay_period: markPeriod, amount }) });
+    setMarkingN(null); await loadRetainer();
+  }
+  async function unmarkInstallment(n: number) {
+    const infId = (invite as any)?.influencer_id;
+    if (!infId) return;
+    await fetch(`/api/admin/retainer/mark?influencer_id=${infId}&installment_no=${n}`, { method: "DELETE" });
+    await loadRetainer();
+  }
 
   // Initial load
   useEffect(() => {
@@ -867,6 +891,54 @@ export default function AdminCreatorProfile() {
         )}
 
         {/* Content tab */}
+        {activeTab === "content" && (() => {
+          const ret = invite as any;
+          const isRet = !!ret?.has_retainer && Number(ret?.retainer_amount) > 0;
+          if (!isRet) return null;
+          const rate = Number(ret?.retainer_amount) || 0;
+          const term = ret?.retainer_months ? Number(ret.retainer_months) : null;
+          const markedMap = new Map(retMarked.map((m) => [m.installment_no, m]));
+          const highestMarked = retMarked.reduce((mx, m) => Math.max(mx, m.installment_no), 0);
+          const count = term ?? Math.max(highestMarked + 1, 1);
+          const fmtPeriod = (p: string) => { const [y, mo] = p.split("-"); return new Date(Number(y), Number(mo) - 1, 1).toLocaleDateString("en-US", { month: "short", year: "numeric" }); };
+          return (
+            <div className="mb-12">
+              <h2 className="text-xs uppercase tracking-wider text-gray-500 mb-1">Retainer installments</h2>
+              <p className="text-xs text-gray-500 mb-3">${rate.toLocaleString()}/mo {term ? `· ${term}-month term` : "· ongoing"} — mark each month's content received to release its payment.</p>
+              <div className="space-y-2">
+                {Array.from({ length: count }, (_, i) => i + 1).map((n) => {
+                  const m = markedMap.get(n) as any;
+                  return (
+                    <div key={n} className="bg-white border border-gray-200 rounded-lg p-3 flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-600 flex-shrink-0">{n}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-900">Month {n}</div>
+                        {m ? (
+                          <div className="text-xs text-emerald-600">Content received · pays in {fmtPeriod(m.pay_period)} · ${Number(m.amount).toLocaleString()}</div>
+                        ) : (
+                          <div className="text-xs text-gray-400">Awaiting content</div>
+                        )}
+                      </div>
+                      {m ? (
+                        <button onClick={() => unmarkInstallment(n)} className="px-3 py-1.5 text-xs font-medium border border-gray-200 text-gray-500 rounded-md hover:bg-gray-50">Un-mark</button>
+                      ) : markingN === n ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500">Pay month</span>
+                          <input type="month" value={markPeriod} onChange={(e) => setMarkPeriod(e.target.value)} className="border border-gray-200 rounded-md px-2 py-1 text-xs" />
+                          <button onClick={() => markInstallment(n, rate)} className="px-3 py-1.5 text-xs font-medium bg-gray-900 text-white rounded-md hover:bg-gray-800">Confirm</button>
+                          <button onClick={() => setMarkingN(null)} className="px-2 py-1.5 text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setMarkingN(n)} className="px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50">Mark content received</button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
         {activeTab === "content" && (
           <div className="mb-12">
             <h2 className="text-xs uppercase tracking-wider text-gray-500 mb-3">Content submissions</h2>

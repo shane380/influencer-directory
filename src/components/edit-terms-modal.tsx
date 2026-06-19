@@ -24,6 +24,7 @@ interface EditTermsModalProps {
     deal_structure: DealStructure | null;
     commission_rate: number;
     status: string;
+    retainer_months?: number | null;
   };
   onClose: () => void;
   onSaved: (updated: any) => void;
@@ -55,6 +56,7 @@ export function EditTermsModal({ inviteId, initialValues, onClose, onSaved }: Ed
   const [adSpendPct, setAdSpendPct] = useState(existing?.percentage ?? 5);
   const [minSpend, setMinSpend] = useState(existing?.minimum_spend ?? 0);
   const [monthlyRate, setMonthlyRate] = useState(existing?.monthly_rate ?? 500);
+  const [retainerMonths, setRetainerMonths] = useState<string>(initialValues.retainer_months != null ? String(initialValues.retainer_months) : "");
   const [hybridCommission, setHybridCommission] = useState(existing?.commission_rate ?? 5);
   const [hybridRetainer, setHybridRetainer] = useState(existing?.retainer ?? 300);
   const [firstMonthEnabled, setFirstMonthEnabled] = useState((existing?.first_month_minimum ?? 0) > 0);
@@ -81,6 +83,9 @@ export function EditTermsModal({ inviteId, initialValues, onClose, onSaved }: Ed
       dealType === "hybrid" ? hybridCommission :
       initialValues.commission_rate;
 
+    // Keep the columns payments read in sync with the deal structure.
+    const isRetainer = dealType === "retainer" || dealType === "hybrid";
+    const retainerAmt = dealType === "retainer" ? monthlyRate : dealType === "hybrid" ? hybridRetainer : null;
     const { error } = await (supabase as any)
       .from("creator_invites")
       .update({
@@ -89,6 +94,9 @@ export function EditTermsModal({ inviteId, initialValues, onClose, onSaved }: Ed
         notes,
         deal_structure: dealStructure,
         commission_rate: resolvedCommission,
+        has_retainer: isRetainer,
+        retainer_amount: retainerAmt,
+        retainer_months: dealType === "retainer" && retainerMonths ? Number(retainerMonths) : null,
       })
       .eq("id", inviteId);
 
@@ -182,9 +190,16 @@ export function EditTermsModal({ inviteId, initialValues, onClose, onSaved }: Ed
             )}
 
             {dealType === "retainer" && (
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Monthly Rate (USD)</label>
-                <input type="number" value={monthlyRate} onChange={(e) => setMonthlyRate(Number(e.target.value))} className={inputClass} />
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Monthly Retainer Rate (USD)</label>
+                  <input type="number" value={monthlyRate} onChange={(e) => setMonthlyRate(Number(e.target.value))} className={inputClass} />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Duration (months) — leave blank for ongoing</label>
+                  <input type="number" min="1" value={retainerMonths} onChange={(e) => setRetainerMonths(e.target.value)} className={inputClass} placeholder="e.g. 3" />
+                  <p className="text-[11px] text-gray-400 mt-1">Each month is paid only once its content is marked received. Most deals are fixed-term.</p>
+                </div>
               </div>
             )}
 

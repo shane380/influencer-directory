@@ -193,6 +193,7 @@ export default function CreatorsListPage() {
   const [dealAdSpendPct, setDealAdSpendPct] = useState(5);
   const [dealAdSpendMin, setDealAdSpendMin] = useState(0);
   const [dealRetainer, setDealRetainer] = useState(1500);
+  const [dealRetainerMonths, setDealRetainerMonths] = useState("");
   const [dealGiftCard, setDealGiftCard] = useState(200);
   const [dealFlatFee, setDealFlatFee] = useState(500);
   const [flatFeeWhitelistingDays, setFlatFeeWhitelistingDays] = useState(60);
@@ -644,6 +645,7 @@ export default function CreatorsListPage() {
     setDealAdSpendPct(5);
     setDealAdSpendMin(0);
     setDealRetainer(1500);
+    setDealRetainerMonths("");
     setDealGiftCard(200);
     setDealFlatFee(500);
     setFlatFeeWhitelistingDays(60);
@@ -733,6 +735,7 @@ export default function CreatorsListPage() {
         dealStructure: ds,
         dealType: dealType === "none" ? "none" : dealType,
         retainerAmount: fields.retainerAmount,
+        retainerMonths: dealType === "retainer" ? dealRetainerMonths : null,
         adSpendPercentage: fields.adSpendPercentage,
         adSpendMinimum: fields.adSpendMinimum,
         offerChoice: dealType === "none" ? false : offerChoice,
@@ -1688,6 +1691,7 @@ export default function CreatorsListPage() {
             deal_structure: editTermsInvite.deal_structure || null,
             commission_rate: editTermsInvite.commission_rate || 10,
             status: editTermsInvite.status || "",
+            retainer_months: editTermsInvite.retainer_months ?? null,
           }}
           onClose={() => setEditTermsInvite(null)}
           onSaved={() => {
@@ -2006,9 +2010,16 @@ export default function CreatorsListPage() {
                       </div>
                     )}
                     {dealType === "retainer" && (
-                      <div className="mb-3">
-                        <label className="block text-xs text-gray-500 mb-1">Monthly Retainer (USD)</label>
-                        <input type="number" value={dealRetainer} onChange={(e) => setDealRetainer(Number(e.target.value))} className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300" />
+                      <div className="mb-3 space-y-3">
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Monthly Retainer (USD)</label>
+                          <input type="number" value={dealRetainer} onChange={(e) => setDealRetainer(Number(e.target.value))} className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Duration (months) — leave blank for ongoing</label>
+                          <input type="number" min="1" value={dealRetainerMonths} onChange={(e) => setDealRetainerMonths(e.target.value)} className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300" placeholder="e.g. 3" />
+                          <p className="text-[11px] text-gray-400 mt-1">Each month pays only once its content is marked received.</p>
+                        </div>
                       </div>
                     )}
                     {dealType === "gift_card" && (
