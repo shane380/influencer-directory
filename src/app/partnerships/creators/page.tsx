@@ -21,7 +21,11 @@ import {
   ChevronDown,
   ArrowDown,
   ArrowUp,
+  ShoppingCart,
+  Loader2,
 } from "lucide-react";
+import { OrderDialog } from "@/components/order-dialog";
+import type { Influencer, CampaignInfluencer, ShopifyOrderStatus } from "@/types/database";
 import { NotificationBadge } from "@/components/partnerships/notification-badge";
 import { EditTermsModal } from "@/components/edit-terms-modal";
 import { SubmissionReviewModal } from "@/components/submission-review-modal";
@@ -120,6 +124,20 @@ function initialsFor(name: string): string {
   return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
 }
 
+const orderDots: Record<ShopifyOrderStatus, string> = {
+  draft: "bg-amber-400",
+  fulfilled: "bg-blue-400",
+  shipped: "bg-purple-400",
+  delivered: "bg-green-500",
+};
+
+const orderStatusLabels: Record<ShopifyOrderStatus, string> = {
+  draft: "Draft",
+  fulfilled: "Fulfilled",
+  shipped: "Shipped",
+  delivered: "Delivered",
+};
+
 interface Creator {
   id: string; // row_id from API ("influencer:<uuid>" | "partner:<uuid>" | "legacy:<uuid>")
   is_partner: boolean;
@@ -143,6 +161,43 @@ interface Creator {
   ad_spend_mtd: number;
   ads_live: number;
   last_activity_at: string | null;
+  shopify_order_id: string | null;
+  shopify_order_status: ShopifyOrderStatus | null;
+  product_selections: any[] | null;
+}
+
+// Map an active-partners API row into a Creator. Shared by the initial load
+// and the post-order refresh so the Order column stays in sync.
+function mapPartnerRow(p: any): Creator {
+  return {
+    id: p.row_id || p.creator_id || `influencer:${p.influencer_id}`,
+    is_partner: !!p.is_partner,
+    is_affiliate: !!p.is_affiliate,
+    is_whitelisted: !!p.is_whitelisted,
+    creator_id: p.creator_id || null,
+    creator_name: p.creator_name || p.name || "",
+    commission_rate: p.commission_rate ?? null,
+    affiliate_code: p.affiliate_code || "",
+    invite_id: p.invite_id || "",
+    influencer_id: p.influencer_id || null,
+    influencer: p.name || p.handle || p.photo
+      ? {
+          name: p.name || "",
+          instagram_handle: p.handle || "",
+          profile_photo_url: p.photo,
+        }
+      : null,
+    shopify_code_status: p.shopify_code_status,
+    has_affiliate: p.has_affiliate,
+    has_retainer: !!p.has_retainer,
+    revenue_mtd: p.revenue_mtd || 0,
+    ad_spend_mtd: p.ad_spend_mtd || 0,
+    ads_live: p.ads_live || 0,
+    last_activity_at: p.last_activity_at,
+    shopify_order_id: p.shopify_order_id || null,
+    shopify_order_status: p.shopify_order_status || null,
+    product_selections: p.product_selections || null,
+  };
 }
 
 type SortKey = "revenue_mtd" | "ad_spend_mtd" | "ads_live" | "last_activity_at" | "name";
@@ -285,6 +340,66 @@ export default function CreatorsListPage() {
   // Shopify sync retry state
   const [retryingSync, setRetryingSync] = useState<string | null>(null);
 
+  // Order dialog (place a Shopify gifting order for a partner from the table).
+  const [orderDialogOpen, setOrderDialogOpen] = useState(false);
+  const [orderInfluencer, setOrderInfluencer] = useState<Influencer | null>(null);
+  const [loadingOrderFor, setLoadingOrderFor] = useState<string | null>(null);
+
+  // Re-fetch the partners list so the Order column reflects the latest draft/order.
+  const refreshPartners = useCallback(async () => {
+    const res = await fetch("/api/partnerships/active-partners");
+    const json = res.ok ? await res.json() : { partners: [] };
+    setCreators((json.partners || []).map(mapPartnerRow));
+  }, []);
+
+  // OrderDialog needs the full influencer record (email, phone, address,
+  // shopify_customer_id, current draft) which the table row doesn't carry, so
+  // fetch it on demand when the cart icon is clicked.
+  async function openOrderDialog(influencerId: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    setLoadingOrderFor(influencerId);
+    try {
+      const { data, error } = await supabase
+        .from("influencers" as any)
+        .select("*")
+        .eq("id", influencerId)
+        .single();
+      if (error || !data) {
+        alert("Could not load this partner's details to place an order.");
+        return;
+      }
+      setOrderInfluencer(data as unknown as Influencer);
+      setOrderDialogOpen(true);
+    } finally {
+      setLoadingOrderFor(null);
+    }
+  }
+
+  // Whitelisting-context virtual row: OrderDialog reads/writes order state on
+  // the influencers table when campaign_id is empty.
+  const createVirtualCampaignInfluencer = (inf: Influencer): CampaignInfluencer => ({
+    id: `virtual-${inf.id}`,
+    campaign_id: "",
+    influencer_id: inf.id,
+    compensation: null,
+    notes: null,
+    added_at: new Date().toISOString(),
+    status: inf.relationship_status,
+    partnership_type: inf.partnership_type,
+    shopify_order_id: null,
+    shopify_order_status: null,
+    tracking_number: null,
+    tracking_url: null,
+    order_status_updated_at: null,
+    shopify_real_order_id: null,
+    product_selections: null,
+    content_posted: "none",
+    approval_status: null,
+    approval_note: null,
+    approved_at: null,
+    approved_by: null,
+  });
+
   async function retryShopifySync(creatorId: string) {
     setRetryingSync(creatorId);
     try {
@@ -331,32 +446,7 @@ export default function CreatorsListPage() {
       // /api/partnerships/active-partners for the aggregation.
       const partnersRes = await fetch("/api/partnerships/active-partners");
       const partnersJson = partnersRes.ok ? await partnersRes.json() : { partners: [] };
-      const enriched: Creator[] = (partnersJson.partners || []).map((p: any) => ({
-        id: p.row_id || p.creator_id || `influencer:${p.influencer_id}`,
-        is_partner: !!p.is_partner,
-        is_affiliate: !!p.is_affiliate,
-        is_whitelisted: !!p.is_whitelisted,
-        creator_id: p.creator_id || null,
-        creator_name: p.creator_name || p.name || "",
-        commission_rate: p.commission_rate ?? null,
-        affiliate_code: p.affiliate_code || "",
-        invite_id: p.invite_id || "",
-        influencer_id: p.influencer_id || null,
-        influencer: p.name || p.handle || p.photo
-          ? {
-              name: p.name || "",
-              instagram_handle: p.handle || "",
-              profile_photo_url: p.photo,
-            }
-          : null,
-        shopify_code_status: p.shopify_code_status,
-        has_affiliate: p.has_affiliate,
-        has_retainer: !!p.has_retainer,
-        revenue_mtd: p.revenue_mtd || 0,
-        ad_spend_mtd: p.ad_spend_mtd || 0,
-        ads_live: p.ads_live || 0,
-        last_activity_at: p.last_activity_at,
-      }));
+      const enriched: Creator[] = (partnersJson.partners || []).map(mapPartnerRow);
 
       // Fetch pending invites
       const { data: invitesData } = await supabase
@@ -1373,7 +1463,7 @@ export default function CreatorsListPage() {
                       else { setSortKey(k); setSortDir("asc"); }
                     }} align="left" />
                     <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Status</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Code</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Order</th>
                     <SortableHeader label="Affiliate revenue · MTD" sortKey="revenue_mtd" currentKey={sortKey} dir={sortDir} onSort={(k) => {
                       if (k === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
                       else { setSortKey(k); setSortDir("desc"); }
@@ -1449,14 +1539,42 @@ export default function CreatorsListPage() {
                       <td className="px-4 py-3">
                         <RolePills creator={creator} />
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
-                          {creator.affiliate_code ? (
-                            <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono">
-                              {creator.affiliate_code}
-                            </code>
+                          {creator.influencer_id ? (
+                            loadingOrderFor === creator.influencer_id ? (
+                              <span className="text-gray-400">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              </span>
+                            ) : creator.shopify_order_id ? (
+                              <button
+                                className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900"
+                                onClick={(e) => openOrderDialog(creator.influencer_id!, e)}
+                              >
+                                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${orderDots[creator.shopify_order_status || "draft"]}`}></span>
+                                {orderStatusLabels[creator.shopify_order_status || "draft"]}
+                              </button>
+                            ) : creator.product_selections && creator.product_selections.length > 0 ? (
+                              <button
+                                className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900"
+                                onClick={(e) => openOrderDialog(creator.influencer_id!, e)}
+                              >
+                                <span className="w-2 h-2 rounded-full flex-shrink-0 bg-purple-400"></span>
+                                {creator.product_selections.length} items
+                              </button>
+                            ) : (
+                              <button
+                                className="text-gray-400 hover:text-gray-600"
+                                onClick={(e) => openOrderDialog(creator.influencer_id!, e)}
+                                title="Place an order"
+                              >
+                                <ShoppingCart className="h-4 w-4" />
+                              </button>
+                            )
                           ) : (
-                            <span className="text-gray-400 text-xs">—</span>
+                            <span className="text-gray-300" title="No influencer linked — can't place an order">
+                              <ShoppingCart className="h-4 w-4" />
+                            </span>
                           )}
                           {isPartner && creator.has_affiliate && creator.shopify_code_status === "failed" && creator.creator_id && (
                             <button
@@ -2304,6 +2422,19 @@ export default function CreatorsListPage() {
           />
         );
       })()}
+
+      {orderInfluencer && (
+        <OrderDialog
+          open={orderDialogOpen}
+          onClose={() => {
+            setOrderDialogOpen(false);
+            setOrderInfluencer(null);
+          }}
+          onSave={refreshPartners}
+          influencer={orderInfluencer}
+          campaignInfluencer={createVirtualCampaignInfluencer(orderInfluencer)}
+        />
+      )}
     </div>
   );
 }

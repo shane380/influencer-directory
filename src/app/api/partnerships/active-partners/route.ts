@@ -121,7 +121,7 @@ export async function GET(_request: NextRequest) {
     allInfluencerIds.size > 0
       ? db
           .from("influencers")
-          .select("id, name, instagram_handle, profile_photo_url")
+          .select("id, name, instagram_handle, profile_photo_url, shopify_order_id, shopify_order_status, product_selections")
           .in("id", Array.from(allInfluencerIds))
       : Promise.resolve({ data: [] as any[] }),
     allCodes.length > 0
@@ -133,12 +133,15 @@ export async function GET(_request: NextRequest) {
       : Promise.resolve({ data: [] as any[] }),
   ]);
 
-  const influencersById = new Map<string, { name: string | null; instagram_handle: string | null; profile_photo_url: string | null }>();
+  const influencersById = new Map<string, { name: string | null; instagram_handle: string | null; profile_photo_url: string | null; shopify_order_id: string | null; shopify_order_status: string | null; product_selections: any[] | null }>();
   for (const inf of (influencersRes.data || []) as any[]) {
     influencersById.set(String(inf.id), {
       name: inf.name || null,
       instagram_handle: inf.instagram_handle || null,
       profile_photo_url: inf.profile_photo_url || null,
+      shopify_order_id: inf.shopify_order_id || null,
+      shopify_order_status: inf.shopify_order_status || null,
+      product_selections: inf.product_selections || null,
     });
   }
 
@@ -224,6 +227,9 @@ export async function GET(_request: NextRequest) {
     ads_live: number;
     pending_requests_count: number;
     last_activity_at: string | null;
+    shopify_order_id: string | null;
+    shopify_order_status: string | null;
+    product_selections: any[] | null;
   };
 
   const rowsByInfluencer = new Map<string, Row>();
@@ -252,6 +258,9 @@ export async function GET(_request: NextRequest) {
     ads_live: 0,
     pending_requests_count: 0,
     last_activity_at: null,
+    shopify_order_id: null,
+    shopify_order_status: null,
+    product_selections: null,
   });
 
   const mergeActivity = (row: Row, candidate: string | null) => {
@@ -387,6 +396,17 @@ export async function GET(_request: NextRequest) {
     if (adDay) mergeActivity(row, `${adDay}T00:00:00.000Z`);
 
     rowsByInfluencer.set(`influencer:${influencerId}`, row);
+  }
+
+  // 9d. Order state — attach the influencer's current draft/order so the
+  // partners table can render the Order column (cart icon / status dot).
+  for (const row of rowsByInfluencer.values()) {
+    if (!row.influencer_id) continue;
+    const inf = influencersById.get(row.influencer_id);
+    if (!inf) continue;
+    row.shopify_order_id = inf.shopify_order_id;
+    row.shopify_order_status = inf.shopify_order_status;
+    row.product_selections = inf.product_selections;
   }
 
   // 10. Final ordering — partners first (preserving onboarded_at), then by
