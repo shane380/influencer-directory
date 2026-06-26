@@ -45,6 +45,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
   const [isHovered, setIsHovered] = useState(false);
   const [giftingExpanded, setGiftingExpanded] = useState(false);
   const [campaignsExpanded, setCampaignsExpanded] = useState(false);
+  const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
   const [partnersExpanded, setPartnersExpanded] = useState(false);
   const [groupedCampaigns, setGroupedCampaigns] = useState<GroupedCampaigns[]>([]);
   const [loadingCampaigns, setLoadingCampaigns] = useState(false);
@@ -82,6 +83,23 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
       setCampaignsExpanded(true);
     }
   }, [pathname]);
+
+  // Auto-expand the month matching the current campaign/month page
+  useEffect(() => {
+    if (!pathname) return;
+    const monthMatch = pathname.match(/^\/campaigns\/month\/([^/]+)/);
+    if (monthMatch) {
+      setExpandedMonth(monthMatch[1]);
+      return;
+    }
+    const idMatch = pathname.match(/^\/campaigns\/([^/]+)/);
+    if (idMatch && idMatch[1] !== 'month') {
+      const group = groupedCampaigns.find((g) =>
+        g.campaigns.some((c) => c.id === idMatch[1])
+      );
+      if (group) setExpandedMonth(group.monthKey);
+    }
+  }, [pathname, groupedCampaigns]);
 
   // Fetch campaigns for the sidebar
   useEffect(() => {
@@ -394,20 +412,80 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                           {loadingCampaigns ? (
                             <li className="px-2 py-1.5 text-sm text-gray-400">Loading...</li>
                           ) : (
-                            groupedCampaigns.slice(0, 6).map((group) => (
-                              <li key={group.monthKey}>
-                                <button
-                                  onClick={(e) => handleMonthClick(e, group.monthKey)}
-                                  className={`w-full text-left px-2 py-1.5 text-sm rounded-md transition-colors truncate ${
-                                    pathname === `/campaigns/month/${group.monthKey}`
-                                      ? "text-gray-900 bg-gray-100 font-medium"
-                                      : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-                                  }`}
-                                >
-                                  {group.label}
-                                </button>
-                              </li>
-                            ))
+                            groupedCampaigns.slice(0, 6).map((group) => {
+                              const isExpanded = expandedMonth === group.monthKey;
+                              const monthActive =
+                                pathname === `/campaigns/month/${group.monthKey}`;
+                              return (
+                                <li key={group.monthKey}>
+                                  <div
+                                    className={`flex items-center rounded-md transition-colors ${
+                                      monthActive
+                                        ? "bg-gray-100"
+                                        : "hover:bg-gray-50"
+                                    }`}
+                                  >
+                                    <button
+                                      onClick={(e) =>
+                                        handleMonthClick(e, group.monthKey)
+                                      }
+                                      className={`flex-1 min-w-0 text-left px-2 py-1.5 text-sm transition-colors truncate ${
+                                        monthActive
+                                          ? "text-gray-900 font-medium"
+                                          : "text-gray-500 hover:text-gray-900"
+                                      }`}
+                                    >
+                                      {group.label}
+                                    </button>
+                                    {group.campaigns.length > 0 && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setExpandedMonth(
+                                            isExpanded ? null : group.monthKey
+                                          );
+                                        }}
+                                        aria-label={
+                                          isExpanded
+                                            ? `Collapse ${group.label}`
+                                            : `Expand ${group.label}`
+                                        }
+                                        className="px-1.5 py-1.5 text-gray-400 hover:text-gray-700 flex-shrink-0"
+                                      >
+                                        {isExpanded ? (
+                                          <ChevronDown className="h-3.5 w-3.5" />
+                                        ) : (
+                                          <ChevronRight className="h-3.5 w-3.5" />
+                                        )}
+                                      </button>
+                                    )}
+                                  </div>
+                                  {isExpanded && group.campaigns.length > 0 && (
+                                    <ul className="mt-1 ml-2 pl-2 border-l border-gray-200 space-y-1">
+                                      {group.campaigns.map((campaign) => (
+                                        <li key={campaign.id}>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              router.push(
+                                                `/campaigns/${campaign.id}`
+                                              );
+                                            }}
+                                            className={`w-full text-left px-2 py-1.5 text-sm rounded-md transition-colors truncate ${
+                                              pathname === `/campaigns/${campaign.id}`
+                                                ? "text-gray-900 bg-gray-100 font-medium"
+                                                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                                            }`}
+                                          >
+                                            {campaign.name}
+                                          </button>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                </li>
+                              );
+                            })
                           )}
                         </ul>
                       )}
