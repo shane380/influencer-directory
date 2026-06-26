@@ -461,7 +461,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                                     )}
                                   </div>
                                   {isExpanded && group.campaigns.length > 0 && (
-                                    <ul className="mt-1 ml-2 pl-2 border-l border-gray-200 space-y-1">
+                                    <ul className="mt-1 space-y-1">
                                       {group.campaigns.map((campaign) => (
                                         <li key={campaign.id}>
                                           <button
