@@ -108,6 +108,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
       const { data, error } = await supabase
         .from("campaigns")
         .select("*")
+        .in("status", ["planning", "active"])
         .order("start_date", { ascending: false });
 
       if (!error && data) {
@@ -326,7 +327,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                 {/* Partners submenu */}
                 {isHovered && item.id === "partners" && partnersExpanded && (
                   <ul
-                    className="mt-1 ml-3 pl-3 border-l border-gray-200 space-y-1"
+                    className="mt-1 space-y-1"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <li>
@@ -361,7 +362,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                 {/* Gifting/PR submenu */}
                 {isHovered && item.id === "gifting" && giftingExpanded && (
                   <ul
-                    className="mt-1 ml-3 pl-3 border-l border-gray-200 space-y-1"
+                    className="mt-1 space-y-1"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <li>
@@ -397,7 +398,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                         )}
                       </button>
                       {campaignsExpanded && (
-                        <ul className="mt-1 ml-2 pl-2 border-l border-gray-200 space-y-1">
+                        <ul className="mt-1 space-y-1">
                           <li>
                             <button
                               onClick={(e) => {

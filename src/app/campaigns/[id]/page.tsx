@@ -34,6 +34,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { InfluencerDialog } from "@/components/influencer-dialog";
 import { CampaignDialog } from "@/components/campaign-dialog";
+import { CampaignStatusDropdown } from "@/components/campaign-status-dropdown";
 import { AddInfluencerDialog } from "@/components/add-influencer-dialog";
 import { OrderDialog } from "@/components/order-dialog";
 import { DealDialog } from "@/components/deal-dialog";
@@ -144,19 +145,6 @@ const partnershipDots: Record<PartnershipType, string> = {
   whitelisting: "bg-teal-400",
 };
 
-const campaignStatusColors: Record<CampaignStatus, string> = {
-  planning: "bg-blue-100 text-blue-800",
-  active: "bg-green-100 text-green-800",
-  completed: "bg-gray-100 text-gray-800",
-  cancelled: "bg-red-100 text-red-800",
-};
-
-const campaignStatusLabels: Record<CampaignStatus, string> = {
-  planning: "Planning",
-  active: "Active",
-  completed: "Completed",
-  cancelled: "Cancelled",
-};
 
 // Muted order status colors
 const orderStatusColors: Record<ShopifyOrderStatus, string> = {
@@ -243,7 +231,7 @@ export default function CampaignDetailPage() {
   const [selectedDealInfluencer, setSelectedDealInfluencer] = useState<CampaignInfluencerWithDetails | null>(null);
   const [contentFilter, setContentFilter] = useState<string>("all");
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>("all");
-  const [approvalFilter, setApprovalFilter] = useState<string>("approved");
+  const [approvalFilter, setApprovalFilter] = useState<string>("all");
   // Apply the stage-based default for the approval filter only once, on first load,
   // so it never overrides a filter the user has changed manually.
   const approvalDefaultApplied = useRef(false);
@@ -411,6 +399,19 @@ export default function CampaignDetailPage() {
 
   const handleOpenCampaignDialog = () => {
     setCampaignDialogOpen(true);
+  };
+
+  const handleCampaignStatusChange = async (newStatus: CampaignStatus) => {
+    if (!campaign) return;
+    const prev = campaign.status;
+    setCampaign({ ...campaign, status: newStatus });
+    const { error } = await (supabase
+      .from("campaigns") as any)
+      .update({ status: newStatus })
+      .eq("id", campaign.id);
+    if (error) {
+      setCampaign({ ...campaign, status: prev });
+    }
   };
 
   const handleCloseCampaignDialog = () => {
@@ -644,9 +645,10 @@ export default function CampaignDetailPage() {
         <div className="mb-8">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-gray-900">{campaign.name}</h1>
-            <Badge className={campaignStatusColors[campaign.status]}>
-              {campaignStatusLabels[campaign.status]}
-            </Badge>
+            <CampaignStatusDropdown
+              status={campaign.status}
+              onStatusChange={handleCampaignStatusChange}
+            />
           </div>
           {campaign.description && (
             <p className="text-gray-600 mt-1">{campaign.description}</p>
