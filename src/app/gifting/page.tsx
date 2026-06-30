@@ -35,6 +35,7 @@ type GiftStats = {
   gifts_this_month: number;
   growth_pct_vs_last_month: number | null;
   tags_this_month: number;
+  creators_contacted_this_month: number;
 };
 
 type GiftStatus = "green" | "yellow" | "red";
@@ -403,7 +404,7 @@ export default function GiftingDashboardPage() {
           </div>
 
           {/* KPI row */}
-          <div className="grid grid-cols-2 gap-2 mb-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-3">
             {statsLoading || !stats ? (
               <KpiCard label="Gifts sent this month" value="—" />
             ) : (
@@ -430,6 +431,15 @@ export default function GiftingDashboardPage() {
               label="Tags this month"
               value={statsLoading || !stats ? "—" : stats.tags_this_month.toLocaleString()}
               subtitle="posts across all campaigns"
+            />
+            <KpiCard
+              label="Creators contacted this month"
+              value={
+                statsLoading || !stats
+                  ? "—"
+                  : stats.creators_contacted_this_month.toLocaleString()
+              }
+              subtitle="by last contacted date"
             />
           </div>
 
@@ -504,7 +514,7 @@ export default function GiftingDashboardPage() {
                 </p>
               </div>
             ) : (
-              <ul>
+              <ul className="max-h-[28rem] overflow-y-auto">
                 {topTaggers.map((t, i) => (
                   <li
                     key={t.influencer_id}

@@ -61,10 +61,10 @@ export async function GET() {
     agg.breakdown[medium] += 1;
   }
 
-  // Top 8 by total tags.
+  // Ranked by total tags (capped at a generous limit; the UI scrolls).
   const top = Array.from(byInfluencer.entries())
     .sort((a, b) => b[1].total - a[1].total)
-    .slice(0, 8);
+    .slice(0, 100);
 
   if (top.length === 0) {
     return NextResponse.json({ taggers: [] });

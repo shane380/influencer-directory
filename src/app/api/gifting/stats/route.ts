@@ -93,6 +93,13 @@ export async function GET(request: NextRequest) {
     campaignIds.push(c.id);
   }
 
+  // Creators contacted this month — influencers whose last_contacted_at falls in
+  // the current calendar month.
+  const { count: contactedCount } = await (db.from("influencers") as any)
+    .select("id", { count: "exact", head: true })
+    .gte("last_contacted_at", currentMonthStartDay)
+    .lte("last_contacted_at", `${todayDay}T23:59:59.999Z`);
+
   const currentMonthKey = currentMonthStartDay.slice(0, 7);
   const tagsByMonth = new Map<string, number>();
   let tagsThisMonth = 0;
@@ -127,5 +134,6 @@ export async function GET(request: NextRequest) {
     gifts_this_month: giftsThisMonth,
     growth_pct_vs_last_month: pct(giftsThisMonth, giftsPrevMonthMatch),
     tags_this_month: tagsThisMonth,
+    creators_contacted_this_month: contactedCount || 0,
   });
 }
