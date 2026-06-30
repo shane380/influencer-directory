@@ -86,7 +86,7 @@ const statusColors: Record<RelationshipStatus, string> = {
 // Gray = neutral/in progress, Orange = needs action, Green = complete, Red = issues
 const statusDots: Record<RelationshipStatus, string> = {
   prospect: "bg-gray-300",
-  contacted: "bg-gray-400",
+  contacted: "bg-blue-500",
   followed_up: "bg-gray-400",
   lead_dead: "bg-red-400",
   creator_wants_paid: "bg-red-400",
