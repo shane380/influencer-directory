@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   CampaignInfluencer,
   ShopifyOrderStatus,
+  ContentPostedType,
   ProductSelection,
 } from "@/types/database";
 import { ChevronDown } from "lucide-react";
@@ -135,6 +136,18 @@ export function CampaignStatsPanel({
   const deliveredCount = approved.filter((ci) => ci.shopify_order_status === "delivered").length;
 
   const postedCount = approved.filter((ci) => ci.content_posted !== "none").length;
+
+  // Content posted breakdown by medium
+  const CONTENT_MEDIA: { key: ContentPostedType; label: string }[] = [
+    { key: "stories", label: "Stories" },
+    { key: "in_feed_post", label: "Post" },
+    { key: "reel", label: "Reel" },
+    { key: "tiktok", label: "TikTok" },
+  ];
+  const contentBreakdown = CONTENT_MEDIA.map((m) => ({
+    label: m.label,
+    count: approved.filter((ci) => ci.content_posted === m.key).length,
+  }));
 
   // Rates — computed per segment
   function computeRates(pool: CampaignInfluencer[]) {
@@ -331,6 +344,45 @@ export function CampaignStatsPanel({
               <RatesRow label="Overall" rates={overallRates} />
               <RatesRow label="Seeding" rates={seedingRates} />
               <RatesRow label="Recurring" rates={recurringRates} />
+            </div>
+
+            {/* Content posted breakdown */}
+            <div
+              style={{
+                marginTop: 12,
+                borderTop: "0.5px solid hsl(var(--color-border-tertiary))",
+                paddingTop: 8,
+                display: "flex",
+                alignItems: "baseline",
+                gap: 24,
+                flexWrap: "wrap",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 500,
+                  color: "hsl(var(--color-text-secondary))",
+                  width: 70,
+                  flexShrink: 0,
+                }}
+              >
+                Posted
+              </span>
+              <span style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                <span style={{ fontSize: 11, color: "hsl(var(--color-text-tertiary))" }}>Total</span>
+                <span style={{ fontSize: 14, fontWeight: 500, color: "hsl(var(--color-text-primary))" }}>
+                  {postedCount}
+                </span>
+              </span>
+              {contentBreakdown.map((m) => (
+                <span key={m.label} style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                  <span style={{ fontSize: 11, color: "hsl(var(--color-text-tertiary))" }}>{m.label}</span>
+                  <span style={{ fontSize: 14, fontWeight: 500, color: "hsl(var(--color-text-primary))" }}>
+                    {m.count}
+                  </span>
+                </span>
+              ))}
             </div>
           </div>
         )}
