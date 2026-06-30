@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
@@ -9,8 +9,8 @@ import { KpiCard } from "@/components/partnerships/kpi-card";
 import { RangePicker, type RangeOption } from "@/components/partnerships/range-picker";
 import { InfluencerDialog } from "@/components/influencer-dialog";
 import { OrderDialog } from "@/components/order-dialog";
-import type { Influencer, CampaignInfluencer } from "@/types/database";
-import { Search, X, Plus, Check, ShoppingCart } from "lucide-react";
+import type { Influencer, CampaignInfluencer, Campaign } from "@/types/database";
+import { Search, X, Plus, Check, ShoppingCart, ChevronDown } from "lucide-react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -58,6 +58,29 @@ type SearchResult = {
   profile_photo_url: string | null;
   partnership_type: string;
 };
+
+type TopTagger = {
+  influencer_id: string;
+  name: string;
+  handle: string | null;
+  photo: string | null;
+  partnership_type: string;
+  total: number;
+  breakdown: { stories: number; in_feed_post: number; reel: number; tiktok: number };
+};
+
+const TAG_MEDIA: { key: keyof TopTagger["breakdown"]; label: string }[] = [
+  { key: "stories", label: "Story" },
+  { key: "in_feed_post", label: "Post" },
+  { key: "reel", label: "Reel" },
+  { key: "tiktok", label: "TikTok" },
+];
+
+function tagBreakdownLabel(b: TopTagger["breakdown"]): string {
+  return TAG_MEDIA.filter((m) => b[m.key] > 0)
+    .map((m) => `${b[m.key]} ${m.label}`)
+    .join(" · ");
+}
 
 const statusDot: Record<GiftStatus, string> = {
   green: "bg-emerald-500",
@@ -115,6 +138,9 @@ export default function GiftingDashboardPage() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [prList, setPrList] = useState<PrPartner[] | null>(null);
   const [prLoading, setPrLoading] = useState(true);
+  const [topTaggers, setTopTaggers] = useState<TopTagger[] | null>(null);
+  const [taggersLoading, setTaggersLoading] = useState(true);
+  const [activeCampaigns, setActiveCampaigns] = useState<Campaign[]>([]);
 
   // Add-to-PR-list modal
   const [showAddModal, setShowAddModal] = useState(false);
@@ -140,6 +166,16 @@ export default function GiftingDashboardPage() {
         setPrLoading(false);
       })
       .catch(() => setPrLoading(false));
+  }, []);
+
+  const fetchTopTaggers = useCallback(() => {
+    return fetch(`/api/gifting/top-taggers`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        setTopTaggers(data?.taggers || []);
+        setTaggersLoading(false);
+      })
+      .catch(() => setTaggersLoading(false));
   }, []);
 
   useEffect(() => {
@@ -182,10 +218,22 @@ export default function GiftingDashboardPage() {
     };
   }, [range]);
 
-  // PR list — fetched once.
+  // PR list + top taggers — fetched once.
   useEffect(() => {
     fetchPrList();
-  }, [fetchPrList]);
+    fetchTopTaggers();
+  }, [fetchPrList, fetchTopTaggers]);
+
+  // Active/planning campaigns for the quick "add to campaign" menu.
+  useEffect(() => {
+    (supabase.from("campaigns") as any)
+      .select("*")
+      .in("status", ["planning", "active"])
+      .order("start_date", { ascending: false })
+      .then(({ data }: { data: Campaign[] | null }) => {
+        if (data) setActiveCampaigns(data);
+      });
+  }, [supabase]);
 
   // Debounced influencer search for the add modal.
   useEffect(() => {
@@ -282,6 +330,41 @@ export default function GiftingDashboardPage() {
       approved_at: null,
       approved_by: null,
     };
+  }
+
+  // Quick-action: promote a top tagger to the PR list, then refresh both lists.
+  async function promoteToPrList(influencerId: string) {
+    const { error } = await (supabase.from("influencers") as any)
+      .update({ partnership_type: "pr_list" })
+      .eq("id", influencerId);
+    if (!error) await Promise.all([fetchPrList(), fetchTopTaggers()]);
+  }
+
+  // Quick-action: add a top tagger to a campaign (dedup + carry over their most
+  // recent partnership type), mirroring the bulk-action-bar add flow.
+  async function addInfluencerToCampaign(
+    influencerId: string,
+    campaign: Campaign,
+  ): Promise<"added" | "exists" | "error"> {
+    const { data: existing } = await (supabase.from("campaign_influencers") as any)
+      .select("influencer_id")
+      .eq("campaign_id", campaign.id)
+      .eq("influencer_id", influencerId);
+    if (existing && existing.length > 0) return "exists";
+
+    const { data: recent } = await (supabase.from("campaign_influencers") as any)
+      .select("partnership_type")
+      .eq("influencer_id", influencerId)
+      .order("added_at", { ascending: false })
+      .limit(1);
+    const ptype = (recent?.[0]?.partnership_type as string) || "unassigned";
+
+    const { error } = await (supabase.from("campaign_influencers") as any).insert({
+      campaign_id: campaign.id,
+      influencer_id: influencerId,
+      partnership_type: ptype,
+    });
+    return error ? "error" : "added";
   }
 
   // Remove from the PR list = demote back to regular recurring gifting.
@@ -402,6 +485,76 @@ export default function GiftingDashboardPage() {
                 </ResponsiveContainer>
               )}
             </div>
+          </div>
+
+          {/* Top taggers — last 90 days */}
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-4">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
+              <h2 className="text-sm font-medium text-gray-900">Top taggers</h2>
+              <span className="text-xs text-gray-400">last 90 days</span>
+            </div>
+
+            {taggersLoading ? (
+              <div className="px-6 py-10 text-sm text-gray-400 text-center">Loading…</div>
+            ) : !topTaggers || topTaggers.length === 0 ? (
+              <div className="px-6 py-12 text-center">
+                <p className="text-sm text-gray-500">No tags logged in the last 90 days.</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Tags come from the Content Posted field on recent campaigns.
+                </p>
+              </div>
+            ) : (
+              <ul>
+                {topTaggers.map((t, i) => (
+                  <li
+                    key={t.influencer_id}
+                    className="flex items-center gap-3 px-6 py-3 border-b border-gray-50 last:border-b-0 hover:bg-gray-50 transition-colors"
+                  >
+                    <span className="w-4 text-xs font-medium text-gray-400 flex-shrink-0 text-right">
+                      {i + 1}
+                    </span>
+                    {t.photo ? (
+                      <Image
+                        src={t.photo}
+                        alt={t.name}
+                        width={36}
+                        height={36}
+                        className="rounded-full flex-shrink-0 object-cover h-9 w-9"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="h-9 w-9 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                        <span className="text-xs font-medium text-gray-500">{initials(t.name)}</span>
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium text-gray-900 truncate">{t.name}</div>
+                      {t.handle && (
+                        <div className="text-xs text-gray-400 truncate">
+                          @{t.handle.replace(/^@/, "")}
+                        </div>
+                      )}
+                    </div>
+                    <div className="hidden sm:block text-right mr-2 min-w-0">
+                      <div className="text-sm font-medium text-gray-900">
+                        {t.total} {t.total === 1 ? "tag" : "tags"}
+                      </div>
+                      {tagBreakdownLabel(t.breakdown) && (
+                        <div className="text-xs text-gray-400 truncate">
+                          {tagBreakdownLabel(t.breakdown)}
+                        </div>
+                      )}
+                    </div>
+                    <TopTaggerActions
+                      tagger={t}
+                      campaigns={activeCampaigns}
+                      onAddToPrList={promoteToPrList}
+                      onAddToCampaign={addInfluencerToCampaign}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           {/* PR list table */}
@@ -674,6 +827,118 @@ export default function GiftingDashboardPage() {
           influencer={orderInfluencer}
           campaignInfluencer={virtualCampaignInfluencer(orderInfluencer)}
         />
+      )}
+    </div>
+  );
+}
+
+// Per-row quick actions for a top tagger: add to a campaign (dropdown of
+// active/planning campaigns) or promote to the PR list.
+function TopTaggerActions({
+  tagger,
+  campaigns,
+  onAddToPrList,
+  onAddToCampaign,
+}: {
+  tagger: TopTagger;
+  campaigns: Campaign[];
+  onAddToPrList: (influencerId: string) => Promise<void>;
+  onAddToCampaign: (
+    influencerId: string,
+    campaign: Campaign,
+  ) => Promise<"added" | "exists" | "error">;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [prBusy, setPrBusy] = useState(false);
+  const [campBusy, setCampBusy] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const onList = tagger.partnership_type === "pr_list";
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (!feedback) return;
+    const t = setTimeout(() => setFeedback(""), 2000);
+    return () => clearTimeout(t);
+  }, [feedback]);
+
+  async function handlePr() {
+    setPrBusy(true);
+    await onAddToPrList(tagger.influencer_id);
+    setPrBusy(false);
+  }
+
+  async function handleCampaign(campaign: Campaign) {
+    setMenuOpen(false);
+    setCampBusy(true);
+    const result = await onAddToCampaign(tagger.influencer_id, campaign);
+    setCampBusy(false);
+    setFeedback(
+      result === "added"
+        ? `Added to ${campaign.name}`
+        : result === "exists"
+          ? "Already in campaign"
+          : "Couldn't add",
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 flex-shrink-0">
+      {feedback && <span className="text-xs text-gray-400">{feedback}</span>}
+
+      {/* Add to campaign */}
+      <div className="relative" ref={menuRef}>
+        <button
+          onClick={() => setMenuOpen((o) => !o)}
+          disabled={campBusy || campaigns.length === 0}
+          title={campaigns.length === 0 ? "No active campaigns" : "Add to campaign"}
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-gray-700 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Campaign
+          <ChevronDown className="h-3 w-3 text-gray-400" />
+        </button>
+        {menuOpen && (
+          <div className="absolute right-0 z-20 mt-1 w-56 max-h-72 overflow-y-auto bg-white border border-gray-200 rounded-md shadow-lg py-1">
+            {campaigns.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => handleCampaign(c)}
+                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 truncate"
+              >
+                {c.name}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Add to PR list */}
+      {onList ? (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-emerald-600">
+          <Check className="h-3.5 w-3.5" />
+          On list
+        </span>
+      ) : (
+        <button
+          onClick={handlePr}
+          disabled={prBusy}
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors disabled:opacity-50"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          {prBusy ? "Adding…" : "PR list"}
+        </button>
       )}
     </div>
   );
