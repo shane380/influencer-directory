@@ -78,6 +78,37 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Tags = content posted (any medium) on a campaign influencer, attributed to
+  // the campaign's start month. Aggregated across all mediums and campaigns.
+  const { data: campaignRows } = await (db.from("campaigns") as any)
+    .select("id, start_date")
+    .gte("start_date", earliestMonthStartDay)
+    .lte("start_date", `${todayDay}T23:59:59.999Z`);
+
+  const campaignMonth = new Map<string, string>(); // campaign_id -> YYYY-MM
+  const campaignIds: string[] = [];
+  for (const c of (campaignRows as any[]) || []) {
+    if (!c.start_date) continue;
+    campaignMonth.set(c.id, String(c.start_date).slice(0, 7));
+    campaignIds.push(c.id);
+  }
+
+  const currentMonthKey = currentMonthStartDay.slice(0, 7);
+  const tagsByMonth = new Map<string, number>();
+  let tagsThisMonth = 0;
+  if (campaignIds.length > 0) {
+    const { data: ciRows } = await (db.from("campaign_influencers") as any)
+      .select("campaign_id, content_posted")
+      .in("campaign_id", campaignIds)
+      .neq("content_posted", "none");
+    for (const ci of (ciRows as any[]) || []) {
+      const m = campaignMonth.get(ci.campaign_id);
+      if (!m) continue;
+      tagsByMonth.set(m, (tagsByMonth.get(m) || 0) + 1);
+      if (m === currentMonthKey) tagsThisMonth++;
+    }
+  }
+
   // Build the monthly series walking back from the current month.
   const months: string[] = [];
   for (let i = monthCount - 1; i >= 0; i--) {
@@ -87,6 +118,7 @@ export async function GET(request: NextRequest) {
   const series = months.map((m) => ({
     date: `${m}-01`,
     gifts: byMonth.get(m) || 0,
+    tags: tagsByMonth.get(m) || 0,
   }));
 
   return NextResponse.json({
@@ -94,5 +126,6 @@ export async function GET(request: NextRequest) {
     series,
     gifts_this_month: giftsThisMonth,
     growth_pct_vs_last_month: pct(giftsThisMonth, giftsPrevMonthMatch),
+    tags_this_month: tagsThisMonth,
   });
 }

@@ -19,6 +19,7 @@ import {
   XAxis,
   YAxis,
   Tooltip,
+  Legend,
 } from "recharts";
 
 type Range = "6m" | "12m";
@@ -30,9 +31,10 @@ const RANGE_OPTIONS: RangeOption<Range>[] = [
 
 type GiftStats = {
   range: Range;
-  series: Array<{ date: string; gifts: number }>;
+  series: Array<{ date: string; gifts: number; tags: number }>;
   gifts_this_month: number;
   growth_pct_vs_last_month: number | null;
+  tags_this_month: number;
 };
 
 type GiftStatus = "green" | "yellow" | "red";
@@ -295,9 +297,10 @@ export default function GiftingDashboardPage() {
   }
 
   const onPrList = prList?.length ?? 0;
-  const dueSoon = (prList || []).filter((p) => p.status === "yellow").length;
-  const overdue = (prList || []).filter((p) => p.status === "red").length;
-  const maxGifts = Math.max(1, ...((stats?.series || []).map((s) => s.gifts)));
+  const maxGifts = Math.max(
+    1,
+    ...((stats?.series || []).flatMap((s) => [s.gifts, s.tags])),
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -317,7 +320,7 @@ export default function GiftingDashboardPage() {
           </div>
 
           {/* KPI row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+          <div className="grid grid-cols-2 gap-2 mb-3">
             {statsLoading || !stats ? (
               <KpiCard label="Gifts sent this month" value="—" />
             ) : (
@@ -341,26 +344,16 @@ export default function GiftingDashboardPage() {
               />
             )}
             <KpiCard
-              label="On PR list"
-              value={prLoading ? "—" : onPrList.toLocaleString()}
-            />
-            <KpiCard
-              label="Due soon"
-              value={prLoading ? "—" : dueSoon.toLocaleString()}
-              subtitle="4–9 weeks"
-            />
-            <KpiCard
-              label="Overdue"
-              value={prLoading ? "—" : overdue.toLocaleString()}
-              subtitle="10+ weeks"
-              subtitleTone={overdue > 0 ? "danger" : "default"}
+              label="Tags this month"
+              value={statsLoading || !stats ? "—" : stats.tags_this_month.toLocaleString()}
+              subtitle="posts across all campaigns"
             />
           </div>
 
           {/* Gifts per month chart */}
           <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-medium text-gray-900">Gifts sent per month</h2>
+              <h2 className="text-sm font-medium text-gray-900">Gifts &amp; tags per month</h2>
               <RangePicker<Range> value={range} onChange={setRange} options={RANGE_OPTIONS} />
             </div>
             <div className="h-64">
@@ -387,14 +380,24 @@ export default function GiftingDashboardPage() {
                     <Tooltip
                       cursor={{ fill: "#f9fafb" }}
                       labelFormatter={(v) => monthLabel(String(v))}
-                      formatter={(value) => [`${value} gifts`, "Gifts"]}
+                      formatter={(value, name) => [
+                        `${value}`,
+                        name === "tags" ? "Tags" : "Gifts",
+                      ]}
                       contentStyle={{
                         fontSize: 12,
                         borderRadius: 8,
                         border: "1px solid #e5e7eb",
                       }}
                     />
-                    <Bar dataKey="gifts" fill="#ec4899" radius={[4, 4, 0, 0]} maxBarSize={48} />
+                    <Legend
+                      iconType="circle"
+                      iconSize={8}
+                      wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+                      formatter={(value) => (value === "tags" ? "Tags" : "Gifts")}
+                    />
+                    <Bar name="gifts" dataKey="gifts" fill="#ec4899" radius={[4, 4, 0, 0]} maxBarSize={48} />
+                    <Bar name="tags" dataKey="tags" fill="#8b5cf6" radius={[4, 4, 0, 0]} maxBarSize={48} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -406,6 +409,9 @@ export default function GiftingDashboardPage() {
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <div className="flex items-center gap-3">
                 <h2 className="text-sm font-medium text-gray-900">PR List</h2>
+                <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                  {prLoading ? "—" : `${onPrList.toLocaleString()} total`}
+                </span>
                 <span className="text-xs text-gray-400">
                   Recurring gifting · target every 30–45 days
                 </span>
