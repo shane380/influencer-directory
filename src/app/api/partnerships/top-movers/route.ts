@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { resolveWindow, previousWindow } from "@/lib/partnerships/window";
 import { loadProfiles, resolveCreatorIds } from "@/lib/partnerships/lookup";
+import { fetchAllRows } from "@/lib/partnerships/paginate";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -93,11 +94,15 @@ async function affiliateMovers(
   const codes = Array.from(entryByCode.keys());
   if (codes.length === 0) return [];
 
-  const { data: revRows } = await db.from("creator_code_revenue_daily")
-    .select("affiliate_code, date, gross_amount")
-    .in("affiliate_code", codes)
-    .gte("date", prevStart)
-    .lte("date", end);
+  const revRows = await fetchAllRows((from, to) =>
+    db.from("creator_code_revenue_daily")
+      .select("affiliate_code, date, gross_amount")
+      .in("affiliate_code", codes)
+      .gte("date", prevStart)
+      .lte("date", end)
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
 
   const cur = new Map<string, number>();
   const prev = new Map<string, number>();
@@ -134,10 +139,14 @@ async function affiliateMovers(
 async function whitelistingMovers(
   db: any, start: string, end: string, prevStart: string, prevEnd: string,
 ): Promise<Mover[]> {
-  const { data: rows } = await db.from("creator_ad_performance_daily")
-    .select("influencer_id, instagram_handle, date, spend, purchase_value")
-    .gte("date", prevStart)
-    .lte("date", end);
+  const rows = await fetchAllRows((from, to) =>
+    db.from("creator_ad_performance_daily")
+      .select("influencer_id, instagram_handle, date, spend, purchase_value")
+      .gte("date", prevStart)
+      .lte("date", end)
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
 
   // Key by influencer_id, falling back to instagram_handle when unlinked.
   // Ranked by conversion value (revenue their ads generated); ROAS is a subline.

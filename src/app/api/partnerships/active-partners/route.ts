@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/partnerships/paginate";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -45,7 +46,7 @@ export async function GET(_request: NextRequest) {
     creatorsRes,
     legacyRes,
     adPerfRes,
-    adActivityRes,
+    adActivity,
   ] = await Promise.all([
     (db.from("creators") as any)
       .select("id, creator_name, affiliate_code, commission_rate, invite_id, onboarded_at")
@@ -55,9 +56,14 @@ export async function GET(_request: NextRequest) {
       .eq("status", "active"),
     (db.from("creator_ad_performance") as any)
       .select("influencer_id, instagram_handle, ads"),
-    (db.from("creator_ad_performance_daily") as any)
-      .select("influencer_id, date, spend, impressions")
-      .gte("date", yearAgoDay),
+    // Per-ad-per-day rows over 365 days blow past the 1000-row cap — paginate.
+    fetchAllRows((from, to) =>
+      (db.from("creator_ad_performance_daily") as any)
+        .select("influencer_id, date, spend, impressions")
+        .gte("date", yearAgoDay)
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
   ]);
 
   const creatorList = (creatorsRes.data || []) as any[];
@@ -117,7 +123,7 @@ export async function GET(_request: NextRequest) {
     .filter(Boolean) as string[];
   const allCodes = Array.from(new Set([...partnerCodes, ...legacyCodes]));
 
-  const [influencersRes, revenueRes] = await Promise.all([
+  const [influencersRes, revenue] = await Promise.all([
     allInfluencerIds.size > 0
       ? db
           .from("influencers")
@@ -125,12 +131,16 @@ export async function GET(_request: NextRequest) {
           .in("id", Array.from(allInfluencerIds))
       : Promise.resolve({ data: [] as any[] }),
     allCodes.length > 0
-      ? (db.from("creator_code_revenue_daily") as any)
-          .select("affiliate_code, date, gross_amount, order_count")
-          .in("affiliate_code", allCodes)
-          .gte("date", yearAgoDay)
-          .lte("date", todayDay)
-      : Promise.resolve({ data: [] as any[] }),
+      ? fetchAllRows((from, to) =>
+          (db.from("creator_code_revenue_daily") as any)
+            .select("affiliate_code, date, gross_amount, order_count")
+            .in("affiliate_code", allCodes)
+            .gte("date", yearAgoDay)
+            .lte("date", todayDay)
+            .order("id", { ascending: true })
+            .range(from, to),
+        )
+      : Promise.resolve([] as any[]),
   ]);
 
   const influencersById = new Map<string, { name: string | null; instagram_handle: string | null; profile_photo_url: string | null; shopify_order_id: string | null; shopify_order_status: string | null; product_selections: any[] | null }>();
@@ -147,7 +157,7 @@ export async function GET(_request: NextRequest) {
 
   // 5. Aggregate revenue per affiliate_code.
   const revenueByCode = new Map<string, { revenue_mtd: number; orders_mtd: number; lastOrderDay: string | null }>();
-  for (const row of (revenueRes.data || []) as any[]) {
+  for (const row of (revenue || []) as any[]) {
     const code = String(row.affiliate_code).toUpperCase();
     const acc = revenueByCode.get(code) || { revenue_mtd: 0, orders_mtd: 0, lastOrderDay: null };
     const d = String(row.date).slice(0, 10);
@@ -178,7 +188,7 @@ export async function GET(_request: NextRequest) {
   // 7. Ad spend MTD + last activity per influencer.
   const lastAdActivityByInfluencer = new Map<string, string>();
   const adSpendMtdByInfluencer = new Map<string, number>();
-  for (const row of (adActivityRes.data || []) as any[]) {
+  for (const row of (adActivity || []) as any[]) {
     if (!row.influencer_id) continue;
     const id = String(row.influencer_id);
     const d = String(row.date).slice(0, 10);

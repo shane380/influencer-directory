@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { resolveWindow, buildDayList, buildMonthList, granularityFor } from "@/lib/partnerships/window";
 import { loadProfiles, resolveCreatorIds } from "@/lib/partnerships/lookup";
+import { fetchAllRows } from "@/lib/partnerships/paginate";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -52,10 +53,14 @@ export async function GET(request: NextRequest) {
   };
 
   // 1. Daily ad rows in the window → per-creator totals + spend series.
-  const { data: rows } = await (db.from("creator_ad_performance_daily") as any)
-    .select("influencer_id, instagram_handle, date, spend, impressions, outbound_clicks, purchase_value")
-    .gte("date", start)
-    .lte("date", end);
+  const rows = await fetchAllRows((from, to) =>
+    (db.from("creator_ad_performance_daily") as any)
+      .select("influencer_id, instagram_handle, date, spend, impressions, outbound_clicks, purchase_value")
+      .gte("date", start)
+      .lte("date", end)
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
   for (const row of (rows as any[]) || []) {
     const agg = ensure((row.influencer_id as string | null) || null, (row.instagram_handle as string | null) || null);
     if (!agg) continue;

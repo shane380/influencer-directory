@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { resolveWindow, previousWindow, buildDayList, buildMonthList, granularityFor } from "@/lib/partnerships/window";
+import { fetchAllRows } from "@/lib/partnerships/paginate";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -55,11 +56,15 @@ export async function GET(request: NextRequest) {
   }
 
   // Daily revenue rows across current + previous window.
-  const { data: rows } = await (db.from("creator_code_revenue_daily") as any)
-    .select("affiliate_code, date, gross_amount, order_count")
-    .in("affiliate_code", activeCodes)
-    .gte("date", prevStart)
-    .lte("date", end);
+  const rows = await fetchAllRows((from, to) =>
+    (db.from("creator_code_revenue_daily") as any)
+      .select("affiliate_code, date, gross_amount, order_count")
+      .in("affiliate_code", activeCodes)
+      .gte("date", prevStart)
+      .lte("date", end)
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
 
   type Row = { affiliate_code: string; date: string; gross_amount: number; order_count: number };
   const data: Row[] = ((rows as any[]) || []).map((r) => ({

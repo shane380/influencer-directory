@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { resolveWindow, previousWindow, buildDayList, buildMonthList, granularityFor } from "@/lib/partnerships/window";
+import { fetchAllRows } from "@/lib/partnerships/paginate";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -29,10 +30,14 @@ export async function GET(request: NextRequest) {
 
   // Daily spend + purchase_value across current + previous window. Numerator and
   // denominator (ROAS) share the same daily table — no jsonb-blob mixing.
-  const { data: dailyRows } = await (db.from("creator_ad_performance_daily") as any)
-    .select("date, spend, purchase_value")
-    .gte("date", prevStart)
-    .lte("date", end);
+  const dailyRows = await fetchAllRows((from, to) =>
+    (db.from("creator_ad_performance_daily") as any)
+      .select("date, spend, purchase_value")
+      .gte("date", prevStart)
+      .lte("date", end)
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
 
   const byDay = new Map<string, { spend: number; purchase_value: number }>();
   let curSpend = 0, curPurchaseValue = 0, prevSpend = 0;
