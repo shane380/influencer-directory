@@ -2522,10 +2522,22 @@ function MoversCard({
   const valid = !!movers && movers.category === category;
   const risers = valid ? movers!.risers : [];
   const fallers = valid ? movers!.fallers : [];
+  // Label the dollar column so it's clear what the value represents.
+  const metricLabel = category === "whitelisting" ? "Ad spend" : "Revenue";
   return (
     <div className="bg-white border border-gray-200 rounded-lg px-4 py-3.5">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-[13px] font-medium text-gray-900">Top movers</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-[13px] font-medium text-gray-900">Top movers</h2>
+          {category === "whitelisting" && (
+            <a
+              href={`/partnerships/whitelisting?start=${range.start}&end=${range.end}&preset=${range.preset}`}
+              className="text-[11px] text-blue-600 hover:text-blue-700 hover:underline"
+            >
+              View more →
+            </a>
+          )}
+        </div>
         <span className="text-[10px] text-gray-500 uppercase tracking-wider">{describeRange(range)}</span>
       </div>
       {loading || !valid ? (
@@ -2538,8 +2550,8 @@ function MoversCard({
         <div className="text-xs text-gray-500 py-4 text-center">No movement in this window</div>
       ) : (
         <div className="space-y-3">
-          <MoverGroup title="Trending up" dir="up" movers={risers} category={category} />
-          <MoverGroup title="Trending down" dir="down" movers={fallers} category={category} />
+          <MoverGroup title="Trending up" dir="up" movers={risers} category={category} metricLabel={metricLabel} />
+          <MoverGroup title="Trending down" dir="down" movers={fallers} category={category} metricLabel={metricLabel} />
         </div>
       )}
     </div>
@@ -2551,17 +2563,22 @@ function MoverGroup({
   dir,
   movers,
   category,
+  metricLabel,
 }: {
   title: string;
   dir: "up" | "down";
   movers: Mover[];
   category: OverviewCategory;
+  metricLabel: string;
 }) {
   if (movers.length === 0) return null;
   const pctTone = dir === "up" ? "text-green-600" : "text-red-600";
   return (
     <div>
-      <div className={`text-[10px] font-medium uppercase tracking-wider mb-1.5 ${pctTone}`}>{title}</div>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className={`text-[10px] font-medium uppercase tracking-wider ${pctTone}`}>{title}</span>
+        <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">{metricLabel} · Δ vs prev</span>
+      </div>
       <div className="space-y-0.5">
         {movers.map((m) => {
           const displayName = toTitleCase(m.name) || m.handle || "—";
