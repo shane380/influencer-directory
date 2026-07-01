@@ -155,7 +155,7 @@ export default function WhitelistingDetailPage() {
     const dates = data?.dates || [];
     return dates.map((date) => {
       const row: Record<string, number | string> = { date };
-      for (const c of lineCreators) row[c.id] = c.series[date] || 0;
+      for (const c of lineCreators) row[c.id] = c.series?.[date] || 0;
       return row;
     });
   }, [data?.dates, lineCreators]);
@@ -295,7 +295,7 @@ export default function WhitelistingDetailPage() {
                     <div className="hidden group-hover:block absolute z-10 bottom-full left-0 mb-1.5 w-52 bg-white border border-gray-200 rounded-md shadow-lg px-3 py-2 text-xs">
                       <div className="font-medium text-gray-900 mb-1.5">{nameById.get(c.id)}</div>
                       <StatLine label="Spend" value={formatMoney(c.spend)} />
-                      <StatLine label="Outbound CTR" value={`${c.outbound_ctr.toFixed(2)}%`} />
+                      <StatLine label="Outbound CTR" value={`${(c.outbound_ctr ?? 0).toFixed(2)}%`} />
                       <StatLine label="Conversion value" value={formatMoney(c.purchase_value)} />
                       <StatLine label="ROAS" value={c.roas != null ? `${c.roas.toFixed(2)}x` : "—"} />
                     </div>

@@ -2520,7 +2520,15 @@ function MoversCard({
 }) {
   // Guard against showing the previous category's data mid-refetch.
   const valid = !!movers && movers.category === category;
-  const top = valid ? movers!.top : [];
+  // Tolerate an older API response shape ({risers,fallers}) during a deploy so a
+  // version skew can never crash the page on `undefined.length`.
+  const anyMovers = movers as any;
+  const rawTop = valid
+    ? Array.isArray(anyMovers.top)
+      ? anyMovers.top
+      : [...(anyMovers.risers ?? []), ...(anyMovers.fallers ?? [])]
+    : [];
+  const top: Mover[] = (Array.isArray(rawTop) ? rawTop : []).slice(0, 6);
   const title = category === "whitelisting" ? "Top whitelisters" : "Top affiliates";
   // Label the dollar column so it's clear what the value represents.
   const metricLabel = category === "whitelisting" ? "Conv. value" : "Revenue";
