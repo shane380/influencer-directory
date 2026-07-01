@@ -30,7 +30,7 @@ import { NotificationBadge } from "@/components/partnerships/notification-badge"
 import { EditTermsModal } from "@/components/edit-terms-modal";
 import { SubmissionReviewModal } from "@/components/submission-review-modal";
 import { KpiCard } from "@/components/partnerships/kpi-card";
-import { RangePicker, type RangeOption } from "@/components/partnerships/range-picker";
+import { DateRangePicker, resolveRange, type ResolvedRange } from "@/components/partnerships/date-range-picker";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -41,46 +41,53 @@ import {
   Tooltip,
 } from "recharts";
 
-type Range = "30d" | "90d" | "6m" | "12m";
+type OverviewCategory = "affiliate" | "whitelisting";
 
-const RANGE_OPTIONS: RangeOption<Range>[] = [
-  { value: "30d", label: "30D" },
-  { value: "90d", label: "90D" },
-  { value: "6m", label: "6M" },
-  { value: "12m", label: "12M" },
-];
-
-type AggregateRevenue = {
-  range: Range;
+type AffiliateStats = {
   window: { start: string; end: string };
+  granularity: "daily" | "monthly";
   series: Array<{ date: string; revenue: number; orders: number }>;
-  totals: { revenue: number; orders: number; growth_pct_vs_previous_period: number | null };
-  current_month: {
+  totals: {
     revenue: number;
     orders: number;
-    growth_pct_vs_last_month: number | null;
     aov: number;
     active_partners_with_sales: number;
+    growth_pct_vs_previous_period: number | null;
   };
 };
 
 type WhitelistingStats = {
-  ad_spend_mtd: number;
-  ad_spend_growth_pct: number | null;
-  roas: number | null;
-  ads_live: number;
-  whitelisted_partners_count: number;
+  window: { start: string; end: string };
+  granularity: "daily" | "monthly";
+  series: Array<{ date: string; spend: number; purchase_value: number }>;
+  totals: {
+    spend: number;
+    purchase_value: number;
+    roas: number | null;
+    ads_live: number;
+    whitelisted_partners_count: number;
+    growth_pct_vs_previous_period: number | null;
+  };
 };
 
-type TopPartner = {
+type Mover = {
   creator_id: string | null;
   influencer_id: string | null;
   name: string | null;
   handle: string | null;
   photo: string | null;
-  affiliate_code: string;
-  revenue: number;
-  orders: number;
+  current: number;
+  previous: number;
+  delta: number;
+  pct_change: number | null;
+  roas?: number | null;
+};
+
+type TopMovers = {
+  category: OverviewCategory;
+  window: { start: string; end: string };
+  risers: Mover[];
+  fallers: Mover[];
 };
 
 function formatMoney(n: number): string {
@@ -89,21 +96,28 @@ function formatMoney(n: number): string {
 function formatMoneyDecimals(n: number): string {
   return `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
-// Range label for the apples-to-apples MoM comparison.
-// The growth_pct_vs_last_month from the API compares current MTD (May 1→today)
-// against the same day-of-month range in the previous month (April 1→same DoM).
-// This produces the human-readable "April 1–24" label for that prior window.
-function previousMonthMatchRangeLabel(): string {
-  const today = new Date();
-  const dom = today.getUTCDate();
-  const prev = new Date(today);
-  prev.setUTCDate(1);
-  prev.setUTCMonth(prev.getUTCMonth() - 1);
-  const monthName = prev.toLocaleDateString("en", { month: "long" });
-  return dom === 1 ? `${monthName} 1` : `${monthName} 1–${dom}`;
+// Growth-vs-previous-window helpers, shared by the KPI cards and the chart strip.
+function growthSubtitle(p: number | null): string {
+  if (p == null) return "vs previous period";
+  return `${p >= 0 ? "↑" : "↓"} ${Math.abs(p)}% vs previous period`;
 }
-function currentMonthName(): string {
-  return new Date().toLocaleDateString("en", { month: "long" });
+function growthTone(p: number | null | undefined): "default" | "success" | "danger" {
+  if (p == null) return "default";
+  return p >= 0 ? "success" : "danger";
+}
+function growthValue(p: number | null | undefined): string {
+  if (p == null) return "—";
+  return `${p >= 0 ? "↑" : "↓"} ${Math.abs(p)}%`;
+}
+// Human label for the active window, used in card/chart headers.
+function describeRange(r: ResolvedRange): string {
+  switch (r.preset) {
+    case "7d": return "Last 7 days";
+    case "30d": return "Last 30 days";
+    case "90d": return "Last 90 days";
+    case "ytd": return "Year to date";
+    default: return `${r.start} → ${r.end}`;
+  }
 }
 
 // Title-case a display name for the Top partners card. Idempotent — only used at
@@ -282,14 +296,16 @@ export default function CreatorsListPage() {
   // Accepted gift card / flat fee invites awaiting fulfillment
   const [pendingOneOffs, setPendingOneOffs] = useState<any[]>([]);
 
-  // Overview header (KPI row + chart + side cards)
-  const [overviewRange, setOverviewRange] = useState<Range>("90d");
-  const [aggregateRevenue, setAggregateRevenue] = useState<AggregateRevenue | null>(null);
-  const [aggregateLoading, setAggregateLoading] = useState(true);
+  // Overview header (category toggle + shared range → KPIs + chart + movers)
+  const [overviewCategory, setOverviewCategory] = useState<OverviewCategory>("affiliate");
+  const [range, setRange] = useState<ResolvedRange>(() => resolveRange("30d"));
+  const [affiliateStats, setAffiliateStats] = useState<AffiliateStats | null>(null);
   const [whitelistingStats, setWhitelistingStats] = useState<WhitelistingStats | null>(null);
-  const [whitelistingLoading, setWhitelistingLoading] = useState(true);
-  const [topPartners, setTopPartners] = useState<TopPartner[] | null>(null);
-  const [topPartnersLoading, setTopPartnersLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [movers, setMovers] = useState<TopMovers | null>(null);
+  const [moversLoading, setMoversLoading] = useState(true);
+  // Partner-table search
+  const [partnerSearch, setPartnerSearch] = useState("");
 
   // Inbox: which group is expanded (single-open accordion)
   const [inboxExpanded, setInboxExpanded] = useState<"submissions" | "outfits" | "gift_cards" | null>(null);
@@ -567,43 +583,42 @@ export default function CreatorsListPage() {
     return () => clearTimeout(timer);
   }, [searchQuery, searchInfluencers]);
 
-  // Aggregate revenue refetches whenever the user toggles the range picker.
+  // Overview stats + movers refetch whenever the category or shared range changes.
+  // Only the active category's stats endpoint is hit; movers is category-aware.
   useEffect(() => {
     let cancelled = false;
-    setAggregateLoading(true);
-    fetch(`/api/partnerships/aggregate-revenue?range=${overviewRange}`)
+    setStatsLoading(true);
+    setMoversLoading(true);
+    const qs = `start=${range.start}&end=${range.end}`;
+    const statsUrl =
+      overviewCategory === "affiliate"
+        ? `/api/partnerships/aggregate-revenue?${qs}`
+        : `/api/partnerships/whitelisting-stats?${qs}`;
+    fetch(statsUrl)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (cancelled) return;
-        setAggregateRevenue(data);
-        setAggregateLoading(false);
+        if (overviewCategory === "affiliate") setAffiliateStats(data);
+        else setWhitelistingStats(data);
+        setStatsLoading(false);
       })
       .catch(() => {
+        if (!cancelled) setStatsLoading(false);
+      });
+    fetch(`/api/partnerships/top-movers?category=${overviewCategory}&${qs}&limit=5`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
         if (cancelled) return;
-        setAggregateLoading(false);
+        setMovers(data);
+        setMoversLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) setMoversLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [overviewRange]);
-
-  // Whitelisting + top-partners are MTD-only — fetched once on mount.
-  useEffect(() => {
-    fetch(`/api/partnerships/whitelisting-stats`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        setWhitelistingStats(data);
-        setWhitelistingLoading(false);
-      })
-      .catch(() => setWhitelistingLoading(false));
-    fetch(`/api/partnerships/top-partners?limit=5`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        setTopPartners(data?.partners || []);
-        setTopPartnersLoading(false);
-      })
-      .catch(() => setTopPartnersLoading(false));
-  }, []);
+  }, [overviewCategory, range.start, range.end]);
 
   async function handleQuickAddLookup() {
     const raw = quickAddHandle.trim();
@@ -971,6 +986,25 @@ export default function CreatorsListPage() {
     setPendingSubmissions((prev) => prev.filter((s) => s.status === "pending"));
   }
 
+  // Derived overview values — the KPI row, chart and totals all read from whichever
+  // category is active. Chart series is normalised to {date, primary, secondary}.
+  const overviewStats = overviewCategory === "affiliate" ? affiliateStats : whitelistingStats;
+  const granularity = overviewStats?.granularity ?? "daily";
+  const chartSeries =
+    overviewCategory === "affiliate"
+      ? (affiliateStats?.series || []).map((d) => ({ date: d.date, primary: d.revenue, secondary: d.orders }))
+      : (whitelistingStats?.series || []).map((d) => ({ date: d.date, primary: d.spend, secondary: d.purchase_value }));
+
+  // Partner-table search — filter by name/handle before sorting.
+  const partnerQuery = partnerSearch.trim().toLowerCase();
+  const filteredCreators = partnerQuery
+    ? creators.filter((c) => {
+        const name = (c.influencer?.name || c.creator_name || "").toLowerCase();
+        const handle = (c.influencer?.instagram_handle || "").toLowerCase();
+        return name.includes(partnerQuery) || handle.includes(partnerQuery);
+      })
+    : creators;
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
       <Sidebar
@@ -994,78 +1028,107 @@ export default function CreatorsListPage() {
             </button>
           </div>
 
-          {/* KPI row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
-            {aggregateLoading || !aggregateRevenue ? (
-              Array.from({ length: 4 }).map((_, i) => (
-                <KpiCardSkeleton key={i} />
-              ))
-            ) : (
-              <>
-                <KpiCard
-                  label="Affiliate revenue MTD"
-                  value={formatMoney(aggregateRevenue.current_month.revenue)}
-                  subtitle={
-                    aggregateRevenue.current_month.growth_pct_vs_last_month == null
-                      ? `vs ${previousMonthMatchRangeLabel()}`
-                      : `${aggregateRevenue.current_month.growth_pct_vs_last_month >= 0 ? "↑" : "↓"} ${Math.abs(aggregateRevenue.current_month.growth_pct_vs_last_month)}% vs ${previousMonthMatchRangeLabel()}`
-                  }
-                  subtitleTone={
-                    aggregateRevenue.current_month.growth_pct_vs_last_month == null
-                      ? "default"
-                      : aggregateRevenue.current_month.growth_pct_vs_last_month >= 0
-                        ? "success"
-                        : "danger"
-                  }
-                />
-                <KpiCard
-                  label="Orders MTD"
-                  value={aggregateRevenue.current_month.orders.toLocaleString()}
-                  subtitle={`${formatMoneyDecimals(aggregateRevenue.current_month.aov)} AOV`}
-                />
-                <KpiCard
-                  label="Ad spend MTD"
-                  value={whitelistingStats ? formatMoney(whitelistingStats.ad_spend_mtd) : "—"}
-                  subtitle={
-                    whitelistingStats?.roas != null
-                      ? `${whitelistingStats.roas.toFixed(2)}x ROAS`
-                      : "ROAS —"
-                  }
-                />
-                <KpiCard
-                  label="Active partners"
-                  value={creators.length.toLocaleString()}
-                  subtitle={`${aggregateRevenue.current_month.active_partners_with_sales} driving sales`}
-                />
-              </>
-            )}
+          {/* Overview controls — category toggle + shared date range */}
+          <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+            <div className="inline-flex bg-gray-100 rounded-md p-0.5">
+              {([
+                ["affiliate", "Affiliate"],
+                ["whitelisting", "Whitelisting"],
+              ] as const).map(([val, label]) => {
+                const active = overviewCategory === val;
+                return (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setOverviewCategory(val)}
+                    className={`px-3 py-1 text-xs rounded transition-colors ${
+                      active
+                        ? "bg-white text-gray-900 font-medium shadow-sm"
+                        : "bg-transparent text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <DateRangePicker value={range} onChange={setRange} />
           </div>
 
-          {/* Two-column overview: chart (left) + top partners + whitelisting (right) */}
+          {/* KPI row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+            {statsLoading || !overviewStats ? (
+              Array.from({ length: 4 }).map((_, i) => <KpiCardSkeleton key={i} />)
+            ) : overviewCategory === "affiliate" && affiliateStats ? (
+              <>
+                <KpiCard
+                  label="Affiliate revenue"
+                  value={formatMoney(affiliateStats.totals.revenue)}
+                  subtitle={growthSubtitle(affiliateStats.totals.growth_pct_vs_previous_period)}
+                  subtitleTone={growthTone(affiliateStats.totals.growth_pct_vs_previous_period)}
+                />
+                <KpiCard
+                  label="Orders"
+                  value={affiliateStats.totals.orders.toLocaleString()}
+                  subtitle={`${formatMoneyDecimals(affiliateStats.totals.aov)} AOV`}
+                />
+                <KpiCard label="AOV" value={formatMoneyDecimals(affiliateStats.totals.aov)} />
+                <KpiCard
+                  label="Affiliates with sales"
+                  value={affiliateStats.totals.active_partners_with_sales.toLocaleString()}
+                  subtitle="driving sales this period"
+                />
+              </>
+            ) : whitelistingStats ? (
+              <>
+                <KpiCard
+                  label="Whitelisting spend"
+                  value={formatMoney(whitelistingStats.totals.spend)}
+                  subtitle={growthSubtitle(whitelistingStats.totals.growth_pct_vs_previous_period)}
+                  subtitleTone={growthTone(whitelistingStats.totals.growth_pct_vs_previous_period)}
+                />
+                <KpiCard
+                  label="ROAS"
+                  value={whitelistingStats.totals.roas != null ? `${whitelistingStats.totals.roas.toFixed(2)}x` : "—"}
+                  subtitle={`${formatMoney(whitelistingStats.totals.purchase_value)} return`}
+                />
+                <KpiCard label="Purchase value" value={formatMoney(whitelistingStats.totals.purchase_value)} />
+                <KpiCard
+                  label="Ads live"
+                  value={whitelistingStats.totals.ads_live.toLocaleString()}
+                  subtitle={`${whitelistingStats.totals.whitelisted_partners_count} partners`}
+                />
+              </>
+            ) : null}
+          </div>
+
+          {/* Two-column overview: chart (left) + top movers (right) */}
           <div
             className="grid gap-3 mb-6"
             style={{ gridTemplateColumns: "1.7fr 1fr" }}
           >
-            {/* LEFT — Affiliate code revenue chart */}
+            {/* LEFT — category-aware chart */}
             <div className="bg-white border border-gray-200 rounded-lg px-4 py-3.5">
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-[13px] font-medium text-gray-900">Affiliate code revenue</h2>
-                <RangePicker<Range>
-                  value={overviewRange}
-                  onChange={setOverviewRange}
-                  options={RANGE_OPTIONS}
-                />
+                <h2 className="text-[13px] font-medium text-gray-900">
+                  {overviewCategory === "affiliate" ? "Affiliate code revenue" : "Whitelisting ad spend"}
+                </h2>
+                <span className="text-[10px] text-gray-500 uppercase tracking-wider">{describeRange(range)}</span>
               </div>
               <div className="h-56">
-                {aggregateLoading || !aggregateRevenue ? (
+                {statsLoading || !overviewStats ? (
                   <ChartSkeleton />
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={aggregateRevenue.series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                    <AreaChart data={chartSeries} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                       <defs>
                         <linearGradient id="revGradient" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#1D9E75" stopOpacity={0.25} />
                           <stop offset="100%" stopColor="#1D9E75" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="pvGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.18} />
+                          <stop offset="100%" stopColor="#3B82F6" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid stroke="#F3F4F6" vertical={false} />
@@ -1074,7 +1137,7 @@ export default function CreatorsListPage() {
                         tick={{ fontSize: 11, fill: "#6B7280" }}
                         tickFormatter={(d) => {
                           const date = new Date(d);
-                          if (overviewRange === "6m" || overviewRange === "12m") {
+                          if (granularity === "monthly") {
                             return date.toLocaleDateString("en", { month: "short" });
                           }
                           return date.toLocaleDateString("en", { month: "short", day: "numeric" });
@@ -1096,27 +1159,55 @@ export default function CreatorsListPage() {
                           const p = payload[0].payload;
                           const date = new Date(label);
                           return (
-                            <div className="bg-white border border-gray-200 rounded-md px-3 py-2 shadow-sm text-xs" style={{ minWidth: 140 }}>
+                            <div className="bg-white border border-gray-200 rounded-md px-3 py-2 shadow-sm text-xs" style={{ minWidth: 150 }}>
                               <div className="font-medium text-gray-900 mb-1">
-                                {overviewRange === "6m" || overviewRange === "12m"
+                                {granularity === "monthly"
                                   ? date.toLocaleDateString("en", { month: "long", year: "numeric" })
                                   : date.toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" })}
                               </div>
-                              <div className="flex items-center justify-between gap-3 text-gray-700">
-                                <span>Revenue</span>
-                                <span className="font-medium">{formatMoneyDecimals(p.revenue)}</span>
-                              </div>
-                              <div className="flex items-center justify-between gap-3 text-gray-700">
-                                <span>Orders</span>
-                                <span className="font-medium">{p.orders}</span>
-                              </div>
+                              {overviewCategory === "affiliate" ? (
+                                <>
+                                  <div className="flex items-center justify-between gap-3 text-gray-700">
+                                    <span>Revenue</span>
+                                    <span className="font-medium">{formatMoneyDecimals(p.primary)}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-3 text-gray-700">
+                                    <span>Orders</span>
+                                    <span className="font-medium">{p.secondary}</span>
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="flex items-center justify-between gap-3 text-gray-700">
+                                    <span>Spend</span>
+                                    <span className="font-medium">{formatMoneyDecimals(p.primary)}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-3 text-gray-700">
+                                    <span>Purchase value</span>
+                                    <span className="font-medium">{formatMoneyDecimals(p.secondary)}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-3 text-gray-700">
+                                    <span>ROAS</span>
+                                    <span className="font-medium">{p.primary > 0 ? `${(p.secondary / p.primary).toFixed(2)}x` : "—"}</span>
+                                  </div>
+                                </>
+                              )}
                             </div>
                           );
                         }}
                       />
+                      {overviewCategory === "whitelisting" && (
+                        <Area
+                          type="monotone"
+                          dataKey="secondary"
+                          stroke="#3B82F6"
+                          strokeWidth={1.5}
+                          fill="url(#pvGradient)"
+                        />
+                      )}
                       <Area
                         type="monotone"
-                        dataKey="revenue"
+                        dataKey="primary"
                         stroke="#1D9E75"
                         strokeWidth={2}
                         fill="url(#revGradient)"
@@ -1127,131 +1218,39 @@ export default function CreatorsListPage() {
               </div>
               {/* Totals strip */}
               <div className="border-t border-gray-200 mt-3 pt-3 flex items-center gap-6">
-                <ChartStat
-                  label="Period total"
-                  value={aggregateRevenue ? formatMoney(aggregateRevenue.totals.revenue) : "—"}
-                  loading={aggregateLoading}
-                />
-                <ChartStat
-                  label="Orders"
-                  value={aggregateRevenue ? aggregateRevenue.totals.orders.toLocaleString() : "—"}
-                  loading={aggregateLoading}
-                />
-                <ChartStat
-                  label="Growth"
-                  value={
-                    !aggregateRevenue
-                      ? "—"
-                      : aggregateRevenue.totals.growth_pct_vs_previous_period == null
-                        ? "—"
-                        : `${aggregateRevenue.totals.growth_pct_vs_previous_period >= 0 ? "↑" : "↓"} ${Math.abs(aggregateRevenue.totals.growth_pct_vs_previous_period)}%`
-                  }
-                  loading={aggregateLoading}
-                  tone={
-                    !aggregateRevenue || aggregateRevenue.totals.growth_pct_vs_previous_period == null
-                      ? "default"
-                      : aggregateRevenue.totals.growth_pct_vs_previous_period >= 0
-                        ? "success"
-                        : "danger"
-                  }
-                />
-              </div>
-            </div>
-
-            {/* RIGHT — Top partners + Whitelisting stacked */}
-            <div className="flex flex-col gap-3">
-              {/* Top partners card */}
-              <div className="bg-white border border-gray-200 rounded-lg px-4 py-3.5">
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-[13px] font-medium text-gray-900">Top affiliates</h2>
-                  <span className="text-[10px] text-gray-500 uppercase tracking-wider">{currentMonthName()}</span>
-                </div>
-                {topPartnersLoading ? (
-                  <div className="space-y-2">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="h-6 bg-gray-100 rounded animate-pulse" />
-                    ))}
-                  </div>
-                ) : (topPartners || []).length === 0 ? (
-                  <div className="text-xs text-gray-500 py-4 text-center">No sales this month yet</div>
-                ) : (
-                  <div className="space-y-1">
-                    {(topPartners || []).map((p, idx) => {
-                      const rank = idx + 1;
-                      const rankClasses =
-                        rank === 1
-                          ? "bg-amber-50 text-amber-800"
-                          : "bg-gray-100 text-gray-500";
-                      const displayName = toTitleCase(p.name) || p.handle || p.affiliate_code;
-                      const rowClass = "flex items-center gap-2 py-1.5 px-1 -mx-1 rounded transition-colors";
-                      const inner = (
-                        <>
-                          <span
-                            className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-medium flex-shrink-0 ${rankClasses}`}
-                          >
-                            {rank}
-                          </span>
-                          {p.photo ? (
-                            <img
-                              src={p.photo}
-                              alt=""
-                              className="w-8 h-8 rounded-full object-cover bg-gray-200 flex-shrink-0"
-                            />
-                          ) : (
-                            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-medium flex-shrink-0">
-                              {initialsFor(displayName)}
-                            </div>
-                          )}
-                          <span className="flex-1 min-w-0 text-sm text-gray-900 truncate">
-                            {displayName}
-                          </span>
-                          <span className="text-sm font-medium text-gray-900">{formatMoney(p.revenue)}</span>
-                        </>
-                      );
-                      // Only partners (with a creator account) have a detail page to link to.
-                      return p.creator_id ? (
-                        <a
-                          key={p.affiliate_code}
-                          href={`/partnerships/creators/${p.creator_id}`}
-                          className={`${rowClass} hover:bg-gray-50`}
-                        >
-                          {inner}
-                        </a>
-                      ) : (
-                        <div key={p.affiliate_code} className={rowClass}>
-                          {inner}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Whitelisting card */}
-              <div className="bg-white border border-gray-200 rounded-lg px-4 py-3.5">
-                <h2 className="text-[13px] font-medium text-gray-900 mb-3">Whitelisting</h2>
-                {whitelistingLoading || !whitelistingStats ? (
-                  <div className="space-y-2">
-                    {Array.from({ length: 4 }).map((_, i) => (
-                      <div key={i} className="h-5 bg-gray-100 rounded animate-pulse" />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-1.5 text-xs">
-                    <StatRow label="Ad spend MTD" value={formatMoney(whitelistingStats.ad_spend_mtd)} />
-                    <StatRow
-                      label="ROAS"
-                      value={whitelistingStats.roas != null ? `${whitelistingStats.roas.toFixed(2)}x` : "—"}
+                {overviewCategory === "affiliate" ? (
+                  <>
+                    <ChartStat label="Period revenue" value={affiliateStats ? formatMoney(affiliateStats.totals.revenue) : "—"} loading={statsLoading} />
+                    <ChartStat label="Orders" value={affiliateStats ? affiliateStats.totals.orders.toLocaleString() : "—"} loading={statsLoading} />
+                    <ChartStat
+                      label="Growth"
+                      value={growthValue(affiliateStats?.totals.growth_pct_vs_previous_period)}
+                      loading={statsLoading}
+                      tone={growthTone(affiliateStats?.totals.growth_pct_vs_previous_period)}
                     />
-                    <StatRow label="Ads live" value={whitelistingStats.ads_live.toLocaleString()} />
-                    <StatRow
-                      label="Whitelisted partners"
-                      value={whitelistingStats.whitelisted_partners_count.toLocaleString()}
+                  </>
+                ) : (
+                  <>
+                    <ChartStat label="Period spend" value={whitelistingStats ? formatMoney(whitelistingStats.totals.spend) : "—"} loading={statsLoading} />
+                    <ChartStat label="ROAS" value={whitelistingStats?.totals.roas != null ? `${whitelistingStats.totals.roas.toFixed(2)}x` : "—"} loading={statsLoading} />
+                    <ChartStat
+                      label="Growth"
+                      value={growthValue(whitelistingStats?.totals.growth_pct_vs_previous_period)}
+                      loading={statsLoading}
+                      tone={growthTone(whitelistingStats?.totals.growth_pct_vs_previous_period)}
                     />
-                  </div>
+                  </>
                 )}
               </div>
             </div>
+
+            {/* RIGHT — Top movers */}
+            <MoversCard
+              category={overviewCategory}
+              range={range}
+              movers={movers}
+              loading={moversLoading}
+            />
           </div>
 
           {/* Inbox — unified action queue across submissions, outfits, gift cards */}
@@ -1454,7 +1453,18 @@ export default function CreatorsListPage() {
           ) : creators.length === 0 ? (
             <p className="text-gray-500 text-sm">No active partners yet.</p>
           ) : (
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-3">
+            <div className="mb-3">
+              <div className="relative max-w-xs mb-2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={partnerSearch}
+                  onChange={(e) => setPartnerSearch(e.target.value)}
+                  placeholder="Search partners…"
+                  className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
+                />
+              </div>
+              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50">
@@ -1484,7 +1494,14 @@ export default function CreatorsListPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {[...creators].sort((a, b) => {
+                  {filteredCreators.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-500">
+                        No partners match &ldquo;{partnerSearch}&rdquo;.
+                      </td>
+                    </tr>
+                  )}
+                  {[...filteredCreators].sort((a, b) => {
                     if (sortKey === "name") {
                       const av = (a.influencer?.name || a.creator_name || "").toLowerCase();
                       const bv = (b.influencer?.name || b.creator_name || "").toLowerCase();
@@ -1671,6 +1688,7 @@ export default function CreatorsListPage() {
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
 
@@ -2483,6 +2501,116 @@ function StatRow({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between">
       <span className="text-gray-500">{label}</span>
       <span className="font-medium text-gray-900">{value}</span>
+    </div>
+  );
+}
+
+// Right-column leaderboard: biggest risers/fallers for the active category vs the
+// previous equal-length window. Ranked by dollar delta; % shown per row.
+function MoversCard({
+  category,
+  range,
+  movers,
+  loading,
+}: {
+  category: OverviewCategory;
+  range: ResolvedRange;
+  movers: TopMovers | null;
+  loading: boolean;
+}) {
+  // Guard against showing the previous category's data mid-refetch.
+  const valid = !!movers && movers.category === category;
+  const risers = valid ? movers!.risers : [];
+  const fallers = valid ? movers!.fallers : [];
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg px-4 py-3.5">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-[13px] font-medium text-gray-900">Top movers</h2>
+        <span className="text-[10px] text-gray-500 uppercase tracking-wider">{describeRange(range)}</span>
+      </div>
+      {loading || !valid ? (
+        <div className="space-y-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-8 bg-gray-100 rounded animate-pulse" />
+          ))}
+        </div>
+      ) : risers.length === 0 && fallers.length === 0 ? (
+        <div className="text-xs text-gray-500 py-4 text-center">No movement in this window</div>
+      ) : (
+        <div className="space-y-3">
+          <MoverGroup title="Trending up" dir="up" movers={risers} category={category} />
+          <MoverGroup title="Trending down" dir="down" movers={fallers} category={category} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MoverGroup({
+  title,
+  dir,
+  movers,
+  category,
+}: {
+  title: string;
+  dir: "up" | "down";
+  movers: Mover[];
+  category: OverviewCategory;
+}) {
+  if (movers.length === 0) return null;
+  const pctTone = dir === "up" ? "text-green-600" : "text-red-600";
+  return (
+    <div>
+      <div className={`text-[10px] font-medium uppercase tracking-wider mb-1.5 ${pctTone}`}>{title}</div>
+      <div className="space-y-0.5">
+        {movers.map((m) => {
+          const displayName = toTitleCase(m.name) || m.handle || "—";
+          const subline =
+            category === "whitelisting"
+              ? m.roas != null
+                ? `${m.roas.toFixed(2)}x ROAS`
+                : "—"
+              : m.handle
+                ? `@${m.handle}`
+                : "";
+          const pctText =
+            m.pct_change == null
+              ? m.previous > 0
+                ? "—"
+                : "New"
+              : `${m.pct_change >= 0 ? "↑" : "↓"} ${Math.abs(m.pct_change)}%`;
+          const rowClass = "flex items-center gap-2 py-1 px-1 -mx-1 rounded transition-colors";
+          const key = m.influencer_id || m.handle || displayName;
+          const inner = (
+            <>
+              {m.photo ? (
+                <img src={m.photo} alt="" className="w-8 h-8 rounded-full object-cover bg-gray-200 flex-shrink-0" />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-medium flex-shrink-0">
+                  {initialsFor(displayName)}
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="text-sm text-gray-900 truncate">{displayName}</div>
+                {subline ? <div className="text-[11px] text-gray-500 truncate">{subline}</div> : null}
+              </div>
+              <div className="text-right flex-shrink-0">
+                <div className="text-sm font-medium text-gray-900">{formatMoney(m.current)}</div>
+                <div className={`text-[11px] ${pctTone}`}>{pctText}</div>
+              </div>
+            </>
+          );
+          return m.creator_id ? (
+            <a key={key} href={`/partnerships/creators/${m.creator_id}`} className={`${rowClass} hover:bg-gray-50`}>
+              {inner}
+            </a>
+          ) : (
+            <div key={key} className={rowClass}>
+              {inner}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
