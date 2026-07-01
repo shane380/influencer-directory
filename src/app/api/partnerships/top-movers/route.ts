@@ -25,20 +25,14 @@ type Mover = {
   roas?: number | null;
 };
 
-// Rank into risers (biggest $ increase) + fallers (biggest $ decrease). Ranking
-// by dollar delta — not %, which explodes on tiny bases — surfaces who actually
-// moved the most money. Entries flat in both windows are dropped.
-function splitMovers(all: Mover[], limit: number): { risers: Mover[]; fallers: Mover[] } {
-  const active = all.filter((m) => m.current > 0 || m.previous > 0);
-  const risers = active
-    .filter((m) => m.delta > 0)
-    .sort((a, b) => b.delta - a.delta)
+// Straight leaderboard: rank by the value each creator generated this window
+// (affiliate = code revenue, whitelisting = conversion value) — NOT by growth.
+// pct_change is kept only as a per-row trend hint, never for ranking.
+function rankTop(all: Mover[], limit: number): Mover[] {
+  return all
+    .filter((m) => m.current > 0)
+    .sort((a, b) => b.current - a.current)
     .slice(0, limit);
-  const fallers = active
-    .filter((m) => m.delta < 0)
-    .sort((a, b) => a.delta - b.delta)
-    .slice(0, limit);
-  return { risers, fallers };
 }
 
 export async function GET(request: NextRequest) {
@@ -58,12 +52,11 @@ export async function GET(request: NextRequest) {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  if (category === "affiliate") {
-    const movers = await affiliateMovers(db, start, end, prevStart, prevEnd);
-    return NextResponse.json({ category, window: { start, end }, ...splitMovers(movers, limit) });
-  }
-  const movers = await whitelistingMovers(db, start, end, prevStart, prevEnd);
-  return NextResponse.json({ category, window: { start, end }, ...splitMovers(movers, limit) });
+  const movers =
+    category === "affiliate"
+      ? await affiliateMovers(db, start, end, prevStart, prevEnd)
+      : await whitelistingMovers(db, start, end, prevStart, prevEnd);
+  return NextResponse.json({ category, window: { start, end }, top: rankTop(movers, limit) });
 }
 
 async function affiliateMovers(
@@ -147,7 +140,8 @@ async function whitelistingMovers(
     .lte("date", end);
 
   // Key by influencer_id, falling back to instagram_handle when unlinked.
-  type Agg = { influencer_id: string | null; handle: string | null; curSpend: number; curPV: number; prevSpend: number };
+  // Ranked by conversion value (revenue their ads generated); ROAS is a subline.
+  type Agg = { influencer_id: string | null; handle: string | null; curSpend: number; curPV: number; prevPV: number };
   const byKey = new Map<string, Agg>();
   for (const row of (rows as any[]) || []) {
     const influencerId = (row.influencer_id as string | null) || null;
@@ -157,9 +151,9 @@ async function whitelistingMovers(
     const d = String(row.date).slice(0, 10);
     const spend = Number(row.spend || 0);
     const pv = Number(row.purchase_value || 0);
-    const agg = byKey.get(key) || { influencer_id: influencerId, handle, curSpend: 0, curPV: 0, prevSpend: 0 };
+    const agg = byKey.get(key) || { influencer_id: influencerId, handle, curSpend: 0, curPV: 0, prevPV: 0 };
     if (d >= start && d <= end) { agg.curSpend += spend; agg.curPV += pv; }
-    else if (d >= prevStart && d <= prevEnd) { agg.prevSpend += spend; }
+    else if (d >= prevStart && d <= prevEnd) { agg.prevPV += pv; }
     byKey.set(key, agg);
   }
 
@@ -171,8 +165,8 @@ async function whitelistingMovers(
   ]);
 
   return aggs.map((a) => {
-    const current = Math.round(a.curSpend * 100) / 100;
-    const previous = Math.round(a.prevSpend * 100) / 100;
+    const current = Math.round(a.curPV * 100) / 100;
+    const previous = Math.round(a.prevPV * 100) / 100;
     const inf = a.influencer_id ? profiles.get(a.influencer_id) : null;
     return {
       creator_id: a.influencer_id ? creatorByInfluencer.get(a.influencer_id) ?? null : null,

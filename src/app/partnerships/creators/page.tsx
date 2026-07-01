@@ -86,8 +86,7 @@ type Mover = {
 type TopMovers = {
   category: OverviewCategory;
   window: { start: string; end: string };
-  risers: Mover[];
-  fallers: Mover[];
+  top: Mover[];
 };
 
 function formatMoney(n: number): string {
@@ -2505,8 +2504,9 @@ function StatRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-// Right-column leaderboard: biggest risers/fallers for the active category vs the
-// previous equal-length window. Ranked by dollar delta; % shown per row.
+// Right-column leaderboard: the top creators by the value they generated this
+// window — affiliates by code revenue, whitelisters by conversion value. Ranked
+// purely by that value; the small ↑/↓ is a trend hint, not the ranking.
 function MoversCard({
   category,
   range,
@@ -2520,15 +2520,15 @@ function MoversCard({
 }) {
   // Guard against showing the previous category's data mid-refetch.
   const valid = !!movers && movers.category === category;
-  const risers = valid ? movers!.risers : [];
-  const fallers = valid ? movers!.fallers : [];
+  const top = valid ? movers!.top : [];
+  const title = category === "whitelisting" ? "Top whitelisters" : "Top affiliates";
   // Label the dollar column so it's clear what the value represents.
-  const metricLabel = category === "whitelisting" ? "Ad spend" : "Revenue";
+  const metricLabel = category === "whitelisting" ? "Conv. value" : "Revenue";
   return (
     <div className="bg-white border border-gray-200 rounded-lg px-4 py-3.5">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <h2 className="text-[13px] font-medium text-gray-900">Top movers</h2>
+          <h2 className="text-[13px] font-medium text-gray-900">{title}</h2>
           {category === "whitelisting" && (
             <a
               href={`/partnerships/whitelisting?start=${range.start}&end=${range.end}&preset=${range.preset}`}
@@ -2546,89 +2546,71 @@ function MoversCard({
             <div key={i} className="h-8 bg-gray-100 rounded animate-pulse" />
           ))}
         </div>
-      ) : risers.length === 0 && fallers.length === 0 ? (
-        <div className="text-xs text-gray-500 py-4 text-center">No movement in this window</div>
+      ) : top.length === 0 ? (
+        <div className="text-xs text-gray-500 py-4 text-center">No revenue in this window</div>
       ) : (
-        <div className="space-y-3">
-          <MoverGroup title="Trending up" dir="up" movers={risers} category={category} metricLabel={metricLabel} />
-          <MoverGroup title="Trending down" dir="down" movers={fallers} category={category} metricLabel={metricLabel} />
+        <div>
+          <div className="flex items-center justify-end mb-1.5">
+            <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">{metricLabel} · Δ vs prev</span>
+          </div>
+          <div className="space-y-0.5">
+            {top.map((m, i) => (
+              <MoverRow key={m.influencer_id || m.handle || m.name || ""} m={m} rank={i + 1} category={category} />
+            ))}
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-function MoverGroup({
-  title,
-  dir,
-  movers,
-  category,
-  metricLabel,
-}: {
-  title: string;
-  dir: "up" | "down";
-  movers: Mover[];
-  category: OverviewCategory;
-  metricLabel: string;
-}) {
-  if (movers.length === 0) return null;
-  const pctTone = dir === "up" ? "text-green-600" : "text-red-600";
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-1.5">
-        <span className={`text-[10px] font-medium uppercase tracking-wider ${pctTone}`}>{title}</span>
-        <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">{metricLabel} · Δ vs prev</span>
+function MoverRow({ m, rank, category }: { m: Mover; rank: number; category: OverviewCategory }) {
+  const tone = m.pct_change == null ? "text-gray-400" : m.pct_change >= 0 ? "text-green-600" : "text-red-600";
+  const displayName = toTitleCase(m.name) || m.handle || "—";
+  const subline =
+    category === "whitelisting"
+      ? m.roas != null
+        ? `${m.roas.toFixed(2)}x ROAS`
+        : "—"
+      : m.handle
+        ? `@${m.handle}`
+        : "";
+  const pctText =
+    m.pct_change == null
+      ? m.previous > 0
+        ? "—"
+        : "New"
+      : `${m.pct_change >= 0 ? "↑" : "↓"} ${Math.abs(m.pct_change)}%`;
+  const rankClasses = rank === 1 ? "bg-amber-50 text-amber-800" : "bg-gray-100 text-gray-500";
+  const rowClass = "flex items-center gap-2 py-1 px-1 -mx-1 rounded transition-colors";
+  const inner = (
+    <>
+      <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-medium flex-shrink-0 ${rankClasses}`}>
+        {rank}
+      </span>
+      {m.photo ? (
+        <img src={m.photo} alt="" className="w-8 h-8 rounded-full object-cover bg-gray-200 flex-shrink-0" />
+      ) : (
+        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-medium flex-shrink-0">
+          {initialsFor(displayName)}
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="text-sm text-gray-900 truncate">{displayName}</div>
+        {subline ? <div className="text-[11px] text-gray-500 truncate">{subline}</div> : null}
       </div>
-      <div className="space-y-0.5">
-        {movers.map((m) => {
-          const displayName = toTitleCase(m.name) || m.handle || "—";
-          const subline =
-            category === "whitelisting"
-              ? m.roas != null
-                ? `${m.roas.toFixed(2)}x ROAS`
-                : "—"
-              : m.handle
-                ? `@${m.handle}`
-                : "";
-          const pctText =
-            m.pct_change == null
-              ? m.previous > 0
-                ? "—"
-                : "New"
-              : `${m.pct_change >= 0 ? "↑" : "↓"} ${Math.abs(m.pct_change)}%`;
-          const rowClass = "flex items-center gap-2 py-1 px-1 -mx-1 rounded transition-colors";
-          const key = m.influencer_id || m.handle || displayName;
-          const inner = (
-            <>
-              {m.photo ? (
-                <img src={m.photo} alt="" className="w-8 h-8 rounded-full object-cover bg-gray-200 flex-shrink-0" />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-medium flex-shrink-0">
-                  {initialsFor(displayName)}
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <div className="text-sm text-gray-900 truncate">{displayName}</div>
-                {subline ? <div className="text-[11px] text-gray-500 truncate">{subline}</div> : null}
-              </div>
-              <div className="text-right flex-shrink-0">
-                <div className="text-sm font-medium text-gray-900">{formatMoney(m.current)}</div>
-                <div className={`text-[11px] ${pctTone}`}>{pctText}</div>
-              </div>
-            </>
-          );
-          return m.creator_id ? (
-            <a key={key} href={`/partnerships/creators/${m.creator_id}`} className={`${rowClass} hover:bg-gray-50`}>
-              {inner}
-            </a>
-          ) : (
-            <div key={key} className={rowClass}>
-              {inner}
-            </div>
-          );
-        })}
+      <div className="text-right flex-shrink-0">
+        <div className="text-sm font-medium text-gray-900">{formatMoney(m.current)}</div>
+        <div className={`text-[11px] ${tone}`}>{pctText}</div>
       </div>
-    </div>
+    </>
+  );
+  return m.creator_id ? (
+    <a href={`/partnerships/creators/${m.creator_id}`} className={`${rowClass} hover:bg-gray-50`}>
+      {inner}
+    </a>
+  ) : (
+    <div className={rowClass}>{inner}</div>
   );
 }
 
