@@ -153,9 +153,18 @@ export function CampaignStatsPanel({
   function computeRates(pool: CampaignInfluencer[]) {
     const poolApproved = pool.filter((ci) => ci.approval_status === "approved" || ci.approval_status === null);
     const poolContacted = poolApproved.filter((ci) => ci.status !== "prospect").length;
-    const poolReplied = poolApproved.filter(
-      (ci) => ci.status !== "prospect" && ci.status !== "followed_up" && ci.status !== "order_follow_up_two_sent"
-    ).length;
+    // Only statuses that imply the influencer actually wrote back.
+    // "contacted"/"followed_up" mean outreach sent with no reply yet;
+    // "lead_dead" means they never responded (or declined) and were written off.
+    const repliedStatuses: string[] = [
+      "creator_wants_paid",
+      "order_placed",
+      "order_delivered",
+      "order_follow_up_sent",
+      "order_follow_up_two_sent",
+      "posted",
+    ];
+    const poolReplied = poolApproved.filter((ci) => repliedStatuses.includes(ci.status)).length;
     const poolOrders = poolApproved.filter(
       (ci) => ci.shopify_order_status && (["draft", "fulfilled", "shipped", "delivered"] as string[]).includes(ci.shopify_order_status)
     ).length;
