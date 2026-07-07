@@ -511,14 +511,25 @@ export function OrderDialog({
       }
     } catch (err: any) {
       const errorMessage = err.message || "Failed to create customer";
+      const lowerMessage = errorMessage.toLowerCase();
+      const isConflict =
+        lowerMessage.includes("already exists") || lowerMessage.includes("taken");
 
-      // If email already exists, offer to find the customer
-      if (errorMessage.toLowerCase().includes("already exists") || errorMessage.toLowerCase().includes("taken")) {
-        setCustomerError("A customer with this email already exists in Shopify.");
+      // Shopify enforces uniqueness on both email and phone — report the field
+      // that actually conflicted and search for the existing customer by it.
+      if (isConflict) {
+        const conflictField = lowerMessage.includes("phone") ? "phone" : "email";
+        setCustomerError(
+          conflictField === "phone"
+            ? "A customer with this phone number already exists in Shopify."
+            : "A customer with this email already exists in Shopify."
+        );
         // Auto-search for the existing customer
         try {
+          const searchValue =
+            conflictField === "phone" ? newCustomerForm.phone : newCustomerForm.email;
           const searchResponse = await fetch(
-            `/api/shopify/customers?email=${encodeURIComponent(newCustomerForm.email)}`
+            `/api/shopify/customers?${conflictField}=${encodeURIComponent(searchValue)}`
           );
           if (searchResponse.ok) {
             const searchData = await searchResponse.json();
@@ -526,7 +537,9 @@ export function OrderDialog({
               setCustomerSearchResults(searchData.customers);
               setShowCreateCustomerForm(false);
               setShowCustomerSearch(true);
-              setCustomerError("Found existing customer with this email - click to select:");
+              setCustomerError(
+                `Found existing customer with this ${conflictField === "phone" ? "phone number" : "email"} - click to select:`
+              );
             }
           }
         } catch {

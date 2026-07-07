@@ -22,6 +22,19 @@ interface ShopifyCustomersResponse {
   customers: ShopifyCustomer[];
 }
 
+// Normalize phone to E.164 format for Shopify
+function normalizePhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 10) {
+    return `+1${digits}`;
+  } else if (digits.length === 11 && digits.startsWith("1")) {
+    return `+${digits}`;
+  } else if (!phone.startsWith("+")) {
+    return `+${digits}`;
+  }
+  return phone;
+}
+
 interface ShopifyCustomerResponse {
   customer: ShopifyCustomer;
 }
@@ -49,6 +62,7 @@ export async function GET(request: NextRequest) {
   const email = searchParams.get("email");
   const name = searchParams.get("name");
   const id = searchParams.get("id");
+  const phone = searchParams.get("phone");
 
   // If ID is provided, fetch single customer
   if (id) {
@@ -93,14 +107,16 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  if (!email && !name) {
-    return NextResponse.json({ error: "Email, name, or id is required" }, { status: 400 });
+  if (!email && !name && !phone) {
+    return NextResponse.json({ error: "Email, name, phone, or id is required" }, { status: 400 });
   }
 
-  // Build search query - search by email or name
+  // Build search query - search by email, phone, or name
   let query = "";
   if (email) {
     query = `email:${email}`;
+  } else if (phone) {
+    query = `phone:${normalizePhone(phone)}`;
   } else if (name) {
     query = name; // Shopify searches across name fields
   }
@@ -175,18 +191,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Customer ID is required" }, { status: 400 });
     }
 
-    // Normalize phone to E.164 format for Shopify
-    let normalizedPhone = phone || undefined;
-    if (normalizedPhone) {
-      const digits = normalizedPhone.replace(/\D/g, "");
-      if (digits.length === 10) {
-        normalizedPhone = `+1${digits}`;
-      } else if (digits.length === 11 && digits.startsWith("1")) {
-        normalizedPhone = `+${digits}`;
-      } else if (!normalizedPhone.startsWith("+")) {
-        normalizedPhone = `+${digits}`;
-      }
-    }
+    const normalizedPhone = phone ? normalizePhone(phone) : undefined;
 
     const customerData: {
       customer: {
@@ -326,18 +331,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
-    // Normalize phone to E.164 format for Shopify
-    let normalizedPhone = phone || undefined;
-    if (normalizedPhone) {
-      const digits = normalizedPhone.replace(/\D/g, "");
-      if (digits.length === 10) {
-        normalizedPhone = `+1${digits}`;
-      } else if (digits.length === 11 && digits.startsWith("1")) {
-        normalizedPhone = `+${digits}`;
-      } else if (!normalizedPhone.startsWith("+")) {
-        normalizedPhone = `+${digits}`;
-      }
-    }
+    const normalizedPhone = phone ? normalizePhone(phone) : undefined;
 
     const customerData: {
       customer: {
@@ -381,10 +375,17 @@ export async function POST(request: NextRequest) {
       const errorData = await response.json();
       console.error("Shopify API error:", errorData);
 
-      // Check for duplicate customer error
+      // Check for duplicate customer error — Shopify enforces uniqueness on
+      // both email and phone, and the two need different guidance in the UI.
       if (errorData.errors?.email?.[0]?.includes("taken")) {
         return NextResponse.json(
           { error: "A customer with this email already exists" },
+          { status: 409 }
+        );
+      }
+      if (errorData.errors?.phone?.[0]?.includes("taken")) {
+        return NextResponse.json(
+          { error: "A customer with this phone number already exists" },
           { status: 409 }
         );
       }
