@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, Plus, ShoppingCart, LayoutGrid, List } from "lucide-react";
+import { Search, Plus, ShoppingCart, LayoutGrid, List, Archive, ArchiveRestore } from "lucide-react";
 import Image from "next/image";
 import { useState, useMemo, useCallback } from "react";
 import { OrderDialog } from "@/components/order-dialog";
@@ -134,6 +134,14 @@ export function WhitelistingTab({
     onRefresh();
   }, [onRefresh]);
 
+  const handleArchiveToggle = useCallback(async (influencerId: string, archive: boolean) => {
+    const supabase = createClient();
+    await (supabase.from("influencers") as any)
+      .update({ whitelisting_archived_at: archive ? new Date().toISOString() : null })
+      .eq("id", influencerId);
+    onRefresh();
+  }, [onRefresh]);
+
   // Create a virtual campaign influencer for the order dialog
   const createVirtualCampaignInfluencer = (influencer: Influencer): CampaignInfluencer => ({
     id: `virtual-${influencer.id}`,
@@ -192,9 +200,16 @@ export function WhitelistingTab({
         return false;
       }
 
-      // Status filter
-      if (statusFilter !== "all" && influencer.relationship_status !== statusFilter) {
-        return false;
+      // Archived filter — archived influencers only appear under the "Archived" view
+      const isArchived = !!influencer.whitelisting_archived_at;
+      if (statusFilter === "archived") {
+        if (!isArchived) return false;
+      } else {
+        if (isArchived) return false;
+        // Status filter
+        if (statusFilter !== "all" && influencer.relationship_status !== statusFilter) {
+          return false;
+        }
       }
 
       // Deal status filter
@@ -249,6 +264,7 @@ export function WhitelistingTab({
           <option value="posted">Posted</option>
           <option value="lead_dead">Lead Dead</option>
           <option value="creator_wants_paid">Creator Wants Paid</option>
+          <option value="archived">Archived</option>
         </Select>
         <Select
           value={dealStatusFilter}
@@ -316,6 +332,7 @@ export function WhitelistingTab({
                     <TableHead>Whitelisting Type</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Order</TableHead>
+                    <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -389,6 +406,25 @@ export function WhitelistingTab({
                           </button>
                         )}
                       </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <button
+                          className="text-gray-400 hover:text-gray-700 transition-colors"
+                          title={
+                            influencer.whitelisting_archived_at
+                              ? "Restore to active list"
+                              : "Archive (hide from active list, keeps all data)"
+                          }
+                          onClick={() =>
+                            handleArchiveToggle(influencer.id, !influencer.whitelisting_archived_at)
+                          }
+                        >
+                          {influencer.whitelisting_archived_at ? (
+                            <ArchiveRestore className="h-4 w-4" />
+                          ) : (
+                            <Archive className="h-4 w-4" />
+                          )}
+                        </button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -397,7 +433,11 @@ export function WhitelistingTab({
           </div>
 
           <div className="mt-4 text-sm text-gray-500">
-            Showing {filteredInfluencers.length} of {influencers.length} whitelisting influencers
+            Showing {filteredInfluencers.length} of{" "}
+            {statusFilter === "archived"
+              ? `${influencers.filter((i) => i.whitelisting_archived_at).length} archived`
+              : influencers.filter((i) => !i.whitelisting_archived_at).length}{" "}
+            whitelisting influencers
           </div>
         </>
       ) : (

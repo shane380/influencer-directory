@@ -60,6 +60,7 @@ export interface Influencer {
   shopify_customer_id: string | null;
   whitelisting_enabled: boolean;
   whitelisting_type: WhitelistingType | null;
+  whitelisting_archived_at: string | null;
   product_selections: ProductSelection[] | null;
   shopify_order_id: string | null;
   shopify_order_status: ShopifyOrderStatus | null;
