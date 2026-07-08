@@ -15,7 +15,9 @@ interface ShopifyCustomer {
     province: string;
     zip: string;
     country: string;
+    country_code?: string | null;
   }[];
+  default_address?: { id: number } | null;
 }
 
 interface ShopifyCustomersResponse {
@@ -185,7 +187,7 @@ export async function PUT(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { id, email, first_name, last_name, phone, address } = body;
+    const { id, email, first_name, last_name, phone, address, country_code } = body;
 
     if (!id) {
       return NextResponse.json({ error: "Customer ID is required" }, { status: 400 });
@@ -239,36 +241,43 @@ export async function PUT(request: NextRequest) {
 
     const data: ShopifyCustomerResponse = await response.json();
 
-    // Update address separately if provided
-    if (address && data.customer.addresses?.[0]?.id) {
-      await fetch(
-        `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/customers/${id}/addresses/${data.customer.addresses[0].id}.json`,
-        {
-          method: "PUT",
-          headers: {
-            "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            address: { address1: address },
-          }),
-        }
-      );
-    } else if (address) {
-      // Create new address if none exists
-      await fetch(
-        `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/customers/${id}/addresses.json`,
-        {
-          method: "POST",
-          headers: {
-            "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            address: { address1: address },
-          }),
-        }
-      );
+    // Update the address when a street line and/or country was provided. Target
+    // the default address (what the shipping-name mapping reads) and keep it the
+    // default so the structured country_code lands on default_address.
+    if (address || country_code) {
+      const addressPayload = {
+        ...(address ? { address1: address } : {}),
+        ...(country_code ? { country_code } : {}),
+        default: true,
+      };
+      const targetAddressId =
+        data.customer.default_address?.id || data.customer.addresses?.[0]?.id;
+      if (targetAddressId) {
+        await fetch(
+          `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/customers/${id}/addresses/${targetAddressId}.json`,
+          {
+            method: "PUT",
+            headers: {
+              "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ address: addressPayload }),
+          }
+        );
+      } else {
+        // Create a new address if none exists
+        await fetch(
+          `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/customers/${id}/addresses.json`,
+          {
+            method: "POST",
+            headers: {
+              "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ address: addressPayload }),
+          }
+        );
+      }
     }
 
     // Fetch updated customer to get latest data
@@ -325,7 +334,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { email, first_name, last_name, phone, address } = body;
+    const { email, first_name, last_name, phone, address, country_code } = body;
 
     if (!email) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
@@ -339,7 +348,7 @@ export async function POST(request: NextRequest) {
         first_name?: string;
         last_name?: string;
         phone?: string;
-        addresses?: { address1: string; city?: string; province?: string; zip?: string; country?: string }[];
+        addresses?: { address1?: string; city?: string; province?: string; zip?: string; country_code?: string }[];
       };
     } = {
       customer: {
@@ -350,11 +359,14 @@ export async function POST(request: NextRequest) {
       },
     };
 
-    // Parse address if provided
-    if (address) {
+    // Attach a structured address when we have a street line and/or a country.
+    // Recording country_code is what lets the shipping-name mapping route
+    // orders without parsing free text later.
+    if (address || country_code) {
       customerData.customer.addresses = [
         {
-          address1: address,
+          ...(address ? { address1: address } : {}),
+          ...(country_code ? { country_code } : {}),
         },
       ];
     }

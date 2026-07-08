@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { CountrySelect } from "@/components/ui/country-select";
 import Image from "next/image";
 
 interface OrderDialogProps {
@@ -82,6 +83,7 @@ interface ShopifyCustomer {
     province: string;
     zip: string;
     country: string;
+    country_code?: string | null;
   } | null;
 }
 
@@ -136,6 +138,7 @@ export function OrderDialog({
     last_name: "",
     phone: "",
     address: "",
+    country: "US",
   });
 
   const [justAddedVariantId, setJustAddedVariantId] = useState<string | null>(null);
@@ -203,6 +206,7 @@ export function OrderDialog({
       last_name: nameParts.slice(1).join(" ") || "",
       phone: influencer.phone || "",
       address: influencer.mailing_address || "",
+      country: "US",
     });
   }, [open, campaignInfluencer, influencer]);
 
@@ -501,6 +505,7 @@ export function OrderDialog({
           last_name: newCustomerForm.last_name || undefined,
           phone: newCustomerForm.phone || undefined,
           address: newCustomerForm.address || undefined,
+          country_code: newCustomerForm.country || undefined,
         }),
       });
 
@@ -585,6 +590,7 @@ export function OrderDialog({
         last_name: shopifyCustomer.last_name || "",
         phone: shopifyCustomer.phone || "",
         address: shopifyCustomer.address?.address1 || "",
+        country: (shopifyCustomer.address?.country_code || "US").toUpperCase(),
       });
       setShowEditCustomerForm(true);
       setShowCreateCustomerForm(false);
@@ -609,6 +615,7 @@ export function OrderDialog({
           last_name: newCustomerForm.last_name || undefined,
           phone: newCustomerForm.phone || undefined,
           address: newCustomerForm.address || undefined,
+          country_code: newCustomerForm.country || undefined,
         }),
       });
 
@@ -1247,6 +1254,14 @@ export function OrderDialog({
                     />
                   </div>
                   <div>
+                    <Label htmlFor="edit_customer_country" className="text-sm">Country</Label>
+                    <CountrySelect
+                      id="edit_customer_country"
+                      value={newCustomerForm.country}
+                      onChange={(code) => setNewCustomerForm({ ...newCustomerForm, country: code })}
+                    />
+                  </div>
+                  <div>
                     <Label htmlFor="edit_customer_address" className="text-sm">Address</Label>
                     <Input
                       id="edit_customer_address"
@@ -1496,6 +1511,14 @@ export function OrderDialog({
                           value={newCustomerForm.phone}
                           onChange={(e) => setNewCustomerForm({ ...newCustomerForm, phone: e.target.value })}
                           placeholder="Phone number"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="new_customer_country" className="text-sm">Country</Label>
+                        <CountrySelect
+                          id="new_customer_country"
+                          value={newCustomerForm.country}
+                          onChange={(code) => setNewCustomerForm({ ...newCustomerForm, country: code })}
                         />
                       </div>
                       <div>
