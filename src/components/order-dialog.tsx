@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   Influencer,
@@ -137,6 +137,8 @@ export function OrderDialog({
     phone: "",
     address: "",
   });
+
+  const cartSectionRef = useRef<HTMLDivElement | null>(null);
 
   const [creatingOrder, setCreatingOrder] = useState(false);
   const [savingSelects, setSavingSelects] = useState(false);
@@ -411,6 +413,12 @@ export function OrderDialog({
         },
       ]);
     }
+
+    // The selects section renders below the fold on small screens — without
+    // this, adding an item gives no visible feedback at all.
+    setTimeout(() => {
+      cartSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 0);
   };
 
   const handleUpdateQuantity = (index: number, delta: number) => {
@@ -1854,7 +1862,7 @@ export function OrderDialog({
 
             {/* Cart / Selects */}
             {cart.length > 0 && (
-              <div>
+              <div ref={cartSectionRef}>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-medium flex items-center gap-2">
                     <ShoppingCart className="h-4 w-4" />
