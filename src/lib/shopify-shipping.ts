@@ -127,6 +127,34 @@ export function resolveDestCountry(address: {
   return null;
 }
 
+// Determine the destination bucket for a whole Shopify customer. Tries the
+// default address first (structured, then free-text); if that yields nothing,
+// falls back to the structured country_code on the customer's OTHER addresses —
+// Shopify often auto-creates a normalized structured copy of a free-text
+// default, so the country lives there. Only used when every structured address
+// agrees, so a customer with genuinely different-country addresses stays on the
+// safe manual fallback rather than getting a guessed (possibly wrong) name.
+export function resolveDestCountryForCustomer(
+  customer:
+    | {
+        default_address?: Parameters<typeof resolveDestCountry>[0];
+        addresses?: { country_code?: string | null }[] | null;
+      }
+    | null
+    | undefined
+): string | null {
+  if (!customer) return null;
+  const primary = resolveDestCountry(customer.default_address);
+  if (primary) return primary;
+
+  const buckets = new Set<string>();
+  for (const addr of customer.addresses || []) {
+    const bucket = bucketFromIso(addr.country_code);
+    if (bucket) buckets.add(bucket);
+  }
+  return buckets.size === 1 ? [...buckets][0] : null;
+}
+
 // Rules (destination country → shipping name, all $0.00):
 //  US                                → "Priority 2-3 business days" (stock irrelevant)
 //  CA, Canada warehouse covers all   → "Priority 2-3 business days" (ships domestically)

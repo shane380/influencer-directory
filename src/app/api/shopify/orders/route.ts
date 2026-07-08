@@ -3,7 +3,7 @@ import { getShopifyAccessToken, getShopifyStoreUrl } from "@/lib/shopify";
 import { createClient } from "@supabase/supabase-js";
 import {
   resolveShippingLine,
-  resolveDestCountry,
+  resolveDestCountryForCustomer,
   checkWarehouseStock,
   fallbackResolution,
   ShippingResolution,
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
           const custData = await custRes.json();
           const address = custData.customer?.default_address;
           const country = address?.country || address?.country_name || "";
-          destCountryCode = resolveDestCountry(address);
+          destCountryCode = resolveDestCountryForCustomer(custData.customer);
 
           if (country) {
             // Fetch suspended countries from app_settings
