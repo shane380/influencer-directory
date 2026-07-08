@@ -138,7 +138,8 @@ export function OrderDialog({
     address: "",
   });
 
-  const cartSectionRef = useRef<HTMLDivElement | null>(null);
+  const [justAddedVariantId, setJustAddedVariantId] = useState<string | null>(null);
+  const justAddedTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [creatingOrder, setCreatingOrder] = useState(false);
   const [savingSelects, setSavingSelects] = useState(false);
@@ -414,11 +415,11 @@ export function OrderDialog({
       ]);
     }
 
-    // The selects section renders below the fold on small screens — without
-    // this, adding an item gives no visible feedback at all.
-    setTimeout(() => {
-      cartSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }, 0);
+    // The selects section can render below the fold, so confirm the add on
+    // the button itself: flip + to a checkmark briefly.
+    setJustAddedVariantId(String(product.variant_id));
+    if (justAddedTimeout.current) clearTimeout(justAddedTimeout.current);
+    justAddedTimeout.current = setTimeout(() => setJustAddedVariantId(null), 1200);
   };
 
   const handleUpdateQuantity = (index: number, delta: number) => {
@@ -1847,9 +1848,18 @@ export function OrderDialog({
                             <Button
                               size="sm"
                               variant="outline"
+                              className={
+                                justAddedVariantId === String(product.variant_id)
+                                  ? "border-green-500 bg-green-50 text-green-600 hover:bg-green-50"
+                                  : undefined
+                              }
                               onClick={() => handleAddToCart(product)}
                             >
-                              <Plus className="h-3 w-3" />
+                              {justAddedVariantId === String(product.variant_id) ? (
+                                <Check className="h-3 w-3" />
+                              ) : (
+                                <Plus className="h-3 w-3" />
+                              )}
                             </Button>
                           </div>
                         </div>
@@ -1862,7 +1872,7 @@ export function OrderDialog({
 
             {/* Cart / Selects */}
             {cart.length > 0 && (
-              <div ref={cartSectionRef}>
+              <div>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-medium flex items-center gap-2">
                     <ShoppingCart className="h-4 w-4" />
@@ -1938,7 +1948,7 @@ export function OrderDialog({
         )}
 
         {!orderCreated && !hasExistingOrder && (
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 sticky -bottom-6 z-10 -mx-6 -mb-6 px-6 py-4 bg-background border-t sm:rounded-b-lg">
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
