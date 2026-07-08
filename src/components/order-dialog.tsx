@@ -1367,7 +1367,7 @@ export function OrderDialog({
                         onClick={() => setShowCustomerSearch(true)}
                       >
                         <Search className="h-4 w-4 mr-2" />
-                        Search Customers
+                        {influencer.email ? "Search Customers" : "Search or Create Customer"}
                       </Button>
                       {influencer.email && (
                         <Button
