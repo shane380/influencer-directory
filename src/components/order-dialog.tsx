@@ -1968,7 +1968,7 @@ export function OrderDialog({
                   Saved
                 </>
               ) : (
-                "Save"
+                "Save Selects"
               )}
             </Button>
             <Button
