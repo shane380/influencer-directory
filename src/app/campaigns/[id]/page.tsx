@@ -572,8 +572,10 @@ export default function CampaignDetailPage() {
       if (approvalFilter === "needs_review" && ci.approval_status !== "pending") return false;
       if (approvalFilter === "approved" && ci.approval_status !== "approved") return false;
       if (approvalFilter === "declined" && ci.approval_status !== "declined") return false;
-      // Content filter
-      if (contentFilter !== "all" && ci.content_posted !== contentFilter) return false;
+      // Content filter ("any" = posted any medium)
+      if (contentFilter === "any") {
+        if (!ci.content_posted || ci.content_posted === "none") return false;
+      } else if (contentFilter !== "all" && ci.content_posted !== contentFilter) return false;
       // Order status filter
       if (orderStatusFilter !== "all") {
         if (orderStatusFilter === "no_order" && ci.shopify_order_status !== null) return false;
@@ -729,6 +731,7 @@ export default function CampaignDetailPage() {
             value={contentFilter === "all" ? null : contentFilter}
             onChange={(v) => setContentFilter(v ?? "all")}
             options={[
+              { value: "any", label: "Any Content" },
               { value: "none", label: "No Content" },
               { value: "stories", label: "Stories" },
               { value: "in_feed_post", label: "In Feed Post" },

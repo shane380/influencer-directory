@@ -612,7 +612,10 @@ export default function MonthCampaignViewPage() {
         if (ownerFilter === "unassigned" && ci.influencer.assigned_to) return false;
         if (ownerFilter !== "unassigned" && ci.influencer.assigned_to !== ownerFilter) return false;
       }
-      if (contentFilter !== "all" && ci.content_posted !== contentFilter) return false;
+      // Content filter ("any" = posted any medium)
+      if (contentFilter === "any") {
+        if (!ci.content_posted || ci.content_posted === "none") return false;
+      } else if (contentFilter !== "all" && ci.content_posted !== contentFilter) return false;
       // Approval filter
       if (approvalFilter !== "all") {
         if (approvalFilter === "pending" && ci.approval_status !== "pending") return false;
@@ -771,6 +774,7 @@ export default function MonthCampaignViewPage() {
             value={contentFilter === "all" ? null : contentFilter}
             onChange={(v) => setContentFilter(v ?? "all")}
             options={[
+              { value: "any", label: "Any Content" },
               { value: "none", label: "No Content" },
               { value: "stories", label: "Stories" },
               { value: "in_feed_post", label: "In Feed Post" },
