@@ -23,6 +23,7 @@ import {
   ArrowUp,
   ShoppingCart,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { OrderDialog } from "@/components/order-dialog";
 import type { Influencer, CampaignInfluencer, ShopifyOrderStatus } from "@/types/database";
@@ -328,6 +329,18 @@ export default function CreatorsListPage() {
   }>>([]);
   const [reviewingRequest, setReviewingRequest] = useState<string | null>(null);
   const [requestSaving, setRequestSaving] = useState(false);
+  const [requestOrderResult, setRequestOrderResult] = useState<{
+    orderName: string | null;
+    adminUrl: string | null;
+    shipping: {
+      name: string | null;
+      warehouse_prediction: string | null;
+      requires_ddp_followup: boolean;
+      fallback: boolean;
+      fallback_reason: string | null;
+    } | null;
+    error: string | null;
+  } | null>(null);
   const [pendingSubmissions, setPendingSubmissions] = useState<Array<{
     id: string;
     creator_id: string;
@@ -917,7 +930,7 @@ export default function CreatorsListPage() {
           quantity: sel.quantity || 1,
           title: [sel.product_title, sel.variant_title].filter(Boolean).join(" - "),
         }));
-        await fetch("/api/shopify/orders", {
+        const res = await fetch("/api/shopify/orders", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -925,6 +938,23 @@ export default function CreatorsListPage() {
             line_items: lineItems,
             note: `Sample request from creator: ${req.creator_name}`,
           }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          // Keep the request pending so staff can fix the issue and retry
+          setRequestOrderResult({
+            orderName: null,
+            adminUrl: null,
+            shipping: null,
+            error: data?.error || "Failed to create the draft order in Shopify.",
+          });
+          return;
+        }
+        setRequestOrderResult({
+          orderName: data?.order?.name ?? null,
+          adminUrl: data?.order?.admin_url ?? null,
+          shipping: data?.shipping ?? null,
+          error: null,
         });
       }
 
@@ -935,8 +965,16 @@ export default function CreatorsListPage() {
 
       setPendingRequests((prev) => prev.filter((r) => r.id !== requestId));
       setReviewingRequest(null);
-    } catch {}
-    setRequestSaving(false);
+    } catch {
+      setRequestOrderResult({
+        orderName: null,
+        adminUrl: null,
+        shipping: null,
+        error: "Something went wrong while processing the request. Please try again.",
+      });
+    } finally {
+      setRequestSaving(false);
+    }
   }
 
   async function handleReviewAction(
@@ -2426,6 +2464,80 @@ export default function CreatorsListPage() {
           </div>
         );
       })()}
+
+      {/* Sample-request order result overlay */}
+      {requestOrderResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6 space-y-4">
+            {requestOrderResult.error ? (
+              <>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                    <AlertCircle className="h-5 w-5 text-red-600" />
+                  </div>
+                  <div className="text-sm font-semibold text-gray-900">Order not created</div>
+                </div>
+                <p className="text-sm text-gray-600">{requestOrderResult.error}</p>
+                <p className="text-sm text-gray-600">The request is still pending — fix the issue and try again.</p>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                    <Check className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-gray-900">
+                      Draft order {requestOrderResult.orderName || ""} created
+                    </div>
+                    {requestOrderResult.shipping?.name && (
+                      <div className="text-xs text-gray-500">
+                        Shipping method: {requestOrderResult.shipping.name}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {requestOrderResult.shipping?.requires_ddp_followup && (
+                  <div className="bg-red-50 border-2 border-red-400 text-red-800 rounded-lg p-4 text-sm font-medium flex gap-3">
+                    <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                    <p>
+                      This order will ship from the Canada warehouse — message Jon
+                      (warehouse manager) with the order number
+                      {requestOrderResult.orderName ? ` (${requestOrderResult.orderName})` : ""} to request DDP.
+                    </p>
+                  </div>
+                )}
+                {(!requestOrderResult.shipping || requestOrderResult.shipping.fallback) && (
+                  <div className="bg-amber-50 border border-amber-400 text-amber-800 rounded-lg p-4 text-sm flex gap-3">
+                    <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                    <p>
+                      No shipping method was set automatically — open the draft order in
+                      Shopify and set the shipping name manually.
+                    </p>
+                  </div>
+                )}
+                {requestOrderResult.adminUrl && (
+                  <a
+                    href={requestOrderResult.adminUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    View in Shopify
+                  </a>
+                )}
+              </>
+            )}
+            <button
+              onClick={() => setRequestOrderResult(null)}
+              className="w-full py-2.5 text-sm font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Content Review Modal */}
       {reviewingSubmission && (() => {

@@ -1,6 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getShopifyAccessToken, getShopifyStoreUrl } from "@/lib/shopify";
 import { createClient } from "@supabase/supabase-js";
+import {
+  resolveShippingLine,
+  checkWarehouseStock,
+  fallbackResolution,
+  ShippingResolution,
+} from "@/lib/shopify-shipping";
+
+// Map a country name to the code buckets the shipping rules care about.
+// Unknown non-empty names count as international ("XX").
+function countryNameToCode(name: string | undefined | null): string | null {
+  if (!name) return null;
+  const lower = name.trim().toLowerCase();
+  if (!lower) return null;
+  if (lower === "united states" || lower === "usa" || lower === "united states of america") return "US";
+  if (lower === "canada") return "CA";
+  return "XX";
+}
 
 interface LineItem {
   variant_id: string | number;
@@ -67,6 +84,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Destination country code for shipping-name mapping ("US" | "CA" | "XX" international)
+    let destCountryCode: string | null = null;
+
     // Check suspended shipping countries if a customer is linked
     if (customer_id) {
       try {
@@ -84,6 +104,8 @@ export async function POST(request: NextRequest) {
           const custData = await custRes.json();
           const address = custData.customer?.default_address;
           const country = address?.country || address?.country_name || "";
+          destCountryCode =
+            (address?.country_code || "").toUpperCase() || countryNameToCode(country);
 
           if (country) {
             // Fetch suspended countries from app_settings
@@ -118,6 +140,25 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Resolve the shipping name/price for the 3PL routing mapping. Failures never
+    // block the order — we degrade to no shipping line and flag it to the UI.
+    let shipping: ShippingResolution = fallbackResolution(
+      customer_id ? "no_country" : "no_customer"
+    );
+    try {
+      if (customer_id && destCountryCode) {
+        // US destinations get the same name regardless of stock — skip inventory calls
+        const stock =
+          destCountryCode === "US"
+            ? null
+            : await checkWarehouseStock(SHOPIFY_STORE_URL, SHOPIFY_ACCESS_TOKEN, line_items);
+        shipping = resolveShippingLine(destCountryCode, stock);
+      }
+    } catch (err) {
+      console.error("Shipping mapping failed (proceeding without shipping line):", err);
+      shipping = fallbackResolution("error");
+    }
+
     // Build draft order payload
     const draftOrderData: {
       draft_order: {
@@ -126,6 +167,7 @@ export async function POST(request: NextRequest) {
         note?: string;
         tags?: string;
         use_customer_default_address?: boolean;
+        shipping_line?: { custom: boolean; title: string; price: string };
       };
     } = {
       draft_order: {
@@ -153,6 +195,10 @@ export async function POST(request: NextRequest) {
 
     if (tags) {
       draftOrderData.draft_order.tags = tags;
+    }
+
+    if (shipping.shippingLine) {
+      draftOrderData.draft_order.shipping_line = shipping.shippingLine;
     }
 
     const response = await fetch(
@@ -194,6 +240,13 @@ export async function POST(request: NextRequest) {
         invoice_url: data.draft_order.invoice_url,
         line_items: data.draft_order.line_items,
         customer: data.draft_order.customer,
+      },
+      shipping: {
+        name: shipping.shippingName,
+        warehouse_prediction: shipping.warehousePrediction,
+        requires_ddp_followup: shipping.requiresDdpFollowup,
+        fallback: shipping.fallback,
+        fallback_reason: shipping.fallbackReason ?? null,
       },
     });
   } catch (error) {

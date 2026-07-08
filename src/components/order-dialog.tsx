@@ -144,6 +144,14 @@ export function OrderDialog({
   const [error, setError] = useState<string | null>(null);
   const [orderCreated, setOrderCreated] = useState(false);
   const [orderAdminUrl, setOrderAdminUrl] = useState<string | null>(null);
+  const [createdOrderName, setCreatedOrderName] = useState<string | null>(null);
+  const [shippingResult, setShippingResult] = useState<{
+    name: string | null;
+    warehouse_prediction: string | null;
+    requires_ddp_followup: boolean;
+    fallback: boolean;
+    fallback_reason: string | null;
+  } | null>(null);
 
   // Order history state
   const [orderHistory, setOrderHistory] = useState<InfluencerOrder[]>([]);
@@ -745,6 +753,8 @@ export function OrderDialog({
 
       setOrderCreated(true);
       setOrderAdminUrl(data.order.admin_url);
+      setCreatedOrderName(data.order.name || null);
+      setShippingResult(data.shipping ?? null);
       onSave();
     } catch (err: any) {
       setError(err.message || "Failed to create order");
@@ -899,6 +909,30 @@ export function OrderDialog({
             <p className="text-gray-600">
               The draft order has been created in Shopify. You can review and complete it there.
             </p>
+            {shippingResult?.name && (
+              <p className="text-gray-600">
+                Shipping method: <span className="font-medium text-gray-900">{shippingResult.name}</span>
+              </p>
+            )}
+            {shippingResult?.requires_ddp_followup && (
+              <div className="bg-red-50 border-2 border-red-400 text-red-800 rounded-lg p-4 text-left font-medium flex gap-3">
+                <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                <p>
+                  This order will ship from the Canada warehouse — message Jon
+                  (warehouse manager) with the order number
+                  {createdOrderName ? ` (${createdOrderName})` : ""} to request DDP.
+                </p>
+              </div>
+            )}
+            {(!shippingResult || shippingResult.fallback) && (
+              <div className="bg-amber-50 border border-amber-400 text-amber-800 rounded-lg p-4 text-left flex gap-3">
+                <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                <p>
+                  No shipping method was set automatically — open the draft order in
+                  Shopify and set the shipping name manually.
+                </p>
+              </div>
+            )}
             {orderAdminUrl && (
               <Button
                 variant="outline"
