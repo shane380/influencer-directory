@@ -25,8 +25,12 @@ const COLORWAY_DOTS: Record<string, string> = {
   red: "#E07070",
   pink: "#F4B5C8",
   green: "#A8D5BA",
+  sage: "#A7B394",
+  olive: "#8A8B5C",
   brown: "#A0785A",
+  taupe: "#B3A394",
   beige: "#D4C5A9",
+  burgundy: "#8C3A4A",
   grey: "#B0B0B0",
   gray: "#B0B0B0",
 };
@@ -37,6 +41,77 @@ function getColorDot(colorway: string): string {
     if (lower.includes(key)) return hex;
   }
   return "#C4C4C4";
+}
+
+// Perceived luminance of a #rrggbb color, 0–255.
+function luminance(hex: string): number {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return 0.299 * r + 0.587 * g + 0.114 * b;
+}
+
+// Light fills need a hairline border to separate from the white surface, and
+// dark text; dark fills carry white text.
+const isLightFill = (hex: string) => luminance(hex) > 170;
+const textOnFill = (hex: string) => (luminance(hex) > 150 ? "#3f3f46" : "#ffffff");
+
+// One horizontal stacked bar: segments sized by share, in the given color order.
+// `mode` controls the inline label (count vs percent); segments too narrow to
+// hold a label rely on the hover title and the shared legend.
+function StackedBar({
+  items,
+  total,
+  height,
+  mode,
+}: {
+  items: { name: string; count: number }[];
+  total: number;
+  height: number;
+  mode: "count" | "percent";
+}) {
+  return (
+    <div style={{ display: "flex", gap: 2, height, width: "100%" }}>
+      {items.map((it) => {
+        const pct = total > 0 ? (it.count / total) * 100 : 0;
+        if (pct <= 0) return null;
+        const fill = getColorDot(it.name);
+        const label = mode === "percent" ? `${it.name} ${Math.round(pct)}%` : String(it.count);
+        return (
+          <div
+            key={it.name}
+            title={`${it.name}: ${it.count}`}
+            style={{
+              width: `${pct}%`,
+              minWidth: 3,
+              background: fill,
+              borderRadius: 3,
+              border: isLightFill(fill) ? "0.5px solid rgba(0,0,0,0.12)" : "none",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              overflow: "hidden",
+            }}
+          >
+            {pct >= (mode === "percent" ? 12 : 8) && (
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: textOnFill(fill),
+                  whiteSpace: "nowrap",
+                  padding: "0 4px",
+                }}
+              >
+                {label}
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 interface StyleGroup {
@@ -212,6 +287,25 @@ export function CampaignStatsPanel({
   // Products gifted breakdown
   const productGroups = parseProductBreakdown(campaignInfluencers);
   const hasProducts = productGroups.length > 0;
+
+  // Campaign-wide color totals, most-gifted first. This one order is reused for
+  // the summary bar, every product bar, and the legend, so the same color sits
+  // in the same position everywhere and the mix is scannable down the column.
+  const colorTotalsMap = new Map<string, number>();
+  for (const group of productGroups) {
+    for (const cw of group.colorways) {
+      colorTotalsMap.set(cw.name, (colorTotalsMap.get(cw.name) || 0) + cw.count);
+    }
+  }
+  const colorOrder = Array.from(colorTotalsMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([name]) => name);
+  const colorMix = colorOrder.map((name) => ({ name, count: colorTotalsMap.get(name)! }));
+  const grandTotal = colorMix.reduce((sum, c) => sum + c.count, 0);
+  const orderIndex = (name: string) => {
+    const i = colorOrder.indexOf(name);
+    return i === -1 ? colorOrder.length : i;
+  };
 
   return (
     <div
@@ -443,83 +537,71 @@ export function CampaignStatsPanel({
           </button>
 
           {productsOpen && (
-            <div style={{ marginTop: 10 }}>
-              {productGroups.map((group, gi) => {
-                const maxCount = group.colorways[0]?.count || 1;
+            <div style={{ marginTop: 12 }}>
+              {/* Campaign-wide colour mix */}
+              <div style={{ marginBottom: 8 }}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    color: "hsl(var(--color-text-tertiary))",
+                    marginBottom: 6,
+                  }}
+                >
+                  Colour mix · {grandTotal} items
+                </div>
+                <StackedBar items={colorMix} total={grandTotal} height={26} mode="percent" />
+              </div>
+
+              {/* Legend — one row, shared by every bar */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginBottom: 14 }}>
+                {colorOrder.map((name) => {
+                  const fill = getColorDot(name);
+                  return (
+                    <span key={name} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span
+                        style={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: 3,
+                          background: fill,
+                          border: isLightFill(fill) ? "0.5px solid rgba(0,0,0,0.15)" : "none",
+                        }}
+                      />
+                      <span style={{ fontSize: 12, color: "hsl(var(--color-text-secondary))" }}>
+                        {name}
+                      </span>
+                    </span>
+                  );
+                })}
+              </div>
+
+              {/* One stacked bar per product, sorted by total */}
+              {productGroups.map((group) => {
+                const ordered = [...group.colorways].sort(
+                  (a, b) => orderIndex(a.name) - orderIndex(b.name)
+                );
                 return (
-                  <div key={group.style}>
-                    {gi > 0 && (
-                      <div style={{ borderTop: "0.5px solid hsl(var(--color-border-tertiary))", margin: "8px 0" }} />
-                    )}
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
+                  <div key={group.style} style={{ marginBottom: 12 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "baseline",
+                        justifyContent: "space-between",
+                        gap: 8,
+                        marginBottom: 4,
+                      }}
+                    >
                       <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--color-text-primary))" }}>
                         {group.style}
                       </span>
-                      <span style={{ fontSize: 12, color: "hsl(var(--color-text-tertiary))" }}>
-                        {group.total} total
+                      <span style={{ fontSize: 12, fontWeight: 500, color: "hsl(var(--color-text-tertiary))" }}>
+                        {group.total}
                       </span>
                     </div>
-                    {group.colorways.map((cw) => (
-                      <div
-                        key={cw.name}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          marginBottom: 4,
-                        }}
-                      >
-                        <span
-                          style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: "50%",
-                            background: getColorDot(cw.name),
-                            flexShrink: 0,
-                            border: "0.5px solid hsl(var(--color-border-tertiary))",
-                          }}
-                        />
-                        <span
-                          style={{
-                            fontSize: 12,
-                            color: "hsl(var(--color-text-secondary))",
-                            width: 60,
-                            flexShrink: 0,
-                          }}
-                        >
-                          {cw.name}
-                        </span>
-                        <div
-                          style={{
-                            flex: 1,
-                            height: 4,
-                            background: "hsl(var(--color-background-secondary))",
-                            borderRadius: 2,
-                            overflow: "hidden",
-                          }}
-                        >
-                          <div
-                            style={{
-                              height: "100%",
-                              width: `${Math.round((cw.count / maxCount) * 100)}%`,
-                              background: "hsl(var(--color-text-tertiary))",
-                              borderRadius: 2,
-                            }}
-                          />
-                        </div>
-                        <span
-                          style={{
-                            fontSize: 12,
-                            fontWeight: 500,
-                            color: "hsl(var(--color-text-primary))",
-                            minWidth: 20,
-                            textAlign: "right",
-                          }}
-                        >
-                          {cw.count}
-                        </span>
-                      </div>
-                    ))}
+                    <StackedBar items={ordered} total={group.total} height={22} mode="count" />
                   </div>
                 );
               })}
