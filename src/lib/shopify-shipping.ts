@@ -44,6 +44,89 @@ function shippingLine(title: string): CustomShippingLine {
   return { custom: true, title, price: SHIPPING_PRICE };
 }
 
+// Reverse map of English country name -> ISO-2 code, built once from
+// Intl.DisplayNames so it stays current without a hand-maintained list.
+let countryNameMap: Map<string, string> | null = null;
+function getCountryNameMap(): Map<string, string> {
+  if (countryNameMap) return countryNameMap;
+  const map = new Map<string, string>();
+  try {
+    const display = new Intl.DisplayNames(["en"], { type: "region" });
+    for (let a = 65; a <= 90; a++) {
+      for (let b = 65; b <= 90; b++) {
+        const code = String.fromCharCode(a) + String.fromCharCode(b);
+        const name = display.of(code);
+        if (name && name !== code) map.set(name.toLowerCase(), code);
+      }
+    }
+  } catch {
+    // Intl.DisplayNames unavailable — map stays whatever we built.
+  }
+  // Common aliases not covered by the canonical display names.
+  map.set("usa", "US");
+  map.set("u.s.a", "US");
+  map.set("u.s.a.", "US");
+  map.set("united states of america", "US");
+  map.set("uk", "GB");
+  map.set("england", "GB");
+  map.set("scotland", "GB");
+  map.set("wales", "GB");
+  countryNameMap = map;
+  return map;
+}
+
+// Turn an ISO-2 country code into the bucket the rules care about.
+function bucketFromIso(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const up = iso.toUpperCase();
+  if (up === "US") return "US";
+  if (up === "CA") return "CA";
+  return "XX";
+}
+
+// Determine the destination bucket ("US" | "CA" | "XX" | null) from a Shopify
+// address. Prefers structured fields; falls back to scanning the free-text
+// address for an explicit country NAME in its trailing segments (staff often
+// enter the whole address as one line with no structured country). US/CA are
+// only inferred from an explicit country word — never guessed from state/zip —
+// because a wrong 3PL shipping name breaks routing, and a safe manual fallback
+// is better than a confident wrong answer.
+export function resolveDestCountry(address: {
+  country_code?: string | null;
+  country?: string | null;
+  country_name?: string | null;
+  address1?: string | null;
+  address2?: string | null;
+} | null | undefined): string | null {
+  if (!address) return null;
+
+  // 1. Structured code / name
+  const fromCode = bucketFromIso(address.country_code);
+  if (fromCode) return fromCode;
+  const nameMap = getCountryNameMap();
+  const structuredName = (address.country || address.country_name || "").trim().toLowerCase();
+  if (structuredName && nameMap.has(structuredName)) return bucketFromIso(nameMap.get(structuredName)!);
+
+  // 2. Free-text: look for a country name in the trailing comma-separated
+  //    segments of the address line (addresses conventionally end with country).
+  const freeText = [address.address1, address.address2].filter(Boolean).join(", ");
+  if (!freeText) return null;
+  const segments = freeText
+    .split(",")
+    .map((s) => s.replace(/[.\s]+$/g, "").trim().toLowerCase())
+    .filter(Boolean);
+  // Check the last two segments only. Skip names that collide with US state
+  // names (Georgia the country vs the state, Jersey vs New Jersey) so a
+  // domestic address never gets mis-tagged international — those fall through
+  // to the safe manual fallback instead.
+  const ambiguous = new Set(["georgia", "jersey"]);
+  for (const seg of segments.slice(-2).reverse()) {
+    if (ambiguous.has(seg)) continue;
+    if (nameMap.has(seg)) return bucketFromIso(nameMap.get(seg)!);
+  }
+  return null;
+}
+
 // Rules (destination country → shipping name, all $0.00):
 //  US                                → "Priority 2-3 business days" (stock irrelevant)
 //  CA, Canada warehouse covers all   → "Priority 2-3 business days" (ships domestically)

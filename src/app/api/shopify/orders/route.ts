@@ -3,21 +3,11 @@ import { getShopifyAccessToken, getShopifyStoreUrl } from "@/lib/shopify";
 import { createClient } from "@supabase/supabase-js";
 import {
   resolveShippingLine,
+  resolveDestCountry,
   checkWarehouseStock,
   fallbackResolution,
   ShippingResolution,
 } from "@/lib/shopify-shipping";
-
-// Map a country name to the code buckets the shipping rules care about.
-// Unknown non-empty names count as international ("XX").
-function countryNameToCode(name: string | undefined | null): string | null {
-  if (!name) return null;
-  const lower = name.trim().toLowerCase();
-  if (!lower) return null;
-  if (lower === "united states" || lower === "usa" || lower === "united states of america") return "US";
-  if (lower === "canada") return "CA";
-  return "XX";
-}
 
 interface LineItem {
   variant_id: string | number;
@@ -84,7 +74,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Destination country code for shipping-name mapping ("US" | "CA" | "XX" international)
+    // Destination bucket for shipping-name mapping ("US" | "CA" | "XX" | null)
     let destCountryCode: string | null = null;
 
     // Check suspended shipping countries if a customer is linked
@@ -104,8 +94,7 @@ export async function POST(request: NextRequest) {
           const custData = await custRes.json();
           const address = custData.customer?.default_address;
           const country = address?.country || address?.country_name || "";
-          destCountryCode =
-            (address?.country_code || "").toUpperCase() || countryNameToCode(country);
+          destCountryCode = resolveDestCountry(address);
 
           if (country) {
             // Fetch suspended countries from app_settings
