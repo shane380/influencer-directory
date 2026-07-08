@@ -45,6 +45,12 @@ interface StyleGroup {
   colorways: { name: string; count: number }[];
 }
 
+// Trailing SKU segments that are sizes or lengths, not colors.
+const SIZE_TOKENS = new Set([
+  "xxs", "xs", "s", "m", "l", "xl", "xxl", "xxxl", "2xl", "3xl", "4xl", "os", "onesize",
+]);
+const LENGTH_TOKENS = new Set(["reg", "regular", "tall", "petite", "long", "short"]);
+
 function parseProductBreakdown(campaignInfluencers: CampaignInfluencer[]): StyleGroup[] {
   // Only include rows with an order
   const withOrders = campaignInfluencers.filter(
@@ -60,21 +66,25 @@ function parseProductBreakdown(campaignInfluencers: CampaignInfluencer[]): Style
     for (const ps of ci.product_selections) {
       if (!ps.sku) continue;
 
+      // SKU format is Fabric-Style-Color-[Length]-Size, e.g.
+      // BS-PLUNGE-IVORY-S or Body-Bamboo-Pant-Black-Reg-S. Some styles have an
+      // extra length segment (Reg/Tall), so we can't assume color is always
+      // second-to-last. Strip trailing size + length tokens; the last remaining
+      // segment is the color, and everything before it is the style.
       const skuParts = ps.sku.split("-");
-      // SKU format: Fabric-Style-Color-Size e.g. BS-PLUNGE-IVORY-S
-      // Style key = everything except last two segments (color + size)
+      while (skuParts.length > 1) {
+        const tail = skuParts[skuParts.length - 1].toLowerCase();
+        if (SIZE_TOKENS.has(tail) || LENGTH_TOKENS.has(tail)) skuParts.pop();
+        else break;
+      }
       let styleKey: string;
       let colorway = "Default";
-      if (skuParts.length >= 4) {
-        styleKey = skuParts.slice(0, -2).join("-");
-        const raw = skuParts[skuParts.length - 2];
+      if (skuParts.length >= 2) {
+        const raw = skuParts[skuParts.length - 1];
         colorway = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
-      } else if (skuParts.length === 3) {
-        styleKey = skuParts[0];
-        const raw = skuParts[1];
-        colorway = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+        styleKey = skuParts.slice(0, -1).join("-");
       } else {
-        styleKey = ps.sku;
+        styleKey = skuParts[0] || ps.sku;
       }
 
       // Display name: use title (strip colorway/size suffix), fall back to SKU
