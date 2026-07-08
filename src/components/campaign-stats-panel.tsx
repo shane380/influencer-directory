@@ -169,7 +169,11 @@ export function CampaignStatsPanel({
       (ci) => ci.shopify_order_status && (["draft", "fulfilled", "shipped", "delivered"] as string[]).includes(ci.shopify_order_status)
     ).length;
     const poolDelivered = poolApproved.filter((ci) => ci.shopify_order_status === "delivered").length;
-    const poolPosted = poolApproved.filter((ci) => ci.content_posted !== "none").length;
+    // Numerator restricted to delivered so the rate answers "of those who
+    // received product, how many posted" and can never exceed 100%.
+    const poolPosted = poolApproved.filter(
+      (ci) => ci.content_posted !== "none" && ci.shopify_order_status === "delivered"
+    ).length;
     return {
       response: poolContacted > 0 ? Math.round((poolReplied / poolContacted) * 100) : 0,
       acceptance: poolApproved.length > 0 ? Math.round((poolOrders / poolApproved.length) * 100) : 0,
