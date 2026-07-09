@@ -302,10 +302,6 @@ export function CampaignStatsPanel({
     .map(([name]) => name);
   const colorMix = colorOrder.map((name) => ({ name, count: colorTotalsMap.get(name)! }));
   const grandTotal = colorMix.reduce((sum, c) => sum + c.count, 0);
-  const orderIndex = (name: string) => {
-    const i = colorOrder.indexOf(name);
-    return i === -1 ? colorOrder.length : i;
-  };
 
   return (
     <div
@@ -578,30 +574,73 @@ export function CampaignStatsPanel({
                 })}
               </div>
 
-              {/* One stacked bar per product, sorted by total */}
-              {productGroups.map((group) => {
-                const ordered = [...group.colorways].sort(
-                  (a, b) => orderIndex(a.name) - orderIndex(b.name)
-                );
+              {/* Per-product breakdown — one thin bar per colourway */}
+              {productGroups.map((group, gi) => {
+                const maxCount = group.colorways[0]?.count || 1;
                 return (
-                  <div key={group.style} style={{ marginBottom: 12 }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "baseline",
-                        justifyContent: "space-between",
-                        gap: 8,
-                        marginBottom: 4,
-                      }}
-                    >
+                  <div key={group.style}>
+                    {gi > 0 && (
+                      <div style={{ borderTop: "0.5px solid hsl(var(--color-border-tertiary))", margin: "8px 0" }} />
+                    )}
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
                       <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--color-text-primary))" }}>
                         {group.style}
                       </span>
-                      <span style={{ fontSize: 12, fontWeight: 500, color: "hsl(var(--color-text-tertiary))" }}>
-                        {group.total}
+                      <span style={{ fontSize: 12, color: "hsl(var(--color-text-tertiary))" }}>
+                        {group.total} total
                       </span>
                     </div>
-                    <StackedBar items={ordered} total={group.total} height={22} mode="count" />
+                    {group.colorways.map((cw) => {
+                      const fill = getColorDot(cw.name);
+                      return (
+                        <div key={cw.name} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                          <span
+                            style={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: "50%",
+                              background: fill,
+                              flexShrink: 0,
+                              border: isLightFill(fill)
+                                ? "0.5px solid rgba(0,0,0,0.15)"
+                                : "0.5px solid hsl(var(--color-border-tertiary))",
+                            }}
+                          />
+                          <span style={{ fontSize: 12, color: "hsl(var(--color-text-secondary))", width: 60, flexShrink: 0 }}>
+                            {cw.name}
+                          </span>
+                          <div
+                            style={{
+                              flex: 1,
+                              height: 4,
+                              background: "hsl(var(--color-background-secondary))",
+                              borderRadius: 2,
+                              overflow: "hidden",
+                            }}
+                          >
+                            <div
+                              style={{
+                                height: "100%",
+                                width: `${Math.round((cw.count / maxCount) * 100)}%`,
+                                background: "hsl(var(--color-text-tertiary))",
+                                borderRadius: 2,
+                              }}
+                            />
+                          </div>
+                          <span
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 500,
+                              color: "hsl(var(--color-text-primary))",
+                              minWidth: 20,
+                              textAlign: "right",
+                            }}
+                          >
+                            {cw.count}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })}
