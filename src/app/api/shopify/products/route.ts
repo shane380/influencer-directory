@@ -148,6 +148,7 @@ export async function GET(request: NextRequest) {
       inventory_item_id: number;
       title: string;
       variant_title: string | null;
+      color?: string | null;
       sku: string;
       price: string;
       inventory: number;
@@ -166,7 +167,7 @@ export async function GET(request: NextRequest) {
     let gqlFilter = "status:active";
     if (searchTerm) {
       const words = searchTerm.replace(/"/g, '\\"').split(/\s+/);
-      gqlFilter = `(${words.map((w: string) => `title:*${w}*`).join(' OR ')}) (status:active OR status:draft)`;
+      gqlFilter = `(${words.map((w: string) => `(title:*${w}* OR sku:*${w}* OR tag:*${w}*)`).join(' OR ')}) (status:active OR status:draft)`;
     }
 
     const graphqlQuery = `
@@ -267,6 +268,17 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // Display color(s): tags minus size/meta noise. Colorways are separate
+      // products in this store, so the color lives in tags, not options.
+      const SIZE_TAG_RE = /^(xxs|xs|s|m|l|xl|xxl|\dx|os|one size)$/i;
+      const NOISE_TAG_RE = /^(meta-|ygroup)/i;
+      const colorTags = (product.tags || [])
+        .map((t: string) => t.trim())
+        .filter((t: string) => t && !SIZE_TAG_RE.test(t) && !NOISE_TAG_RE.test(t));
+      const displayColor = colorTags.length
+        ? colorTags.map((t: string) => t.charAt(0).toUpperCase() + t.slice(1)).join(" / ")
+        : null;
+
       // Build full searchable text including tags, product type, and variant options
       const optionValues = product.variants.edges
         .flatMap(({ node: v }: any) => (v.selectedOptions || []).map((o: any) => o.value))
@@ -286,6 +298,7 @@ export async function GET(request: NextRequest) {
         if (allWordsMatch) {
           matchingProducts.push({
             product_id: productId,
+            color: displayColor,
             variant_id: parseGid(variant.id),
             inventory_item_id: parseGid(variant.inventoryItem.id),
             title: product.title,

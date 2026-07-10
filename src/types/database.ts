@@ -112,6 +112,7 @@ export interface GiftPoolProduct {
   product_id: string;
   product_title: string;
   image_url: string | null;
+  color?: string | null;
 }
 
 export interface GiftShipping {

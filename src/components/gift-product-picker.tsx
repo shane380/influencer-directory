@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Search, X } from "lucide-react";
 import type { GiftPoolProduct } from "@/types/database";
@@ -16,6 +15,7 @@ interface SearchProduct {
   title: string;
   image?: string | null;
   status?: string;
+  color?: string | null;
 }
 
 export function GiftProductPicker({
@@ -28,28 +28,41 @@ export function GiftProductPicker({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchProduct[]>([]);
   const [searching, setSearching] = useState(false);
+  const searchSeq = useRef(0);
 
-  async function search() {
-    if (!query.trim()) return;
-    setSearching(true);
-    try {
-      const res = await fetch(`/api/shopify/products?query=${encodeURIComponent(query)}`);
-      const data = await res.json();
-      const grouped = new Map<number, SearchProduct>();
-      for (const p of data.products || []) {
-        if (!grouped.has(p.product_id)) grouped.set(p.product_id, p);
-      }
-      setResults(Array.from(grouped.values()).sort((a, b) => b.product_id - a.product_id));
-    } catch {
+  // Auto-search: fires 350ms after typing pauses; stale responses are dropped.
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
       setResults([]);
+      setSearching(false);
+      return;
     }
-    setSearching(false);
-  }
+    setSearching(true);
+    const seq = ++searchSeq.current;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/shopify/products?query=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        if (seq !== searchSeq.current) return; // a newer search superseded this one
+        const grouped = new Map<number, SearchProduct>();
+        for (const p of data.products || []) {
+          if (!grouped.has(p.product_id)) grouped.set(p.product_id, p);
+        }
+        setResults(Array.from(grouped.values()).sort((a, b) => b.product_id - a.product_id));
+      } catch {
+        if (seq === searchSeq.current) setResults([]);
+      } finally {
+        if (seq === searchSeq.current) setSearching(false);
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   function add(p: SearchProduct) {
     const id = String(p.product_id);
     if (products.some((x) => String(x.product_id) === id)) return;
-    onChange([...products, { product_id: id, product_title: p.title, image_url: p.image || null }]);
+    onChange([...products, { product_id: id, product_title: p.title, image_url: p.image || null, color: p.color || null }]);
   }
 
   function remove(id: string) {
@@ -58,20 +71,17 @@ export function GiftProductPicker({
 
   return (
     <div className="space-y-3">
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Search products (drafts included)…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && search()}
-            className="pl-9"
-          />
-        </div>
-        <Button variant="outline" onClick={search} disabled={searching}>
-          {searching ? "Searching…" : "Search"}
-        </Button>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Input
+          placeholder="Search by name or colour (drafts included)…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="pl-9 pr-24"
+        />
+        {searching && (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">Searching…</span>
+        )}
       </div>
 
       {results.length > 0 && (
@@ -91,7 +101,10 @@ export function GiftProductPicker({
                 ) : (
                   <div className="w-8 h-10 bg-gray-100 rounded flex-shrink-0" />
                 )}
-                <span className="text-sm flex-1 truncate">{p.title}</span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm truncate">{p.title}</span>
+                  {p.color && <span className="block text-xs text-gray-500 truncate">{p.color}</span>}
+                </span>
                 {p.status === "draft" && (
                   <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">Draft</span>
                 )}
@@ -116,7 +129,10 @@ export function GiftProductPicker({
             ) : (
               <div className="w-8 h-10 bg-gray-100 rounded flex-shrink-0" />
             )}
-            <span className="text-sm flex-1 truncate">{p.product_title}</span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm truncate">{p.product_title}</span>
+              {p.color && <span className="block text-xs text-gray-500 truncate">{p.color}</span>}
+            </span>
             <button className="text-gray-400 hover:text-red-600" onClick={() => remove(String(p.product_id))}>
               <X className="h-4 w-4" />
             </button>

@@ -144,8 +144,16 @@ export function GiftSettingsDialog({
                 </button>
               </div>
             ) : (
-              <label className="flex items-center justify-center h-24 border-2 border-dashed rounded-md text-sm text-gray-400 cursor-pointer hover:border-gray-400">
-                {uploading ? "Uploading…" : "Click to upload the campaign hero"}
+              <label
+                className="flex items-center justify-center h-24 border-2 border-dashed rounded-md text-sm text-gray-400 cursor-pointer hover:border-gray-400"
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleHeroFile(e.dataTransfer.files?.[0]);
+                }}
+              >
+                {uploading ? "Uploading…" : "Drag an image here or click to upload"}
                 <input
                   type="file"
                   accept="image/*"
