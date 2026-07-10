@@ -108,6 +108,24 @@ export interface InfluencerUpdate extends Partial<InfluencerInsert> {
   id: string;
 }
 
+export interface GiftPoolProduct {
+  product_id: string;
+  product_title: string;
+  image_url: string | null;
+}
+
+export interface GiftShipping {
+  name: string;
+  email: string;
+  phone: string;
+  address1: string;
+  address2: string;
+  city: string;
+  province: string;
+  zip: string;
+  country_code: string;
+}
+
 export interface Campaign {
   id: string;
   name: string;
@@ -117,6 +135,11 @@ export interface Campaign {
   status: CampaignStatus;
   collection_deck_url: string | null;
   requires_approval: boolean;
+  gift_enabled: boolean;
+  gift_hero_image: { url: string; r2_key: string } | null;
+  gift_blurb: string | null;
+  gift_products: GiftPoolProduct[] | null;
+  gift_max_selects: number;
   created_at: string;
   updated_at: string;
 }
@@ -152,6 +175,14 @@ export interface CampaignInfluencer {
   approval_note: string | null;
   approved_at: string | null;
   approved_by: string | null;
+  gift_token?: string | null;
+  gift_products_override?: GiftPoolProduct[] | null;
+  gift_max_selects_override?: number | null;
+  gift_invited_at?: string | null;
+  gift_email_sent_at?: string | null;
+  gift_viewed_at?: string | null;
+  gift_submitted_at?: string | null;
+  gift_shipping?: GiftShipping | null;
 }
 
 export interface CampaignInfluencerInsert {
