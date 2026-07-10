@@ -53,6 +53,10 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/api/shopify/affiliate-orders') ||
     pathname.startsWith('/api/shopify/auth') ||
     pathname.startsWith('/invite') ||
+    // Trailing slashes are load-bearing: /gifting and /api/gifting/* are
+    // auth-protected admin surfaces and must NOT match these prefixes.
+    pathname.startsWith('/gift/') ||
+    pathname.startsWith('/api/gift/t/') ||
     pathname.startsWith('/terms') ||
     pathname.startsWith('/api/creators/signup') ||
     pathname.startsWith('/creator/login') ||
