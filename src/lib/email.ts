@@ -39,6 +39,29 @@ export async function sendEmail({
   return data;
 }
 
+export function replacePlaceholders(
+  text: string,
+  vars: Record<string, string>
+): string {
+  return text.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] || "");
+}
+
+export function bodyToHtml(body: string, vars: Record<string, string>): string {
+  const text = replacePlaceholders(body, vars);
+  const paragraphs = text.split("\n\n").filter((p) => p.trim());
+  return paragraphs
+    .map((p) => {
+      let html = p.trim().replace(/\n/g, "<br />");
+      // Convert [text](url) links
+      html = html.replace(
+        /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+        '<a href="$2" target="_blank" style="color:#000000;text-decoration:underline;">$1</a>'
+      );
+      return `<p style="margin:0 0 16px;">${html}</p>`;
+    })
+    .join("\n");
+}
+
 export function renderEmailTemplate({
   preheader,
   heading,
@@ -50,8 +73,8 @@ export function renderEmailTemplate({
   preheader?: string;
   heading: string;
   bodyHtml: string;
-  ctaText: string;
-  ctaUrl: string;
+  ctaText?: string;
+  ctaUrl?: string;
   unsubscribeUrl?: string;
 }): string {
   return `<!DOCTYPE html>
@@ -105,14 +128,14 @@ export function renderEmailTemplate({
             </td>
           </tr>
 
-          <!-- CTA Button -->
+          ${ctaText && ctaUrl ? `<!-- CTA Button -->
           <tr>
             <td align="center" style="padding-bottom:40px;">
               <a href="${ctaUrl}" target="_blank" style="display:inline-block;background-color:#000000;color:#ffffff;font-family:'Helvetica Neue',Arial,Helvetica,sans-serif;font-size:14px;font-weight:600;text-decoration:none;padding:12px 32px;border-radius:4px;letter-spacing:0.5px;">
                 ${ctaText}
               </a>
             </td>
-          </tr>
+          </tr>` : ""}
 
           <!-- Divider -->
           <tr>
