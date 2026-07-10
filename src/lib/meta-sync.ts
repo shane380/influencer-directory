@@ -878,15 +878,32 @@ export async function syncAllCreators(
 }> {
   const db = supabase || getServiceClient();
 
-  // Get all influencers with instagram handles that have ad spend deals
+  // Track two groups: partners with ad-spend deals (invites) AND influencers
+  // whitelisted directly in the directory (whitelisting_enabled) who never went
+  // through the invite flow. The latter have no creators account and no invite,
+  // so no commissions accrue — but their ads sync, which puts them on the
+  // community whitelisting board and in Top Performing Ads.
   const { data: invites } = await (db.from("creator_invites") as any)
     .select("influencer_id, influencer:influencers!creator_invites_influencer_id_fkey(id, instagram_handle)")
     .eq("has_ad_spend", true);
+  const { data: wlInfluencers } = await (db.from("influencers") as any)
+    .select("id, instagram_handle")
+    .eq("whitelisting_enabled", true)
+    .is("whitelisting_archived_at", null)
+    .not("instagram_handle", "is", null);
 
   const creators: { handle: string; influencerId: string }[] = [];
+  const seenHandles = new Set<string>();
   for (const inv of invites || []) {
     const inf = inv.influencer as any;
-    if (inf?.instagram_handle) {
+    if (inf?.instagram_handle && !seenHandles.has(inf.instagram_handle.toLowerCase())) {
+      seenHandles.add(inf.instagram_handle.toLowerCase());
+      creators.push({ handle: inf.instagram_handle, influencerId: inf.id });
+    }
+  }
+  for (const inf of wlInfluencers || []) {
+    if (inf?.instagram_handle && !seenHandles.has(inf.instagram_handle.toLowerCase())) {
+      seenHandles.add(inf.instagram_handle.toLowerCase());
       creators.push({ handle: inf.instagram_handle, influencerId: inf.id });
     }
   }
