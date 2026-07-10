@@ -57,13 +57,21 @@ async function metaFetch(url: string, retries = 3): Promise<any> {
  */
 async function mirrorImageToR2(
   imageUrl: string,
-  r2Key: string
+  r2Key: string,
+  minBytes = 0
 ): Promise<string | null> {
   try {
     const res = await fetch(imageUrl);
     if (!res.ok) return null;
 
     const buffer = Buffer.from(await res.arrayBuffer());
+    // Meta serves tiny placeholder images (50×50 question-mark GIF from
+    // /picture, 64×64 default creative thumbs) that "succeed" but look glitchy
+    // stretched into a 9:16 card. Refuse to mirror anything that small.
+    if (buffer.length < minBytes) {
+      console.warn(`[meta-sync] Skipping tiny image (${buffer.length}B < ${minBytes}B) for ${r2Key}`);
+      return null;
+    }
     const contentType = res.headers.get("content-type") || "image/jpeg";
 
     await r2Client.send(
@@ -107,9 +115,14 @@ interface AdResult {
   outbound_clicks_ctr: number;
   purchase_value: number;
   purchase_roas: number | null;
+  video_3s_views: number;
+  video_thruplays: number;
   thumbnailUrl: string | null;
   video_id: string | null;
+  ig_media_id: string | null;
   mux_playback_id: string | null;
+  previewHtml: string | null;
+  carousel_urls: string[] | null;
 }
 
 interface DailyAdRow {
@@ -120,6 +133,8 @@ interface DailyAdRow {
   outbound_clicks: number;
   purchase_value: number;
   purchase_roas: number | null;
+  video_3s_views: number;
+  video_thruplays: number;
 }
 
 interface SyncResult {
@@ -165,7 +180,9 @@ async function fetchAdsForHandle(
   handle: string,
   accessToken: string,
   actId: string,
-  influencerId: string | null
+  influencerId: string | null,
+  existingThumbs?: Map<string, string>,
+  existingCarousels?: Map<string, string[]>
 ): Promise<SyncResult> {
   const filtering = JSON.stringify([
     { field: "name", operator: "CONTAIN", value: handle },
@@ -177,9 +194,11 @@ async function fetchAdsForHandle(
   // ROAS/CTR are now rebuilt from the stored daily table by the caller.
   // adset{id,name} — including `id` alongside `name` avoids Meta's URL parser
   // mistaking single-subfield `adset{name}` for brace value-substitution syntax.
+  // thumbnail_width/height ask Meta for a real-size creative thumbnail instead
+  // of the 64×64 default (the source of blurry carousel/static previews).
   const fields =
     `name,status,effective_status,adset{id,name},` +
-    `creative{thumbnail_url,image_url,object_story_spec{video_data{image_url,video_id}},asset_feed_spec{videos{video_id}}}`;
+    `creative.thumbnail_width(1080).thumbnail_height(1080){thumbnail_url,image_url,effective_instagram_media_id,object_story_spec{video_data{image_url,video_id}},asset_feed_spec{videos{video_id}}}`;
   // Page through the ads list in SMALL pages, following paging.next. Even without
   // the per-ad insights, creative-field expansion across many ads still trips Meta's
   // "reduce the amount of data" limit in one large page (a heavy creator fails at
@@ -235,8 +254,10 @@ async function fetchAdsForHandle(
     const insightsFiltering = JSON.stringify([
       { field: "ad.name", operator: "CONTAIN", value: handle },
     ]);
+    // `actions` carries 3-second video plays as action_type "video_view" (the
+    // standalone video_3_sec field is deprecated); thruplays have their own field.
     const dailyFields =
-      "ad_id,spend,impressions,outbound_clicks,action_values,purchase_roas";
+      "ad_id,spend,impressions,outbound_clicks,action_values,purchase_roas,actions,video_thruplay_watched_actions";
     const timeRange = encodeURIComponent(JSON.stringify({ since, until }));
     let insightsPageUrl: string | null =
       `https://graph.facebook.com/${META_API_VERSION}/${actId}/insights?` +
@@ -260,6 +281,8 @@ async function fetchAdsForHandle(
         const outboundClicks = sumActionValue(row.outbound_clicks);
         const purchaseValue = sumActionValue(row.action_values, "purchase");
         const purchaseRoas = pickActionValue(row.purchase_roas, "purchase");
+        const video3s = pickActionValue(row.actions, "video_view") ?? 0;
+        const thruplays = pickActionValue(row.video_thruplay_watched_actions, "video_view") ?? 0;
 
         if (dateStr && row.ad_id) {
           dailyMap.set(`${row.ad_id}:${dateStr}`, {
@@ -270,6 +293,8 @@ async function fetchAdsForHandle(
             outbound_clicks: Math.round(outboundClicks),
             purchase_value: Math.round(purchaseValue * 100) / 100,
             purchase_roas: purchaseRoas,
+            video_3s_views: Math.round(video3s),
+            video_thruplays: Math.round(thruplays),
           });
         }
       }
@@ -284,6 +309,7 @@ async function fetchAdsForHandle(
   // Build ads array — download thumbnails to R2
   const r2Enabled = !!(process.env.R2_ACCOUNT_ID && process.env.R2_BUCKET_NAME);
   const creatorFolder = influencerId || handle;
+  const r2Prefix = r2Enabled ? getPublicUrl("") : null;
 
   const ads: AdResult[] = [];
 
@@ -299,7 +325,7 @@ async function fetchAdsForHandle(
 
     if (r2Enabled && metaImageUrl) {
       const r2Key = `ads/${creatorFolder}/${ad.id}/thumbnail.jpg`;
-      const r2Url = await mirrorImageToR2(metaImageUrl, r2Key);
+      const r2Url = await mirrorImageToR2(metaImageUrl, r2Key, 3000);
       if (r2Url) {
         thumbnailUrl = r2Url;
       }
@@ -311,15 +337,72 @@ async function fetchAdsForHandle(
       ad.creative?.asset_feed_spec?.videos?.[0]?.video_id ||
       null;
 
-    // For video ads, use Meta's public video picture URL (no API call needed)
-    if (videoId) {
-      const metaVideoThumb = `https://graph.facebook.com/${videoId}/picture`;
-      if (r2Enabled) {
-        const r2Key = `ads/${creatorFolder}/${ad.id}/video-thumb.jpg`;
-        const r2Url = await mirrorImageToR2(metaVideoThumb, r2Key);
-        if (r2Url) thumbnailUrl = r2Url;
-      } else {
-        thumbnailUrl = metaVideoThumb;
+    // Video ads with NO usable mirrored creative image: ask the video's
+    // /thumbnails edge for a real frame (preferred, else largest). The old
+    // /picture URL is a last resort only — it returns a 50×50 placeholder GIF
+    // for many whitelisted IG videos, and it must never OVERWRITE a good
+    // creative image (which the previous code did unconditionally).
+    const hasGoodMirror = !!(r2Prefix && thumbnailUrl && thumbnailUrl.startsWith(r2Prefix));
+    if (videoId && !hasGoodMirror) {
+      try {
+        const tData = await metaFetch(
+          `https://graph.facebook.com/${META_API_VERSION}/${videoId}/thumbnails?access_token=${accessToken}`
+        );
+        const thumbs = ((tData?.data || []) as any[]).filter((t) => t?.uri);
+        const best =
+          thumbs.find((t) => t.is_preferred) ||
+          thumbs.sort((a, b) => (b.width || 0) - (a.width || 0))[0];
+        const candidate = best?.uri || `https://graph.facebook.com/${videoId}/picture`;
+        if (r2Enabled) {
+          const r2Key = `ads/${creatorFolder}/${ad.id}/video-thumb.jpg`;
+          const r2Url = await mirrorImageToR2(candidate, r2Key, 3000);
+          if (r2Url) thumbnailUrl = r2Url;
+        } else {
+          thumbnailUrl = candidate;
+        }
+      } catch (err) {
+        console.warn(`[meta-sync] video thumbnails lookup failed for ${videoId}:`, err);
+      }
+    }
+
+    // Meta CDN URLs expire, so a previously-mirrored R2 thumbnail beats any
+    // non-R2 URL this sync produced (e.g. when the mirror upload failed).
+    const existingThumb = existingThumbs?.get(String(ad.id)) || null;
+    if (
+      existingThumb &&
+      r2Prefix &&
+      existingThumb.startsWith(r2Prefix) &&
+      (!thumbnailUrl || !thumbnailUrl.startsWith(r2Prefix))
+    ) {
+      thumbnailUrl = existingThumb;
+    }
+
+    // Image carousels (boosted CAROUSEL_ALBUM posts) have no video — mirror
+    // their frames to R2 once so the dashboard can show a native image viewer
+    // instead of Meta's iframe. Preserved across syncs; only fetched when new.
+    let carouselUrls: string[] | null = null;
+    const igMediaId = ad.creative?.effective_instagram_media_id ? String(ad.creative.effective_instagram_media_id) : null;
+    const preservedCarousel = existingCarousels?.get(String(ad.id));
+    if (preservedCarousel && preservedCarousel.length > 0) {
+      carouselUrls = preservedCarousel;
+    } else if (!videoId && igMediaId && r2Enabled) {
+      try {
+        const mData = await metaFetch(
+          `https://graph.facebook.com/${META_API_VERSION}/${igMediaId}?fields=media_type,children{media_type,media_url}&access_token=${accessToken}`
+        );
+        if (mData?.media_type === "CAROUSEL_ALBUM") {
+          const children = ((mData.children?.data || []) as any[])
+            .filter((c) => c?.media_type === "IMAGE" && c.media_url)
+            .slice(0, 10);
+          const urls: string[] = [];
+          for (let ci = 0; ci < children.length; ci++) {
+            const u = await mirrorImageToR2(children[ci].media_url, `ads/${creatorFolder}/${ad.id}/carousel-${ci}.jpg`, 3000);
+            if (u) urls.push(u);
+          }
+          if (urls.length > 0) carouselUrls = urls;
+        }
+      } catch (err) {
+        console.warn(`[meta-sync] carousel fetch failed for ad ${ad.id}:`, err);
       }
     }
 
@@ -336,9 +419,14 @@ async function fetchAdsForHandle(
       outbound_clicks_ctr: 0,
       purchase_value: 0,
       purchase_roas: null,
+      video_3s_views: 0,
+      video_thruplays: 0,
       thumbnailUrl,
       video_id: videoId ? String(videoId) : null,
+      ig_media_id: igMediaId,
       mux_playback_id: null, // will be filled in by processVideoUploads
+      previewHtml: null, // filled in for ads Mux can't serve (source denied)
+      carousel_urls: carouselUrls,
     });
   }
 
@@ -395,21 +483,25 @@ async function processVideoUploads(
   existingAds: AdResult[] | null,
   accessToken: string
 ): Promise<void> {
-  // Build a map of existing mux_playback_ids by video_id
-  const existingMap = new Map<string, string>();
+  // Maps of existing mux_playback_ids so re-syncs never re-upload
+  const existingByVideo = new Map<string, string>();
+  const existingByIgMedia = new Map<string, string>();
   if (existingAds) {
     for (const ad of existingAds) {
-      if (ad.video_id && ad.mux_playback_id) {
-        existingMap.set(ad.video_id, ad.mux_playback_id);
-      }
+      if (!ad.mux_playback_id) continue;
+      if (ad.video_id) existingByVideo.set(ad.video_id, ad.mux_playback_id);
+      if ((ad as any).ig_media_id) existingByIgMedia.set((ad as any).ig_media_id, ad.mux_playback_id);
     }
   }
 
   for (const ad of ads) {
-    if (!ad.video_id) continue;
+    if (!ad.video_id && !ad.ig_media_id) continue;
 
     // Check if we already have a playback ID for this video
-    const existing = existingMap.get(ad.video_id);
+    const existing =
+      (ad.video_id && existingByVideo.get(ad.video_id)) ||
+      (ad.ig_media_id && existingByIgMedia.get(ad.ig_media_id)) ||
+      null;
     if (existing) {
       ad.mux_playback_id = existing;
       continue;
@@ -418,19 +510,35 @@ async function processVideoUploads(
     // Only download videos for active ads
     if (ad.effective_status !== "ACTIVE") continue;
 
-    // Fetch video source URL from Meta
     try {
-      const sourceUrl = `https://graph.facebook.com/${META_API_VERSION}/${ad.video_id}?fields=source&access_token=${accessToken}`;
-      const sourceData = await metaFetch(sourceUrl);
+      // Uploaded-video ads expose a downloadable `source` on the video node.
+      let sourceUrl: string | null = null;
+      if (ad.video_id) {
+        const sourceData = await metaFetch(
+          `https://graph.facebook.com/${META_API_VERSION}/${ad.video_id}?fields=source&access_token=${accessToken}`
+        );
+        sourceUrl = sourceData?.source || null;
+      }
 
-      if (!sourceData?.source) {
-        console.warn(`[meta-sync] No source URL for video ${ad.video_id}`);
+      // Boosted IG collab posts deny `source` (error #10), but their media is
+      // co-owned by our IG account so the media node's media_url is readable.
+      if (!sourceUrl && ad.ig_media_id) {
+        const mediaData = await metaFetch(
+          `https://graph.facebook.com/${META_API_VERSION}/${ad.ig_media_id}?fields=media_type,media_url&access_token=${accessToken}`
+        );
+        if (mediaData?.media_type === "VIDEO" && mediaData.media_url) {
+          sourceUrl = mediaData.media_url;
+        }
+      }
+
+      if (!sourceUrl) {
+        console.warn(`[meta-sync] No downloadable video for ad ${ad.id} (video ${ad.video_id || "-"}, ig media ${ad.ig_media_id || "-"})`);
         continue;
       }
 
-      // Upload to Mux directly from the Meta CDN URL
+      // Upload to Mux directly from the CDN URL
       const asset = await mux.video.assets.create({
-        inputs: [{ url: sourceData.source }],
+        inputs: [{ url: sourceUrl }],
         playback_policies: ["public"],
         mp4_support: "capped-1080p",
       });
@@ -438,10 +546,10 @@ async function processVideoUploads(
       const playbackId = asset.playback_ids?.[0]?.id || null;
       if (playbackId) {
         ad.mux_playback_id = playbackId;
-        console.log(`[meta-sync] Uploaded video ${ad.video_id} to Mux: ${playbackId}`);
+        console.log(`[meta-sync] Uploaded video for ad ${ad.id} to Mux: ${playbackId}`);
       }
     } catch (err) {
-      console.error(`[meta-sync] Failed to process video ${ad.video_id}:`, err);
+      console.error(`[meta-sync] Failed to process video for ad ${ad.id}:`, err);
       // Continue — don't block the rest of the sync
     }
   }
@@ -458,6 +566,8 @@ interface PerAdAgg {
   impressions: number;
   purchase_value: number;
   outbound_clicks: number;
+  video_3s_views: number;
+  video_thruplays: number;
 }
 
 /**
@@ -499,7 +609,7 @@ async function deriveMonthlyFromDaily(
   let from = 0;
   for (;;) {
     const { data, error } = await (db.from("creator_ad_performance_daily") as any)
-      .select("date, spend, impressions, ad_id, purchase_value, outbound_clicks")
+      .select("date, spend, impressions, ad_id, purchase_value, outbound_clicks, video_3s_views, video_thruplays")
       .eq("instagram_handle", handle)
       .order("date", { ascending: true })
       .range(from, from + PAGE - 1);
@@ -527,11 +637,13 @@ async function deriveMonthlyFromDaily(
       const adId = r.ad_id ? String(r.ad_id) : null;
       if (adId) {
         let a = perAd.get(adId);
-        if (!a) { a = { spend: 0, impressions: 0, purchase_value: 0, outbound_clicks: 0 }; perAd.set(adId, a); }
+        if (!a) { a = { spend: 0, impressions: 0, purchase_value: 0, outbound_clicks: 0, video_3s_views: 0, video_thruplays: 0 }; perAd.set(adId, a); }
         a.spend += spend;
         a.impressions += impressions;
         a.purchase_value += Number(r.purchase_value || 0);
         a.outbound_clicks += Number(r.outbound_clicks || 0);
+        a.video_3s_views += Number(r.video_3s_views || 0);
+        a.video_thruplays += Number(r.video_thruplays || 0);
       }
     }
     if (data.length < PAGE) break;
@@ -562,18 +674,49 @@ export async function syncCreator(
   const actId = adAccountId.startsWith("act_") ? adAccountId : `act_${adAccountId}`;
 
   try {
-    const result = await fetchAdsForHandle(handle, accessToken, actId, influencerId);
-
-    // Fetch existing row to preserve mux_playback_ids, historical monthly data,
-    // and (on a partial sync) the previous gallery + lifetime totals.
+    // Fetch existing row first: it preserves mux_playback_ids, historical monthly
+    // data, R2 thumbnails (passed into fetchAdsForHandle so an expired Meta CDN URL
+    // never replaces a mirrored one), and (on a partial sync) the previous gallery.
     const { data: existingRow } = await (db.from("creator_ad_performance") as any)
       .select("ads, monthly, totals")
       .eq("instagram_handle", handle)
       .single();
 
+    const existingThumbs = new Map<string, string>();
+    const existingCarousels = new Map<string, string[]>();
+    for (const ad of (existingRow?.ads || []) as AdResult[]) {
+      if (!ad?.id) continue;
+      if (ad.thumbnailUrl) existingThumbs.set(String(ad.id), ad.thumbnailUrl);
+      if (Array.isArray((ad as any).carousel_urls) && (ad as any).carousel_urls.length > 0) {
+        existingCarousels.set(String(ad.id), (ad as any).carousel_urls);
+      }
+    }
+
+    const result = await fetchAdsForHandle(handle, accessToken, actId, influencerId, existingThumbs, existingCarousels);
+
     // Process video uploads to Mux (skips ads that already have playback IDs).
     // No-op when the gallery call failed (result.ads is empty).
     await processVideoUploads(result.ads, existingRow?.ads || null, accessToken);
+
+    // Ads Mux can't serve — whitelisted IG videos deny the `source` download
+    // (Meta error #10) and carousels have no video at all. Embed Meta's own ad
+    // preview iframe so they're still playable. Preview URLs expire (~24h);
+    // the daily sync refreshes them.
+    for (const ad of result.ads) {
+      if (ad.mux_playback_id || (ad.carousel_urls && ad.carousel_urls.length > 0) || ad.effective_status !== "ACTIVE") continue;
+      try {
+        // Explicit width/height: without them Meta returns a tiny 274×213
+        // scrolling iframe whose inner reels mock doesn't fit (white gutters +
+        // scrollbars). 340×700 matches the reels preview's natural size.
+        const pData = await metaFetch(
+          `https://graph.facebook.com/${META_API_VERSION}/${ad.id}/previews?ad_format=INSTAGRAM_REELS&width=340&height=700&access_token=${accessToken}`
+        );
+        const body = pData?.data?.[0]?.body || null;
+        if (body) ad.previewHtml = body;
+      } catch (err) {
+        console.warn(`[meta-sync] preview fetch failed for ad ${ad.id}:`, err);
+      }
+    }
 
     // Persist the freshly-fetched per-day, per-ad rows FIRST, so the monthly/MTD
     // derivation below reads them back as part of the full daily history. Upsert is
@@ -590,6 +733,8 @@ export async function syncCreator(
         outbound_clicks: d.outbound_clicks,
         purchase_value: d.purchase_value,
         purchase_roas: d.purchase_roas,
+        video_3s_views: d.video_3s_views,
+        video_thruplays: d.video_thruplays,
       }));
       const CHUNK = 500;
       for (let i = 0; i < dailyRows.length; i += CHUNK) {
@@ -625,6 +770,8 @@ export async function syncCreator(
         : 0;
       ad.purchase_value = Math.round(agg.purchase_value * 100) / 100;
       ad.purchase_roas = null; // dashboards compute ROAS as purchase_value / spend
+      ad.video_3s_views = Math.round(agg.video_3s_views);
+      ad.video_thruplays = Math.round(agg.video_thruplays);
     }
 
     // Refresh ONLY the months inside the fresh daily window from the daily table.
