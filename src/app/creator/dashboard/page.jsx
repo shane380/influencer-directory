@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { uploadToR2 } from '@/lib/r2-upload'
@@ -44,16 +44,16 @@ const CSS = `
 .cd-page { background: #f7f7f7; min-height: 100vh; min-width: 0; overflow: hidden; }
 
 /* SIDEBAR */
-.cd-sidebar { background: #fff; border-right: 1px solid #e8e8e8; position: fixed; top: 0; left: 0; width: 300px; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; z-index: 10; }
-.cd-sidebar-logo { padding: 28px 32px 24px; border-bottom: 1px solid #e8e8e8; }
+.cd-sidebar { background: #fff; border-right: 1px solid #e8e8e8; position: fixed; top: 0; left: 0; width: 240px; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; z-index: 10; }
+.cd-sidebar-logo { padding: 20px 24px 16px; border-bottom: 1px solid #e8e8e8; }
 .cd-logo-lockup { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.cd-logo-img { height: 34px; display: block; }
-.cd-logo-sub { font-size: 9.5px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; text-align: center; }
-.cd-identity { padding: 36px 32px 28px; border-bottom: 1px solid #e8e8e8; }
+.cd-logo-img { height: 24px; display: block; }
+.cd-logo-sub { font-size: 8.5px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; text-align: center; }
+.cd-identity { padding: 28px 24px 22px; border-bottom: 1px solid #e8e8e8; }
 .cd-eyebrow { font-size: 9px; letter-spacing: 0.38em; text-transform: uppercase; color: #aaa; margin-bottom: 14px; }
-.cd-creator-name { font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 400; color: #111; line-height: 1.0; margin-bottom: 4px; }
+.cd-creator-name { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 400; color: #111; line-height: 1.0; margin-bottom: 4px; }
 .cd-creator-handle { font-size: 11px; color: #aaa; margin-bottom: 18px; letter-spacing: 0.03em; }
-.cd-profile-photo { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; display: block; border: 1px solid #e8e8e8; margin-bottom: 16px; }
+.cd-profile-photo { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; display: block; border: 1px solid #e8e8e8; margin-bottom: 14px; }
 .cd-status-pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #e8e8e8; font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: #555; padding: 4px 12px; border-radius: 100px; }
 .cd-dot { width: 5px; height: 5px; border-radius: 50%; background: #5db075; flex-shrink: 0; }
 
@@ -75,14 +75,14 @@ const CSS = `
 .cd-aff-divider { border: none; border-top: 1px solid #e8e8e8; margin: 14px 0; }
 .cd-aff-link-row { display: flex; align-items: flex-start; justify-content: space-between; }
 .cd-aff-link-label { font-size: 9px; letter-spacing: 0.32em; text-transform: uppercase; color: #aaa; margin-bottom: 5px; }
-.cd-aff-link-url { font-size: 11px; color: #999; font-weight: 300; }
+.cd-aff-link-url { font-size: 11px; color: #666; }
 .cd-code-change-link { font-size: 11px; color: #aaa; cursor: pointer; background: none; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 0; margin-top: 14px; display: block; }
 .cd-code-change-link:hover { text-decoration: underline; }
 .cd-code-change-form { margin-top: 14px; padding-top: 14px; border-top: 1px solid #e8e8e8; }
 .cd-code-change-label { font-size: 9px; letter-spacing: 0.32em; text-transform: uppercase; color: #aaa; margin-bottom: 6px; }
 .cd-code-change-input { width: 100%; padding: 10px 12px; border: 1px solid #e8e8e8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #111; letter-spacing: 0.06em; text-transform: uppercase; outline: none; background: #fafafa; }
 .cd-code-change-input:focus { border-color: #aaa; }
-.cd-code-change-note { font-size: 10px; color: #aaa; margin-top: 6px; line-height: 1.5; }
+.cd-code-change-note { font-size: 10px; color: #777; margin-top: 6px; line-height: 1.5; }
 .cd-code-change-actions { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
 .cd-code-change-submit { padding: 8px 18px; background: #111; color: white; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; cursor: pointer; }
 .cd-code-change-submit:disabled { background: #ccc; cursor: not-allowed; }
@@ -96,7 +96,7 @@ const CSS = `
 
 /* SIDENAV */
 .cd-sidenav { flex: 1; }
-.cd-nav-item { display: flex; align-items: center; justify-content: space-between; padding: 14px 32px; border-bottom: 1px solid #e8e8e8; cursor: pointer; transition: background 0.12s; background: none; width: 100%; text-align: left; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; position: relative; }
+.cd-nav-item { display: flex; align-items: center; justify-content: space-between; padding: 13px 24px; border-bottom: 1px solid #e8e8e8; cursor: pointer; transition: background 0.12s; background: none; width: 100%; text-align: left; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; position: relative; }
 .cd-nav-badge { min-width: 16px; height: 16px; border-radius: 8px; background: #ef4444; color: #fff; font-size: 9px; font-weight: 600; display: flex; align-items: center; justify-content: center; padding: 0 4px; line-height: 1; margin-right: 8px; }
 .cd-nav-item:hover { background: #f5f5f5; }
 .cd-nav-item.active { background: #f5f5f5; }
@@ -106,7 +106,7 @@ const CSS = `
 .cd-nav-item.active .cd-nav-arrow { color: #111; }
 
 /* NOTIFICATIONS */
-.cd-notif-btn { display: flex; align-items: center; justify-content: space-between; padding: 14px 32px; border-top: 1px solid #e8e8e8; cursor: pointer; transition: background 0.12s; background: none; width: 100%; text-align: left; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; position: relative; }
+.cd-notif-btn { display: flex; align-items: center; justify-content: space-between; padding: 13px 24px; border-top: 1px solid #e8e8e8; cursor: pointer; transition: background 0.12s; background: none; width: 100%; text-align: left; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; position: relative; }
 .cd-notif-btn:hover { background: #f5f5f5; }
 .cd-notif-btn-label { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: #aaa; display: flex; align-items: center; gap: 8px; }
 .cd-notif-badge { min-width: 16px; height: 16px; border-radius: 8px; background: #e74c3c; color: white; font-size: 9px; font-weight: 600; display: flex; align-items: center; justify-content: center; padding: 0 4px; }
@@ -120,7 +120,7 @@ const CSS = `
 .cd-notif-item-feedback { font-size: 10px; color: #666; margin-top: 3px; font-style: italic; }
 
 /* CONTENT */
-.cd-content { padding: 40px 48px 80px; display: flex; flex-direction: column; gap: 20px; min-width: 0; margin-left: 300px; }
+.cd-content { padding: 40px 48px 80px; display: flex; flex-direction: column; gap: 20px; min-width: 0; margin-left: 240px; }
 
 /* CARDS */
 .cd-card { background: #fff; border: 1px solid #e8e8e8; }
@@ -128,7 +128,7 @@ const CSS = `
 .cd-card-eyebrow { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; margin-bottom: 10px; display: flex; align-items: center; gap: 14px; }
 .cd-card-eyebrow::after { content: ''; width: 32px; height: 1px; background: #e8e8e8; }
 .cd-card-title { font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 300; color: #111; line-height: 1; }
-.cd-card-sub { font-size: 11px; color: #aaa; margin-top: 4px; }
+.cd-card-sub { font-size: 11px; color: #777; margin-top: 4px; }
 .cd-card-body { padding: 0 36px 36px; }
 
 /* BADGE */
@@ -139,7 +139,7 @@ const CSS = `
 .cd-badge-red { border-color: #f5c6cb; color: #c62828; background: #fef2f2; }
 
 /* UPLOAD */
-.cd-upload-sub { font-size: 13px; color: #888; margin-bottom: 20px; line-height: 1.5; }
+.cd-upload-sub { font-size: 13px; color: #666; margin-bottom: 20px; line-height: 1.5; }
 .cd-dropzone { border: 2px dashed #e0e0e0; padding: 36px 24px; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; margin-bottom: 16px; }
 .cd-dropzone:hover { border-color: #bbb; background: #fafafa; }
 .cd-dropzone-icon { font-size: 24px; color: #ccc; margin-bottom: 8px; }
@@ -161,7 +161,7 @@ const CSS = `
 .cd-upload-success { text-align: center; padding: 32px 0; }
 .cd-upload-success-icon { width: 48px; height: 48px; border-radius: 50%; background: #111; color: white; display: flex; align-items: center; justify-content: center; font-size: 22px; margin: 0 auto 16px; }
 .cd-upload-success-title { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 300; color: #111; margin-bottom: 6px; }
-.cd-upload-success-sub { font-size: 13px; color: #888; margin-bottom: 12px; }
+.cd-upload-success-sub { font-size: 13px; color: #666; margin-bottom: 12px; }
 .cd-upload-success-link { font-size: 12px; color: #111; text-decoration: none; letter-spacing: 0.04em; }
 .cd-upload-success-link:hover { text-decoration: underline; }
 
@@ -212,7 +212,7 @@ const CSS = `
 /* EMPTY */
 .cd-empty { padding: 52px 36px; text-align: center; border-top: 1px solid #e8e8e8; }
 .cd-empty-title { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 300; font-style: italic; color: #111; margin-bottom: 8px; }
-.cd-empty-sub { font-size: 12px; color: #aaa; line-height: 1.85; font-weight: 300; }
+.cd-empty-sub { font-size: 12px; color: #777; line-height: 1.85; }
 
 /* SEARCH */
 .cd-search { display: flex; border: 1px solid #e8e8e8; margin-bottom: 20px; }
@@ -238,7 +238,7 @@ const CSS = `
 .cd-campaign-card-status-right { font-size: 11px; color: #999; }
 .cd-campaign-card-body { padding: 14px 16px 16px; }
 .cd-campaign-title { font-family: 'Playfair Display', serif; font-size: 17px; font-weight: 400; color: #111; line-height: 1.3; margin-bottom: 2px; }
-.cd-campaign-desc { font-family: 'DM Sans', 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #999; line-height: 1.5; margin-bottom: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
+.cd-campaign-desc { font-family: 'DM Sans', 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #666; line-height: 1.5; margin-bottom: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
 .cd-campaign-dates { display: flex; gap: 24px; margin-bottom: 12px; }
 .cd-campaign-date-col label { display: block; font-size: 10px; color: #999; margin-bottom: 2px; }
 .cd-campaign-date-col span { font-size: 13px; font-weight: 500; color: #111; }
@@ -379,7 +379,7 @@ const CSS = `
 .cd-product-img img { width: 100%; height: 100%; object-fit: cover; }
 .cd-product-info { padding: 12px 14px 14px; }
 .cd-product-name { font-size: 12px; color: #111; margin-bottom: 2px; }
-.cd-product-variant { font-size: 10.5px; color: #aaa; font-weight: 300; }
+.cd-product-variant { font-size: 10.5px; color: #888; }
 .cd-load-more { display: inline-block; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; cursor: pointer; padding: 8px 20px; background: transparent; color: #999; border: 1px solid #e8e8e8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; transition: all 0.15s; }
 .cd-load-more:hover { border-color: #111; color: #111; }
 .cd-product-cta { display: inline-block; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; margin-top: 10px; cursor: pointer; padding: 7px 16px; background: #111; color: #fff; border: 1px solid #111; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
@@ -411,18 +411,18 @@ const CSS = `
 .cd-earnings-amount { display: flex; align-items: baseline; gap: 6px; margin-bottom: 6px; }
 .cd-earnings-currency { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 300; color: #999; line-height: 1; align-self: flex-start; margin-top: 10px; }
 .cd-earnings-val { font-family: 'Playfair Display', serif; font-size: 72px; font-weight: 300; color: #111; line-height: 1; }
-.cd-earnings-context { font-size: 12px; color: #999; font-weight: 300; }
+.cd-earnings-context { font-size: 12px; color: #666; }
 .cd-earnings-right { text-align: right; padding-bottom: 8px; flex-shrink: 0; }
 .cd-earnings-proj-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin-bottom: 6px; }
 .cd-earnings-proj-val { font-family: 'Playfair Display', serif; font-size: 32px; color: #111; font-weight: 300; }
-.cd-earnings-proj-note { font-size: 11px; color: #999; margin-top: 3px; }
+.cd-earnings-proj-note { font-size: 11px; color: #777; margin-top: 3px; }
 .cd-progress-wrap { padding: 0 36px 28px; border-bottom: 1px solid #e8e8e8; }
 .cd-progress-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
 .cd-progress-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; }
 .cd-progress-val { font-family: 'Playfair Display', serif; font-size: 15px; color: #111; }
 .cd-progress-track { height: 3px; background: #e8e8e8; border-radius: 2px; overflow: hidden; }
 .cd-progress-fill { height: 100%; background: #2e7d32; border-radius: 2px; transition: width 1s ease; }
-.cd-progress-note { font-size: 11px; color: #aaa; margin-top: 8px; }
+.cd-progress-note { font-size: 11px; color: #777; margin-top: 8px; }
 .cd-breakdown { padding: 0 36px 28px; }
 .cd-breakdown-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin: 24px 0 14px; }
 .cd-breakdown-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e8e8e8; }
@@ -470,13 +470,13 @@ const CSS = `
 .cd-momentum-stat:last-child { border-right: none; margin-right: 0; padding-right: 0; }
 .cd-momentum-stat-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin-bottom: 8px; }
 .cd-momentum-stat-val { font-family: 'Playfair Display', serif; font-size: 36px; color: #111; font-weight: 300; line-height: 1; margin-bottom: 4px; }
-.cd-momentum-stat-sub { font-size: 11px; color: #999; }
+.cd-momentum-stat-sub { font-size: 11px; color: #777; }
 .cd-momentum-delta { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: #2e7d32; margin-top: 4px; }
 .cd-momentum-delta-neg { color: #c0392b; }
 .cd-percentile { margin: 0 36px 28px; padding: 20px 0; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .cd-percentile-eyebrow { font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase; color: #aaa; margin-bottom: 6px; }
 .cd-percentile-headline { font-family: 'Playfair Display', serif; font-size: 22px; color: #111; font-weight: 400; line-height: 1.2; }
-.cd-percentile-sub { font-size: 12px; color: #999; margin-top: 4px; font-weight: 300; }
+.cd-percentile-sub { font-size: 12px; color: #666; margin-top: 4px; }
 .cd-percentile-number { font-family: 'Playfair Display', serif; font-size: 56px; font-weight: 300; color: #111; line-height: 1; }
 .cd-percentile-pct { font-size: 22px; font-weight: 300; color: #999; }
 .cd-streak { padding: 0 36px 28px; border-top: 1px solid #e8e8e8; padding-top: 24px; }
@@ -488,7 +488,7 @@ const CSS = `
 .cd-streak-dot.empty { background: #f5f5f5; border: 1px solid #e8e8e8; }
 .cd-streak-month-label { font-size: 9px; color: #aaa; letter-spacing: 0.08em; }
 .cd-streak-month.active .cd-streak-month-label { color: #111; }
-.cd-streak-note { font-size: 11px; color: #999; margin-top: 14px; font-weight: 300; }
+.cd-streak-note { font-size: 11px; color: #666; margin-top: 14px; }
 .cd-ads-section { padding: 0 36px 36px; border-top: 1px solid #e8e8e8; padding-top: 24px; }
 .cd-ads-section-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin-bottom: 14px; }
 .cd-ads-row { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 8px; }
@@ -542,7 +542,7 @@ const CSS = `
 .cd-wardrobe-title { font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 300; color: #111; line-height: 1; }
 .cd-wardrobe-eyebrow { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
 .cd-wardrobe-eyebrow::after { content: ''; width: 32px; height: 1px; background: #e8e8e8; }
-.cd-wardrobe-sub { font-size: 11px; color: #aaa; margin-top: 4px; }
+.cd-wardrobe-sub { font-size: 11px; color: #777; margin-top: 4px; }
 .cd-wardrobe-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: #e8e8e8; border-top: 1px solid #e8e8e8; }
 .cd-wardrobe-item { background: #fff; position: relative; }
 .cd-wardrobe-img { aspect-ratio: 3/4; overflow: hidden; position: relative; }
@@ -551,7 +551,7 @@ const CSS = `
 .cd-wardrobe-info { padding: 14px 16px 18px; }
 .cd-wardrobe-pills { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
 .cd-wardrobe-name { font-size: 13px; color: #111; margin-bottom: 3px; line-height: 1.3; }
-.cd-wardrobe-variant { font-size: 11px; color: #aaa; font-weight: 300; margin-bottom: 10px; }
+.cd-wardrobe-variant { font-size: 11px; color: #888; margin-bottom: 10px; }
 .cd-wardrobe-status { display: inline-flex; align-items: center; gap: 5px; font-size: 8.5px; letter-spacing: 0.14em; text-transform: uppercase; padding: 3px 10px; border-radius: 100px; border: 1px solid; }
 .cd-status-delivered { color: #1a1a1a; border-color: #d4d4d4; background: #f5f5f5; }
 .cd-status-shipped { color: #2e7d32; border-color: #d4edda; background: #f0faf0; }
@@ -630,7 +630,7 @@ const CSS = `
 .cd-m-aff-divider { border: none; border-top: 1px solid #e8e8e8; margin: 12px 0; }
 .cd-m-aff-link-row { display: flex; align-items: flex-start; justify-content: space-between; }
 .cd-m-aff-link-label { font-size: 9px; letter-spacing: 0.32em; text-transform: uppercase; color: #aaa; margin-bottom: 5px; }
-.cd-m-aff-link-url { font-size: 11px; color: #999; font-weight: 300; }
+.cd-m-aff-link-url { font-size: 11px; color: #666; }
 
 .cd-m-sections { padding-bottom: 80px; }
 .cd-m-section { background: #fff; border-bottom: 8px solid #f7f7f7; }
@@ -641,7 +641,7 @@ const CSS = `
 
 .cd-m-empty { padding: 32px 0; text-align: center; }
 .cd-m-empty-title { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 300; font-style: italic; color: #111; margin-bottom: 6px; }
-.cd-m-empty-sub { font-size: 12px; color: #aaa; line-height: 1.8; }
+.cd-m-empty-sub { font-size: 12px; color: #777; line-height: 1.8; }
 
 .cd-m-search { display: flex; border: 1px solid #e8e8e8; margin-bottom: 14px; }
 .cd-m-search-input { flex: 1; padding: 11px 14px; border: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #111; background: #f5f5f5; outline: none; }
@@ -653,7 +653,7 @@ const CSS = `
 .cd-m-product-img img { width: 100%; height: 100%; object-fit: cover; }
 .cd-m-product-info { padding: 10px 12px 12px; }
 .cd-m-product-name { font-size: 11.5px; color: #111; margin-bottom: 2px; }
-.cd-m-product-variant { font-size: 10px; color: #aaa; font-weight: 300; }
+.cd-m-product-variant { font-size: 10px; color: #888; }
 .cd-m-product-cta { display: inline-block; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; margin-top: 8px; cursor: pointer; padding: 6px 14px; background: #111; color: #fff; border: 1px solid #111; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
 .cd-m-product-cta.added { background: transparent; color: #ccc; border-color: #e8e8e8; cursor: default; }
 
@@ -667,7 +667,7 @@ const CSS = `
 .cd-m-earnings-amount { display: flex; align-items: baseline; gap: 4px; margin-bottom: 4px; }
 .cd-m-earnings-currency { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 300; color: #999; align-self: flex-start; margin-top: 6px; }
 .cd-m-earnings-val { font-family: 'Playfair Display', serif; font-size: 52px; font-weight: 300; color: #111; line-height: 1; }
-.cd-m-earnings-context { font-size: 11px; color: #999; font-weight: 300; }
+.cd-m-earnings-context { font-size: 11px; color: #666; }
 .cd-m-earnings-proj { padding: 14px 20px; border-bottom: 1px solid #e8e8e8; display: flex; justify-content: space-between; align-items: center; }
 .cd-m-earnings-proj-label { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: #aaa; }
 .cd-m-earnings-proj-val { font-family: 'Playfair Display', serif; font-size: 22px; color: #111; font-weight: 300; }
@@ -712,7 +712,7 @@ const CSS = `
 .cd-m-momentum-delta-neg { color: #c0392b; }
 .cd-m-percentile { margin: 16px 20px; padding: 16px 0; display: flex; align-items: center; justify-content: space-between; }
 .cd-m-percentile-headline { font-family: 'Playfair Display', serif; font-size: 17px; color: #111; font-weight: 400; line-height: 1.2; }
-.cd-m-percentile-sub { font-size: 11px; color: #999; margin-top: 3px; font-weight: 300; }
+.cd-m-percentile-sub { font-size: 11px; color: #666; margin-top: 3px; }
 .cd-m-percentile-number { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 300; color: #111; line-height: 1; white-space: nowrap; }
 .cd-m-percentile-pct { font-size: 14px; font-weight: 300; color: #999; }
 .cd-m-streak { padding: 16px 20px; border-top: 1px solid #e8e8e8; }
@@ -724,7 +724,7 @@ const CSS = `
 .cd-m-streak-dot.empty { background: #f5f5f5; border: 1px solid #e8e8e8; }
 .cd-m-streak-month-label { font-size: 8px; color: #aaa; letter-spacing: 0.06em; }
 .cd-m-streak-month.active .cd-m-streak-month-label { color: #111; }
-.cd-m-streak-note { font-size: 10px; color: #999; margin-top: 12px; font-weight: 300; }
+.cd-m-streak-note { font-size: 10px; color: #666; margin-top: 12px; }
 .cd-m-ads-section { padding: 16px 20px 20px; border-top: 1px solid #e8e8e8; }
 .cd-m-ads-label { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: #aaa; margin-bottom: 12px; }
 .cd-m-ads-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; }
@@ -761,7 +761,7 @@ const CSS = `
 .cd-m-wardrobe-img-placeholder { width: 100%; height: 100%; background: #f5f5f5; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #ccc; letter-spacing: 0.08em; text-transform: uppercase; }
 .cd-m-wardrobe-info { padding: 10px 12px 14px; }
 .cd-m-wardrobe-name { font-size: 12px; color: #111; margin-bottom: 2px; line-height: 1.3; }
-.cd-m-wardrobe-variant { font-size: 10px; color: #aaa; font-weight: 300; margin-bottom: 8px; }
+.cd-m-wardrobe-variant { font-size: 10px; color: #888; margin-bottom: 8px; }
 .cd-m-feedback-toggle { background: #fff; border: 1px solid #e8e8e8; padding: 3px 8px; border-radius: 100px; font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase; color: #555; cursor: pointer; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; white-space: nowrap; }
 .cd-m-feedback-panel { border-top: 1px solid #e8e8e8; padding: 14px 12px; background: #f5f5f5; }
 .cd-m-feedback-reactions { display: flex; gap: 5px; margin-bottom: 12px; flex-wrap: wrap; }
@@ -797,11 +797,125 @@ const CSS = `
 
 /* LOADING */
 .cd-loading { display: flex; align-items: center; justify-content: center; min-height: 100vh; font-size: 12px; color: #aaa; letter-spacing: 0.15em; text-transform: uppercase; }
+
+/* EARNINGS RECOMMENDATIONS */
+.cd-recs-rows { padding: 4px 36px 28px; }
+.cd-recs-rows-m { padding: 2px 16px 20px; }
+.cd-rec-row { display: flex; gap: 18px; padding: 16px 0; border-bottom: 1px solid #f2f2f2; align-items: flex-start; }
+.cd-rec-row:last-child { border-bottom: none; padding-bottom: 4px; }
+.cd-rec-num { font-family: 'Playfair Display', serif; font-size: 20px; color: #ccc; line-height: 1.1; min-width: 22px; }
+.cd-rec-body { flex: 1; min-width: 0; }
+.cd-rec-title { font-size: 12px; font-weight: 500; color: #111; margin-bottom: 4px; }
+.cd-rec-desc { font-size: 11.5px; color: #666; line-height: 1.5; }
+.cd-rec-action { flex-shrink: 0; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: #555; border: 1px solid #ddd; background: none; padding: 6px 12px; cursor: pointer; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; transition: all 0.15s; border-radius: 2px; white-space: nowrap; margin-top: 2px; }
+.cd-rec-action:hover { border-color: #111; color: #111; }
+
+/* COMBINED EARNINGS SOURCE SPLIT (MOBILE) */
+.cd-m-earnings-split { display: flex; border-top: 1px solid #f0f0f0; margin-top: 16px; }
+.cd-m-earnings-split-item { flex: 1; background: none; border: none; border-right: 1px solid #f0f0f0; padding: 12px 8px 2px; text-align: center; cursor: pointer; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+.cd-m-earnings-split-item:last-child { border-right: none; }
+.cd-m-earnings-split-label { font-size: 8px; letter-spacing: 0.18em; text-transform: uppercase; color: #aaa; margin-bottom: 6px; white-space: nowrap; }
+.cd-m-earnings-split-val { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 300; color: #111; line-height: 1; }
+.cd-m-earnings-split-link { font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase; color: #ccc; margin-top: 6px; }
+
+/* COMBINED EARNINGS SOURCE SPLIT */
+.cd-earnings-split { display: flex; align-items: stretch; padding-bottom: 8px; }
+.cd-earnings-split-item { background: none; border: none; border-left: 1px solid #e8e8e8; padding: 6px 28px; text-align: left; cursor: pointer; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+.cd-earnings-split-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin-bottom: 8px; white-space: nowrap; }
+.cd-earnings-split-val { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 300; color: #111; line-height: 1; }
+.cd-earnings-split-link { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: #ccc; margin-top: 8px; transition: color 0.15s; white-space: nowrap; }
+.cd-earnings-split-item:hover .cd-earnings-split-link { color: #111; }
+
+.cd-car-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; border-radius: 50%; background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.55); color: #fff; font-size: 16px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 3; padding: 0; }
+.cd-car-prev { left: 8px; }
+.cd-car-next { right: 8px; }
+.cd-car-dots { position: absolute; bottom: 56px; left: 0; right: 0; display: flex; justify-content: center; gap: 5px; z-index: 3; pointer-events: none; }
+.cd-car-dots span { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.5); }
+.cd-car-dots span.active { background: #fff; }
+.cd-lightbox-carousel { position: relative; }
+.cd-lightbox-carousel img { max-width: 92vw; max-height: 85vh; border-radius: 8px; display: block; }
+.cd-lb-car-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.5); color: #fff; font-size: 22px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.cd-lb-car-prev { left: 12px; }
+.cd-lb-car-next { right: 12px; }
+.cd-lb-car-dots { position: absolute; bottom: 14px; left: 0; right: 0; display: flex; justify-content: center; gap: 6px; }
+.cd-lb-car-dots span { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.45); }
+.cd-lb-car-dots span.active { background: #fff; }
+.cd-lightbox-embed iframe { border: none; background: #000; border-radius: 8px; display: block; max-width: 92vw; max-height: 88vh; }
+
+/* LEADERBOARD */
+.cd-lb-rows { padding: 4px 36px 12px; }
+.cd-lb-rows-m { padding: 4px 16px 12px; }
+.cd-lb-row { display: grid; grid-template-columns: 24px 32px minmax(0, 1fr) 36px 120px 150px; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid #f2f2f2; }
+.cd-lb-row-m { grid-template-columns: 20px 28px minmax(0, 1fr) 118px; gap: 8px; }
+.cd-lb-row:last-child { border-bottom: none; }
+.cd-lb-row-you { background: #faf9f7; box-shadow: inset 2px 0 0 #111; padding-left: 8px; margin-left: -8px; }
+.cd-lb-rank { font-family: 'Playfair Display', serif; font-size: 15px; color: #111; }
+.cd-lb-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; display: block; }
+.cd-lb-avatar-ph { width: 32px; height: 32px; border-radius: 50%; background: #e8e8e8; }
+.cd-lb-row-m .cd-lb-avatar, .cd-lb-row-m .cd-lb-avatar-ph { width: 28px; height: 28px; }
+.cd-lb-name { font-size: 12px; color: #111; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cd-lb-you-tag { font-size: 8px; letter-spacing: 0.16em; text-transform: uppercase; border: 1px solid #111; padding: 1px 5px; margin-left: 8px; color: #111; }
+.cd-lb-move { font-size: 10px; text-align: center; color: #ccc; }
+.cd-lb-move-up { color: #2e7d32; }
+.cd-lb-move-down { color: #c0392b; }
+.cd-lb-bar-track { height: 3px; background: #f0f0f0; }
+.cd-lb-bar-fill { height: 3px; background: #111; transition: width 0.6s ease; }
+.cd-lb-meta { font-size: 11px; color: #111; text-align: right; white-space: nowrap; }
+.cd-lb-meta-you { font-weight: 500; }
+.cd-lb-ellipsis { text-align: center; color: #ccc; font-size: 12px; letter-spacing: 0.4em; padding: 2px 0; }
+.cd-lb-headrow { padding: 8px 0 4px; }
+.cd-lb-headlabel { font-size: 8px; letter-spacing: 0.16em; text-transform: uppercase; color: #aaa; white-space: nowrap; }
+/* Whitelisting board ranks by spend but doesn't visualize it — no bar column */
+.cd-lb-row-nobar { grid-template-columns: 24px 32px minmax(0, 1fr) 36px 150px; }
+.cd-lb-half .cd-lb-row-nobar { grid-template-columns: 20px 28px minmax(0, 1fr) 118px; }
+/* Side-by-side boards are symmetric: no bars on either, identical row grids */
+.cd-lb-half .cd-lb-bar-track, .cd-lb-half .cd-lb-headlabel-bar { display: none; }
+.cd-lb-sub { font-size: 11px; color: #666; margin-top: 8px; }
+.cd-lb-footnote { padding: 10px 36px 16px; font-size: 11px; color: #888; border-top: 1px solid #f2f2f2; }
+.cd-lb-footnote-m { padding: 10px 16px 16px; }
+.cd-lb-empty { padding: 28px 36px 36px; font-size: 12px; color: #777; text-align: center; }
+.cd-lb-community { display: flex; border-top: 1px solid #e8e8e8; border-bottom: 1px solid #e8e8e8; margin-bottom: 8px; }
+.cd-lb-community-stat { flex: 1; text-align: center; padding: 18px 8px; border-right: 1px solid #e8e8e8; min-width: 0; }
+.cd-lb-community-stat:last-child { border-right: none; }
+.cd-lb-community-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; margin-bottom: 6px; }
+.cd-lb-community-val { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 300; color: #111; line-height: 1; }
+.cd-lb-star { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.cd-lb-star img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; }
+.cd-lb-adcreator { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-top: 1px solid #e8e8e8; font-size: 11px; color: #555; min-width: 0; }
+.cd-lb-adcreator img { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.cd-lb-adcreator-ph { width: 20px; height: 20px; border-radius: 50%; background: #e8e8e8; flex-shrink: 0; }
+.cd-lb-adcreator span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cd-lb-yourad { position: absolute; top: 8px; left: 8px; z-index: 4; font-size: 8px; letter-spacing: 0.14em; text-transform: uppercase; background: #fff; color: #111; padding: 3px 8px; border-radius: 100px; }
+.cd-lb-tier-strip { text-align: center; padding: 8px 0; border-top: 1px solid #e8e8e8; }
+.cd-lb-bench { margin: 0 36px 24px; border: 1px solid #e8e8e8; background: #fafafa; padding: 16px 20px; }
+.cd-lb-bench-m { margin: 0 16px 20px; }
+.cd-lb-bench-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+.cd-lb-bench-label { font-size: 8px; letter-spacing: 0.18em; text-transform: uppercase; color: #aaa; margin-bottom: 4px; }
+.cd-lb-bench-vals { font-family: 'Playfair Display', serif; font-size: 15px; color: #111; }
+.cd-lb-bench-vals span { color: #999; font-size: 11px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+.cd-lb-bench-note { font-size: 11px; color: #555; line-height: 1.5; }
+.cd-m-lb-card { background: #fff; border: 1px solid #e8e8e8; margin: 0 12px 16px; }
+/* Compact variant when the two boards sit side by side (dual-type partners) */
+.cd-lb-half .cd-earnings-head { padding: 26px 24px 0; margin-bottom: 18px; }
+.cd-lb-half .cd-earnings-title { font-size: 24px; }
+.cd-lb-half .cd-lb-rows { padding: 4px 24px 12px; }
+.cd-lb-half .cd-lb-row { grid-template-columns: 20px 28px minmax(0, 1fr) 118px; gap: 10px; }
+.cd-lb-half .cd-lb-move { display: none; }
+.cd-lb-half .cd-lb-avatar, .cd-lb-half .cd-lb-avatar-ph { width: 28px; height: 28px; }
+.cd-lb-half .cd-lb-community-val { font-size: 20px; }
+.cd-lb-half .cd-lb-community-stat { padding: 14px 6px; }
+.cd-lb-half .cd-lb-community-label { letter-spacing: 0.14em; }
+.cd-lb-half .cd-lb-footnote { padding: 10px 24px 14px; }
+.cd-lb-half .cd-lb-empty { padding: 24px 24px 30px; }
+.cd-lb-half .cd-lb-star span:first-of-type { display: none; }
+.cd-ad-thumb-fallback { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: #1a1a1a; text-align: center; padding: 16px; z-index: 1; }
+.cd-ad-thumb-fallback-eyebrow { font-size: 8px; letter-spacing: 0.28em; text-transform: uppercase; color: #888; }
+.cd-ad-thumb-fallback-name { font-family: 'Playfair Display', serif; font-size: 15px; color: #fff; line-height: 1.3; }
 `
 
-const TABS = ['ads', 'campaigns', 'wardrobe', 'submit', 'settings']
-const TAB_LABELS = { wardrobe: 'Wardrobe & Orders', ads: 'Stats', campaigns: 'Campaigns', submit: 'Submit Content', settings: 'Account Info' }
-const TAB_LABELS_SHORT = { wardrobe: 'Wardrobe', ads: 'Ads', campaigns: 'Campaigns', submit: 'Submit Content', settings: 'Payment' }
+const TABS = ['ads', 'leaderboard', 'campaigns', 'wardrobe', 'submit', 'settings']
+const TAB_LABELS = { wardrobe: 'Wardrobe & Orders', ads: 'Stats', leaderboard: 'Community', campaigns: 'Campaigns', submit: 'Submit Content', settings: 'Account Info' }
+const TAB_LABELS_SHORT = { wardrobe: 'Wardrobe', ads: 'Ads', leaderboard: 'Community', campaigns: 'Campaigns', submit: 'Submit Content', settings: 'Payment' }
 
 export default function CreatorDashboard() {
   const router = useRouter()
@@ -816,7 +930,7 @@ export default function CreatorDashboard() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
       const tab = params.get('tab')
-      if (tab && ['ads', 'campaigns', 'wardrobe', 'submit', 'settings'].includes(tab)) return tab
+      if (tab && ['ads', 'leaderboard', 'campaigns', 'wardrobe', 'submit', 'settings'].includes(tab)) return tab
     }
     return 'ads'
   })
@@ -840,6 +954,17 @@ export default function CreatorDashboard() {
   const [adsMtd, setAdsMtd] = useState({ spend: 0, impressions: 0 })
   const [adsLastMtd, setAdsLastMtd] = useState({ spend: 0, impressions: 0 })
   const [adsLoading, setAdsLoading] = useState(true)
+
+  // Desktop earnings view: one card with sub-tabs instead of three stacked cards
+  const [earningsView, setEarningsView] = useState('combined') // 'combined' | 'adspend' | 'affiliate'
+
+  // Leaderboard tab
+  const [lbWindow, setLbWindow] = useState('30d') // '7d' | '30d' | '90d'
+  const [lbAffiliate, setLbAffiliate] = useState(null)
+  const [lbWhitelisting, setLbWhitelisting] = useState(null)
+  const [lbTopAds, setLbTopAds] = useState(null) // { top_ads, own_ads, benchmarks }
+  const [lbLoading, setLbLoading] = useState(false)
+  const lbCacheRef = useRef({})
 
   // Content submissions
   const [contentMonth, setContentMonth] = useState(() => {
@@ -895,7 +1020,9 @@ export default function CreatorDashboard() {
   const [campaignConfirming, setCampaignConfirming] = useState(null)
   const [campaignSelectError, setCampaignSelectError] = useState(null)
   const [showPastCampaigns, setShowPastCampaigns] = useState(false)
-  const [lightboxFile, setLightboxFile] = useState(null) // { r2_url, name, mime_type, mux_playback_id? }
+  const [lightboxFile, setLightboxFile] = useState(null)
+  const [lightboxIndex, setLightboxIndex] = useState(0)
+  const [carouselIdx, setCarouselIdx] = useState({}) // { [adId]: frame index } for in-card carousels // { r2_url, name, mime_type, mux_playback_id? }
   const [campaignContentTarget, setCampaignContentTarget] = useState(null) // assignment ID to tag content with
   const [resubmitTarget, setResubmitTarget] = useState(null) // submission ID being resubmitted
   const [activeCampaignDetail, setActiveCampaignDetail] = useState(null) // assignment being viewed in detail
@@ -1445,6 +1572,57 @@ export default function CreatorDashboard() {
     setCodeChangeCancelling(false)
   }
 
+  // A partner with neither affiliate nor ad-spend can still land on
+  // ?tab=leaderboard via deep link; bounce them to Stats once entitlements are
+  // known (affiliateConfig resolved) rather than showing an empty hidden tab.
+  useEffect(() => {
+    if (activeTab !== 'leaderboard' || !invite || !affiliateConfig) return
+    const entitled = !!affiliateConfig.enabled || invite?.has_affiliate === true || invite?.has_ad_spend === true
+    if (!entitled) setActiveTab('ads')
+  }, [activeTab, invite, affiliateConfig])
+
+  // Leaderboard / top-ads data — fetched lazily when a tab that shows it opens,
+  // cached per piece + window so preset flips and tab switches are instant.
+  // The Stats tab shows the top-ads sections too, so it only needs that piece.
+  useEffect(() => {
+    if (!invite) return
+    const hasAff = affiliateConfig ? !!affiliateConfig.enabled : invite?.has_affiliate === true
+    const hasWl = invite?.has_ad_spend === true
+    const needAff = activeTab === 'leaderboard' && hasAff
+    const needWl = activeTab === 'leaderboard' && hasWl
+    const needAds = (activeTab === 'leaderboard' || activeTab === 'ads') && hasWl
+    if (!needAff && !needWl && !needAds) return
+    const days = lbWindow === '7d' ? 7 : lbWindow === '90d' ? 90 : 30
+    const endD = new Date()
+    const startD = new Date(endD.getTime() - (days - 1) * 86400000)
+    const iso = d => d.toISOString().slice(0, 10)
+    const urlParams = new URLSearchParams(window.location.search)
+    const adminCreatorId = urlParams.get('creator_id')
+    const cid = adminCreatorId ? `&creator_id=${encodeURIComponent(adminCreatorId)}` : ''
+    const range = `start=${iso(startD)}&end=${iso(endD)}`
+    const get = url => fetch(url).then(r => (r.ok ? r.json() : null)).catch(() => null)
+    const cache = lbCacheRef.current
+    let cancelled = false
+    const jobs = []
+    const piece = (need, key, url, setter) => {
+      if (!need) return
+      if (cache[key]) { setter(cache[key]); return }
+      jobs.push(get(url).then(d => {
+        if (cancelled) return
+        if (d) cache[key] = d
+        setter(d)
+      }))
+    }
+    piece(needAff, `aff:${lbWindow}`, `/api/creator/leaderboard?category=affiliate&${range}&limit=3${cid}`, setLbAffiliate)
+    piece(needWl, `wl:${lbWindow}`, `/api/creator/leaderboard?category=whitelisting&${range}&limit=3${cid}`, setLbWhitelisting)
+    piece(needAds, `ads:${lbWindow}`, `/api/creator/top-ads?${range}&limit=12${cid}`, setLbTopAds)
+    if (jobs.length > 0) {
+      setLbLoading(true)
+      Promise.all(jobs).then(() => { if (!cancelled) setLbLoading(false) })
+    }
+    return () => { cancelled = true }
+  }, [activeTab, lbWindow, invite, affiliateConfig])
+
   function formatSpend(val) {
     const n = parseFloat(val)
     if (n >= 1000) return `$${(n / 1000).toFixed(1)}K`
@@ -1482,6 +1660,9 @@ export default function CreatorDashboard() {
   const videosPerMonth = invite?.videos_per_month || '—'
   const affiliateCode = affiliateConfig?.code || creator?.affiliate_code || ''
   const adsRunning = ads.filter(a => a.status === 'ACTIVE').length
+  // The Leaderboard tab only exists for partners who can appear on a board.
+  const showLeaderboard = hasAffiliate || invite?.has_ad_spend === true
+  const visibleTabs = TABS.filter(t => t !== 'leaderboard' || showLeaderboard)
 
   // Current-month earnings shared by the combined header and the two detail cards,
   // so the three numbers are always consistent. Mirrors the per-card math below.
@@ -1885,6 +2066,132 @@ export default function CreatorDashboard() {
     return <span className={`${p}-pill ${p}-testing`}>Testing</span>
   }
 
+  // Same pill, but from a server-provided tier string — the leaderboard API never
+  // ships other creators' spend to the client, only the tier.
+  function getScorePillFromTier(tier, mobile) {
+    const p = mobile ? 'cd-m-score' : 'cd-score'
+    const cls = tier === 'strong' ? 'strong' : tier === 'scaling' ? 'scaling' : 'testing'
+    return <span className={`${p}-pill ${p}-${cls}`}>{cls.charAt(0).toUpperCase() + cls.slice(1)}</span>
+  }
+
+  // Shared ad preview: Mux video with tap-to-play, else thumbnail with a styled
+  // fallback when the image is missing or its URL has expired (replaces the old
+  // blank dark box / broken-image state).
+  function renderAdPreview(ad, mobile) {
+    const p = mobile ? 'cd-m-ad' : 'cd-ad'
+    const name = cleanAdName(ad.name)
+    const isActive = (ad.effective_status || ad.status) === 'ACTIVE'
+    const thumbUrl = ad.thumbnailUrl || ad.thumbnail_url || null
+    const overlay = (
+      <div className={`${p}-thumb-overlay`}>
+        <div className={`${p}-thumb-name`}>{name}</div>
+        <div className={`${p}-thumb-status${!isActive ? ` ${p}-thumb-status-paused` : ''}`}>● {isActive ? 'Active' : 'Paused'}</div>
+      </div>
+    )
+    if (ad.mux_playback_id) {
+      return (
+        <div className={`${p}-video`}
+          onClick={e => {
+            const v = e.currentTarget.querySelector('video')
+            const btn = e.currentTarget.querySelector(`.${p}-play-btn`)
+            const ov = e.currentTarget.querySelector(`.${p}-thumb-overlay`)
+            if (v && v.paused) {
+              v.muted = false
+              v.play().then(() => { v.controls = true }).catch(() => {})
+              if (btn) btn.classList.add('hidden')
+              if (ov) ov.classList.add('hidden')
+            }
+          }}
+        >
+          <video
+            src={`https://stream.mux.com/${ad.mux_playback_id}/capped-1080p.mp4`}
+            poster={`https://image.mux.com/${ad.mux_playback_id}/thumbnail.jpg?time=0`}
+            playsInline
+            preload="metadata"
+            onPause={e => {
+              const btn = e.currentTarget.parentElement.querySelector(`.${p}-play-btn`)
+              const ov = e.currentTarget.parentElement.querySelector(`.${p}-thumb-overlay`)
+              if (btn) btn.classList.remove('hidden')
+              if (ov) ov.classList.remove('hidden')
+            }}
+          />
+          <div className={`${p}-play-btn`}>
+            <svg width="18" height="20" viewBox="0 0 18 20"><polygon points="0,0 18,10 0,20" /></svg>
+          </div>
+          {overlay}
+        </div>
+      )
+    }
+    // Image carousels: no video to play — flip through the frames right on the
+    // card with inline arrows (no popup, no Meta iframe).
+    if (ad.carousel_urls && ad.carousel_urls.length > 0) {
+      const frames = ad.carousel_urls
+      const cKey = String(ad.ad_id || ad.id || name)
+      const idx = Math.min(carouselIdx[cKey] || 0, frames.length - 1)
+      const go = (e, d) => {
+        e.stopPropagation()
+        setCarouselIdx(prev => ({ ...prev, [cKey]: Math.max(0, Math.min(frames.length - 1, idx + d)) }))
+      }
+      return (
+        <div className={`${p}-thumb`}>
+          <img src={frames[idx]} alt={name} />
+          <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 3 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><rect x="3" y="7" width="14" height="14" rx="2" fill="rgba(0,0,0,0.35)" /><path d="M8 3h11a2 2 0 0 1 2 2v11" /></svg>
+          </div>
+          {idx > 0 && <button className="cd-car-nav cd-car-prev" onClick={e => go(e, -1)}>‹</button>}
+          {idx < frames.length - 1 && <button className="cd-car-nav cd-car-next" onClick={e => go(e, 1)}>›</button>}
+          {frames.length > 1 && (
+            <div className="cd-car-dots">
+              {frames.map((_, i) => <span key={i} className={i === idx ? 'active' : ''} />)}
+            </div>
+          )}
+          {overlay}
+        </div>
+      )
+    }
+    // Boosted-IG-post ads (object_type SHARE): Meta denies the video download,
+    // so there's no Mux asset — clicking opens Meta's ad-preview iframe in the
+    // lightbox instead of squeezing its phone-frame chrome into the card.
+    if (ad.previewHtml) {
+      return (
+        <div className={`${p}-video`} onClick={() => setLightboxFile({ previewHtml: ad.previewHtml, name })}>
+          {thumbUrl ? (
+            <img src={thumbUrl} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85, display: 'block' }} />
+          ) : (
+            <div className="cd-ad-thumb-fallback" style={{ display: 'flex' }}>
+              <div className="cd-ad-thumb-fallback-eyebrow">Preview unavailable</div>
+              <div className="cd-ad-thumb-fallback-name">{name}</div>
+            </div>
+          )}
+          <div className={`${p}-play-btn`}>
+            <svg width="18" height="20" viewBox="0 0 18 20"><polygon points="0,0 18,10 0,20" /></svg>
+          </div>
+          {overlay}
+        </div>
+      )
+    }
+    return (
+      <div className={`${p}-thumb`}>
+        {thumbUrl && (
+          <img
+            src={thumbUrl}
+            alt={name}
+            onError={e => {
+              e.currentTarget.style.display = 'none'
+              const fb = e.currentTarget.parentElement.querySelector('.cd-ad-thumb-fallback')
+              if (fb) fb.style.display = 'flex'
+            }}
+          />
+        )}
+        <div className="cd-ad-thumb-fallback" style={!thumbUrl ? { display: 'flex' } : undefined}>
+          <div className="cd-ad-thumb-fallback-eyebrow">Preview unavailable</div>
+          <div className="cd-ad-thumb-fallback-name">{name}</div>
+        </div>
+        {overlay}
+      </div>
+    )
+  }
+
   function getPercentile(totalSpend) {
     if (totalSpend > 3000) return { rank: 10, label: 'top performers' }
     if (totalSpend > 1000) return { rank: 25, label: 'top quarter' }
@@ -1909,6 +2216,110 @@ export default function CreatorDashboard() {
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
     }))
     return months.map(m => ({ ...m, active: subMonths.has(m.key) || m.isCurrent }))
+  }
+
+  // Jump from the combined overview to a source tab and land on its
+  // recommendations card rather than the top of the tab.
+  function goToRecs(kind) {
+    setEarningsView(kind)
+    setTimeout(() => {
+      document.getElementById('cd-recs-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 120)
+  }
+
+  // Actionable "how to earn more" rows under the Ad Spend / Affiliate earnings
+  // cards. Affiliate = organic promotion of their code/link; whitelisting = the
+  // levers that actually drive spend allocation (submissions, hooks, variety).
+  function renderEarningsRecs(kind, mobile) {
+    const rows = kind === 'affiliate'
+      ? [
+          {
+            t: 'Add your link to your bio',
+            d: `namaclo.com/discount/${affiliateCode.toLowerCase()} — bio placement sells around the clock, even on posts that aren't about Nama.`,
+            a: <button className="cd-rec-action" onClick={copyLink}>{copiedLink ? 'Copied' : 'Copy Link'}</button>,
+          },
+          {
+            t: 'Mention your code in every post',
+            d: `Say ${affiliateCode.toUpperCase()} out loud and put it in the caption — organic mentions are your highest-converting sales.`,
+            a: <button className="cd-rec-action" onClick={copyCode}>{copied ? 'Copied' : 'Copy Code'}</button>,
+          },
+          {
+            t: 'Share to your Stories',
+            d: 'A link sticker on a try-on or styling Story is the shortest path from view to checkout.',
+          },
+          {
+            t: 'Post the moment product arrives',
+            d: 'Unboxings and first impressions feel authentic and spike code usage — tag Nama so we can reshare you.',
+          },
+          {
+            t: 'Request new styles',
+            d: 'More product means more to post about — request fresh pieces from us anytime.',
+            a: <button className="cd-rec-action" onClick={() => { setActiveTab('wardrobe'); setWardrobeSubTab('requests') }}>Request Styles →</button>,
+          },
+        ]
+      : [
+          {
+            t: 'Submit content every month',
+            d: 'Your streak sets your spend priority — fresh content each month means more ads running on you.',
+            a: <button className="cd-rec-action" onClick={() => setActiveTab('submit')}>Submit →</button>,
+          },
+          {
+            t: 'Study the top performing ads',
+            d: 'See the hooks and formats winning across all whitelisted creators, and how your own numbers compare.',
+            a: <button className="cd-rec-action" onClick={() => setActiveTab('leaderboard')}>Community →</button>,
+          },
+          {
+            t: 'Win the first 3 seconds',
+            d: 'Hook rate decides what scales. Open with movement, product on screen, or a bold claim — no slow intros.',
+          },
+          {
+            t: 'Send variety, not volume',
+            d: 'Different products, settings and angles give us more to test — one winner can out-spend ten average clips.',
+          },
+          {
+            t: 'Request new styles',
+            d: 'Fresh pieces keep your content new — request more product from us anytime to film with.',
+            a: <button className="cd-rec-action" onClick={() => { setActiveTab('wardrobe'); setWardrobeSubTab('requests') }}>Request Styles →</button>,
+          },
+        ]
+    const eyebrow = 'Recommendations'
+    const title = kind === 'affiliate' ? 'Grow Your Affiliate Sales' : 'Get More Ad Spend'
+    const body = (
+      <div className={`cd-recs-rows${mobile ? ' cd-recs-rows-m' : ''}`}>
+        {rows.map((r, i) => (
+          <div key={i} className="cd-rec-row">
+            <div className="cd-rec-num">{i + 1}</div>
+            <div className="cd-rec-body">
+              <div className="cd-rec-title">{r.t}</div>
+              <div className="cd-rec-desc">{r.d}</div>
+            </div>
+            {r.a || null}
+          </div>
+        ))}
+      </div>
+    )
+    if (mobile) {
+      return (
+        <div className="cd-m-lb-card" id="cd-recs-anchor">
+          <div className="cd-m-section-head">
+            <div className="cd-m-section-eyebrow">{eyebrow}</div>
+            <div className="cd-m-section-title">{title}</div>
+          </div>
+          {body}
+        </div>
+      )
+    }
+    return (
+      <div className="cd-earnings" id="cd-recs-anchor">
+        <div className="cd-earnings-head">
+          <div>
+            <div className="cd-earnings-eyebrow">{eyebrow}</div>
+            <div className="cd-earnings-title">{title}</div>
+          </div>
+        </div>
+        {body}
+      </div>
+    )
   }
 
   function renderCombinedEarnings(mobile) {
@@ -1960,7 +2371,6 @@ export default function CreatorDashboard() {
     const milestone = Math.ceil((combined + 1) / 500) * 500
     const progress = milestone > 0 ? Math.min((combined / milestone) * 100, 100) : 0
     const remaining = milestone - combined
-    const breakdown = `$${currentAffEarned.toLocaleString()} affiliate sales · $${currentAdEarned.toLocaleString()} ad commission`
 
     if (mobile) {
       return (
@@ -1975,7 +2385,18 @@ export default function CreatorDashboard() {
               <span className="cd-m-earnings-currency">$</span>
               <span className="cd-m-earnings-val">{combined.toLocaleString()}</span>
             </div>
-            <div className="cd-m-earnings-context">{breakdown}</div>
+            <div className="cd-m-earnings-split">
+              <button className="cd-m-earnings-split-item" onClick={() => setEarningsView('affiliate')}>
+                <div className="cd-m-earnings-split-label">Affiliate Sales</div>
+                <div className="cd-m-earnings-split-val">${currentAffEarned.toLocaleString()}</div>
+                <div className="cd-m-earnings-split-link">View details →</div>
+              </button>
+              <button className="cd-m-earnings-split-item" onClick={() => setEarningsView('adspend')}>
+                <div className="cd-m-earnings-split-label">Ad Commission</div>
+                <div className="cd-m-earnings-split-val">${currentAdEarned.toLocaleString()}</div>
+                <div className="cd-m-earnings-split-link">View details →</div>
+              </button>
+            </div>
           </div>
           <div className="cd-m-progress">
             <div className="cd-m-progress-header">
@@ -1983,6 +2404,13 @@ export default function CreatorDashboard() {
               <span className="cd-m-progress-val">${combined} of ${milestone}</span>
             </div>
             <div className="cd-m-progress-track"><div className="cd-m-progress-fill" style={{ width: `${progress}%` }} /></div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '12px 16px', background: '#f7f7f7', borderTop: '1px solid #ececec' }}>
+            <div style={{ fontSize: 11, color: '#555', fontWeight: 300 }}>Want to grow this number?</div>
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+              <button className="cd-rec-action" onClick={() => goToRecs('affiliate')}>Affiliate →</button>
+              <button className="cd-rec-action" onClick={() => goToRecs('adspend')}>Ad Spend →</button>
+            </div>
           </div>
         </div>
       )
@@ -1995,7 +2423,6 @@ export default function CreatorDashboard() {
             <div className="cd-earnings-eyebrow">Combined · All Sources</div>
             <div className="cd-earnings-title">Total Earnings</div>
           </div>
-          {getScorePill(adsTotals.spend, false)}
         </div>
         <div className="cd-earnings-hero">
           <div>
@@ -2004,7 +2431,18 @@ export default function CreatorDashboard() {
               <span className="cd-earnings-currency">$</span>
               <span className="cd-earnings-val">{combined.toLocaleString()}</span>
             </div>
-            <div className="cd-earnings-context">{breakdown}</div>
+          </div>
+          <div className="cd-earnings-split">
+            <button className="cd-earnings-split-item" onClick={() => setEarningsView('affiliate')}>
+              <div className="cd-earnings-split-label">Affiliate Sales</div>
+              <div className="cd-earnings-split-val">${currentAffEarned.toLocaleString()}</div>
+              <div className="cd-earnings-split-link">View details →</div>
+            </button>
+            <button className="cd-earnings-split-item" onClick={() => setEarningsView('adspend')}>
+              <div className="cd-earnings-split-label">Ad Commission</div>
+              <div className="cd-earnings-split-val">${currentAdEarned.toLocaleString()}</div>
+              <div className="cd-earnings-split-link">View details →</div>
+            </button>
           </div>
         </div>
         <div className="cd-progress-wrap">
@@ -2014,6 +2452,16 @@ export default function CreatorDashboard() {
           </div>
           <div className="cd-progress-track"><div className="cd-progress-fill" style={{ width: `${progress}%` }} /></div>
           <div className="cd-progress-note">${remaining.toLocaleString()} away.</div>
+        </div>
+        <div className="cd-payment-strip">
+          <div>
+            <div className="cd-payment-left">Want to grow this number?</div>
+            <div className="cd-payment-date">We put together recommendations for each earning source.</div>
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="cd-rec-action" onClick={() => goToRecs('affiliate')}>Affiliate Tips →</button>
+            <button className="cd-rec-action" onClick={() => goToRecs('adspend')}>Ad Spend Tips →</button>
+          </div>
         </div>
       </div>
     )
@@ -2126,7 +2574,7 @@ export default function CreatorDashboard() {
             <div className="cd-earnings-eyebrow">Ad Spend Commission</div>
             <div className="cd-earnings-title">Ad Spend Earnings</div>
           </div>
-          {getScorePill(totalSpend, false)}
+          {getScorePill(currentSpend, false)}
         </div>
         <div className="cd-earnings-hero">
           <div>
@@ -2412,6 +2860,9 @@ export default function CreatorDashboard() {
 
   function renderMomentum(mobile) {
     const showSpendData = !!invite?.has_ad_spend
+    // Partners without an ad-spend deal and no tracked ads have nothing to show
+    // here — hide the whole Paid Media card instead of an empty grid.
+    if (!showSpendData && ads.length === 0) return null
 
     if (adsLoading) {
       if (mobile) {
@@ -2549,55 +3000,9 @@ export default function CreatorDashboard() {
             <div className="cd-m-ads-label">Running Now</div>
             <div className="cd-m-ads-row">
               {ads.map((ad, i) => {
-                const name = cleanAdName(ad.name)
-                const isActive = ad.status === 'ACTIVE'
                 return (
                   <div key={i} className="cd-m-ad-card">
-                    {ad.previewHtml ? (
-                      <div className="cd-m-ad-preview" dangerouslySetInnerHTML={{ __html: ad.previewHtml }} />
-                    ) : ad.mux_playback_id ? (
-                      <div className="cd-m-ad-video"
-                        onClick={e => {
-                          const v = e.currentTarget.querySelector('video')
-                          const btn = e.currentTarget.querySelector('.cd-m-ad-play-btn')
-                          const overlay = e.currentTarget.querySelector('.cd-m-ad-thumb-overlay')
-                          if (v && v.paused) {
-                            v.muted = false
-                            v.play().then(() => { v.controls = true }).catch(() => {})
-                            if (btn) btn.classList.add('hidden')
-                            if (overlay) overlay.classList.add('hidden')
-                          }
-                        }}
-                      >
-                        <video
-                          src={`https://stream.mux.com/${ad.mux_playback_id}/capped-1080p.mp4`}
-                          poster={`https://image.mux.com/${ad.mux_playback_id}/thumbnail.jpg?time=0`}
-                          playsInline
-                          preload="metadata"
-                          onPause={e => {
-                            const btn = e.currentTarget.parentElement.querySelector('.cd-m-ad-play-btn')
-                            const overlay = e.currentTarget.parentElement.querySelector('.cd-m-ad-thumb-overlay')
-                            if (btn) btn.classList.remove('hidden')
-                            if (overlay) overlay.classList.remove('hidden')
-                          }}
-                        />
-                        <div className="cd-m-ad-play-btn">
-                          <svg width="18" height="20" viewBox="0 0 18 20"><polygon points="0,0 18,10 0,20" /></svg>
-                        </div>
-                        <div className="cd-m-ad-thumb-overlay">
-                          <div className="cd-m-ad-thumb-name">{name}</div>
-                          <div className={`cd-m-ad-thumb-status${!isActive ? ' cd-m-ad-thumb-status-paused' : ''}`}>● {isActive ? 'Active' : 'Paused'}</div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="cd-m-ad-thumb">
-                        {ad.thumbnailUrl ? <img src={ad.thumbnailUrl} alt={name} /> : <div style={{ width: '100%', height: '100%', background: '#222' }} />}
-                        <div className="cd-m-ad-thumb-overlay">
-                          <div className="cd-m-ad-thumb-name">{name}</div>
-                          <div className={`cd-m-ad-thumb-status${!isActive ? ' cd-m-ad-thumb-status-paused' : ''}`}>● {isActive ? 'Active' : 'Paused'}</div>
-                        </div>
-                      </div>
-                    )}
+                    {renderAdPreview(ad, true)}
                     {showSpendData && (
                       <div className="cd-m-ad-stats-strip">
                         <div className="cd-m-ad-stat"><div className="cd-m-ad-stat-l">Spend Since Tracking</div><div className="cd-m-ad-stat-v">{formatSpend(ad.spend)}</div></div>
@@ -2673,55 +3078,9 @@ export default function CreatorDashboard() {
           <div className="cd-ads-section-label">Running Now</div>
           <div className="cd-ads-row">
             {ads.map((ad, i) => {
-              const name = cleanAdName(ad.name)
-              const isActive = ad.status === 'ACTIVE'
               return (
                 <div key={i} className="cd-ad-card">
-                  {ad.previewHtml ? (
-                    <div className="cd-ad-preview" dangerouslySetInnerHTML={{ __html: ad.previewHtml }} />
-                  ) : ad.mux_playback_id ? (
-                    <div className="cd-ad-video"
-                      onClick={e => {
-                        const v = e.currentTarget.querySelector('video')
-                        const btn = e.currentTarget.querySelector('.cd-ad-play-btn')
-                        const overlay = e.currentTarget.querySelector('.cd-ad-thumb-overlay')
-                        if (v && v.paused) {
-                          v.muted = false
-                          v.play().then(() => { v.controls = true }).catch(() => {})
-                          if (btn) btn.classList.add('hidden')
-                          if (overlay) overlay.classList.add('hidden')
-                        }
-                      }}
-                    >
-                      <video
-                        src={`https://stream.mux.com/${ad.mux_playback_id}/capped-1080p.mp4`}
-                        poster={`https://image.mux.com/${ad.mux_playback_id}/thumbnail.jpg?time=0`}
-                        playsInline
-                        preload="metadata"
-                        onPause={e => {
-                          const btn = e.currentTarget.parentElement.querySelector('.cd-ad-play-btn')
-                          const overlay = e.currentTarget.parentElement.querySelector('.cd-ad-thumb-overlay')
-                          if (btn) btn.classList.remove('hidden')
-                          if (overlay) overlay.classList.remove('hidden')
-                        }}
-                      />
-                      <div className="cd-ad-play-btn">
-                        <svg width="18" height="20" viewBox="0 0 18 20"><polygon points="0,0 18,10 0,20" /></svg>
-                      </div>
-                      <div className="cd-ad-thumb-overlay">
-                        <div className="cd-ad-thumb-name">{name}</div>
-                        <div className={`cd-ad-thumb-status${!isActive ? ' cd-ad-thumb-status-paused' : ''}`}>● {isActive ? 'Active' : 'Paused'}</div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="cd-ad-thumb">
-                      {ad.thumbnailUrl ? <img src={ad.thumbnailUrl} alt={name} /> : <div style={{ width: '100%', height: '100%', background: '#222' }} />}
-                      <div className="cd-ad-thumb-overlay">
-                        <div className="cd-ad-thumb-name">{name}</div>
-                        <div className={`cd-ad-thumb-status${!isActive ? ' cd-ad-thumb-status-paused' : ''}`}>● {isActive ? 'Active' : 'Paused'}</div>
-                      </div>
-                    </div>
-                  )}
+                  {renderAdPreview(ad, false)}
                   {showSpendData && (
                     <div className="cd-ad-stats-strip">
                       <div className="cd-ad-stat"><div className="cd-ad-stat-l">Spend Since Tracking</div><div className="cd-ad-stat-v">${parseFloat(ad.spend).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div></div>
@@ -2734,6 +3093,314 @@ export default function CreatorDashboard() {
             })}
           </div>
         </div>
+      </div>
+    )
+  }
+
+  // --- LEADERBOARD TAB ---
+
+  function fmtRate(v) {
+    return v == null ? '—' : `${v}%`
+  }
+
+  function renderLbMovement(rc) {
+    if (rc == null || rc === 0) return <div className="cd-lb-move">—</div>
+    if (rc > 0) return <div className="cd-lb-move cd-lb-move-up">↑{rc}</div>
+    return <div className="cd-lb-move cd-lb-move-down">↓{Math.abs(rc)}</div>
+  }
+
+  function renderLbRow(row, mobile, category, key) {
+    const viewerMeta = row.is_viewer
+      ? category === 'affiliate'
+        ? `$${(row.value || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} · ${row.orders || 0} order${row.orders === 1 ? '' : 's'}`
+        : `${formatSpend(row.value || 0)} · ${formatImpressions(row.impressions || 0)} imp.`
+      : null
+    const showBar = category !== 'whitelisting'
+    return (
+      <div key={key} className={`cd-lb-row${mobile ? ' cd-lb-row-m' : ''}${!mobile && !showBar ? ' cd-lb-row-nobar' : ''}${row.is_viewer ? ' cd-lb-row-you' : ''}`}>
+        <div className="cd-lb-rank">{row.rank}</div>
+        {row.photo ? <img className="cd-lb-avatar" src={row.photo} alt="" /> : <div className="cd-lb-avatar-ph" />}
+        <div className="cd-lb-name">
+          {row.name || (row.handle ? `@${row.handle}` : 'Creator')}
+          {row.is_viewer && <span className="cd-lb-you-tag">You</span>}
+        </div>
+        {!mobile && renderLbMovement(row.rank_change)}
+        {!mobile && showBar && <div className="cd-lb-bar-track"><div className="cd-lb-bar-fill" style={{ width: `${row.bar_pct || 0}%` }} /></div>}
+        <div className={`cd-lb-meta${row.is_viewer ? ' cd-lb-meta-you' : ''}`}>
+          {row.is_viewer ? viewerMeta : row.pct_change != null ? (
+            <span className={`cd-momentum-delta${row.pct_change < 0 ? ' cd-momentum-delta-neg' : ''}`}>
+              {row.pct_change >= 0 ? '↑' : '↓'} {Math.abs(row.pct_change)}%
+            </span>
+          ) : (
+            <span style={{ color: '#aaa', fontSize: 10 }}>New</span>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  function renderLeaderboardCard(data, mobile, opts) {
+    const wrapCls = mobile ? 'cd-m-lb-card' : 'cd-earnings'
+    const head = mobile ? (
+      <div className="cd-m-section-head">
+        <div className="cd-m-section-eyebrow">{opts.eyebrow}</div>
+        <div className="cd-m-section-title">{opts.title}</div>
+        {opts.sub && <div className="cd-lb-sub">{opts.sub}</div>}
+      </div>
+    ) : (
+      <div className="cd-earnings-head">
+        <div>
+          <div className="cd-earnings-eyebrow">{opts.eyebrow}</div>
+          <div className="cd-earnings-title">{opts.title}</div>
+          {opts.sub && <div className="cd-lb-sub">{opts.sub}</div>}
+        </div>
+        {data?.rising_star && (
+          <div style={{ textAlign: 'right' }}>
+            <div className="cd-earnings-proj-label">Rising Star</div>
+            <div className="cd-lb-star">
+              {data.rising_star.photo && <img src={data.rising_star.photo} alt="" />}
+              <span style={{ fontSize: 13 }}>{data.rising_star.name || (data.rising_star.handle ? `@${data.rising_star.handle}` : '')}</span>
+              <span className="cd-momentum-delta">↑ {data.rising_star.pct_change}%</span>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+    if (!data) {
+      return (
+        <div className={wrapCls}>
+          {head}
+          <div className={`cd-lb-rows${mobile ? ' cd-lb-rows-m' : ''}`}>
+            {lbLoading
+              ? [...Array(5)].map((_, i) => <div key={i} className="cd-skel cd-skel-line" style={{ height: 34, marginBottom: 8 }} />)
+              : <div className="cd-lb-empty" style={{ padding: '20px 0 28px' }}>{opts.empty}</div>}
+          </div>
+        </div>
+      )
+    }
+    // Personal-vs-community stats only — no revenue/spend aggregates (the API
+    // doesn't send them either).
+    const growth = data.viewer
+      ? data.viewer.pct_change != null
+        ? <span style={{ color: data.viewer.pct_change < 0 ? '#c0392b' : '#2e7d32' }}>{data.viewer.pct_change >= 0 ? '↑' : '↓'} {Math.abs(data.viewer.pct_change)}%</span>
+        : 'New'
+      : '—'
+    const stats = [
+      ['Your Rank', data.viewer ? `#${data.viewer.rank}` : '—'],
+      ['Your Growth', growth],
+      [opts.category === 'affiliate' ? 'Active Affiliates' : 'Active Whitelisters', data.community?.participants || 0],
+    ]
+    return (
+      <div className={wrapCls}>
+        {head}
+        <div className="cd-lb-community">
+          {stats.map(([l, v], i) => (
+            <div key={i} className="cd-lb-community-stat">
+              <div className="cd-lb-community-label">{l}</div>
+              <div className="cd-lb-community-val">{v}</div>
+            </div>
+          ))}
+        </div>
+        {data.top.length === 0 ? (
+          <div className="cd-lb-empty">{opts.empty}</div>
+        ) : (
+          <div className={`cd-lb-rows${mobile ? ' cd-lb-rows-m' : ''}`}>
+            <div className={`cd-lb-row${mobile ? ' cd-lb-row-m' : ''}${!mobile && opts.category === 'whitelisting' ? ' cd-lb-row-nobar' : ''} cd-lb-headrow`}>
+              <div /><div /><div />
+              {!mobile && <div className="cd-lb-move" />}
+              {!mobile && opts.category === 'affiliate' && <div className="cd-lb-headlabel cd-lb-headlabel-bar">Sales vs #1</div>}
+              <div className="cd-lb-headlabel" style={{ textAlign: 'right' }}>vs prior {lbWindow === '7d' ? '7' : lbWindow === '90d' ? '90' : '30'} days</div>
+            </div>
+            {data.top.map((row, i) => renderLbRow(row, mobile, opts.category, i))}
+            {data.viewer && !data.viewer.in_top && (
+              <>
+                <div className="cd-lb-ellipsis">· · ·</div>
+                {renderLbRow(data.viewer, mobile, opts.category, 'viewer')}
+              </>
+            )}
+          </div>
+        )}
+        <div className={`cd-lb-footnote${mobile ? ' cd-lb-footnote-m' : ''}`}>
+          {!data.viewer && data.top.length > 0 ? `${opts.viewerEmpty} ` : ''}{opts.footnote}
+        </div>
+      </div>
+    )
+  }
+
+  function renderLbAdCard(ad, mobile, opts = {}) {
+    const p = mobile ? 'cd-m-ad' : 'cd-ad'
+    return (
+      <div key={ad.ad_id} className={`${p}-card`} style={ad.is_viewer ? { borderColor: '#111' } : undefined}>
+        <div style={{ position: 'relative' }}>
+          {ad.is_viewer && <div className="cd-lb-yourad">Your Ad</div>}
+          {renderAdPreview(ad, mobile)}
+        </div>
+        {opts.showCreator && (
+          <div className="cd-lb-adcreator">
+            {ad.creator?.photo ? <img src={ad.creator.photo} alt="" /> : <div className="cd-lb-adcreator-ph" />}
+            <span>{ad.creator?.name || (ad.creator?.handle ? `@${ad.creator.handle}` : 'Creator')}</span>
+          </div>
+        )}
+        <div className={`${p}-stats-strip`}>
+          <div className={`${p}-stat`}><div className={`${p}-stat-l`}>CTR</div><div className={`${p}-stat-v`}>{fmtRate(ad.metrics?.ctr)}</div></div>
+          <div className={`${p}-stat`}><div className={`${p}-stat-l`}>Hook</div><div className={`${p}-stat-v`}>{fmtRate(ad.metrics?.hook_rate)}</div></div>
+          <div className={`${p}-stat`}><div className={`${p}-stat-l`}>Hold</div><div className={`${p}-stat-v`}>{fmtRate(ad.metrics?.hold_rate)}</div></div>
+        </div>
+        {opts.ownStats ? (
+          <div className={`${p}-stats-strip`}>
+            <div className={`${p}-stat`}><div className={`${p}-stat-l`}>Spend</div><div className={`${p}-stat-v`}>{formatSpend(ad.metrics?.spend || 0)}</div></div>
+            <div className={`${p}-stat`}><div className={`${p}-stat-l`}>Impressions</div><div className={`${p}-stat-v`}>{formatImpressions(ad.metrics?.impressions || 0)}</div></div>
+            <div className={`${p}-stat`}><div className={`${p}-stat-l`}>Performance</div><div style={{ marginTop: 4 }}>{getScorePillFromTier(ad.spend_tier, mobile)}</div></div>
+          </div>
+        ) : (
+          <div className="cd-lb-tier-strip">{getScorePillFromTier(ad.spend_tier, mobile)}</div>
+        )}
+      </div>
+    )
+  }
+
+  function benchmarkTakeaway(b) {
+    if (!b?.viewer || !b?.top_ads_avg) return null
+    const defs = [
+      { key: 'hook_rate', label: 'hook rate', tip: 'study how the top ads open their first 3 seconds' },
+      { key: 'hold_rate', label: 'hold rate', tip: 'the top ads keep viewers watching longer — study their pacing' },
+      { key: 'ctr', label: 'click-through rate', tip: 'look at how the top ads pitch the product' },
+    ]
+    let worst = null
+    for (const d of defs) {
+      const v = b.viewer[d.key]
+      const t = b.top_ads_avg[d.key]
+      if (v == null || t == null || t <= 0) continue
+      const gap = (t - v) / t
+      if (gap > 0.1 && (!worst || gap > worst.gap)) worst = { ...d, gap, v, t }
+    }
+    if (!worst) return 'Your metrics are right in line with the top ads — keep doing what you’re doing.'
+    return `Your ${worst.label} is ${worst.v}% vs ${worst.t}% on the top ads — ${worst.tip}.`
+  }
+
+  function renderAdGridCard(mobile, opts) {
+    const wrapCls = mobile ? 'cd-m-lb-card' : 'cd-momentum'
+    const head = mobile ? (
+      <div className="cd-m-section-head">
+        <div className="cd-m-section-eyebrow">{opts.eyebrow}</div>
+        <div className="cd-m-section-title">{opts.title}</div>
+        {opts.sub && <div style={{ fontSize: 11, color: '#666', marginTop: 6 }}>{opts.sub}</div>}
+      </div>
+    ) : (
+      <div className="cd-momentum-head">
+        <div>
+          <div className="cd-momentum-eyebrow">{opts.eyebrow}</div>
+          <div className="cd-momentum-title">{opts.title}</div>
+          {opts.sub && <div className="cd-percentile-sub" style={{ marginTop: 8 }}>{opts.sub}</div>}
+        </div>
+      </div>
+    )
+    return (
+      <div className={wrapCls}>
+        {head}
+        {opts.bench}
+        {!opts.ads ? (
+          <div className={mobile ? 'cd-m-ads-section' : 'cd-ads-section'} style={{ borderTop: 'none', paddingTop: 0 }}>
+            {lbLoading
+              ? <div className={mobile ? 'cd-m-ads-row' : 'cd-ads-row'}>
+                  {[...Array(3)].map((_, i) => <div key={i} className="cd-skel" style={{ width: mobile ? 200 : 240, aspectRatio: '9/16', flexShrink: 0 }} />)}
+                </div>
+              : <div className="cd-lb-empty" style={{ padding: '8px 0 20px' }}>{opts.empty}</div>}
+          </div>
+        ) : opts.ads.length === 0 ? (
+          <div className="cd-lb-empty">{opts.empty}</div>
+        ) : (
+          <div className={mobile ? 'cd-m-ads-section' : 'cd-ads-section'} style={{ borderTop: 'none', paddingTop: 0 }}>
+            <div className={mobile ? 'cd-m-ads-row' : 'cd-ads-row'}>
+              {opts.ads.map(ad => renderLbAdCard(ad, mobile, opts.cardOpts))}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Top Performing Ads + How Your Ads Compare — shared between the Leaderboard
+  // tab and the Stats tab (whitelisting partners see them in both places).
+  function renderTopAdsSections(mobile) {
+    const bench = lbTopAds?.benchmarks
+    const hasBench = bench?.viewer && (bench.viewer.ctr != null || bench.viewer.hook_rate != null || bench.viewer.hold_rate != null)
+    const benchBlock = hasBench ? (
+      <div className={`cd-lb-bench${mobile ? ' cd-lb-bench-m' : ''}`}>
+        <div className="cd-lb-bench-grid">
+          {[['CTR', 'ctr'], ['Hook Rate', 'hook_rate'], ['Hold Rate', 'hold_rate']].map(([l, k]) => (
+            <div key={k}>
+              <div className="cd-lb-bench-label">{l}</div>
+              <div className="cd-lb-bench-vals">{fmtRate(bench.viewer[k])} <span>you</span> · {fmtRate(bench.top_ads_avg?.[k])} <span>top ads</span></div>
+            </div>
+          ))}
+        </div>
+        <div className="cd-lb-bench-note">{benchmarkTakeaway(bench)}</div>
+      </div>
+    ) : null
+    const days = lbWindow === '7d' ? 7 : lbWindow === '90d' ? 90 : 30
+    return (
+      <>
+        {renderAdGridCard(mobile, {
+          eyebrow: 'Community · Whitelisting',
+          title: 'Top Performing Ads',
+          sub: `Ranked by spend, last ${days} days — what’s working across all whitelisted creators.`,
+          ads: lbTopAds?.top_ads || null,
+          empty: 'Ad rankings are warming up — check back after the next sync.',
+          cardOpts: { showCreator: true },
+        })}
+        {renderAdGridCard(mobile, {
+          eyebrow: 'Your Ads',
+          title: 'How Your Ads Compare',
+          sub: 'Your live ads with the same metrics, so you can see the gap.',
+          bench: benchBlock,
+          ads: lbTopAds ? (lbTopAds.own_ads || []) : null,
+          empty: 'Your ads will appear here once Nama starts running your content.',
+          cardOpts: { ownStats: true },
+        })}
+      </>
+    )
+  }
+
+  function renderLeaderboard(mobile) {
+    const showWl = invite?.has_ad_spend === true
+    const presets = [['7d', '7 Days'], ['30d', '30 Days'], ['90d', '90 Days']]
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: mobile ? 0 : 20 }}>
+        <div className={mobile ? 'cd-m-subtabs' : 'cd-subtabs'} style={mobile ? { marginBottom: 16 } : { marginBottom: 0 }}>
+          {presets.map(([k, l]) => (
+            <button key={k} className={`${mobile ? 'cd-m-subtab' : 'cd-subtab'}${lbWindow === k ? ' active' : ''}`} onClick={() => setLbWindow(k)}>{l}</button>
+          ))}
+        </div>
+        {(() => {
+          const affCard = hasAffiliate && renderLeaderboardCard(lbAffiliate, mobile, {
+            category: 'affiliate',
+            eyebrow: 'Community · Affiliate',
+            title: 'Top Affiliates',
+            empty: 'No affiliate sales in this window yet.',
+            viewerEmpty: 'No sales in this window yet — share your code to get on the board.',
+            footnote: 'Top three shown, ranked by sales made with each creator’s code. Your own rank is visible only to you.',
+          })
+          const wlCard = showWl && renderLeaderboardCard(lbWhitelisting, mobile, {
+            category: 'whitelisting',
+            eyebrow: 'Community · Whitelisting',
+            title: 'Top Whitelisters',
+            empty: 'No ad spend in this window yet.',
+            viewerEmpty: 'Your ads haven’t spent in this window yet.',
+            footnote: 'Top three shown, ranked by ad spend — more spend, more earnings. Your own rank is visible only to you.',
+          })
+          // Dual-type partners on desktop get the two boards side by side.
+          if (!mobile && affCard && wlCard) {
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }}>
+                <div className="cd-lb-half">{affCard}</div>
+                <div className="cd-lb-half">{wlCard}</div>
+              </div>
+            )
+          }
+          return <>{affCard}{wlCard}</>
+        })()}
+        {showWl && renderTopAdsSections(mobile)}
       </div>
     )
   }
@@ -4997,16 +5664,51 @@ export default function CreatorDashboard() {
 
   // --- DESKTOP RENDER ---
   function renderDesktopCard() {
-    // Ads tab renders its own card structure (earnings + momentum)
+    // Ads tab renders its own card structure (earnings + momentum). When a
+    // partner has BOTH income sources, the three earnings cards collapse into
+    // one block with sub-tabs; single-source partners just get their one card.
     if (activeTab === 'ads') {
+      const bothSources = invite?.has_ad_spend && hasAffiliate
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {renderCombinedEarnings(false)}
-          {renderEarnings(false)}
-          {renderAffiliateSales(false)}
-          {renderMomentum(false)}
+          {bothSources ? (
+            <div>
+              <div className="cd-subtabs">
+                {[['combined', 'All Sources'], ['adspend', 'Ad Spend'], ['affiliate', 'Affiliate Sales']].map(([k, l]) => (
+                  <button key={k} className={`cd-subtab${earningsView === k ? ' active' : ''}`} onClick={() => setEarningsView(k)}>{l}</button>
+                ))}
+              </div>
+              {earningsView === 'combined' && renderCombinedEarnings(false)}
+              {earningsView === 'adspend' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  {renderEarnings(false)}
+                  {renderEarningsRecs('adspend', false)}
+                </div>
+              )}
+              {earningsView === 'affiliate' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  {renderAffiliateSales(false)}
+                  {renderEarningsRecs('affiliate', false)}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              {renderEarnings(false)}
+              {invite?.has_ad_spend && renderEarningsRecs('adspend', false)}
+              {renderAffiliateSales(false)}
+              {hasAffiliate && renderEarningsRecs('affiliate', false)}
+            </>
+          )}
+          {!(bothSources && earningsView === 'affiliate') && renderMomentum(false)}
+          {!(bothSources && earningsView === 'affiliate') && invite?.has_ad_spend === true && renderTopAdsSections(false)}
         </div>
       )
+    }
+
+    // Leaderboard tab
+    if (activeTab === 'leaderboard') {
+      return renderLeaderboard(false)
     }
 
     // Campaigns tab
@@ -5147,7 +5849,7 @@ export default function CreatorDashboard() {
               </div>
 
               <div className="cd-sidenav">
-                {TABS.map((tab, i) => {
+                {visibleTabs.map((tab, i) => {
                   let badgeCount = 0
                   if (tab === 'campaigns') {
                     const campNotifs = getNotifications().filter(n => n.tab === 'campaigns')
@@ -5157,7 +5859,7 @@ export default function CreatorDashboard() {
                     <button
                       key={tab}
                       className={`cd-nav-item${activeTab === tab ? ' active' : ''}`}
-                      style={i === TABS.length - 1 ? { borderBottom: 'none' } : undefined}
+                      style={i === visibleTabs.length - 1 ? { borderBottom: 'none' } : undefined}
                       onClick={() => setActiveTab(tab)}
                     >
                       <span className="cd-nav-label">{TAB_LABELS[tab]}</span>
@@ -5222,22 +5924,24 @@ export default function CreatorDashboard() {
             </div>
 
             <div className="cd-content">
-              <div className="cd-stats-bar">
-                {hasAffiliate && commissionRate > 0 && (
+              {activeTab === 'settings' && (
+                <div className="cd-stats-bar">
+                  {hasAffiliate && commissionRate > 0 && (
+                    <div className="cd-stats-bar-item">
+                      <div className="cd-stats-bar-label">Commission</div>
+                      <div className="cd-stats-bar-val">{commissionRate}%</div>
+                    </div>
+                  )}
                   <div className="cd-stats-bar-item">
-                    <div className="cd-stats-bar-label">Commission</div>
-                    <div className="cd-stats-bar-val">{commissionRate}%</div>
+                    <div className="cd-stats-bar-label">Videos / Month</div>
+                    <div className="cd-stats-bar-val">{videosPerMonth}</div>
                   </div>
-                )}
-                <div className="cd-stats-bar-item">
-                  <div className="cd-stats-bar-label">Videos / Month</div>
-                  <div className="cd-stats-bar-val">{videosPerMonth}</div>
+                  <div className="cd-stats-bar-item">
+                    <div className="cd-stats-bar-label">Ads Running</div>
+                    <div className="cd-stats-bar-val">{adsLoading ? <span className="cd-skel cd-skel-stat" style={{ display: 'inline-block' }} /> : adsRunning}</div>
+                  </div>
                 </div>
-                <div className="cd-stats-bar-item">
-                  <div className="cd-stats-bar-label">Ads Running</div>
-                  <div className="cd-stats-bar-val">{adsLoading ? <span className="cd-skel cd-skel-stat" style={{ display: 'inline-block' }} /> : adsRunning}</div>
-                </div>
-              </div>
+              )}
               {renderDesktopCard()}
             </div>
           </div>
@@ -5287,7 +5991,7 @@ export default function CreatorDashboard() {
           </div>
 
           <div className="cd-m-bottom-nav">
-            {TABS.map(tab => (
+            {visibleTabs.map(tab => (
               <button key={tab} className={`cd-m-nav-item${activeTab === tab ? ' active' : ''}`} onClick={() => setActiveTab(tab)}>
                 <div className="cd-m-nav-tick" />
                 <div className="cd-m-nav-label">{TAB_LABELS_SHORT[tab]}</div>
@@ -5308,13 +6012,15 @@ export default function CreatorDashboard() {
             </div>
           </div>
 
-          <div className="cd-m-stats">
-            {hasAffiliate && commissionRate > 0 && (
-              <div className="cd-m-stat"><div className="cd-m-stat-l">Commission</div><div className="cd-m-stat-v">{commissionRate}%</div></div>
-            )}
-            <div className="cd-m-stat"><div className="cd-m-stat-l">Videos</div><div className="cd-m-stat-v">{videosPerMonth}</div></div>
-            <div className="cd-m-stat"><div className="cd-m-stat-l">Ads Live</div><div className="cd-m-stat-v">{adsLoading ? <span className="cd-skel cd-skel-stat" style={{ display: 'inline-block' }} /> : adsRunning}</div></div>
-          </div>
+          {activeTab === 'settings' && (
+            <div className="cd-m-stats">
+              {hasAffiliate && commissionRate > 0 && (
+                <div className="cd-m-stat"><div className="cd-m-stat-l">Commission</div><div className="cd-m-stat-v">{commissionRate}%</div></div>
+              )}
+              <div className="cd-m-stat"><div className="cd-m-stat-l">Videos</div><div className="cd-m-stat-v">{videosPerMonth}</div></div>
+              <div className="cd-m-stat"><div className="cd-m-stat-l">Ads Live</div><div className="cd-m-stat-v">{adsLoading ? <span className="cd-skel cd-skel-stat" style={{ display: 'inline-block' }} /> : adsRunning}</div></div>
+            </div>
+          )}
 
           <div className="cd-m-sections">
             {/* Campaigns */}
@@ -5364,10 +6070,44 @@ export default function CreatorDashboard() {
             {/* Live Ads */}
             <div style={activeTab !== 'ads' ? { display: 'none' } : undefined}>
               <div className="cd-m-section-body" style={{ padding: '16px 0' }}>
-                {renderCombinedEarnings(true)}
-                {renderEarnings(true)}
-                {renderAffiliateSales(true)}
-                {renderMomentum(true)}
+                {invite?.has_ad_spend && hasAffiliate ? (
+                  <>
+                    <div className="cd-m-subtabs" style={{ marginBottom: 16 }}>
+                      {[['combined', 'All Sources'], ['adspend', 'Ad Spend'], ['affiliate', 'Affiliate']].map(([k, l]) => (
+                        <button key={k} className={`cd-m-subtab${earningsView === k ? ' active' : ''}`} onClick={() => setEarningsView(k)}>{l}</button>
+                      ))}
+                    </div>
+                    {earningsView === 'combined' && renderCombinedEarnings(true)}
+                    {earningsView === 'adspend' && (
+                      <>
+                        {renderEarnings(true)}
+                        {renderEarningsRecs('adspend', true)}
+                      </>
+                    )}
+                    {earningsView === 'affiliate' && (
+                      <>
+                        {renderAffiliateSales(true)}
+                        {renderEarningsRecs('affiliate', true)}
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {renderEarnings(true)}
+                    {invite?.has_ad_spend && renderEarningsRecs('adspend', true)}
+                    {renderAffiliateSales(true)}
+                    {hasAffiliate && renderEarningsRecs('affiliate', true)}
+                  </>
+                )}
+                {!(invite?.has_ad_spend && hasAffiliate && earningsView === 'affiliate') && renderMomentum(true)}
+                {!(invite?.has_ad_spend && hasAffiliate && earningsView === 'affiliate') && invite?.has_ad_spend === true && renderTopAdsSections(true)}
+              </div>
+            </div>
+
+            {/* Leaderboard */}
+            <div style={activeTab !== 'leaderboard' ? { display: 'none' } : undefined}>
+              <div className="cd-m-section-body" style={{ padding: '16px 0' }}>
+                {renderLeaderboard(true)}
               </div>
             </div>
 
@@ -5417,6 +6157,12 @@ export default function CreatorDashboard() {
               <div className="cd-m-tabbar-icon"><svg viewBox="0 0 24 24"><rect x="4" y="14" width="4" height="6" rx="0.5" /><rect x="10" y="10" width="4" height="10" rx="0.5" /><rect x="16" y="4" width="4" height="16" rx="0.5" /></svg></div>
               <div className="cd-m-tabbar-label">Stats</div>
             </button>
+            {showLeaderboard && (
+              <button className={`cd-m-tabbar-item${activeTab === 'leaderboard' ? ' active' : ''}`} onClick={() => setActiveTab('leaderboard')}>
+                <div className="cd-m-tabbar-icon"><svg viewBox="0 0 24 24"><rect x="9" y="8" width="6" height="12" /><rect x="2.5" y="12" width="6" height="8" /><rect x="15.5" y="15" width="6" height="5" /><path d="M12 2l1 2h2l-1.6 1.3.6 2-2-1.3-2 1.3.6-2L9 4h2l1-2z" /></svg></div>
+                <div className="cd-m-tabbar-label">Community</div>
+              </button>
+            )}
             <button className={`cd-m-tabbar-item${activeTab === 'campaigns' ? ' active' : ''}`} onClick={() => setActiveTab('campaigns')}>
               {(() => {
                 const campNotifs = getNotifications().filter(n => n.tab === 'campaigns')
@@ -5443,7 +6189,24 @@ export default function CreatorDashboard() {
       {lightboxFile && (
         <div className="cd-lightbox" onClick={() => setLightboxFile(null)}>
           <button className="cd-lightbox-close" onClick={() => setLightboxFile(null)}>×</button>
-          {lightboxFile.mime_type?.startsWith('image/') ? (
+          {lightboxFile.carousel ? (
+            <div className="cd-lightbox-carousel" onClick={e => e.stopPropagation()}>
+              <img src={lightboxFile.carousel[Math.min(lightboxIndex, lightboxFile.carousel.length - 1)]} alt={lightboxFile.name || ''} />
+              {lightboxIndex > 0 && (
+                <button className="cd-lb-car-nav cd-lb-car-prev" onClick={() => setLightboxIndex(i => Math.max(0, i - 1))}>‹</button>
+              )}
+              {lightboxIndex < lightboxFile.carousel.length - 1 && (
+                <button className="cd-lb-car-nav cd-lb-car-next" onClick={() => setLightboxIndex(i => i + 1)}>›</button>
+              )}
+              {lightboxFile.carousel.length > 1 && (
+                <div className="cd-lb-car-dots">
+                  {lightboxFile.carousel.map((_, i) => <span key={i} className={i === lightboxIndex ? 'active' : ''} />)}
+                </div>
+              )}
+            </div>
+          ) : lightboxFile.previewHtml ? (
+            <div className="cd-lightbox-embed" onClick={e => e.stopPropagation()} dangerouslySetInnerHTML={{ __html: lightboxFile.previewHtml }} />
+          ) : lightboxFile.mime_type?.startsWith('image/') ? (
             <img src={lightboxFile.r2_url || lightboxFile.media_url || lightboxFile.url} alt={lightboxFile.name} onClick={e => e.stopPropagation()} />
           ) : lightboxFile.mux_playback_id ? (
             <video controls autoPlay onClick={e => e.stopPropagation()}>
