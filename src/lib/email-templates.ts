@@ -44,6 +44,12 @@ const DEFAULTS: Record<string, { subject: string; heading: string; body: string;
     body: "Hi {{firstName}},\n\nWe'd love to partner with you on a one-off paid collab \u2014 a flat fee for one piece of content and whitelisting rights. No retainer, no commitment beyond the single deliverable.\n\nFull terms are on the next page.",
     ctaText: "View Your Offer \u2192",
   },
+  gift_invite: {
+    subject: "Pick your Nama pieces — {{campaignName}}",
+    heading: "A gift from Nama, {{firstName}}",
+    body: "Hi {{firstName}},\n\nWe'd love to send you pieces from our {{campaignName}} collection — on us.\n\nTap below to pick your styles and confirm your shipping address. It takes about a minute.",
+    ctaText: "Pick My Pieces →",
+  },
   welcome: {
     subject: "Welcome to Nama Partners",
     heading: "Welcome, {{firstName}}",
@@ -185,6 +191,34 @@ export async function inviteEmail({
       bodyHtml: bodyToHtml(tmpl.body, vars),
       ctaText: tmpl.ctaText,
       ctaUrl: inviteUrl,
+      unsubscribeUrl: getUnsubscribeUrl(recipientEmail),
+    }),
+  };
+}
+
+export async function giftInviteEmail({
+  firstName,
+  campaignName,
+  giftUrl,
+  recipientEmail,
+}: {
+  firstName: string;
+  campaignName: string;
+  giftUrl: string;
+  recipientEmail: string;
+}): Promise<{ subject: string; html: string }> {
+  const override = await getEmailTemplate("gift_invite");
+  const tmpl = { ...DEFAULTS.gift_invite, ...override };
+  const vars: Record<string, string> = { firstName, campaignName };
+
+  return {
+    subject: replacePlaceholders(tmpl.subject, vars),
+    html: renderEmailTemplate({
+      preheader: `Pick your pieces from ${campaignName} — on us.`,
+      heading: replacePlaceholders(tmpl.heading, vars),
+      bodyHtml: bodyToHtml(tmpl.body, vars),
+      ctaText: tmpl.ctaText,
+      ctaUrl: giftUrl,
       unsubscribeUrl: getUnsubscribeUrl(recipientEmail),
     }),
   };

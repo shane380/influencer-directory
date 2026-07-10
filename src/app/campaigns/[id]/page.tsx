@@ -41,9 +41,14 @@ import { DealDialog } from "@/components/deal-dialog";
 import { DealSummaryBadge } from "@/components/deal-summary-badge";
 import { ApprovalDialog } from "@/components/approval-dialog";
 import { BulkActionBar } from "@/components/bulk-action-bar";
+import { GiftSettingsDialog } from "@/components/gift-settings-dialog";
+import { GiftOverrideDialog } from "@/components/gift-override-dialog";
+import { GiftRowActions } from "@/components/gift-row-actions";
+import { generateGiftToken, giftUrl } from "@/lib/gift";
 import {
   Plus,
   Search,
+  Gift,
   ArrowUpDown,
   Settings,
   Calendar,
@@ -225,6 +230,8 @@ export default function CampaignDetailPage() {
   const [selectedInfluencer, setSelectedInfluencer] = useState<Influencer | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
+  const [giftSettingsOpen, setGiftSettingsOpen] = useState(false);
+  const [giftOverrideCi, setGiftOverrideCi] = useState<CampaignInfluencerWithDetails | null>(null);
   const [selectedCampaignInfluencer, setSelectedCampaignInfluencer] = useState<CampaignInfluencerWithDetails | null>(null);
   const [deals, setDeals] = useState<Map<string, CampaignDeal>>(new Map());
   const [dealDialogOpen, setDealDialogOpen] = useState(false);
@@ -493,6 +500,37 @@ export default function CampaignDetailPage() {
   };
 
   // Open order dialog
+  const applyGiftPatch = (ciId: string, patch: Partial<CampaignInfluencer>) => {
+    setCampaignInfluencers((prev) =>
+      prev.map((row) => (row.id === ciId ? { ...row, ...patch } : row))
+    );
+  };
+
+  const handleBulkGiftLinks = async () => {
+    if (!campaign?.gift_enabled) return;
+    const rows = campaignInfluencers.filter((ci) => selectedIds.has(ci.influencer_id));
+    const lines: string[] = [];
+    for (const ci of rows) {
+      let token = ci.gift_token || null;
+      if (!token) {
+        token = generateGiftToken();
+        const patch: Record<string, unknown> = {
+          gift_token: token,
+          gift_invited_at: ci.gift_invited_at || new Date().toISOString(),
+        };
+        if (ci.status === "prospect") patch.status = "contacted";
+        const { error } = await (supabase.from("campaign_influencers") as any).update(patch).eq("id", ci.id);
+        if (error) continue;
+        applyGiftPatch(ci.id, patch as Partial<CampaignInfluencer>);
+      }
+      lines.push(`${ci.influencer.name} — ${giftUrl(token)}`);
+    }
+    if (lines.length > 0) {
+      await navigator.clipboard.writeText(lines.join("\n"));
+      alert(`Copied ${lines.length} gift link${lines.length === 1 ? "" : "s"} to clipboard.`);
+    }
+  };
+
   const handleOpenOrderDialog = (ci: CampaignInfluencerWithDetails) => {
     setSelectedCampaignInfluencer(ci);
     setOrderDialogOpen(true);
@@ -680,6 +718,10 @@ export default function CampaignDetailPage() {
               <Settings className="h-4 w-4 mr-2" />
               Edit Campaign
             </Button>
+            <Button variant={campaign.gift_enabled ? "default" : "outline"} onClick={() => setGiftSettingsOpen(true)}>
+              <Gift className="h-4 w-4 mr-2" />
+              Gift Page{campaign.gift_enabled ? " · On" : ""}
+            </Button>
           </div>
         </div>
 
@@ -827,6 +869,7 @@ export default function CampaignDetailPage() {
                   <TableHead className="w-[120px]">Status</TableHead>
                   <TableHead className="w-[120px]">Owner</TableHead>
                   <TableHead className="w-[76px]">Order</TableHead>
+                  <TableHead className="w-[150px]">Gift</TableHead>
                   <TableHead className="w-[100px]">Content Posted</TableHead>
                   <TableHead className="w-[120px]">Deal</TableHead>
                   <TableHead className="w-12"></TableHead>
@@ -1030,6 +1073,19 @@ export default function CampaignDetailPage() {
                       )}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
+                      {campaign && (
+                        <GiftRowActions
+                          campaign={campaign}
+                          ci={ci}
+                          influencerName={ci.influencer.name}
+                          influencerEmail={ci.influencer.email}
+                          onReview={() => handleOpenOrderDialog(ci)}
+                          onCustomize={() => setGiftOverrideCi(ci)}
+                          onChanged={(patch) => applyGiftPatch(ci.id, patch)}
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       {ci.content_posted && ci.content_posted !== "none" ? (
                         <div className={`inline-flex items-center gap-1.5 px-1.5 ${inlineEditBox}`}>
                           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${contentDots[ci.content_posted]}`}></span>
@@ -1094,8 +1150,14 @@ export default function CampaignDetailPage() {
           )}
         </div>
 
-        <div className="mt-4 text-sm text-gray-500">
-          Showing {filteredInfluencers.length} of {campaignInfluencers.length} influencers in this campaign
+        <div className="mt-4 flex items-center gap-4 text-sm text-gray-500">
+          <span>Showing {filteredInfluencers.length} of {campaignInfluencers.length} influencers in this campaign</span>
+          {selectedIds.size > 0 && campaign?.gift_enabled && (
+            <Button variant="outline" size="sm" onClick={handleBulkGiftLinks}>
+              <Gift className="h-4 w-4 mr-2" />
+              Generate gift links ({selectedIds.size})
+            </Button>
+          )}
         </div>
 
         {selectedIds.size > 0 && (
@@ -1137,6 +1199,26 @@ export default function CampaignDetailPage() {
         existingInfluencerIds={campaignInfluencers.map((ci) => ci.influencer_id)}
         campaignRequiresApproval={campaign?.requires_approval ?? false}
       />
+
+      {campaign && (
+        <GiftSettingsDialog
+          open={giftSettingsOpen}
+          onClose={() => setGiftSettingsOpen(false)}
+          campaign={campaign}
+          onSaved={(patch) => setCampaign((prev) => (prev ? { ...prev, ...patch } : prev))}
+        />
+      )}
+
+      {campaign && giftOverrideCi && (
+        <GiftOverrideDialog
+          open={!!giftOverrideCi}
+          onClose={() => setGiftOverrideCi(null)}
+          campaign={campaign}
+          campaignInfluencer={giftOverrideCi}
+          influencerName={giftOverrideCi.influencer.name}
+          onSaved={(patch) => applyGiftPatch(giftOverrideCi.id, patch)}
+        />
+      )}
 
       {selectedCampaignInfluencer && (
         <OrderDialog
