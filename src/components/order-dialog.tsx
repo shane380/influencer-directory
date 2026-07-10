@@ -198,16 +198,32 @@ export function OrderDialog({
     setCustomerConfirmed(false);
     setShowCreateCustomerForm(false);
     setCampaignHistoryExpanded(false);
-    // Pre-fill form with influencer data
-    const nameParts = influencer.name.split(" ");
-    setNewCustomerForm({
-      email: influencer.email || "",
-      first_name: nameParts[0] || "",
-      last_name: nameParts.slice(1).join(" ") || "",
-      phone: influencer.phone || "",
-      address: influencer.mailing_address || "",
-      country: "US",
-    });
+    // Pre-fill form: an address confirmed on the gift page beats our stale
+    // influencer record — the influencer just verified it herself.
+    const gift = (campaignInfluencer as any).gift_shipping || null;
+    if (gift) {
+      const giftNameParts = String(gift.name || influencer.name).split(" ");
+      setNewCustomerForm({
+        email: gift.email || influencer.email || "",
+        first_name: giftNameParts[0] || "",
+        last_name: giftNameParts.slice(1).join(" ") || "",
+        phone: gift.phone || influencer.phone || "",
+        address: [gift.address1, gift.address2, gift.city, `${gift.province || ""} ${gift.zip || ""}`.trim()]
+          .filter(Boolean)
+          .join(", "),
+        country: gift.country_code || "US",
+      });
+    } else {
+      const nameParts = influencer.name.split(" ");
+      setNewCustomerForm({
+        email: influencer.email || "",
+        first_name: nameParts[0] || "",
+        last_name: nameParts.slice(1).join(" ") || "",
+        phone: influencer.phone || "",
+        address: influencer.mailing_address || "",
+        country: "US",
+      });
+    }
   }, [open, campaignInfluencer, influencer]);
 
   // Auto-match customer by name or email when dialog opens
@@ -504,7 +520,17 @@ export function OrderDialog({
           first_name: newCustomerForm.first_name || undefined,
           last_name: newCustomerForm.last_name || undefined,
           phone: newCustomerForm.phone || undefined,
-          address: newCustomerForm.address || undefined,
+          // Structured pieces from the gift page (when the influencer confirmed
+          // her address there) give the draft order a complete default_address.
+          ...((campaignInfluencer as any).gift_shipping
+            ? {
+                address: (campaignInfluencer as any).gift_shipping.address1 || newCustomerForm.address || undefined,
+                address2: (campaignInfluencer as any).gift_shipping.address2 || undefined,
+                city: (campaignInfluencer as any).gift_shipping.city || undefined,
+                province: (campaignInfluencer as any).gift_shipping.province || undefined,
+                zip: (campaignInfluencer as any).gift_shipping.zip || undefined,
+              }
+            : { address: newCustomerForm.address || undefined }),
           country_code: newCustomerForm.country || undefined,
         }),
       });
@@ -1159,6 +1185,29 @@ export function OrderDialog({
                 <User className="h-4 w-4" />
                 Shopify Customer
               </h3>
+
+              {(campaignInfluencer as any).gift_shipping && (
+                <div className="mb-3 p-3 rounded-lg bg-purple-50 border border-purple-100 text-sm">
+                  <p className="font-medium text-purple-900 mb-1">
+                    Address confirmed via gift page
+                    {(campaignInfluencer as any).gift_submitted_at
+                      ? ` — ${new Date((campaignInfluencer as any).gift_submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+                      : ""}
+                  </p>
+                  <p className="text-purple-900/80">
+                    {(campaignInfluencer as any).gift_shipping.name} · {(campaignInfluencer as any).gift_shipping.phone} · {(campaignInfluencer as any).gift_shipping.email}
+                  </p>
+                  <p className="text-purple-900/80">
+                    {[
+                      (campaignInfluencer as any).gift_shipping.address1,
+                      (campaignInfluencer as any).gift_shipping.address2,
+                      (campaignInfluencer as any).gift_shipping.city,
+                      `${(campaignInfluencer as any).gift_shipping.province || ""} ${(campaignInfluencer as any).gift_shipping.zip || ""}`.trim(),
+                      (campaignInfluencer as any).gift_shipping.country_code,
+                    ].filter(Boolean).join(", ")}
+                  </p>
+                </div>
+              )}
 
               {customerSearching ? (
                 <div className="flex items-center gap-2 text-gray-500">

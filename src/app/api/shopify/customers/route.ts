@@ -187,7 +187,7 @@ export async function PUT(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { id, email, first_name, last_name, phone, address, country_code } = body;
+    const { id, email, first_name, last_name, phone, address, address2, city, province, zip, country_code } = body;
 
     if (!id) {
       return NextResponse.json({ error: "Customer ID is required" }, { status: 400 });
@@ -247,6 +247,10 @@ export async function PUT(request: NextRequest) {
     if (address || country_code) {
       const addressPayload = {
         ...(address ? { address1: address } : {}),
+        ...(address2 !== undefined ? { address2: address2 || "" } : {}),
+        ...(city ? { city } : {}),
+        ...(province ? { province } : {}),
+        ...(zip ? { zip } : {}),
         ...(country_code ? { country_code } : {}),
         default: true,
       };
@@ -334,7 +338,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { email, first_name, last_name, phone, address, country_code } = body;
+    const { email, first_name, last_name, phone, address, address2, city, province, zip, country_code } = body;
 
     if (!email) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
@@ -348,7 +352,7 @@ export async function POST(request: NextRequest) {
         first_name?: string;
         last_name?: string;
         phone?: string;
-        addresses?: { address1?: string; city?: string; province?: string; zip?: string; country_code?: string }[];
+        addresses?: { address1?: string; address2?: string; city?: string; province?: string; zip?: string; country_code?: string }[];
       };
     } = {
       customer: {
@@ -366,6 +370,10 @@ export async function POST(request: NextRequest) {
       customerData.customer.addresses = [
         {
           ...(address ? { address1: address } : {}),
+          ...(address2 ? { address2 } : {}),
+          ...(city ? { city } : {}),
+          ...(province ? { province } : {}),
+          ...(zip ? { zip } : {}),
           ...(country_code ? { country_code } : {}),
         },
       ];
