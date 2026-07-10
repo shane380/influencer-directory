@@ -89,12 +89,12 @@ export function GiftOverrideDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="w-[520px] max-w-[92vw]" onClose={onClose}>
+      <DialogContent className="max-w-[95vw] min-w-0" style={{ width: 620 }} onClose={onClose}>
         <DialogHeader>
           <DialogTitle>Customize gift page — {influencerName}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-5">
+        <div className="space-y-5 min-w-0">
           <div>
             <div className="text-sm font-medium mb-1.5">Campaign pool</div>
             <div className="text-xs text-gray-500 mb-2">All checked = she sees the standard campaign pool.</div>

@@ -113,12 +113,12 @@ export function GiftSettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="w-[560px] max-w-[92vw]" onClose={onClose}>
+      <DialogContent className="max-w-[95vw] min-w-0" style={{ width: 760 }} onClose={onClose}>
         <DialogHeader>
           <DialogTitle>Gift Page — {campaign.name}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-5">
+        <div className="space-y-5 min-w-0">
           <label className="flex items-center gap-3 cursor-pointer">
             <input
               type="checkbox"
