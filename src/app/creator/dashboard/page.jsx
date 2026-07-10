@@ -2328,6 +2328,7 @@ export default function CreatorDashboard() {
     if (!(invite?.has_ad_spend && hasAffiliate)) return null
 
     const monthName = earningsNow.toLocaleString('en', { month: 'long', year: 'numeric' })
+    const monthOnly = earningsNow.toLocaleString('en', { month: 'long' })
 
     // Wait until both data sources have resolved so the total is never partial.
     const loading = adsLoading || (affiliateLoading && !affiliateData?.summary) || !affiliateData?.summary
@@ -2337,7 +2338,7 @@ export default function CreatorDashboard() {
           <div className="cd-m-earnings">
             <div className="cd-m-earnings-head">
               <div className="cd-m-earnings-eyebrow">Combined · All Sources</div>
-              <div className="cd-m-earnings-title">Total Earnings</div>
+              <div className="cd-m-earnings-title">{monthOnly} Earnings</div>
             </div>
             <div className="cd-m-earnings-hero">
               <div className="cd-skel cd-skel-stat-lg" style={{ marginBottom: 8 }} />
@@ -2351,7 +2352,7 @@ export default function CreatorDashboard() {
           <div className="cd-earnings-head">
             <div>
               <div className="cd-earnings-eyebrow">Combined · All Sources</div>
-              <div className="cd-earnings-title">Total Earnings</div>
+              <div className="cd-earnings-title">{monthOnly} Earnings</div>
             </div>
           </div>
           <div className="cd-earnings-hero">
@@ -2377,7 +2378,7 @@ export default function CreatorDashboard() {
         <div className="cd-m-earnings">
           <div className="cd-m-earnings-head">
             <div className="cd-m-earnings-eyebrow">Combined · All Sources</div>
-            <div className="cd-m-earnings-title">Total Earnings</div>
+            <div className="cd-m-earnings-title">{monthOnly} Earnings</div>
           </div>
           <div className="cd-m-earnings-hero">
             <div className="cd-m-earnings-sublabel">{monthName} — In Progress</div>
@@ -2421,7 +2422,7 @@ export default function CreatorDashboard() {
         <div className="cd-earnings-head">
           <div>
             <div className="cd-earnings-eyebrow">Combined · All Sources</div>
-            <div className="cd-earnings-title">Total Earnings</div>
+            <div className="cd-earnings-title">{monthOnly} Earnings</div>
           </div>
         </div>
         <div className="cd-earnings-hero">
