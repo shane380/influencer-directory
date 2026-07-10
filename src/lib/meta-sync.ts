@@ -120,6 +120,7 @@ interface AdResult {
   thumbnailUrl: string | null;
   video_id: string | null;
   ig_media_id: string | null;
+  ig_media_type: string | null;
   mux_playback_id: string | null;
   previewHtml: string | null;
   carousel_urls: string[] | null;
@@ -381,15 +382,18 @@ async function fetchAdsForHandle(
     // their frames to R2 once so the dashboard can show a native image viewer
     // instead of Meta's iframe. Preserved across syncs; only fetched when new.
     let carouselUrls: string[] | null = null;
+    let igMediaType: string | null = null;
     const igMediaId = ad.creative?.effective_instagram_media_id ? String(ad.creative.effective_instagram_media_id) : null;
     const preservedCarousel = existingCarousels?.get(String(ad.id));
     if (preservedCarousel && preservedCarousel.length > 0) {
       carouselUrls = preservedCarousel;
+      igMediaType = "CAROUSEL_ALBUM";
     } else if (!videoId && igMediaId && r2Enabled) {
       try {
         const mData = await metaFetch(
           `https://graph.facebook.com/${META_API_VERSION}/${igMediaId}?fields=media_type,children{media_type,media_url}&access_token=${accessToken}`
         );
+        igMediaType = mData?.media_type || null;
         if (mData?.media_type === "CAROUSEL_ALBUM") {
           const children = ((mData.children?.data || []) as any[])
             .filter((c) => c?.media_type === "IMAGE" && c.media_url)
@@ -424,6 +428,7 @@ async function fetchAdsForHandle(
       thumbnailUrl,
       video_id: videoId ? String(videoId) : null,
       ig_media_id: igMediaId,
+      ig_media_type: igMediaType,
       mux_playback_id: null, // will be filled in by processVideoUploads
       previewHtml: null, // filled in for ads Mux can't serve (source denied)
       carousel_urls: carouselUrls,
@@ -704,6 +709,9 @@ export async function syncCreator(
     // the daily sync refreshes them.
     for (const ad of result.ads) {
       if (ad.mux_playback_id || (ad.carousel_urls && ad.carousel_urls.length > 0) || ad.effective_status !== "ACTIVE") continue;
+      // Single-image posts aren't playable — the hi-res thumbnail already IS
+      // the creative; an embed would just put a misleading play button on it.
+      if (ad.ig_media_type === "IMAGE") continue;
       try {
         // Explicit width/height: without them Meta returns a tiny 274×213
         // scrolling iframe whose inner reels mock doesn't fit (white gutters +
