@@ -22,7 +22,7 @@ const CSS = `
 .gf-hero-eyebrow { font-size: 10px; letter-spacing: 0.34em; text-transform: uppercase; color: rgba(255,255,255,0.85); margin-bottom: 8px; }
 .gf-hero-name { font-family: 'Playfair Display', serif; font-weight: 300; font-size: 34px; line-height: 1.05; color: #fff; white-space: nowrap; }
 .gf-hero-subtitle { font-size: 12.5px; color: rgba(255,255,255,0.92); margin-top: 7px; }
-.gf-sign { font-family: 'Playfair Display', serif; font-style: italic; font-size: 14px; color: #555; margin: 4px 0 24px; }
+.gf-sign { font-family: 'Playfair Display', serif; font-style: italic; font-size: 14px; color: #555; margin: 0 0 22px; }
 .gf-collection { margin-bottom: 26px; }
 .gf-coll-row { display: flex; gap: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; margin: 0 -24px; padding: 0 24px 4px; }
 .gf-coll-row::-webkit-scrollbar { display: none; }
@@ -41,7 +41,7 @@ const CSS = `
 .gf-headline { font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 300; line-height: 1.08; color: #111; margin-bottom: 16px; }
 .gf-headline em { font-style: italic; }
 .gf-hero-title { font-family: 'Playfair Display', serif; font-size: 42px; font-weight: 300; line-height: 1.04; color: #111; margin-bottom: 12px; }
-.gf-greeting { font-family: 'Playfair Display', serif; font-style: italic; font-size: 27px; font-weight: 300; color: #111; line-height: 1.15; margin-bottom: 16px; }
+.gf-greeting { font-family: 'Playfair Display', serif; font-style: italic; font-size: 22px; font-weight: 300; color: #111; line-height: 1.2; margin-bottom: 8px; }
 .gf-sub { font-size: 13.5px; color: #555; line-height: 1.65; margin-bottom: 28px; }
 .gf-btn { display: block; width: 100%; background: #111; color: #fff; border: none; text-align: center; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.24em; text-transform: uppercase; padding: 17px 0; cursor: pointer; }
 .gf-btn:disabled { background: #ccc; cursor: default; }
@@ -388,7 +388,7 @@ export default function GiftPage() {
             )}
             <div className="gf-body" style={{ flex: 'none' }}>
               <div className="gf-greeting">{data.influencer.first_name}, you&rsquo;re on the list.</div>
-              <div className="gf-sub" style={{ marginBottom: 10 }}>{c.blurb || `${c.name} is almost here — before it goes live, we'd love you in it. Pick your pieces below.`}</div>
+              <div className="gf-sub" style={{ marginBottom: 6 }}>{c.blurb || `${c.name} is almost here — before it goes live, we'd love you in it. Pick your pieces below.`}</div>
               <div className="gf-sign">— Daisy &amp; the Nama team</div>
               <div className="gf-details">
                 <div className="gf-detail-row">
