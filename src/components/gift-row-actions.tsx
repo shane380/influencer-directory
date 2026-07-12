@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { Gift } from "lucide-react";
 import { generateGiftToken, giftUrl, giftDmSnippet, giftStage, type GiftStage } from "@/lib/gift";
@@ -51,15 +52,26 @@ export function GiftRowActions({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (ref.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false);
     };
+    const onScroll = () => setOpen(false);
     document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+    };
   }, [open]);
 
   const stage = giftStage(ci);
@@ -159,13 +171,25 @@ export function GiftRowActions({
       <div className="relative">
         <button
           className="p-1 text-gray-400 hover:text-gray-700 rounded"
-          onClick={() => setOpen((o) => !o)}
+          onClick={(e) => {
+            if (open) { setOpen(false); return; }
+            const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            const MENU_W = 208, MENU_H = 190;
+            const top = r.bottom + MENU_H > window.innerHeight - 8 ? Math.max(8, r.top - MENU_H - 4) : r.bottom + 4;
+            const left = Math.max(8, Math.min(r.right - MENU_W, window.innerWidth - MENU_W - 8));
+            setMenuPos({ top, left });
+            setOpen(true);
+          }}
           title="Gift link actions"
         >
           <Gift className="h-4 w-4" />
         </button>
-        {open && (
-          <div className="absolute right-0 top-7 z-30 w-52 bg-white border rounded-lg shadow-lg py-1 text-sm">
+        {open && menuPos && typeof document !== "undefined" && createPortal(
+          <div
+            ref={menuRef}
+            className="fixed z-[100] w-52 bg-white border rounded-lg shadow-lg py-1 text-sm"
+            style={{ top: menuPos.top, left: menuPos.left }}
+          >
             <button className="w-full text-left px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50" disabled={busy || !campaign.gift_enabled} onClick={() => copyLink(false)}>
               Copy gift link
             </button>
@@ -193,7 +217,8 @@ export function GiftRowActions({
             {!campaign.gift_enabled && (
               <div className="px-3 py-1.5 text-xs text-amber-700 bg-amber-50">Enable the Gift Page in campaign settings first.</div>
             )}
-          </div>
+          </div>,
+          document.body
         )}
       </div>
       {flash && <span className="text-[11px] text-green-700 whitespace-nowrap">{flash}</span>}
