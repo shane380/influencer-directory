@@ -206,14 +206,14 @@ async function uploadImage(fileUrl: string): Promise<string> {
 
   const form = new FormData();
   form.set("access_token", accessToken);
-  const filename = fileUrl.split("/").pop() || "creative.jpg";
-  form.set(
-    filename,
-    new Blob([new Uint8Array(buffer)], {
-      type: fileRes.headers.get("content-type") || "image/jpeg",
-    }),
-    filename
-  );
+  const contentType = fileRes.headers.get("content-type") || "image/jpeg";
+  // Filename must be clean (no query string) and carry a type Meta accepts.
+  let filename = (fileUrl.split("/").pop() || "creative").split("?")[0];
+  if (!/\.(jpe?g|png|webp|gif|bmp|tiff?)$/i.test(filename)) {
+    const ext = contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : "jpg";
+    filename = `${filename || "creative"}.${ext}`;
+  }
+  form.set(filename, new Blob([new Uint8Array(buffer)], { type: contentType }), filename);
 
   const res = await fetch(`${GRAPH}/${actId}/adimages`, { method: "POST", body: form });
   const data = await res.json();
