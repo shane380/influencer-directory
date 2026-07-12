@@ -91,7 +91,7 @@ const CSS = `
 .gf-note { font-size: 12px; color: #666; background: #faf8f4; border: 1px solid #f0ece4; padding: 10px 12px; margin-bottom: 16px; line-height: 1.5; }
 .gf-field { margin-bottom: 12px; }
 .gf-label { display: block; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: #999; margin-bottom: 6px; }
-.gf-input, .gf-select { width: 100%; border: 1px solid #e2e2e2; background: #fafafa; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #111; padding: 12px 13px; outline: none; border-radius: 0; -webkit-appearance: none; appearance: none; }
+.gf-input, .gf-select { width: 100%; border: 1px solid #e2e2e2; background: #fafafa; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; color: #111; padding: 11px 13px; outline: none; border-radius: 0; -webkit-appearance: none; appearance: none; }
 .gf-input:focus, .gf-select:focus { border-color: #999; }
 .gf-select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 13px center; }
 .gf-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -482,7 +482,16 @@ export default function GiftPage() {
                     <div className="gf-sheet-head">
                       <div>
                         <div className="gf-sheet-title">{product.title}</div>
-                        <div className="gf-sheet-sub">{picked ? `${picked.variant_title || 'Selected'} — selected` : 'Choose your size'}</div>
+                        <div className="gf-sheet-sub">
+                          {picked
+                            ? `${picked.variant_title || 'Selected'} — selected ✓`
+                            : (() => {
+                                const missing = product.options.filter(o => !chosen[o.name]).map(o => o.name.toLowerCase())
+                                if (missing.length === product.options.length) return `Choose your ${missing.join(' and ')}`
+                                if (missing.length > 0) return `Now choose your ${missing.join(' and ')}`
+                                return 'Choose your size'
+                              })()}
+                        </div>
                       </div>
                       <button className="gf-sheet-close" onClick={() => setSheetProduct(null)}>✕</button>
                     </div>
