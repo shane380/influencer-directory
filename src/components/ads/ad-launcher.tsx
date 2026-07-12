@@ -150,6 +150,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [publishLive, setPublishLive] = useState(true);
   const [publishing, setPublishing] = useState(false);
+  const [showPaused, setShowPaused] = useState(false);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const restoredRef = useRef(false);
@@ -157,6 +158,14 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
   const selected = ads.find((a) => a.localId === selectedId) || null;
   const campaign = targets?.campaigns.find((c) => c.id === campaignId) || null;
   const adset = campaign?.adsets.find((a) => a.id === adsetId) || null;
+
+  // Hide paused campaigns/ad sets unless asked — but never hide the current selection.
+  const visibleCampaigns = (targets?.campaigns || []).filter(
+    (c) => showPaused || c.effective_status === "ACTIVE" || c.id === campaignId
+  );
+  const visibleAdsets = (campaign?.adsets || []).filter(
+    (a) => showPaused || a.effective_status === "ACTIVE" || a.id === adsetId
+  );
 
   const fetchTargets = useCallback(async () => {
     setLoadingTargets(true);
@@ -568,7 +577,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
               <option value="">
                 {loadingTargets ? "Loading…" : "Select campaign"}
               </option>
-              {targets?.campaigns.map((c) => (
+              {visibleCampaigns.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name} {c.effective_status === "PAUSED" ? "(paused)" : ""}
                 </option>
@@ -582,12 +591,21 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
               className="w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] bg-white disabled:bg-gray-50 disabled:text-gray-400"
             >
               <option value="">Select ad set</option>
-              {campaign?.adsets.map((a) => (
+              {visibleAdsets.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name} {a.effective_status === "PAUSED" ? "(paused)" : ""}
                 </option>
               ))}
             </select>
+            <label className="flex items-center gap-1.5 mt-2 text-[11.5px] text-gray-500 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={showPaused}
+                onChange={(e) => setShowPaused(e.target.checked)}
+                className="h-3 w-3 rounded border-gray-300"
+              />
+              Show paused campaigns
+            </label>
             {loadError && <p className="text-[11px] text-red-600 mt-2">{loadError}</p>}
 
             <div className="border-t border-gray-100 mt-4 pt-3">
