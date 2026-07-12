@@ -29,7 +29,8 @@ const CSS = `
 .gf-coll-item { flex: 0 0 96px; cursor: pointer; }
 @media (min-width: 560px) { .gf-coll-item { flex: 0 0 124px; } }
 .gf-coll-imgwrap { position: relative; }
-.gf-coll-img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; background: #f5f2ec; }
+.gf-coll-img { width: 100%; height: 128px; object-fit: cover; display: block; background: #f5f2ec; }
+@media (min-width: 560px) { .gf-coll-img { height: 165px; } }
 .gf-coll-name { font-size: 10.5px; color: #555; margin-top: 5px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gf-details { border-top: 1px solid #eee; margin-bottom: 26px; }
 .gf-detail-row { display: flex; align-items: center; gap: 14px; padding: 13px 0; border-bottom: 1px solid #f2f2f2; }
