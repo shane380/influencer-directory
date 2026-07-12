@@ -23,6 +23,14 @@ const CSS = `
 .gf-hero-name { font-family: 'Playfair Display', serif; font-weight: 300; font-size: 34px; line-height: 1.05; color: #fff; white-space: nowrap; }
 .gf-hero-subtitle { font-size: 12.5px; color: rgba(255,255,255,0.92); margin-top: 7px; }
 .gf-sign { font-family: 'Playfair Display', serif; font-style: italic; font-size: 14px; color: #555; margin: 4px 0 24px; }
+.gf-collection { margin-bottom: 26px; }
+.gf-coll-row { display: flex; gap: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; margin: 0 -24px; padding: 0 24px 4px; }
+.gf-coll-row::-webkit-scrollbar { display: none; }
+.gf-coll-item { flex: 0 0 31%; min-width: 96px; max-width: 150px; cursor: pointer; }
+.gf-coll-imgwrap { position: relative; }
+.gf-coll-img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; background: #f5f2ec; }
+.gf-coll-more { position: absolute; inset: 0; background: rgba(17,17,17,0.55); color: #fff; display: flex; align-items: center; justify-content: center; font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 300; }
+.gf-coll-name { font-size: 10.5px; color: #555; margin-top: 5px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gf-details { border-top: 1px solid #eee; margin-bottom: 26px; }
 .gf-detail-row { display: flex; align-items: center; gap: 14px; padding: 13px 0; border-bottom: 1px solid #f2f2f2; }
 .gf-detail-icon { width: 20px; height: 20px; color: #999; flex-shrink: 0; }
@@ -408,6 +416,24 @@ export default function GiftPage() {
                   </div>
                 </div>
               </div>
+              {(data.products || []).length > 0 && (
+                <div className="gf-collection">
+                  <div className="gf-section-label">The Collection</div>
+                  <div className="gf-coll-row">
+                    {data.products.map((p, i) => (
+                      <div key={p.product_id} className="gf-coll-item" onClick={() => setStep('select')}>
+                        <div className="gf-coll-imgwrap">
+                          <img className="gf-coll-img" src={p.image || ''} alt={p.title} />
+                          {i === 2 && data.products.length > 3 && (
+                            <div className="gf-coll-more">+{data.products.length - 3}</div>
+                          )}
+                        </div>
+                        <div className="gf-coll-name">{p.title}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <button className="gf-btn" onClick={() => setStep('select')}>Select Your Pieces</button>
             </div>
           </>
