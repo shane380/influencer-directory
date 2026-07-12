@@ -36,6 +36,23 @@ export async function GET() {
     created_at: sub.created_at,
   }));
 
+  // Pending ad drafts awaiting admin approval (Ad Launcher)
+  const { data: adDrafts } = await (supabase
+    .from("ad_drafts") as any)
+    .select("id, ad_name, campaign_name, created_at, creator_profile:profiles!ad_drafts_created_by_fkey(display_name)")
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  const adNotifications = (adDrafts || []).map((d: any) => ({
+    id: d.id,
+    type: "ad_approval" as const,
+    creator_name: d.creator_profile?.display_name || "A teammate",
+    ad_name: d.ad_name,
+    campaign_title: d.campaign_name || "",
+    created_at: d.created_at,
+  }));
+
   const outfitNotifications = (outfitRequests || []).map((req: any) => ({
     id: req.id,
     type: "outfit_request" as const,
@@ -46,7 +63,7 @@ export async function GET() {
     created_at: req.confirmed_at,
   }));
 
-  const notifications = [...contentNotifications, ...outfitNotifications]
+  const notifications = [...contentNotifications, ...outfitNotifications, ...adNotifications]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 20);
 
