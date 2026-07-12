@@ -128,7 +128,7 @@ export function GiftOverrideDialog({
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="text-sm font-medium">Max selects override</div>
+            <div className="text-sm font-medium">Outfits override</div>
             <Input
               type="number"
               min={1}

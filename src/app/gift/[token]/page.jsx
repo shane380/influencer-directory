@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { getCountries } from '@/lib/countries'
 
@@ -14,7 +14,20 @@ const CSS = `
 .gf-wrap { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #111; background: #fff; min-height: 100vh; -webkit-font-smoothing: antialiased; }
 .gf-wrap *, .gf-wrap *::before, .gf-wrap *::after { box-sizing: border-box; margin: 0; padding: 0; }
 .gf-col { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; background: #fff; }
-.gf-hero { width: 100%; aspect-ratio: 16/10; object-fit: cover; display: block; background: #f0ece4; }
+.gf-hero-wrap { position: relative; }
+.gf-hero { width: 100%; aspect-ratio: 1/1; object-fit: cover; display: block; background: #f0ece4; }
+@media (min-width: 560px) { .gf-hero { aspect-ratio: 16/10; } }
+.gf-hero-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(17,17,17,0.18) 45%, rgba(0,0,0,0.04) 72%, transparent 100%); }
+.gf-hero-text { position: absolute; left: 22px; right: 22px; bottom: 20px; color: #fff; }
+.gf-hero-eyebrow { font-size: 10px; letter-spacing: 0.34em; text-transform: uppercase; color: rgba(255,255,255,0.85); margin-bottom: 8px; }
+.gf-hero-name { font-family: 'Playfair Display', serif; font-weight: 300; font-size: 34px; line-height: 1.05; color: #fff; white-space: nowrap; }
+.gf-hero-subtitle { font-size: 12.5px; color: rgba(255,255,255,0.92); margin-top: 7px; }
+.gf-sign { font-family: 'Playfair Display', serif; font-style: italic; font-size: 14px; color: #555; margin: 4px 0 24px; }
+.gf-details { border-top: 1px solid #eee; margin-bottom: 26px; }
+.gf-detail-row { display: flex; align-items: center; gap: 14px; padding: 13px 0; border-bottom: 1px solid #f2f2f2; }
+.gf-detail-icon { width: 20px; height: 20px; color: #999; flex-shrink: 0; }
+.gf-detail-label { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #999; margin-bottom: 2px; }
+.gf-detail-value { font-size: 13.5px; color: #111; }
 .gf-body { padding: 28px 24px 40px; flex: 1; display: flex; flex-direction: column; }
 .gf-eyebrow { font-size: 10px; letter-spacing: 0.34em; text-transform: uppercase; color: #999; margin-bottom: 14px; }
 .gf-headline { font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 300; line-height: 1.08; color: #111; margin-bottom: 16px; }
@@ -106,6 +119,28 @@ export default function GiftPage() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(null)
   const [submitted, setSubmitted] = useState(null)
+  const titleRef = useRef(null)
+
+  // Campaign titles shrink before they ever wrap to a second line.
+  useEffect(() => {
+    if (step !== 'landing' || loadState !== 'ok') return
+    const el = titleRef.current
+    if (!el) return
+    const fit = () => {
+      const parent = el.parentElement
+      if (!parent) return
+      let size = parseFloat(el.getAttribute('data-base') || '34')
+      el.style.fontSize = size + 'px'
+      const max = parent.clientWidth
+      while (el.scrollWidth > max && size > 15) {
+        size -= 1
+        el.style.fontSize = size + 'px'
+      }
+    }
+    fit()
+    window.addEventListener('resize', fit)
+    return () => window.removeEventListener('resize', fit)
+  }, [step, loadState, data])
 
   const load = useCallback(async () => {
     try {
@@ -140,7 +175,8 @@ export default function GiftPage() {
 
   useEffect(() => { load() }, [load])
 
-  const maxSelects = data?.campaign?.max_selects || 3
+  const maxSelects = data?.campaign?.max_selects || 3 // hard piece cap (outfits × 3)
+  const outfits = data?.campaign?.outfits || 1
 
   function preferredSize(product) {
     const size = BOTTOMS_RE.test(product.title) ? data?.influencer?.bottoms_size : data?.influencer?.top_size
@@ -327,15 +363,52 @@ export default function GiftPage() {
 
         {step === 'landing' && (
           <>
-            {c.hero_image_url && <img className="gf-hero" src={c.hero_image_url} alt={c.name} />}
-            <div className="gf-body">
-              <div className="gf-eyebrow">Nama</div>
-              <div className="gf-hero-title">{c.name}</div>
-              <div className="gf-greeting">Hi {data.influencer.first_name} — pick your pieces.</div>
-              <div className="gf-sub">{c.blurb || `We'd love to send you ${maxSelects} ${maxSelects === 1 ? 'piece' : 'pieces'} from our latest collection — on us. Pick your styles and confirm where to ship them.`}</div>
-              <div style={{ marginTop: 'auto' }}>
-                <button className="gf-btn" onClick={() => setStep('select')}>Select Your Pieces</button>
+            {c.hero_image_url ? (
+              <div className="gf-hero-wrap">
+                <img className="gf-hero" src={c.hero_image_url} alt={c.name} />
+                <div className="gf-hero-overlay" />
+                <div className="gf-hero-text">
+                  <div className="gf-hero-eyebrow">Nama</div>
+                  <div className="gf-hero-name" ref={titleRef} data-base="34">{c.name}</div>
+                  <div className="gf-hero-subtitle">You&rsquo;re seeing it before anyone else.</div>
+                </div>
               </div>
+            ) : (
+              <div className="gf-body" style={{ flex: 'none', paddingBottom: 0 }}>
+                <div className="gf-eyebrow">Nama</div>
+                <div className="gf-hero-title" ref={titleRef} data-base="42" style={{ whiteSpace: 'nowrap' }}>{c.name}</div>
+              </div>
+            )}
+            <div className="gf-body" style={{ flex: 'none' }}>
+              <div className="gf-greeting">{data.influencer.first_name}, you&rsquo;re on the list.</div>
+              <div className="gf-sub" style={{ marginBottom: 10 }}>{c.blurb || `${c.name} is almost here — before it goes live, we'd love you in it. Pick your pieces below.`}</div>
+              <div className="gf-sign">— Daisy &amp; the Nama team</div>
+              <div className="gf-details">
+                <div className="gf-detail-row">
+                  <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                  <div>
+                    <div className="gf-detail-label">Your picks</div>
+                    <div className="gf-detail-value">{outfits} {outfits === 1 ? 'outfit' : 'outfits'} (up to 3 pieces each)</div>
+                  </div>
+                </div>
+                {c.launch_date && (
+                  <div className="gf-detail-row">
+                    <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                    <div>
+                      <div className="gf-detail-label">Campaign launches</div>
+                      <div className="gf-detail-value">{new Date(c.launch_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</div>
+                    </div>
+                  </div>
+                )}
+                <div className="gf-detail-row">
+                  <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z" /><path d="M3.3 8.3L12 13l8.7-4.7" /><line x1="12" y1="13" x2="12" y2="21" /></svg>
+                  <div>
+                    <div className="gf-detail-label">Ships</div>
+                    <div className="gf-detail-value">Within 5 days</div>
+                  </div>
+                </div>
+              </div>
+              <button className="gf-btn" onClick={() => setStep('select')}>Select Your Pieces</button>
             </div>
           </>
         )}
@@ -343,7 +416,7 @@ export default function GiftPage() {
         {step === 'select' && (
           <>
             <div className="gf-counterbar">
-              <div className="gf-counter">{picks.length} <span>of {maxSelects} selected</span></div>
+              <div className="gf-counter">{picks.length} <span>of {maxSelects} pieces · {outfits} {outfits === 1 ? 'outfit' : 'outfits'}</span></div>
               <button className="gf-btn-ghost" style={{ width: 'auto', padding: 0 }} onClick={() => setStep('landing')}>Back</button>
             </div>
             <div className="gf-grid">
@@ -386,7 +459,7 @@ export default function GiftPage() {
               })}
             </div>
             <div className="gf-footer">
-              {maxHint && <div className="gf-hint" style={{ paddingBottom: 8 }}>That&rsquo;s your {maxSelects} — remove one to swap it.</div>}
+              {maxHint && <div className="gf-hint" style={{ paddingBottom: 8 }}>That&rsquo;s {outfits} {outfits === 1 ? 'outfit' : 'outfits'}&rsquo; worth ({maxSelects} pieces) — remove a piece to swap.</div>}
               <button className="gf-btn" disabled={picks.length === 0} onClick={() => { setStep('confirm'); window.scrollTo(0, 0) }}>
                 {picks.length === 0 ? 'Pick your styles' : `Continue with ${picks.length} ${picks.length === 1 ? 'style' : 'styles'} →`}
               </button>

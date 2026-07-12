@@ -168,15 +168,15 @@ export function GiftSettingsDialog({
             <div className="text-sm font-medium mb-1.5">Landing blurb</div>
             <Textarea
               rows={3}
-              placeholder={`We're launching ${campaign.name} and want you in it first — pick your pieces on us.`}
+              placeholder={`${campaign.name} is our sharpest collection yet — clean lines, black piping. Before it goes live, we'd love you in it. Pick your pieces below.`}
               value={blurb}
               onChange={(e) => setBlurb(e.target.value)}
             />
-            <div className="text-xs text-gray-400 mt-1">Shown under “Hi {"{name}"}, pick your pieces.”</div>
+            <div className="text-xs text-gray-400 mt-1">The collection paragraph, shown under “{"{name}"}, you’re on the list.”</div>
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="text-sm font-medium">Max selects</div>
+            <div className="text-sm font-medium">Outfits</div>
             <Input
               type="number"
               min={1}
@@ -185,7 +185,7 @@ export function GiftSettingsDialog({
               onChange={(e) => setMaxSelects(parseInt(e.target.value, 10) || 3)}
               className="w-20"
             />
-            <span className="text-xs text-gray-500">Overridable per influencer.</span>
+            <span className="text-xs text-gray-500">An outfit is 2–3 pieces — she can pick up to {Math.max(1, Math.min(10, maxSelects || 3)) * 3} pieces. Overridable per influencer.</span>
           </div>
 
           <div>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchProductsByIds } from "@/lib/shopify-products";
-import { loadGiftAssignment, effectivePool, effectiveMaxSelects, giftServiceClient } from "@/lib/gift-server";
+import { loadGiftAssignment, effectivePool, effectiveMaxPieces, giftServiceClient } from "@/lib/gift-server";
 import type { GiftShipping } from "@/types/database";
 
 // Accepts an influencer's picks + confirmed shipping. Writes
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         variant_id: String(x?.variant_id || ""),
       }))
     : [];
-  const maxSelects = effectiveMaxSelects(assignment, campaign);
+  const maxSelects = effectiveMaxPieces(assignment, campaign);
   if (selections.length === 0) return badRequest("selections_invalid", "no items selected");
   if (selections.length > maxSelects) return badRequest("selections_invalid", "too many items");
   const variantIds = selections.map((x) => x.variant_id);
