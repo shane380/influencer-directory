@@ -19,7 +19,6 @@ import {
   LogOut,
   Bell,
   Settings,
-  Mail,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -631,18 +630,6 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                 >
                   <Settings className="h-4 w-4 text-gray-400" />
                   App Settings
-                </button>
-              )}
-              {(currentUser.isAdmin || currentUser.isManager) && (
-                <button
-                  onClick={() => {
-                    setUserMenuOpen(false);
-                    router.push("/admin/email-blast");
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  <Mail className="h-4 w-4 text-gray-400" />
-                  Email Blast
                 </button>
               )}
               <button
