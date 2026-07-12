@@ -20,6 +20,7 @@ import {
   Bell,
   Settings,
   Mail,
+  Megaphone,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -54,14 +55,15 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
   const [pendingCodeRequests, setPendingCodeRequests] = useState(0);
   const [notifications, setNotifications] = useState<Array<{
     id: string;
-    type?: "content_submission" | "outfit_request";
+    type?: "content_submission" | "outfit_request" | "ad_approval";
     creator_name: string;
-    creator_id: string;
+    creator_id?: string;
     influencer_id?: string | null;
     month?: string;
     file_count?: number;
     campaign_title?: string;
     product_count?: number;
+    ad_name?: string;
     created_at: string;
   }>>([]);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -226,6 +228,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
     { id: "gifting", label: "Gifting/PR", icon: Gift, expandable: true },
     { id: "paid_collabs", label: "Paid Collabs", icon: DollarSign },
     { id: "whitelisting", label: "Whitelisting", icon: Share2 },
+    { id: "ads", label: "Ads", icon: Megaphone },
     { id: "partners", label: "Partners", icon: Heart, expandable: true },
     { id: "payments", label: "Payments", icon: CreditCard },
     { id: "payments_v2", label: "Payments ✨", icon: CreditCard },
@@ -236,6 +239,8 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
       setGiftingExpanded(!giftingExpanded);
     } else if (id === "partners") {
       setPartnersExpanded(!partnersExpanded);
+    } else if (id === "ads") {
+      router.push("/ads");
     } else if (id === "payments") {
       router.push("/partnerships/payments");
     } else if (id === "payments_v2") {
@@ -284,6 +289,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
             const isActive = activeTab === item.id ||
               (item.id === "gifting" && (pathname?.startsWith("/gifting") || pathname?.startsWith("/campaigns"))) ||
               (item.id === "partners" && (pathname?.startsWith("/partnerships/creators") || pathname?.startsWith("/partnerships/campaigns"))) ||
+              (item.id === "ads" && pathname?.startsWith("/ads")) ||
               (item.id === "payments" && pathname?.startsWith("/partnerships/payments") && !pathname.startsWith("/partnerships/payments-v2")) ||
               (item.id === "payments_v2" && pathname?.startsWith("/partnerships/payments-v2"));
 
@@ -528,7 +534,9 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
               notifications.map((n) => {
                 const timeAgo = getTimeAgo(n.created_at);
                 let description = "";
-                if (n.type === "outfit_request") {
+                if (n.type === "ad_approval") {
+                  description = `Ad "${n.ad_name}" awaiting review · ${timeAgo}`;
+                } else if (n.type === "outfit_request") {
                   description = `Requested ${n.product_count} item${n.product_count !== 1 ? "s" : ""} · ${timeAgo}`;
                 } else {
                   const [yr, mo] = (n.month || "").split("-");
@@ -542,7 +550,9 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                     key={n.id}
                     onClick={() => {
                       setNotifOpen(false);
-                      if (n.creator_id) {
+                      if (n.type === "ad_approval") {
+                        router.push("/ads?review=1");
+                      } else if (n.creator_id) {
                         router.push(`/partnerships/creators/${n.creator_id}`);
                       }
                     }}
