@@ -131,6 +131,10 @@ export default function GiftPage() {
   const [picks, setPicks] = useState([]) // { product_id, variant_id, title, variant_title, image }
   const [openProduct, setOpenProduct] = useState(null)
   const [sheetProduct, setSheetProduct] = useState(null) // product_id shown in the size sheet
+
+  // Every step opens at the top — the previous step's scroll offset otherwise
+  // carries over (e.g. tapping the CTA at the bottom of the landing page).
+  useEffect(() => { window.scrollTo(0, 0) }, [step])
   const [optSel, setOptSel] = useState({}) // { [product_id]: { [optionName]: value } }
   const [editingPick, setEditingPick] = useState(null) // product_id being size-edited on the confirm step
   const [maxHint, setMaxHint] = useState(false)
