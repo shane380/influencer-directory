@@ -720,7 +720,7 @@ export default function CampaignDetailPage() {
             </Button>
             <Button variant={campaign.gift_enabled ? "default" : "outline"} onClick={() => setGiftSettingsOpen(true)}>
               <Gift className="h-4 w-4 mr-2" />
-              Gift Page{campaign.gift_enabled ? " · On" : ""}
+              Selects Page{campaign.gift_enabled ? " · On" : ""}
             </Button>
           </div>
         </div>
@@ -868,8 +868,8 @@ export default function CampaignDetailPage() {
                   <TableHead className="w-[120px]">Partnership</TableHead>
                   <TableHead className="w-[120px]">Status</TableHead>
                   <TableHead className="w-[120px]">Owner</TableHead>
+                  <TableHead className="w-[150px]">Selects</TableHead>
                   <TableHead className="w-[76px]">Order</TableHead>
-                  <TableHead className="w-[150px]">Gift</TableHead>
                   <TableHead className="w-[100px]">Content Posted</TableHead>
                   <TableHead className="w-[120px]">Deal</TableHead>
                   <TableHead className="w-12"></TableHead>
@@ -1047,6 +1047,19 @@ export default function CampaignDetailPage() {
                       </span>
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
+                      {campaign && (
+                        <GiftRowActions
+                          campaign={campaign}
+                          ci={ci}
+                          influencerName={ci.influencer.name}
+                          influencerEmail={ci.influencer.email}
+                          onReview={() => handleOpenOrderDialog(ci)}
+                          onCustomize={() => setGiftOverrideCi(ci)}
+                          onChanged={(patch) => applyGiftPatch(ci.id, patch)}
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       {ci.shopify_order_id ? (
                         <button
                           className={`inline-flex items-center gap-1.5 text-[13px] text-gray-600 px-1.5 py-1 ${inlineEditBox}`}
@@ -1070,19 +1083,6 @@ export default function CampaignDetailPage() {
                         >
                           <ShoppingCart className="h-4 w-4" />
                         </button>
-                      )}
-                    </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      {campaign && (
-                        <GiftRowActions
-                          campaign={campaign}
-                          ci={ci}
-                          influencerName={ci.influencer.name}
-                          influencerEmail={ci.influencer.email}
-                          onReview={() => handleOpenOrderDialog(ci)}
-                          onCustomize={() => setGiftOverrideCi(ci)}
-                          onChanged={(patch) => applyGiftPatch(ci.id, patch)}
-                        />
                       )}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>

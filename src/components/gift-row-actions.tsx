@@ -180,7 +180,7 @@ export function GiftRowActions({
             setMenuPos({ top, left });
             setOpen(true);
           }}
-          title="Gift link actions"
+          title="Selects link actions"
         >
           <Gift className="h-4 w-4" />
         </button>
@@ -191,7 +191,7 @@ export function GiftRowActions({
             style={{ top: menuPos.top, left: menuPos.left }}
           >
             <button className="w-full text-left px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50" disabled={busy || !campaign.gift_enabled} onClick={() => copyLink(false)}>
-              Copy gift link
+              Copy selects link
             </button>
             <button className="w-full text-left px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50" disabled={busy || !campaign.gift_enabled} onClick={copyDm}>
               Copy DM snippet
@@ -215,7 +215,7 @@ export function GiftRowActions({
               Regenerate link
             </button>
             {!campaign.gift_enabled && (
-              <div className="px-3 py-1.5 text-xs text-amber-700 bg-amber-50">Enable the Gift Page in campaign settings first.</div>
+              <div className="px-3 py-1.5 text-xs text-amber-700 bg-amber-50">Enable the Selects Page in campaign settings first.</div>
             )}
           </div>,
           document.body

@@ -89,7 +89,7 @@ export function GiftSettingsDialog({
 
   async function save() {
     if (enabled && pool.length === 0) {
-      setError("Add at least one product before enabling the gift page.");
+      setError("Add at least one product before enabling the selects page.");
       return;
     }
     setSaving(true);
@@ -115,7 +115,7 @@ export function GiftSettingsDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-[95vw] min-w-0" style={{ width: 760 }} onClose={onClose}>
         <DialogHeader>
-          <DialogTitle>Gift Page — {campaign.name}</DialogTitle>
+          <DialogTitle>Selects Page — {campaign.name}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-5 min-w-0">
@@ -126,7 +126,7 @@ export function GiftSettingsDialog({
               checked={enabled}
               onChange={(e) => setEnabled(e.target.checked)}
             />
-            <span className="text-sm font-medium">Gift link enabled</span>
+            <span className="text-sm font-medium">Selects link enabled</span>
             <span className="text-xs text-gray-500">Links 404 until this is on.</span>
           </label>
 
@@ -197,7 +197,7 @@ export function GiftSettingsDialog({
 
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="outline" onClick={onClose}>Cancel</Button>
-            <Button onClick={save} disabled={saving || uploading}>{saving ? "Saving…" : "Save Gift Page"}</Button>
+            <Button onClick={save} disabled={saving || uploading}>{saving ? "Saving…" : "Save Selects Page"}</Button>
           </div>
         </div>
       </DialogContent>

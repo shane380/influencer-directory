@@ -91,7 +91,7 @@ export function GiftOverrideDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-[95vw] min-w-0" style={{ width: 620 }} onClose={onClose}>
         <DialogHeader>
-          <DialogTitle>Customize gift page — {influencerName}</DialogTitle>
+          <DialogTitle>Customize selects — {influencerName}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-5 min-w-0">
