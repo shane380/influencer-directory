@@ -15,7 +15,7 @@ const CSS = `
 .gf-wrap *, .gf-wrap *::before, .gf-wrap *::after { box-sizing: border-box; margin: 0; padding: 0; }
 .gf-col { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; background: #fff; }
 .gf-hero-wrap { position: relative; }
-.gf-hero { width: 100%; aspect-ratio: 1/1; object-fit: cover; display: block; background: #f0ece4; }
+.gf-hero { width: 100%; aspect-ratio: 5/4; object-fit: cover; display: block; background: #f0ece4; }
 @media (min-width: 560px) { .gf-hero { aspect-ratio: 16/10; } }
 .gf-hero-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(17,17,17,0.18) 45%, rgba(0,0,0,0.04) 72%, transparent 100%); }
 .gf-hero-text { position: absolute; left: 22px; right: 22px; bottom: 20px; color: #fff; }
@@ -41,7 +41,7 @@ const CSS = `
 .gf-headline { font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 300; line-height: 1.08; color: #111; margin-bottom: 16px; }
 .gf-headline em { font-style: italic; }
 .gf-hero-title { font-family: 'Playfair Display', serif; font-size: 42px; font-weight: 300; line-height: 1.04; color: #111; margin-bottom: 12px; }
-.gf-greeting { font-family: 'Playfair Display', serif; font-style: italic; font-size: 19px; font-weight: 300; color: #333; margin-bottom: 14px; }
+.gf-greeting { font-family: 'Playfair Display', serif; font-style: italic; font-size: 27px; font-weight: 300; color: #111; line-height: 1.15; margin-bottom: 16px; }
 .gf-sub { font-size: 13.5px; color: #555; line-height: 1.65; margin-bottom: 28px; }
 .gf-btn { display: block; width: 100%; background: #111; color: #fff; border: none; text-align: center; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.24em; text-transform: uppercase; padding: 17px 0; cursor: pointer; }
 .gf-btn:disabled { background: #ccc; cursor: default; }
@@ -378,7 +378,6 @@ export default function GiftPage() {
                 <div className="gf-hero-text">
                   <div className="gf-hero-eyebrow">Nama</div>
                   <div className="gf-hero-name" ref={titleRef} data-base="34">{c.name}</div>
-                  <div className="gf-hero-subtitle">You&rsquo;re seeing it before anyone else.</div>
                 </div>
               </div>
             ) : (
