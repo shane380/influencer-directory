@@ -1057,12 +1057,23 @@ export default function CreatorsListPage() {
         <div>
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-semibold text-gray-900">Partners</h1>
-            <button
-              onClick={() => setShowInviteModal(true)}
-              className="px-4 py-2 bg-gray-900 text-white text-sm rounded-md hover:bg-gray-800 transition-colors"
-            >
-              Generate Invite
-            </button>
+            <div className="flex items-center gap-2">
+              {(currentUser?.isAdmin || currentUser?.isManager) && (
+                <button
+                  onClick={() => router.push("/admin/email-blast")}
+                  className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  <Mail className="h-4 w-4 text-gray-400" />
+                  Email Blast
+                </button>
+              )}
+              <button
+                onClick={() => setShowInviteModal(true)}
+                className="px-4 py-2 bg-gray-900 text-white text-sm rounded-md hover:bg-gray-800 transition-colors"
+              >
+                Generate Invite
+              </button>
+            </div>
           </div>
 
           {/* Overview controls — category toggle + shared date range */}

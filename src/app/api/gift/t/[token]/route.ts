@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchProductsByIds } from "@/lib/shopify-products";
 import { getShopifyAccessToken, getShopifyStoreUrl } from "@/lib/shopify";
-import { loadGiftAssignment, effectivePool, effectiveMaxSelects } from "@/lib/gift-server";
+import { loadGiftAssignment, effectivePool, effectiveOutfits, effectiveMaxPieces } from "@/lib/gift-server";
 import type { GiftShipping } from "@/types/database";
 
 // Public tokenized gift endpoint (middleware-whitelisted under /api/gift/t/).
@@ -46,7 +46,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       name: campaign.name,
       hero_image_url: campaign.gift_hero_image?.url || null,
       blurb: campaign.gift_blurb || null,
-      max_selects: effectiveMaxSelects(assignment, campaign),
+      outfits: effectiveOutfits(assignment, campaign),
+      max_selects: effectiveMaxPieces(assignment, campaign),
+      launch_date: campaign.start_date || null,
     },
     influencer: {
       first_name: firstName,

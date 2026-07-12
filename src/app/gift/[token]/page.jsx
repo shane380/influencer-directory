@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { getCountries } from '@/lib/countries'
 
@@ -14,13 +14,35 @@ const CSS = `
 .gf-wrap { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #111; background: #fff; min-height: 100vh; -webkit-font-smoothing: antialiased; }
 .gf-wrap *, .gf-wrap *::before, .gf-wrap *::after { box-sizing: border-box; margin: 0; padding: 0; }
 .gf-col { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; background: #fff; }
-.gf-hero { width: 100%; aspect-ratio: 16/10; object-fit: cover; display: block; background: #f0ece4; }
+.gf-hero-wrap { position: relative; }
+.gf-hero { width: 100%; aspect-ratio: 5/4; object-fit: cover; display: block; background: #f0ece4; }
+@media (min-width: 560px) { .gf-hero { aspect-ratio: 16/10; } }
+.gf-hero-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(17,17,17,0.18) 45%, rgba(0,0,0,0.04) 72%, transparent 100%); }
+.gf-hero-text { position: absolute; left: 22px; right: 22px; bottom: 20px; color: #fff; }
+.gf-hero-eyebrow { font-size: 10px; letter-spacing: 0.34em; text-transform: uppercase; color: rgba(255,255,255,0.85); margin-bottom: 8px; }
+.gf-hero-name { font-family: 'Playfair Display', serif; font-weight: 300; font-size: 34px; line-height: 1.05; color: #fff; white-space: nowrap; }
+.gf-hero-subtitle { font-size: 12.5px; color: rgba(255,255,255,0.92); margin-top: 7px; }
+.gf-sign { font-family: 'Playfair Display', serif; font-style: italic; font-size: 14px; color: #555; margin: 0 0 22px; }
+.gf-collection { margin-bottom: 26px; }
+.gf-coll-row { display: flex; gap: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; margin: 0 -24px; padding: 0 24px 4px; }
+.gf-coll-row::-webkit-scrollbar { display: none; }
+.gf-coll-item { flex: 0 0 96px; cursor: pointer; }
+@media (min-width: 560px) { .gf-coll-item { flex: 0 0 124px; } }
+.gf-coll-imgwrap { position: relative; }
+.gf-coll-img { width: 100%; height: 144px; object-fit: cover; display: block; background: #f5f2ec; }
+@media (min-width: 560px) { .gf-coll-img { height: 186px; } }
+.gf-coll-name { font-size: 10.5px; color: #555; margin-top: 5px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gf-details { border-top: 1px solid #eee; margin-bottom: 26px; }
+.gf-detail-row { display: flex; align-items: center; gap: 14px; padding: 13px 0; border-bottom: 1px solid #f2f2f2; }
+.gf-detail-icon { width: 20px; height: 20px; color: #999; flex-shrink: 0; }
+.gf-detail-label { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #999; margin-bottom: 2px; }
+.gf-detail-value { font-size: 13.5px; color: #111; }
 .gf-body { padding: 28px 24px 40px; flex: 1; display: flex; flex-direction: column; }
 .gf-eyebrow { font-size: 10px; letter-spacing: 0.34em; text-transform: uppercase; color: #999; margin-bottom: 14px; }
 .gf-headline { font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 300; line-height: 1.08; color: #111; margin-bottom: 16px; }
 .gf-headline em { font-style: italic; }
 .gf-hero-title { font-family: 'Playfair Display', serif; font-size: 42px; font-weight: 300; line-height: 1.04; color: #111; margin-bottom: 12px; }
-.gf-greeting { font-family: 'Playfair Display', serif; font-style: italic; font-size: 19px; font-weight: 300; color: #333; margin-bottom: 14px; }
+.gf-greeting { font-family: 'Playfair Display', serif; font-style: italic; font-size: 22px; font-weight: 300; color: #111; line-height: 1.2; margin-bottom: 8px; }
 .gf-sub { font-size: 13.5px; color: #555; line-height: 1.65; margin-bottom: 28px; }
 .gf-btn { display: block; width: 100%; background: #111; color: #fff; border: none; text-align: center; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.24em; text-transform: uppercase; padding: 17px 0; cursor: pointer; }
 .gf-btn:disabled { background: #ccc; cursor: default; }
@@ -31,7 +53,7 @@ const CSS = `
 .gf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 18px 24px 24px; }
 .gf-card { border: 1px solid #e8e8e8; position: relative; cursor: pointer; }
 .gf-card.sel { border-color: #111; box-shadow: 0 0 0 1px #111; }
-.gf-card-img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; background: #f5f2ec; }
+.gf-card-img { width: 100%; aspect-ratio: 2/3; object-fit: cover; display: block; background: #f5f2ec; }
 .gf-card-body { padding: 10px 10px 12px; }
 .gf-card-title { font-size: 12px; line-height: 1.35; color: #111; }
 .gf-card-size { font-size: 11px; color: #666; margin-top: 3px; }
@@ -48,6 +70,15 @@ const CSS = `
 .gf-chip { flex: 1 1 auto; min-width: 34px; border: 1px solid #ddd; background: #fff; font-size: 11.5px; color: #555; padding: 8px 4px; text-align: center; cursor: pointer; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
 .gf-chip.on { border-color: #111; color: #111; font-weight: 500; background: #faf9f7; }
 .gf-chip:disabled { color: #ccc; border-color: #eee; cursor: default; text-decoration: line-through; }
+.gf-sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 40; }
+.gf-sheet { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; z-index: 41; padding: 18px 20px calc(22px + env(safe-area-inset-bottom)); border-top: 1px solid #eee; max-width: 480px; margin: 0 auto; animation: gf-up 0.22s ease; }
+@keyframes gf-up { from { transform: translateY(100%); } }
+.gf-sheet-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; gap: 12px; }
+.gf-sheet-title { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 400; }
+.gf-sheet-sub { font-size: 11.5px; color: #666; margin-top: 3px; }
+.gf-sheet-close { background: none; border: none; font-size: 16px; color: #999; cursor: pointer; padding: 2px 4px; flex-shrink: 0; }
+.gf-sheet .gf-chip { padding: 12px 4px; font-size: 13px; }
+.gf-sheet-remove { margin-top: 16px; background: none; border: none; color: #c0392b; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; padding: 2px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
 .gf-footer { position: sticky; bottom: 0; background: #fff; border-top: 1px solid #eee; padding: 14px 24px calc(14px + env(safe-area-inset-bottom)); z-index: 10; }
 .gf-hint { font-size: 11.5px; color: #b06a2c; text-align: center; padding: 8px 0 0; }
 .gf-section-label { font-size: 10px; letter-spacing: 0.26em; text-transform: uppercase; color: #999; margin: 0 0 12px; }
@@ -99,6 +130,11 @@ export default function GiftPage() {
   const [step, setStep] = useState('landing') // landing | select | confirm | done | status
   const [picks, setPicks] = useState([]) // { product_id, variant_id, title, variant_title, image }
   const [openProduct, setOpenProduct] = useState(null)
+  const [sheetProduct, setSheetProduct] = useState(null) // product_id shown in the size sheet
+
+  // Every step opens at the top — the previous step's scroll offset otherwise
+  // carries over (e.g. tapping the CTA at the bottom of the landing page).
+  useEffect(() => { window.scrollTo(0, 0) }, [step])
   const [optSel, setOptSel] = useState({}) // { [product_id]: { [optionName]: value } }
   const [editingPick, setEditingPick] = useState(null) // product_id being size-edited on the confirm step
   const [maxHint, setMaxHint] = useState(false)
@@ -106,6 +142,28 @@ export default function GiftPage() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(null)
   const [submitted, setSubmitted] = useState(null)
+  const titleRef = useRef(null)
+
+  // Campaign titles shrink before they ever wrap to a second line.
+  useEffect(() => {
+    if (step !== 'landing' || loadState !== 'ok') return
+    const el = titleRef.current
+    if (!el) return
+    const fit = () => {
+      const parent = el.parentElement
+      if (!parent) return
+      let size = parseFloat(el.getAttribute('data-base') || '34')
+      el.style.fontSize = size + 'px'
+      const max = parent.clientWidth
+      while (el.scrollWidth > max && size > 15) {
+        size -= 1
+        el.style.fontSize = size + 'px'
+      }
+    }
+    fit()
+    window.addEventListener('resize', fit)
+    return () => window.removeEventListener('resize', fit)
+  }, [step, loadState, data])
 
   const load = useCallback(async () => {
     try {
@@ -140,7 +198,8 @@ export default function GiftPage() {
 
   useEffect(() => { load() }, [load])
 
-  const maxSelects = data?.campaign?.max_selects || 3
+  const maxSelects = data?.campaign?.max_selects || 3 // hard piece cap (outfits × 3)
+  const outfits = data?.campaign?.outfits || 1
 
   function preferredSize(product) {
     const size = BOTTOMS_RE.test(product.title) ? data?.influencer?.bottoms_size : data?.influencer?.top_size
@@ -227,14 +286,12 @@ export default function GiftPage() {
 
   function tapProduct(product) {
     setMaxHint(false)
-    // Single-variant products toggle directly; sized products get a nudge —
-    // the size chips ARE the selection control, always visible.
+    // Single-variant products toggle directly; sized products open the size sheet.
     if (product.variants.length === 1) {
       selectVariant(product, product.variants[0])
       return
     }
-    setOpenProduct(product.product_id)
-    setTimeout(() => setOpenProduct(prev => (prev === product.product_id ? null : prev)), 1100)
+    setSheetProduct(product.product_id)
   }
 
   async function submit() {
@@ -327,15 +384,66 @@ export default function GiftPage() {
 
         {step === 'landing' && (
           <>
-            {c.hero_image_url && <img className="gf-hero" src={c.hero_image_url} alt={c.name} />}
-            <div className="gf-body">
-              <div className="gf-eyebrow">Nama</div>
-              <div className="gf-hero-title">{c.name}</div>
-              <div className="gf-greeting">Hi {data.influencer.first_name} — pick your pieces.</div>
-              <div className="gf-sub">{c.blurb || `We'd love to send you ${maxSelects} ${maxSelects === 1 ? 'piece' : 'pieces'} from our latest collection — on us. Pick your styles and confirm where to ship them.`}</div>
-              <div style={{ marginTop: 'auto' }}>
-                <button className="gf-btn" onClick={() => setStep('select')}>Select Your Pieces</button>
+            {c.hero_image_url ? (
+              <div className="gf-hero-wrap">
+                <img className="gf-hero" src={c.hero_image_url} alt={c.name} />
+                <div className="gf-hero-overlay" />
+                <div className="gf-hero-text">
+                  <div className="gf-hero-eyebrow">Nama</div>
+                  <div className="gf-hero-name" ref={titleRef} data-base="34">{c.name}</div>
+                </div>
               </div>
+            ) : (
+              <div className="gf-body" style={{ flex: 'none', paddingBottom: 0 }}>
+                <div className="gf-eyebrow">Nama</div>
+                <div className="gf-hero-title" ref={titleRef} data-base="42" style={{ whiteSpace: 'nowrap' }}>{c.name}</div>
+              </div>
+            )}
+            <div className="gf-body" style={{ flex: 'none' }}>
+              <div className="gf-greeting">{data.influencer.first_name}, you&rsquo;re on the list.</div>
+              <div className="gf-sub" style={{ marginBottom: 6 }}>{c.blurb || `${c.name} is almost here — before it goes live, we'd love you in it. Pick your pieces below.`}</div>
+              <div className="gf-sign">— Daisy &amp; the Nama team</div>
+              <div className="gf-details">
+                <div className="gf-detail-row">
+                  <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                  <div>
+                    <div className="gf-detail-label">Your picks</div>
+                    <div className="gf-detail-value">{outfits} {outfits === 1 ? 'outfit' : 'outfits'} (up to 3 pieces each)</div>
+                  </div>
+                </div>
+                {c.launch_date && (
+                  <div className="gf-detail-row">
+                    <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                    <div>
+                      <div className="gf-detail-label">Campaign launches</div>
+                      <div className="gf-detail-value">{new Date(c.launch_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</div>
+                    </div>
+                  </div>
+                )}
+                <div className="gf-detail-row">
+                  <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z" /><path d="M3.3 8.3L12 13l8.7-4.7" /><line x1="12" y1="13" x2="12" y2="21" /></svg>
+                  <div>
+                    <div className="gf-detail-label">Ships</div>
+                    <div className="gf-detail-value">Within 5 days</div>
+                  </div>
+                </div>
+              </div>
+              {(data.products || []).length > 0 && (
+                <div className="gf-collection">
+                  <div className="gf-section-label">The Collection</div>
+                  <div className="gf-coll-row">
+                    {data.products.map((p) => (
+                      <div key={p.product_id} className="gf-coll-item" onClick={() => setStep('select')}>
+                        <div className="gf-coll-imgwrap">
+                          <img className="gf-coll-img" src={p.image || ''} alt={p.title} />
+                        </div>
+                        <div className="gf-coll-name">{p.title}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <button className="gf-btn" onClick={() => setStep('select')}>Select Your Pieces</button>
             </div>
           </>
         )}
@@ -343,7 +451,7 @@ export default function GiftPage() {
         {step === 'select' && (
           <>
             <div className="gf-counterbar">
-              <div className="gf-counter">{picks.length} <span>of {maxSelects} selected</span></div>
+              <div className="gf-counter">{picks.length} <span>of {maxSelects} pieces · {outfits} {outfits === 1 ? 'outfit' : 'outfits'}</span></div>
               <button className="gf-btn-ghost" style={{ width: 'auto', padding: 0 }} onClick={() => setStep('landing')}>Back</button>
             </div>
             <div className="gf-grid">
@@ -356,37 +464,60 @@ export default function GiftPage() {
                     <img className="gf-card-img" src={product.image || ''} alt={product.title} onClick={() => tapProduct(product)} />
                     <div className="gf-card-body" onClick={() => tapProduct(product)}>
                       <div className="gf-card-title">{product.title}</div>
-                      <div className="gf-card-size">{picked ? (picked.variant_title ? `${picked.variant_title} — selected` : 'Selected') : (product.variants.length > 1 ? 'Tap your size' : '')}</div>
+                      <div className="gf-card-size">{picked ? (picked.variant_title ? `${picked.variant_title} — selected` : 'Selected') : (product.variants.length > 1 ? 'Tap to select your size' : 'Tap to select')}</div>
                     </div>
-                    {product.variants.length > 1 ? (
-                      <div className={`gf-opts${open ? ' pulse' : ''}`}>
-                        {product.options.map(o => (
-                          <div key={o.name} className="gf-optrow">
-                            {product.options.length > 1 && <div className="gf-optlabel">{o.name}</div>}
-                            <div className="gf-chips">
-                              {o.values.map(val => (
-                                <button
-                                  key={val}
-                                  className={`gf-chip${(optSel[product.product_id] || {})[o.name] === val ? ' on' : ''}`}
-                                  disabled={!valueEnabled(product, optSel[product.product_id] || {}, o.name, val)}
-                                  onClick={() => tapOption(product, o.name, val)}
-                                >{val}</button>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <button className={`gf-add-btn${picked ? ' on' : ''}`} onClick={() => selectVariant(product, product.variants[0])}>
-                        {picked ? '✓ Added' : '+ Add'}
-                      </button>
-                    )}
                   </div>
                 )
               })}
             </div>
+            {sheetProduct && (() => {
+              const product = data.products.find(x => x.product_id === sheetProduct)
+              if (!product) return null
+              const picked = pickFor(product.product_id)
+              const chosen = optSel[product.product_id] || {}
+              return (
+                <>
+                  <div className="gf-sheet-backdrop" onClick={() => setSheetProduct(null)} />
+                  <div className="gf-sheet">
+                    <div className="gf-sheet-head">
+                      <div>
+                        <div className="gf-sheet-title">{product.title}</div>
+                        <div className="gf-sheet-sub">{picked ? `${picked.variant_title || 'Selected'} — selected` : 'Choose your size'}</div>
+                      </div>
+                      <button className="gf-sheet-close" onClick={() => setSheetProduct(null)}>✕</button>
+                    </div>
+                    {product.options.map(o => (
+                      <div key={o.name} className="gf-optrow">
+                        {product.options.length > 1 && <div className="gf-optlabel">{o.name}</div>}
+                        <div className="gf-chips">
+                          {o.values.map(val => (
+                            <button
+                              key={val}
+                              className={`gf-chip${chosen[o.name] === val ? ' on' : ''}`}
+                              disabled={!valueEnabled(product, chosen, o.name, val)}
+                              onClick={() => {
+                                const next = { ...chosen }
+                                if (next[o.name] === val) delete next[o.name]
+                                else next[o.name] = val
+                                tapOption(product, o.name, val)
+                                if (product.options.every(x => next[x.name])) {
+                                  setTimeout(() => setSheetProduct(prev => (prev === product.product_id ? null : prev)), 280)
+                                }
+                              }}
+                            >{val}</button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    {picked && (
+                      <button className="gf-sheet-remove" onClick={() => { removePick(picked); setSheetProduct(null) }}>Remove this piece</button>
+                    )}
+                  </div>
+                </>
+              )
+            })()}
             <div className="gf-footer">
-              {maxHint && <div className="gf-hint" style={{ paddingBottom: 8 }}>That&rsquo;s your {maxSelects} — remove one to swap it.</div>}
+              {maxHint && <div className="gf-hint" style={{ paddingBottom: 8 }}>That&rsquo;s {outfits} {outfits === 1 ? 'outfit' : 'outfits'}&rsquo; worth ({maxSelects} pieces) — remove a piece to swap.</div>}
               <button className="gf-btn" disabled={picks.length === 0} onClick={() => { setStep('confirm'); window.scrollTo(0, 0) }}>
                 {picks.length === 0 ? 'Pick your styles' : `Continue with ${picks.length} ${picks.length === 1 ? 'style' : 'styles'} →`}
               </button>
