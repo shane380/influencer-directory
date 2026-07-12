@@ -6,7 +6,7 @@ import mux from "./mux";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-const META_API_VERSION = "v19.0";
+const META_API_VERSION = "v25.0";
 const MAX_CALLS_PER_HOUR = 400;
 
 // In-memory call counter for a single invocation
