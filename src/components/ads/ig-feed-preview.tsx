@@ -35,7 +35,7 @@ export function IgFeedPreview({
         </div>
         <span className="ml-auto text-gray-400 tracking-widest text-xs">···</span>
       </div>
-      <div className="aspect-[4/5] bg-gray-100 flex items-center justify-center overflow-hidden">
+      <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
         {mediaUrl && mediaKind === "image" && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={mediaUrl} alt="Ad creative" className="w-full h-full object-cover" />
