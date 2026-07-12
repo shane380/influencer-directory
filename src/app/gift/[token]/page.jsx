@@ -53,7 +53,7 @@ const CSS = `
 .gf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 18px 24px 24px; }
 .gf-card { border: 1px solid #e8e8e8; position: relative; cursor: pointer; }
 .gf-card.sel { border-color: #111; box-shadow: 0 0 0 1px #111; }
-.gf-card-img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; background: #f5f2ec; }
+.gf-card-img { width: 100%; aspect-ratio: 2/3; object-fit: cover; display: block; background: #f5f2ec; }
 .gf-card-body { padding: 10px 10px 12px; }
 .gf-card-title { font-size: 12px; line-height: 1.35; color: #111; }
 .gf-card-size { font-size: 11px; color: #666; margin-top: 3px; }
@@ -70,6 +70,15 @@ const CSS = `
 .gf-chip { flex: 1 1 auto; min-width: 34px; border: 1px solid #ddd; background: #fff; font-size: 11.5px; color: #555; padding: 8px 4px; text-align: center; cursor: pointer; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
 .gf-chip.on { border-color: #111; color: #111; font-weight: 500; background: #faf9f7; }
 .gf-chip:disabled { color: #ccc; border-color: #eee; cursor: default; text-decoration: line-through; }
+.gf-sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 40; }
+.gf-sheet { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; z-index: 41; padding: 18px 20px calc(22px + env(safe-area-inset-bottom)); border-top: 1px solid #eee; max-width: 480px; margin: 0 auto; animation: gf-up 0.22s ease; }
+@keyframes gf-up { from { transform: translateY(100%); } }
+.gf-sheet-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; gap: 12px; }
+.gf-sheet-title { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 400; }
+.gf-sheet-sub { font-size: 11.5px; color: #666; margin-top: 3px; }
+.gf-sheet-close { background: none; border: none; font-size: 16px; color: #999; cursor: pointer; padding: 2px 4px; flex-shrink: 0; }
+.gf-sheet .gf-chip { padding: 12px 4px; font-size: 13px; }
+.gf-sheet-remove { margin-top: 16px; background: none; border: none; color: #c0392b; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; padding: 2px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
 .gf-footer { position: sticky; bottom: 0; background: #fff; border-top: 1px solid #eee; padding: 14px 24px calc(14px + env(safe-area-inset-bottom)); z-index: 10; }
 .gf-hint { font-size: 11.5px; color: #b06a2c; text-align: center; padding: 8px 0 0; }
 .gf-section-label { font-size: 10px; letter-spacing: 0.26em; text-transform: uppercase; color: #999; margin: 0 0 12px; }
@@ -121,6 +130,7 @@ export default function GiftPage() {
   const [step, setStep] = useState('landing') // landing | select | confirm | done | status
   const [picks, setPicks] = useState([]) // { product_id, variant_id, title, variant_title, image }
   const [openProduct, setOpenProduct] = useState(null)
+  const [sheetProduct, setSheetProduct] = useState(null) // product_id shown in the size sheet
   const [optSel, setOptSel] = useState({}) // { [product_id]: { [optionName]: value } }
   const [editingPick, setEditingPick] = useState(null) // product_id being size-edited on the confirm step
   const [maxHint, setMaxHint] = useState(false)
@@ -272,14 +282,12 @@ export default function GiftPage() {
 
   function tapProduct(product) {
     setMaxHint(false)
-    // Single-variant products toggle directly; sized products get a nudge —
-    // the size chips ARE the selection control, always visible.
+    // Single-variant products toggle directly; sized products open the size sheet.
     if (product.variants.length === 1) {
       selectVariant(product, product.variants[0])
       return
     }
-    setOpenProduct(product.product_id)
-    setTimeout(() => setOpenProduct(prev => (prev === product.product_id ? null : prev)), 1100)
+    setSheetProduct(product.product_id)
   }
 
   async function submit() {
@@ -452,35 +460,58 @@ export default function GiftPage() {
                     <img className="gf-card-img" src={product.image || ''} alt={product.title} onClick={() => tapProduct(product)} />
                     <div className="gf-card-body" onClick={() => tapProduct(product)}>
                       <div className="gf-card-title">{product.title}</div>
-                      <div className="gf-card-size">{picked ? (picked.variant_title ? `${picked.variant_title} — selected` : 'Selected') : (product.variants.length > 1 ? 'Tap your size' : '')}</div>
+                      <div className="gf-card-size">{picked ? (picked.variant_title ? `${picked.variant_title} — selected` : 'Selected') : (product.variants.length > 1 ? 'Tap to select your size' : 'Tap to select')}</div>
                     </div>
-                    {product.variants.length > 1 ? (
-                      <div className={`gf-opts${open ? ' pulse' : ''}`}>
-                        {product.options.map(o => (
-                          <div key={o.name} className="gf-optrow">
-                            {product.options.length > 1 && <div className="gf-optlabel">{o.name}</div>}
-                            <div className="gf-chips">
-                              {o.values.map(val => (
-                                <button
-                                  key={val}
-                                  className={`gf-chip${(optSel[product.product_id] || {})[o.name] === val ? ' on' : ''}`}
-                                  disabled={!valueEnabled(product, optSel[product.product_id] || {}, o.name, val)}
-                                  onClick={() => tapOption(product, o.name, val)}
-                                >{val}</button>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <button className={`gf-add-btn${picked ? ' on' : ''}`} onClick={() => selectVariant(product, product.variants[0])}>
-                        {picked ? '✓ Added' : '+ Add'}
-                      </button>
-                    )}
                   </div>
                 )
               })}
             </div>
+            {sheetProduct && (() => {
+              const product = data.products.find(x => x.product_id === sheetProduct)
+              if (!product) return null
+              const picked = pickFor(product.product_id)
+              const chosen = optSel[product.product_id] || {}
+              return (
+                <>
+                  <div className="gf-sheet-backdrop" onClick={() => setSheetProduct(null)} />
+                  <div className="gf-sheet">
+                    <div className="gf-sheet-head">
+                      <div>
+                        <div className="gf-sheet-title">{product.title}</div>
+                        <div className="gf-sheet-sub">{picked ? `${picked.variant_title || 'Selected'} — selected` : 'Choose your size'}</div>
+                      </div>
+                      <button className="gf-sheet-close" onClick={() => setSheetProduct(null)}>✕</button>
+                    </div>
+                    {product.options.map(o => (
+                      <div key={o.name} className="gf-optrow">
+                        {product.options.length > 1 && <div className="gf-optlabel">{o.name}</div>}
+                        <div className="gf-chips">
+                          {o.values.map(val => (
+                            <button
+                              key={val}
+                              className={`gf-chip${chosen[o.name] === val ? ' on' : ''}`}
+                              disabled={!valueEnabled(product, chosen, o.name, val)}
+                              onClick={() => {
+                                const next = { ...chosen }
+                                if (next[o.name] === val) delete next[o.name]
+                                else next[o.name] = val
+                                tapOption(product, o.name, val)
+                                if (product.options.every(x => next[x.name])) {
+                                  setTimeout(() => setSheetProduct(prev => (prev === product.product_id ? null : prev)), 280)
+                                }
+                              }}
+                            >{val}</button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    {picked && (
+                      <button className="gf-sheet-remove" onClick={() => { removePick(picked); setSheetProduct(null) }}>Remove this piece</button>
+                    )}
+                  </div>
+                </>
+              )
+            })()}
             <div className="gf-footer">
               {maxHint && <div className="gf-hint" style={{ paddingBottom: 8 }}>That&rsquo;s {outfits} {outfits === 1 ? 'outfit' : 'outfits'}&rsquo; worth ({maxSelects} pieces) — remove a piece to swap.</div>}
               <button className="gf-btn" disabled={picks.length === 0} onClick={() => { setStep('confirm'); window.scrollTo(0, 0) }}>
