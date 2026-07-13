@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
   const body = await request.json();
-  const { influencer_id, legacy_affiliate_id, amount, sent_at, method, reference, note } = body;
+  const { influencer_id, legacy_affiliate_id, amount, sent_at, method, reference, note, covers_period } = body;
 
   if (!influencer_id && !legacy_affiliate_id) {
     return NextResponse.json({ error: "influencer_id or legacy_affiliate_id required" }, { status: 400 });
@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
       method: method || null,
       reference: reference || null,
       note: note || null,
+      covers_period: covers_period || null,
       recorded_by: admin.email || null,
       is_test: isTestEnv(), // preview/local payments are flagged, never touch prod
     })
@@ -82,6 +83,64 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ payout: data });
 }
 
+// PATCH /api/admin/payouts — correct a mis-entered payout
+export async function PATCH(request: NextRequest) {
+  const admin = await verifyAdmin();
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+
+  const body = await request.json();
+  const { id, amount, sent_at, method, reference, note } = body;
+  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+
+  const updates: Record<string, any> = {};
+  if (amount !== undefined) {
+    const amt = Number(amount);
+    if (!Number.isFinite(amt) || amt === 0) {
+      return NextResponse.json({ error: "amount must be a non-zero number" }, { status: 400 });
+    }
+    updates.amount = Math.round(amt * 100) / 100;
+  }
+  if (sent_at !== undefined) {
+    if (!sent_at) return NextResponse.json({ error: "sent_at cannot be empty" }, { status: 400 });
+    updates.sent_at = sent_at;
+  }
+  if (method !== undefined) updates.method = method || null;
+  if (reference !== undefined) updates.reference = reference || null;
+  if (note !== undefined) updates.note = note || null;
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+  }
+
+  const supabase = getAdminClient();
+  const { data: before } = await (supabase.from("creator_payouts") as any)
+    .select("id, influencer_id, legacy_affiliate_id, amount, sent_at, method, reference, note")
+    .eq("id", id)
+    .single();
+  if (!before) return NextResponse.json({ error: "Payout not found" }, { status: 404 });
+
+  const { data, error } = await (supabase.from("creator_payouts") as any)
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await (supabase.from("payment_audit_log") as any).insert({
+    user_id: admin.id,
+    user_email: admin.email,
+    action: "update_payout",
+    target_influencer_id: before.influencer_id || null,
+    metadata: {
+      payout_id: id,
+      before: { amount: before.amount, sent_at: before.sent_at, method: before.method, reference: before.reference },
+      after: { amount: data.amount, sent_at: data.sent_at, method: data.method, reference: data.reference },
+      legacy_affiliate_id: before.legacy_affiliate_id || null,
+    },
+  });
+
+  return NextResponse.json({ payout: data });
+}
+
 // DELETE /api/admin/payouts?id=xxx — remove a mis-entered payout
 export async function DELETE(request: NextRequest) {
   const admin = await verifyAdmin();
@@ -91,6 +150,12 @@ export async function DELETE(request: NextRequest) {
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
   const supabase = getAdminClient();
+  // Snapshot the row first so the audit trail records what was removed.
+  const { data: before } = await (supabase.from("creator_payouts") as any)
+    .select("id, influencer_id, legacy_affiliate_id, amount, sent_at, method, reference")
+    .eq("id", id)
+    .single();
+
   const { error } = await (supabase.from("creator_payouts") as any).delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -98,7 +163,15 @@ export async function DELETE(request: NextRequest) {
     user_id: admin.id,
     user_email: admin.email,
     action: "delete_payout",
-    metadata: { payout_id: id },
+    target_influencer_id: before?.influencer_id || null,
+    metadata: {
+      payout_id: id,
+      amount: before?.amount ?? null,
+      sent_at: before?.sent_at ?? null,
+      method: before?.method ?? null,
+      reference: before?.reference ?? null,
+      legacy_affiliate_id: before?.legacy_affiliate_id || null,
+    },
   });
 
   return NextResponse.json({ ok: true });
