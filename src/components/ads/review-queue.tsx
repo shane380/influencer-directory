@@ -100,6 +100,15 @@ export function ReviewQueue({
     refresh();
   }, [refresh]);
 
+  // Publishing runs server-side after Approve returns — poll until every
+  // in-flight draft resolves to approved/direct or failed.
+  const anyPublishing = [...queue, ...mine, ...reviewed].some((d) => d.status === "publishing");
+  useEffect(() => {
+    if (!anyPublishing) return;
+    const t = setInterval(refresh, 2500);
+    return () => clearInterval(t);
+  }, [anyPublishing, refresh]);
+
   // Deep link from a bell notification: scroll to the draft and flash it.
   useEffect(() => {
     if (!focusDraftId || loading) return;
@@ -658,7 +667,7 @@ export function ReviewQueue({
                 {draft.feedback}
               </p>
             )}
-            {draft.publishError && draft.status === "failed" && (
+            {draft.publishError && (draft.status === "failed" || draft.status === "pending") && (
               <p className="text-[12px] text-red-700 bg-red-50 border border-red-100 rounded-md px-2.5 py-1.5 mt-2">
                 <XCircle className="h-3 w-3 inline mr-1" />
                 {draft.publishError}

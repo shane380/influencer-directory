@@ -7,6 +7,7 @@ import { isSquareImage, makeVideoThumb, sanitizeFileName, uploadAdAsset } from "
 import { IgCarouselPreview } from "./ig-carousel-preview";
 import type {
   AdCopy,
+  AdDraft,
   AssetKind,
   AssetRole,
   DraftAsset,
@@ -633,10 +634,30 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
         });
         const pubData = await pubRes.json();
         if (!pubRes.ok) throw new Error(pubData.error || "Publishing failed");
+
+        // The Meta push continues server-side; poll until the draft resolves.
+        let resolved: AdDraft | null = null;
+        const deadline = Date.now() + 180_000;
+        while (Date.now() < deadline) {
+          await new Promise((r) => setTimeout(r, 2500));
+          const pollRes = await fetch("/api/ads/drafts");
+          const pollData = await pollRes.json();
+          const d = (pollData.mine || []).find((x: AdDraft) => x.id === pubData.draftId);
+          if (d && d.status !== "publishing") {
+            resolved = d;
+            break;
+          }
+        }
+        if (!resolved) {
+          throw new Error("Still publishing — check the Review tab in a minute");
+        }
+        if (resolved.status === "failed" || resolved.publishError) {
+          throw new Error(resolved.publishError || "Publishing failed");
+        }
         updateAd(ad.localId, {
           phase: "done",
           phaseMsg: publishLive ? "Live on Meta" : "Created (paused)",
-          metaAdId: pubData.adId,
+          metaAdId: resolved.metaAdId,
         });
       } catch (err) {
         updateAd(ad.localId, {

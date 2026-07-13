@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { getAdminClient } from "@/lib/admin-auth";
 import { getAdsUser } from "@/lib/ads-guard";
 import { pushDraftToMeta, MetaApiError } from "@/lib/meta-ads";
@@ -11,6 +11,11 @@ export const maxDuration = 300;
  * Body: { draftId: string, status?: "ACTIVE" | "PAUSED" }
  * Used for the admin's own publishes (status from the Live/Paused toggle)
  * and for approving a teammate's pending draft (always ACTIVE).
+ *
+ * Responds as soon as the draft is marked "publishing"; the Meta push
+ * (media ingest + video transcode, ~10s for video ads) runs after the
+ * response and resolves the draft to approved/direct or failed. Clients
+ * poll /api/ads/drafts to observe the outcome.
  */
 export async function POST(request: Request) {
   const user = await getAdsUser();
@@ -35,49 +40,49 @@ export async function POST(request: Request) {
 
   const wasPending = row.status === "pending";
   await (supabase.from("ad_drafts") as any)
-    .update({ status: "publishing", updated_at: new Date().toISOString() })
+    .update({ status: "publishing", publish_error: null, updated_at: new Date().toISOString() })
     .eq("id", draftId);
 
-  try {
-    const result = await pushDraftToMeta(
-      {
-        adName: row.ad_name,
-        adsetId: row.adset_id,
-        pageId: row.page_id,
-        instagramUserId: row.instagram_user_id,
-        partnershipSponsorId: row.partnership_sponsor_id,
-        assets: row.assets || [],
-        copy: row.copy || {},
-      },
-      targetStatus
-    );
+  after(async () => {
+    try {
+      const result = await pushDraftToMeta(
+        {
+          adName: row.ad_name,
+          adsetId: row.adset_id,
+          pageId: row.page_id,
+          instagramUserId: row.instagram_user_id,
+          partnershipSponsorId: row.partnership_sponsor_id,
+          assets: row.assets || [],
+          copy: row.copy || {},
+        },
+        targetStatus
+      );
 
-    await (supabase.from("ad_drafts") as any)
-      .update({
-        status: wasPending ? "approved" : "direct",
-        meta_ad_id: result.adId,
-        meta_creative_id: result.creativeId,
-        publish_error: null,
-        reviewed_by: user.userId,
-        reviewed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", draftId);
+      await (supabase.from("ad_drafts") as any)
+        .update({
+          status: wasPending ? "approved" : "direct",
+          meta_ad_id: result.adId,
+          meta_creative_id: result.creativeId,
+          publish_error: null,
+          reviewed_by: user.userId,
+          reviewed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", draftId);
+    } catch (err) {
+      const message =
+        err instanceof MetaApiError ? err.userMessage : "Publishing failed unexpectedly";
+      console.error("[ads/publish] failed:", err instanceof Error ? err.message : err);
 
-    return NextResponse.json({ ok: true, adId: result.adId, creativeId: result.creativeId });
-  } catch (err) {
-    const message =
-      err instanceof MetaApiError ? err.userMessage : "Publishing failed unexpectedly";
-    console.error("[ads/publish] failed:", err instanceof Error ? err.message : err);
+      await (supabase.from("ad_drafts") as any)
+        .update({
+          status: wasPending ? "pending" : "failed",
+          publish_error: message,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", draftId);
+    }
+  });
 
-    await (supabase.from("ad_drafts") as any)
-      .update({
-        status: wasPending ? "pending" : "failed",
-        publish_error: message,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", draftId);
-
-    return NextResponse.json({ ok: false, error: message }, { status: 502 });
-  }
+  return NextResponse.json({ ok: true, publishing: true, draftId });
 }
