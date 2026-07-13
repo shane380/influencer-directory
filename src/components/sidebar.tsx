@@ -54,18 +54,43 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
   const [pendingCodeRequests, setPendingCodeRequests] = useState(0);
   const [notifications, setNotifications] = useState<Array<{
     id: string;
-    type?: "content_submission" | "outfit_request" | "ad_approval";
+    type?: "content_submission" | "outfit_request" | "ad_approval" | "gift_selects";
     creator_name: string;
     creator_id?: string;
     influencer_id?: string | null;
     month?: string;
     file_count?: number;
+    campaign_id?: string;
     campaign_title?: string;
     product_count?: number;
     ad_name?: string;
     created_at: string;
   }>>([]);
   const [notifOpen, setNotifOpen] = useState(false);
+  // Locally dismissed notifications (per browser) — the underlying items are
+  // derived from pending states, so dismissing here just hides them for you.
+  const [dismissedNotifs, setDismissedNotifs] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      return new Set(JSON.parse(localStorage.getItem("nama_dismissed_notifs") || "[]"));
+    } catch {
+      return new Set();
+    }
+  });
+  const dismissNotifs = (keys: string[]) => {
+    setDismissedNotifs((prev) => {
+      const next = new Set(prev);
+      keys.forEach((k) => next.add(k));
+      try {
+        // Cap so long-gone entries don't accumulate forever
+        localStorage.setItem("nama_dismissed_notifs", JSON.stringify([...next].slice(-300)));
+      } catch {}
+      return next;
+    });
+  };
+  const visibleNotifications = notifications.filter(
+    (n) => !dismissedNotifs.has(`${n.type}:${n.id}`)
+  );
   const notifRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -514,54 +539,80 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
         >
           <span className={`flex items-center ${isHovered ? "gap-2" : ""} text-sm text-gray-600 relative`}>
             <Bell className="h-4 w-4" />
-            {!isHovered && notifications.length > 0 && (
+            {!isHovered && visibleNotifications.length > 0 && (
               <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500" />
             )}
             {isHovered && <span className="whitespace-nowrap">Notifications</span>}
           </span>
-          {isHovered && notifications.length > 0 && (
+          {isHovered && visibleNotifications.length > 0 && (
             <span className="min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-medium flex items-center justify-center px-1">
-              {notifications.length}
+              {visibleNotifications.length}
             </span>
           )}
         </button>
         {notifOpen && (
           <div className="absolute bottom-full left-0 right-0 mb-1 mx-1.5 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 max-h-64 overflow-y-auto" style={{ minWidth: 220 }}>
-            {notifications.length === 0 ? (
+            {visibleNotifications.length === 0 ? (
               <div className="px-3 py-3 text-xs text-gray-400 text-center">No new notifications</div>
             ) : (
-              notifications.map((n) => {
-                const timeAgo = getTimeAgo(n.created_at);
-                let description = "";
-                if (n.type === "ad_approval") {
-                  description = `Ad "${n.ad_name}" awaiting review · ${timeAgo}`;
-                } else if (n.type === "outfit_request") {
-                  description = `Requested ${n.product_count} item${n.product_count !== 1 ? "s" : ""} · ${timeAgo}`;
-                } else {
-                  const [yr, mo] = (n.month || "").split("-");
-                  const monthLabel = yr && mo
-                    ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString("en", { month: "short" })
-                    : "";
-                  description = `Submitted ${n.file_count} file${n.file_count !== 1 ? "s" : ""} for ${monthLabel} · ${timeAgo}`;
-                }
-                return (
-                  <button
-                    key={n.id}
-                    onClick={() => {
-                      setNotifOpen(false);
-                      if (n.type === "ad_approval") {
-                        router.push("/ads?review=1");
-                      } else if (n.creator_id) {
-                        router.push(`/partnerships/creators/${n.creator_id}`);
-                      }
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-b-0"
-                  >
-                    <div className="text-xs text-gray-800 font-medium">{n.creator_name}</div>
-                    <div className="text-[11px] text-gray-500">{description}</div>
-                  </button>
-                );
-              })
+              <>
+                {visibleNotifications.map((n) => {
+                  const timeAgo = getTimeAgo(n.created_at);
+                  let description = "";
+                  if (n.type === "ad_approval") {
+                    description = `Ad "${n.ad_name}" awaiting review · ${timeAgo}`;
+                  } else if (n.type === "outfit_request") {
+                    description = `Requested ${n.product_count} item${n.product_count !== 1 ? "s" : ""} · ${timeAgo}`;
+                  } else if (n.type === "gift_selects") {
+                    description = `Selected ${n.product_count} piece${n.product_count !== 1 ? "s" : ""} · ${n.campaign_title} · ${timeAgo}`;
+                  } else {
+                    const [yr, mo] = (n.month || "").split("-");
+                    const monthLabel = yr && mo
+                      ? new Date(parseInt(yr), parseInt(mo) - 1).toLocaleString("en", { month: "short" })
+                      : "";
+                    description = `Submitted ${n.file_count} file${n.file_count !== 1 ? "s" : ""} for ${monthLabel} · ${timeAgo}`;
+                  }
+                  return (
+                    <div
+                      key={`${n.type}:${n.id}`}
+                      className="group flex items-start border-b border-gray-50 last:border-b-0 hover:bg-gray-50 transition-colors"
+                    >
+                      <button
+                        onClick={() => {
+                          setNotifOpen(false);
+                          if (n.type === "ad_approval") {
+                            router.push("/ads?review=1");
+                          } else if (n.type === "gift_selects" && n.campaign_id) {
+                            router.push(`/campaigns/${n.campaign_id}`);
+                          } else if (n.creator_id) {
+                            router.push(`/partnerships/creators/${n.creator_id}`);
+                          }
+                        }}
+                        className="flex-1 min-w-0 text-left px-3 py-2"
+                      >
+                        <div className="text-xs text-gray-800 font-medium">{n.creator_name}</div>
+                        <div className="text-[11px] text-gray-500">{description}</div>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          dismissNotifs([`${n.type}:${n.id}`]);
+                        }}
+                        title="Dismiss"
+                        className="px-2 py-2 text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity text-xs leading-none"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  );
+                })}
+                <button
+                  onClick={() => dismissNotifs(visibleNotifications.map((n) => `${n.type}:${n.id}`))}
+                  className="w-full text-center px-3 py-1.5 text-[11px] text-gray-400 hover:text-gray-700 transition-colors"
+                >
+                  Clear all
+                </button>
+              </>
             )}
           </div>
         )}

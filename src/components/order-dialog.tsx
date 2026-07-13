@@ -234,7 +234,13 @@ export function OrderDialog({
         return;
       }
 
-      // If influencer already has a linked Shopify customer, fetch their details
+      const giftEmail = ((campaignInfluencer as any).gift_shipping?.email || "").trim();
+
+      // If influencer already has a linked Shopify customer, fetch their
+      // details — but when a gift-confirmed email contradicts the linked
+      // customer, fall through and re-match (a bad name-match may have been
+      // saved onto the influencer previously).
+      let linkedCandidate: any = null;
       if (influencer.shopify_customer_id) {
         try {
           const response = await fetch(
@@ -243,10 +249,14 @@ export function OrderDialog({
           if (response.ok) {
             const data = await response.json();
             if (data.customer) {
-              setShopifyCustomer(data.customer);
-              setCustomerConfirmed(true);
-              setCustomerSearching(false);
-              return;
+              const linkedEmail = (data.customer.email || "").trim().toLowerCase();
+              if (!giftEmail || linkedEmail === giftEmail.toLowerCase()) {
+                setShopifyCustomer(data.customer);
+                setCustomerConfirmed(true);
+                setCustomerSearching(false);
+                return;
+              }
+              linkedCandidate = data.customer;
             }
           }
         } catch (err) {
@@ -259,41 +269,47 @@ export function OrderDialog({
       setCustomerError(null);
 
       try {
-        // First try to match by name
-        const nameResponse = await fetch(
-          `/api/shopify/customers?name=${encodeURIComponent(influencer.name)}`
-        );
+        const adopt = async (customer: any) => {
+          setShopifyCustomer(customer);
+          await (supabase.from("influencers") as any)
+            .update({ shopify_customer_id: String(customer.id) })
+            .eq("id", influencer.id);
+          setCustomerSearching(false);
+        };
 
-        if (nameResponse.ok) {
-          const nameData = await nameResponse.json();
-          if (nameData.customers && nameData.customers.length > 0) {
-            setShopifyCustomer(nameData.customers[0]);
-            // Save the customer ID to the influencer record
-            await (supabase.from("influencers") as any)
-              .update({ shopify_customer_id: String(nameData.customers[0].id) })
-              .eq("id", influencer.id);
-            setCustomerSearching(false);
-            return;
-          }
-        }
-
-        // If no name match and we have an email, try email
-        if (influencer.email) {
+        // 1. The email the influencer just confirmed on the gift page is the
+        //    strongest identity signal — try it first.
+        for (const email of [giftEmail, influencer.email || ""]) {
+          if (!email) continue;
           const emailResponse = await fetch(
-            `/api/shopify/customers?email=${encodeURIComponent(influencer.email)}`
+            `/api/shopify/customers?email=${encodeURIComponent(email)}`
           );
-
           if (emailResponse.ok) {
             const emailData = await emailResponse.json();
             if (emailData.customers && emailData.customers.length > 0) {
-              setShopifyCustomer(emailData.customers[0]);
-              // Save the customer ID to the influencer record
-              await (supabase.from("influencers") as any)
-                .update({ shopify_customer_id: String(emailData.customers[0].id) })
-                .eq("id", influencer.id);
-              setCustomerSearching(false);
+              await adopt(emailData.customers[0]);
               return;
             }
+          }
+        }
+
+        // 2. A linked customer that mismatched the gift email is still better
+        //    than a fresh name-guess.
+        if (linkedCandidate) {
+          setShopifyCustomer(linkedCandidate);
+          setCustomerSearching(false);
+          return;
+        }
+
+        // 3. Name match, last resort.
+        const nameResponse = await fetch(
+          `/api/shopify/customers?name=${encodeURIComponent(influencer.name)}`
+        );
+        if (nameResponse.ok) {
+          const nameData = await nameResponse.json();
+          if (nameData.customers && nameData.customers.length > 0) {
+            await adopt(nameData.customers[0]);
+            return;
           }
         }
 
@@ -610,13 +626,18 @@ export function OrderDialog({
 
   const handleShowEditCustomerForm = () => {
     if (shopifyCustomer) {
+      // Fill any blanks from the address the influencer confirmed on the gift
+      // page — e.g. "add phone number" opens with her confirmed phone ready.
+      const gift = (campaignInfluencer as any).gift_shipping || null;
       setNewCustomerForm({
-        email: shopifyCustomer.email || "",
+        email: shopifyCustomer.email || gift?.email || "",
         first_name: shopifyCustomer.first_name || "",
         last_name: shopifyCustomer.last_name || "",
-        phone: shopifyCustomer.phone || "",
-        address: shopifyCustomer.address?.address1 || "",
-        country: (shopifyCustomer.address?.country_code || "US").toUpperCase(),
+        phone: shopifyCustomer.phone || gift?.phone || "",
+        address:
+          shopifyCustomer.address?.address1 ||
+          (gift ? [gift.address1, gift.address2, gift.city, `${gift.province || ""} ${gift.zip || ""}`.trim()].filter(Boolean).join(", ") : ""),
+        country: (shopifyCustomer.address?.country_code || gift?.country_code || "US").toUpperCase(),
       });
       setShowEditCustomerForm(true);
       setShowCreateCustomerForm(false);
@@ -640,7 +661,25 @@ export function OrderDialog({
           first_name: newCustomerForm.first_name || undefined,
           last_name: newCustomerForm.last_name || undefined,
           phone: newCustomerForm.phone || undefined,
-          address: newCustomerForm.address || undefined,
+          // When the form still carries the gift-confirmed address verbatim,
+          // save it as structured fields (city/province/zip) rather than one
+          // collapsed line, so shipping resolution keys off real components.
+          ...(() => {
+            const gift = (campaignInfluencer as any).gift_shipping || null;
+            const giftJoined = gift
+              ? [gift.address1, gift.address2, gift.city, `${gift.province || ""} ${gift.zip || ""}`.trim()].filter(Boolean).join(", ")
+              : null;
+            if (gift && (newCustomerForm.address === giftJoined || !newCustomerForm.address)) {
+              return {
+                address: gift.address1 || undefined,
+                address2: gift.address2 || undefined,
+                city: gift.city || undefined,
+                province: gift.province || undefined,
+                zip: gift.zip || undefined,
+              };
+            }
+            return { address: newCustomerForm.address || undefined };
+          })(),
           country_code: newCustomerForm.country || undefined,
         }),
       });
@@ -728,7 +767,8 @@ export function OrderDialog({
       return;
     }
 
-    if (shopifyCustomer && !shopifyCustomer.phone) {
+    const gift = (campaignInfluencer as any)?.gift_shipping || null;
+    if (shopifyCustomer && !shopifyCustomer.phone && !gift?.phone) {
       setError("Phone number is required to create a draft order. Please edit the customer to add a phone number.");
       return;
     }
@@ -737,6 +777,49 @@ export function OrderDialog({
     setError(null);
 
     try {
+      // The gift page collected the influencer's freshest confirmed details.
+      // Draft orders ship to the customer's default address, so sync the
+      // gift-confirmed phone/address onto the customer before ordering —
+      // otherwise the order goes to whatever stale address Shopify has.
+      if (shopifyCustomer && gift) {
+        const needsPhone = !shopifyCustomer.phone && !!gift.phone;
+        const norm = (v: any) => String(v || "").replace(/\s+/g, " ").trim().toLowerCase();
+        const custAddr = shopifyCustomer.address;
+        const needsAddress =
+          !!gift.address1 &&
+          (norm(custAddr?.address1) !== norm(gift.address1) ||
+            norm(custAddr?.zip).replace(/ /g, "") !== norm(gift.zip).replace(/ /g, ""));
+        if (needsPhone || needsAddress) {
+          const syncResponse = await fetch("/api/shopify/customers", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: shopifyCustomer.id,
+              ...(needsPhone ? { phone: gift.phone } : {}),
+              ...(needsAddress
+                ? {
+                    address: gift.address1,
+                    address2: gift.address2 || "",
+                    city: gift.city || undefined,
+                    province: gift.province || undefined,
+                    zip: gift.zip || undefined,
+                    country_code: gift.country_code || undefined,
+                  }
+                : {}),
+            }),
+          });
+          const syncData = await syncResponse.json();
+          if (!syncResponse.ok) {
+            throw new Error(
+              syncData.error
+                ? `Couldn't save the gift-confirmed details to the customer: ${syncData.error}`
+                : "Couldn't save the gift-confirmed details to the customer"
+            );
+          }
+          if (syncData.customer) setShopifyCustomer(syncData.customer);
+        }
+      }
+
       const response = await fetch("/api/shopify/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1215,9 +1298,9 @@ export function OrderDialog({
                   Searching for customer...
                 </div>
               ) : shopifyCustomer && customerConfirmed && !showEditCustomerForm ? (
-                <div className={`${shopifyCustomer.phone ? "bg-green-50" : "bg-yellow-50"} p-3 rounded-lg`}>
+                <div className={`${shopifyCustomer.phone || (campaignInfluencer as any)?.gift_shipping?.phone ? "bg-green-50" : "bg-yellow-50"} p-3 rounded-lg`}>
                   <div className="flex items-center gap-3">
-                    {shopifyCustomer.phone ? (
+                    {shopifyCustomer.phone || (campaignInfluencer as any)?.gift_shipping?.phone ? (
                       <Check className="h-5 w-5 text-green-600 flex-shrink-0" />
                     ) : (
                       <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0" />
@@ -1227,6 +1310,11 @@ export function OrderDialog({
                       <p className="text-sm text-gray-600">{shopifyCustomer.email}</p>
                       {shopifyCustomer.phone ? (
                         <p className="text-sm text-gray-500">{shopifyCustomer.phone}</p>
+                      ) : (campaignInfluencer as any)?.gift_shipping?.phone ? (
+                        <p className="text-sm text-gray-500">
+                          {(campaignInfluencer as any).gift_shipping.phone}{" "}
+                          <span className="text-green-700">· from gift page, saved when you order</span>
+                        </p>
                       ) : (
                         <p className="text-sm text-yellow-700 font-medium mt-1">
                           Phone number required — <button className="underline hover:text-yellow-900" onClick={handleShowEditCustomerForm}>add phone number</button>
@@ -2045,7 +2133,7 @@ export function OrderDialog({
             </Button>
             <Button
               onClick={handleCreateOrder}
-              disabled={creatingOrder || cart.length === 0 || !shopifyCustomer || !customerConfirmed || !shopifyCustomer?.phone}
+              disabled={creatingOrder || cart.length === 0 || !shopifyCustomer || !customerConfirmed || !(shopifyCustomer?.phone || (campaignInfluencer as any)?.gift_shipping?.phone)}
               title={!shopifyCustomer || !customerConfirmed ? "Please confirm a customer first" : !shopifyCustomer?.phone ? "Phone number required — edit customer to add" : ""}
             >
               {creatingOrder ? (

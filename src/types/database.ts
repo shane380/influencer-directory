@@ -141,6 +141,9 @@ export interface Campaign {
   gift_blurb: string | null;
   gift_products: GiftPoolProduct[] | null;
   gift_max_selects: number;
+  gift_generic_enabled: boolean;
+  gift_generic_token: string | null;
+  gift_generic_max_selects: number;
   created_at: string;
   updated_at: string;
 }

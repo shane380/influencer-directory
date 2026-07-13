@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchProductsByIds } from "@/lib/shopify-products";
-import { loadGiftAssignment, effectivePool, effectiveMaxPieces, giftServiceClient } from "@/lib/gift-server";
-import type { GiftShipping } from "@/types/database";
+import {
+  loadGiftAssignment,
+  effectivePool,
+  effectiveMaxPieces,
+  giftServiceClient,
+  validateGiftShipping,
+  resolveGiftSelections,
+} from "@/lib/gift-server";
 
 // Accepts an influencer's picks + confirmed shipping. Writes
 // product_selections in the exact OrderDialog CartItem shape (from SERVER
 // data, never trusting client titles/prices) so the coordinator's existing
 // review → Create Order flow works unchanged. Atomic idempotency via the
 // conditional UPDATE — a row can only ever be submitted once.
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function badRequest(error: string, detail?: string) {
   return NextResponse.json({ error, detail }, { status: 400 });
@@ -38,74 +41,25 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: "already_submitted" }, { status: 409 });
   }
 
-  // --- Validate shipping ---
-  const s = body.shipping || {};
-  const shipping: GiftShipping = {
-    name: String(s.name || "").trim().slice(0, 120),
-    email: String(s.email || "").trim().slice(0, 200),
-    phone: String(s.phone || "").trim().slice(0, 40),
-    address1: String(s.address1 || "").trim().slice(0, 200),
-    address2: String(s.address2 || "").trim().slice(0, 200),
-    city: String(s.city || "").trim().slice(0, 100),
-    province: String(s.province || "").trim().slice(0, 60),
-    zip: String(s.zip || "").trim().slice(0, 20),
-    country_code: String(s.country_code || "").trim().toUpperCase().slice(0, 2),
-  };
-  if (!shipping.name) return badRequest("shipping_invalid", "name required");
-  if (!EMAIL_RE.test(shipping.email)) return badRequest("shipping_invalid", "valid email required");
-  if ((shipping.phone.match(/\d/g) || []).length < 7) return badRequest("shipping_invalid", "valid phone required");
-  if (!shipping.address1 || !shipping.city || !shipping.zip || !shipping.country_code) {
-    return badRequest("shipping_invalid", "address incomplete");
-  }
-  if (["US", "CA"].includes(shipping.country_code) && !shipping.province) {
-    return badRequest("shipping_invalid", "province/state required");
-  }
+  const shippingResult = validateGiftShipping(body.shipping);
+  if (!("shipping" in shippingResult)) return badRequest("shipping_invalid", shippingResult.detail);
+  const shipping = shippingResult.shipping;
 
-  // --- Validate selections ---
-  const selections: { product_id: string; variant_id: string }[] = Array.isArray(body.selections)
-    ? body.selections.map((x: any) => ({
-        product_id: String(x?.product_id || ""),
-        variant_id: String(x?.variant_id || ""),
-      }))
-    : [];
-  const maxSelects = effectiveMaxPieces(assignment, campaign);
-  if (selections.length === 0) return badRequest("selections_invalid", "no items selected");
-  if (selections.length > maxSelects) return badRequest("selections_invalid", "too many items");
-  const variantIds = selections.map((x) => x.variant_id);
-  if (new Set(variantIds).size !== variantIds.length) return badRequest("selections_invalid", "duplicate items");
-
-  const pool = effectivePool(assignment, campaign);
-  const allowedProductIds = new Set(pool.map((p) => String(p.product_id)));
-  for (const sel of selections) {
-    if (!allowedProductIds.has(sel.product_id)) return badRequest("selections_invalid", "item not in this campaign");
-  }
-
-  // --- Re-resolve from Shopify; build product_selections from server data ---
-  let resolved;
-  try {
-    resolved = await fetchProductsByIds([...new Set(selections.map((x) => x.product_id))]);
-  } catch (err) {
-    console.error("[gift] submit resolve failed:", err);
-    return NextResponse.json({ error: "products_unavailable" }, { status: 503 });
-  }
-  const byProduct = new Map(resolved.map((p) => [p.product_id, p]));
-  const productSelections: any[] = [];
-  for (const sel of selections) {
-    const product = byProduct.get(sel.product_id);
-    const variant = product?.variants.find((v) => v.variant_id === sel.variant_id);
-    if (!product || !variant) {
-      return badRequest("selections_stale", "please refresh your picks and try again");
+  const selectionsResult = await resolveGiftSelections(
+    body.selections,
+    effectivePool(assignment, campaign),
+    effectiveMaxPieces(assignment, campaign)
+  );
+  if (!("productSelections" in selectionsResult)) {
+    if (selectionsResult.status === 503) {
+      return NextResponse.json({ error: "products_unavailable" }, { status: 503 });
     }
-    productSelections.push({
-      sku: variant.sku,
-      variant_id: String(variant.variant_id),
-      quantity: 1,
-      title: product.title,
-      variant_title: variant.title || undefined,
-      price: variant.price,
-      image: product.image || undefined,
-    });
+    return badRequest(
+      selectionsResult.detail === "please refresh your picks and try again" ? "selections_stale" : "selections_invalid",
+      selectionsResult.detail
+    );
   }
+  const productSelections = selectionsResult.productSelections;
 
   // --- Atomic write: only one submit ever wins ---
   const db = giftServiceClient();
@@ -123,21 +77,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: "already_submitted" }, { status: 409 });
   }
 
-  // --- Backfill influencer contact fields, only where empty ---
+  // --- Sync influencer contact fields: email/phone fill blanks only, but the
+  // freshly confirmed address always replaces the profile's mailing_address.
   try {
     const patch: Record<string, string> = {};
     if (!influencer.email && shipping.email) patch.email = shipping.email;
     if (!influencer.phone && shipping.phone) patch.phone = shipping.phone;
-    if (!influencer.mailing_address) {
-      patch.mailing_address = [shipping.address1, shipping.address2, shipping.city, `${shipping.province} ${shipping.zip}`.trim(), shipping.country_code]
-        .filter(Boolean)
-        .join(", ");
-    }
-    if (Object.keys(patch).length > 0) {
-      await db.from("influencers").update(patch).eq("id", influencer.id);
-    }
+    patch.mailing_address = [shipping.address1, shipping.address2, shipping.city, `${shipping.province} ${shipping.zip}`.trim(), shipping.country_code]
+      .filter(Boolean)
+      .join(", ");
+    await db.from("influencers").update(patch).eq("id", influencer.id);
   } catch (err) {
-    console.warn("[gift] influencer backfill failed:", err);
+    console.warn("[gift] influencer sync failed:", err);
   }
 
   return NextResponse.json({

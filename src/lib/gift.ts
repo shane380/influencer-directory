@@ -14,6 +14,13 @@ export function giftUrl(token: string): string {
   return `${base}/gift/${token}`;
 }
 
+// Campaign-level open link — reusable by creators who have no influencer
+// record yet; submissions match-or-create records server-side.
+export function giftGenericUrl(token: string): string {
+  const base = (process.env.NEXT_PUBLIC_APP_URL || "https://creators.namaclo.com").trim().replace(/\/$/, "");
+  return `${base}/gift/g/${token}`;
+}
+
 export function giftDmSnippet(firstName: string, campaignName: string, url: string): string {
   const name = firstName ? `Hey ${firstName}!` : "Hey!";
   return `${name} We'd love to send you pieces from our ${campaignName} drop 🤍 pick your styles + drop your address here (takes 1 min): ${url}`;
