@@ -113,6 +113,8 @@ export async function getDefaults(): Promise<LauncherDefaults> {
   const { actId } = getEnv();
 
   let pageId: string | null = null;
+  let pageName: string | null = null;
+  let pageIgId: string | null = null;
   let instagramUserId: string | null = null;
   let suggestedLink: string | null = null;
   let suggestedUrlTags: string | null = null;
@@ -120,6 +122,25 @@ export async function getDefaults(): Promise<LauncherDefaults> {
   const diagnostics: string[] = [];
   const errMsg = (err: unknown) =>
     err instanceof MetaApiError ? err.userMessage : err instanceof Error ? err.message : String(err);
+
+  // Brand identity comes from the page granted to the token. Pages seen on
+  // existing ads are often creators' pages (whitelisting ads run under the
+  // creator's identity), so ad metadata is only a last-resort fallback.
+  try {
+    const pages = await graphGet("me/accounts", { fields: "id,name", limit: "5" });
+    const granted = pages.data?.[0];
+    if (granted?.id) {
+      pageId = String(granted.id);
+      pageName = granted.name || null;
+      const g = await graphGet(pageId, { fields: "instagram_business_account" });
+      if (g.instagram_business_account?.id) {
+        pageIgId = String(g.instagram_business_account.id);
+        instagramUserId = pageIgId;
+      }
+    }
+  } catch (err) {
+    diagnostics.push(`granted page: ${errMsg(err)}`);
+  }
 
   try {
     const ads = await graphGet(`${actId}/ads`, {
@@ -161,44 +182,6 @@ export async function getDefaults(): Promise<LauncherDefaults> {
   } catch (err) {
     console.warn("[meta-ads] Failed to scan for partnership sponsors:", err);
     diagnostics.push(`sponsor scan: ${errMsg(err)}`);
-  }
-
-  let pageName: string | null = null;
-  let pageIgId: string | null = null;
-  if (pageId) {
-    try {
-      const page = await graphGet(pageId, { fields: "name,instagram_business_account" });
-      pageName = page.name || null;
-      if (page.instagram_business_account?.id) {
-        pageIgId = String(page.instagram_business_account.id);
-        if (!instagramUserId) instagramUserId = pageIgId;
-      }
-    } catch (err) {
-      // Live-mode apps can only read pages granted to the token; the page
-      // the ads run under may not be one of them. Fall through to the
-      // granted page below.
-      diagnostics.push(`page read: ${errMsg(err)}`);
-    }
-  }
-
-  // Granted-page fallback: the token can always read pages assigned to the
-  // system user, so resolve the brand IG (and a display name) through it.
-  if (!pageIgId) {
-    try {
-      const pages = await graphGet("me/accounts", { fields: "id,name", limit: "5" });
-      const granted = pages.data?.[0];
-      if (granted?.id) {
-        if (!pageId) pageId = String(granted.id);
-        if (!pageName) pageName = granted.name || null;
-        const g = await graphGet(String(granted.id), { fields: "instagram_business_account" });
-        if (g.instagram_business_account?.id) {
-          pageIgId = String(g.instagram_business_account.id);
-          if (!instagramUserId) instagramUserId = pageIgId;
-        }
-      }
-    } catch (err) {
-      diagnostics.push(`granted page: ${errMsg(err)}`);
-    }
   }
 
   // Every creator with account-level partnership permission — the same list
