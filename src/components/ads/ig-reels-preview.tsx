@@ -1,5 +1,7 @@
 "use client";
 
+import { useRef, useState } from "react";
+import { Volume2, VolumeX } from "lucide-react";
 import type { AdCopy } from "@/types/meta-ads";
 
 interface Props {
@@ -30,6 +32,14 @@ export function IgReelsPreview({
 }: Props) {
   const caption = copy.primaryText?.trim() || "Primary text shows here…";
   const truncated = caption.length > 90 ? `${caption.slice(0, 90)}…` : caption;
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [muted, setMuted] = useState(true);
+  const toggleMute = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    setMuted(v.muted);
+  };
 
   return (
     <div className="w-[280px] max-w-full">
@@ -40,6 +50,7 @@ export function IgReelsPreview({
         )}
         {mediaUrl && mediaKind === "video" && (
           <video
+            ref={videoRef}
             src={mediaUrl}
             poster={posterUrl || undefined}
             className="absolute inset-0 w-full h-full object-cover"
@@ -63,6 +74,16 @@ export function IgReelsPreview({
             <p className="text-[11px] text-white/70 leading-tight truncate">{identitySub}</p>
           </div>
         </div>
+        {mediaUrl && mediaKind === "video" && (
+          <button
+            type="button"
+            onClick={toggleMute}
+            className="absolute top-14 right-3 bg-black/60 hover:bg-black/75 text-white rounded-full p-1.5"
+            aria-label={muted ? "Unmute video" : "Mute video"}
+          >
+            {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+          </button>
+        )}
         <div className="absolute right-3 bottom-24 flex flex-col items-center gap-5 text-white/90 text-[20px] leading-none">
           <span>♡</span>
           <span>◌</span>

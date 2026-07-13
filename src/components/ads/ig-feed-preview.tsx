@@ -1,5 +1,7 @@
 "use client";
 
+import { useRef, useState } from "react";
+import { Volume2, VolumeX } from "lucide-react";
 import type { AdCopy } from "@/types/meta-ads";
 
 interface Props {
@@ -27,6 +29,14 @@ export function IgFeedPreview({
 }: Props) {
   const caption = copy.primaryText?.trim() || "Primary text shows here…";
   const truncated = caption.length > 125 ? `${caption.slice(0, 125)}` : caption;
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [muted, setMuted] = useState(true);
+  const toggleMute = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    setMuted(v.muted);
+  };
 
   return (
     <div className="w-[375px] max-w-full rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
@@ -38,21 +48,32 @@ export function IgFeedPreview({
         </div>
         <span className="ml-auto text-gray-400 tracking-widest text-sm">···</span>
       </div>
-      <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
+      <div className="relative aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
         {mediaUrl && mediaKind === "image" && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={mediaUrl} alt="Ad creative" className="w-full h-full object-cover" />
         )}
         {mediaUrl && mediaKind === "video" && (
-          <video
-            src={mediaUrl}
-            poster={posterUrl || undefined}
-            className="w-full h-full object-cover"
-            muted
-            playsInline
-            loop
-            autoPlay
-          />
+          <>
+            <video
+              ref={videoRef}
+              src={mediaUrl}
+              poster={posterUrl || undefined}
+              className="w-full h-full object-cover"
+              muted
+              playsInline
+              loop
+              autoPlay
+            />
+            <button
+              type="button"
+              onClick={toggleMute}
+              className="absolute bottom-2.5 right-2.5 bg-black/60 hover:bg-black/75 text-white rounded-full p-1.5"
+              aria-label={muted ? "Unmute video" : "Mute video"}
+            >
+              {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+            </button>
+          </>
         )}
         {!mediaUrl && <span className="text-sm text-gray-400">Feed creative</span>}
       </div>
