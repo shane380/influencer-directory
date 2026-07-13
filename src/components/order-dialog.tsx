@@ -234,7 +234,13 @@ export function OrderDialog({
         return;
       }
 
-      // If influencer already has a linked Shopify customer, fetch their details
+      const giftEmail = ((campaignInfluencer as any).gift_shipping?.email || "").trim();
+
+      // If influencer already has a linked Shopify customer, fetch their
+      // details — but when a gift-confirmed email contradicts the linked
+      // customer, fall through and re-match (a bad name-match may have been
+      // saved onto the influencer previously).
+      let linkedCandidate: any = null;
       if (influencer.shopify_customer_id) {
         try {
           const response = await fetch(
@@ -243,10 +249,14 @@ export function OrderDialog({
           if (response.ok) {
             const data = await response.json();
             if (data.customer) {
-              setShopifyCustomer(data.customer);
-              setCustomerConfirmed(true);
-              setCustomerSearching(false);
-              return;
+              const linkedEmail = (data.customer.email || "").trim().toLowerCase();
+              if (!giftEmail || linkedEmail === giftEmail.toLowerCase()) {
+                setShopifyCustomer(data.customer);
+                setCustomerConfirmed(true);
+                setCustomerSearching(false);
+                return;
+              }
+              linkedCandidate = data.customer;
             }
           }
         } catch (err) {
@@ -259,41 +269,47 @@ export function OrderDialog({
       setCustomerError(null);
 
       try {
-        // First try to match by name
-        const nameResponse = await fetch(
-          `/api/shopify/customers?name=${encodeURIComponent(influencer.name)}`
-        );
+        const adopt = async (customer: any) => {
+          setShopifyCustomer(customer);
+          await (supabase.from("influencers") as any)
+            .update({ shopify_customer_id: String(customer.id) })
+            .eq("id", influencer.id);
+          setCustomerSearching(false);
+        };
 
-        if (nameResponse.ok) {
-          const nameData = await nameResponse.json();
-          if (nameData.customers && nameData.customers.length > 0) {
-            setShopifyCustomer(nameData.customers[0]);
-            // Save the customer ID to the influencer record
-            await (supabase.from("influencers") as any)
-              .update({ shopify_customer_id: String(nameData.customers[0].id) })
-              .eq("id", influencer.id);
-            setCustomerSearching(false);
-            return;
-          }
-        }
-
-        // If no name match and we have an email, try email
-        if (influencer.email) {
+        // 1. The email the influencer just confirmed on the gift page is the
+        //    strongest identity signal — try it first.
+        for (const email of [giftEmail, influencer.email || ""]) {
+          if (!email) continue;
           const emailResponse = await fetch(
-            `/api/shopify/customers?email=${encodeURIComponent(influencer.email)}`
+            `/api/shopify/customers?email=${encodeURIComponent(email)}`
           );
-
           if (emailResponse.ok) {
             const emailData = await emailResponse.json();
             if (emailData.customers && emailData.customers.length > 0) {
-              setShopifyCustomer(emailData.customers[0]);
-              // Save the customer ID to the influencer record
-              await (supabase.from("influencers") as any)
-                .update({ shopify_customer_id: String(emailData.customers[0].id) })
-                .eq("id", influencer.id);
-              setCustomerSearching(false);
+              await adopt(emailData.customers[0]);
               return;
             }
+          }
+        }
+
+        // 2. A linked customer that mismatched the gift email is still better
+        //    than a fresh name-guess.
+        if (linkedCandidate) {
+          setShopifyCustomer(linkedCandidate);
+          setCustomerSearching(false);
+          return;
+        }
+
+        // 3. Name match, last resort.
+        const nameResponse = await fetch(
+          `/api/shopify/customers?name=${encodeURIComponent(influencer.name)}`
+        );
+        if (nameResponse.ok) {
+          const nameData = await nameResponse.json();
+          if (nameData.customers && nameData.customers.length > 0) {
+            await adopt(nameData.customers[0]);
+            return;
           }
         }
 
@@ -645,7 +661,25 @@ export function OrderDialog({
           first_name: newCustomerForm.first_name || undefined,
           last_name: newCustomerForm.last_name || undefined,
           phone: newCustomerForm.phone || undefined,
-          address: newCustomerForm.address || undefined,
+          // When the form still carries the gift-confirmed address verbatim,
+          // save it as structured fields (city/province/zip) rather than one
+          // collapsed line, so shipping resolution keys off real components.
+          ...(() => {
+            const gift = (campaignInfluencer as any).gift_shipping || null;
+            const giftJoined = gift
+              ? [gift.address1, gift.address2, gift.city, `${gift.province || ""} ${gift.zip || ""}`.trim()].filter(Boolean).join(", ")
+              : null;
+            if (gift && (newCustomerForm.address === giftJoined || !newCustomerForm.address)) {
+              return {
+                address: gift.address1 || undefined,
+                address2: gift.address2 || undefined,
+                city: gift.city || undefined,
+                province: gift.province || undefined,
+                zip: gift.zip || undefined,
+              };
+            }
+            return { address: newCustomerForm.address || undefined };
+          })(),
           country_code: newCustomerForm.country || undefined,
         }),
       });
