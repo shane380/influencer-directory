@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import type { AdDraft, CampaignSummary } from "@/types/meta-ads";
+import type { AdDraft, AssetRole, CampaignSummary, DraftAsset } from "@/types/meta-ads";
 import { IgFeedPreview } from "./ig-feed-preview";
 import { IgReelsPreview } from "./ig-reels-preview";
-import { CheckCircle2, Clock, Loader2, MessageSquare, Pencil, Trash2, XCircle } from "lucide-react";
+import { SquareCropDialog } from "./square-crop-dialog";
+import { fileAssetKind, isSquareImage, uploadAdAsset } from "@/lib/ad-media";
+import { CheckCircle2, Clock, Loader2, MessageSquare, Pencil, Trash2, Upload, XCircle } from "lucide-react";
 
 const CTA_LABELS: Record<string, string> = {
   SHOP_NOW: "Shop now",
@@ -63,6 +65,13 @@ export function ReviewQueue({
   } | null>(null);
   const [targets, setTargets] = useState<CampaignSummary[] | null>(null);
   const [targetsLoading, setTargetsLoading] = useState(false);
+  const [editAssets, setEditAssets] = useState<{
+    feed: DraftAsset | null;
+    vertical: DraftAsset | null;
+  } | null>(null);
+  const [mediaProgress, setMediaProgress] = useState<Partial<Record<AssetRole, number>>>({});
+  const [mediaError, setMediaError] = useState<string | null>(null);
+  const [cropRequest, setCropRequest] = useState<File | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -126,9 +135,50 @@ export function ReviewQueue({
     [feedbackText, refresh]
   );
 
+  const uploadEditAsset = useCallback(async (role: AssetRole, file: File) => {
+    const kind = fileAssetKind(file);
+    if (!kind) return;
+    setMediaError(null);
+    setMediaProgress((p) => ({ ...p, [role]: 0 }));
+    try {
+      const asset = await uploadAdAsset(file, role, kind, (percent) =>
+        setMediaProgress((p) => ({ ...p, [role]: percent }))
+      );
+      setEditAssets((prev) => (prev ? { ...prev, [role]: asset } : prev));
+    } catch (err) {
+      setMediaError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setMediaProgress((p) => {
+        const next = { ...p };
+        delete next[role];
+        return next;
+      });
+    }
+  }, []);
+
+  const handleEditFile = useCallback(
+    async (role: AssetRole, file: File) => {
+      const kind = fileAssetKind(file);
+      if (!kind) return;
+      // Non-square feed images go through the interactive 1:1 crop first.
+      if (role === "feed" && kind === "image" && !(await isSquareImage(file))) {
+        setCropRequest(file);
+        return;
+      }
+      uploadEditAsset(role, file);
+    },
+    [uploadEditAsset]
+  );
+
   const startEdit = useCallback(
     (draft: AdDraft) => {
       setEditingId(draft.id);
+      setEditAssets({
+        feed: draft.assets.find((a) => a.role === "feed") || null,
+        vertical: draft.assets.find((a) => a.role === "vertical") || null,
+      });
+      setMediaProgress({});
+      setMediaError(null);
       setEditForm({
         adName: draft.adName,
         adsetId: draft.adsetId,
@@ -154,6 +204,14 @@ export function ReviewQueue({
   const saveEdit = useCallback(
     async (draft: AdDraft, resubmit: boolean) => {
       if (!editForm) return;
+      if (Object.keys(mediaProgress).length > 0) {
+        setError("Media is still uploading — wait for it to finish");
+        return;
+      }
+      if (editAssets && !editAssets.feed) {
+        setError("A feed creative is required");
+        return;
+      }
       setBusyId(draft.id);
       setError(null);
       try {
@@ -182,6 +240,9 @@ export function ReviewQueue({
               urlTags: editForm.urlTags,
               cta: editForm.cta,
             },
+            ...(editAssets?.feed
+              ? { assets: [editAssets.feed, editAssets.vertical].filter(Boolean) }
+              : {}),
             ...(resubmit ? { resubmit: true } : {}),
           }),
         });
@@ -189,6 +250,7 @@ export function ReviewQueue({
         if (!res.ok) throw new Error(data.error || "Could not save changes");
         setEditingId(null);
         setEditForm(null);
+        setEditAssets(null);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not save changes");
       } finally {
@@ -196,7 +258,7 @@ export function ReviewQueue({
         refresh();
       }
     },
-    [editForm, targets, refresh]
+    [editForm, editAssets, mediaProgress, targets, refresh]
   );
 
   const withdraw = useCallback(
@@ -227,6 +289,59 @@ export function ReviewQueue({
     const set = (patch: Partial<NonNullable<typeof editForm>>) =>
       setEditForm((f) => (f ? { ...f, ...patch } : f));
     const canResubmit = mode === "mine" && draft.status === "changes_requested";
+    const uploading = Object.keys(mediaProgress).length > 0;
+
+    const mediaRow = (role: AssetRole, label: string, removable: boolean) => {
+      const asset = editAssets?.[role] || null;
+      const progress = mediaProgress[role];
+      return {
+        label,
+        field: (
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="w-10 h-10 rounded bg-gray-100 overflow-hidden flex-shrink-0">
+              {asset && (asset.kind === "image" || asset.thumbnailUrl) && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={asset.kind === "image" ? asset.fileUrl : asset.thumbnailUrl || ""}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              )}
+            </div>
+            <span className="text-[12px] text-gray-500">
+              {progress !== undefined
+                ? `Uploading… ${progress}%`
+                : asset
+                  ? asset.kind === "video"
+                    ? "Video"
+                    : "Image"
+                  : "None (falls back to feed)"}
+            </span>
+            <label className="border border-gray-300 rounded-md px-2.5 py-1 text-[12px] text-gray-700 hover:bg-gray-50 cursor-pointer flex items-center gap-1">
+              <Upload className="h-3 w-3" /> Replace
+              <input
+                type="file"
+                accept="image/*,video/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleEditFile(role, f);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            {removable && asset && (
+              <button
+                onClick={() => setEditAssets((p) => (p ? { ...p, [role]: null } : p))}
+                className="text-[12px] text-gray-400 hover:text-red-600"
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        ),
+      };
+    };
 
     const rows: { label: string; field: ReactNode }[] = [
       {
@@ -268,6 +383,8 @@ export function ReviewQueue({
           </span>
         ),
       },
+      mediaRow("feed", "Feed media", false),
+      mediaRow("vertical", "9:16 media", true),
       {
         label: "Primary text",
         field: (
@@ -347,11 +464,20 @@ export function ReviewQueue({
             </div>
           ))}
         </div>
+        {mediaError && (
+          <p className="text-[12px] text-red-700 bg-red-50 border border-red-100 rounded-md px-2.5 py-1.5 mt-3">
+            {mediaError}
+          </p>
+        )}
         <div className="flex justify-end gap-2 mt-3">
           <button
             onClick={() => {
               setEditingId(null);
               setEditForm(null);
+              setEditAssets(null);
+              setMediaProgress({});
+              setMediaError(null);
+              setCropRequest(null);
             }}
             className="border border-gray-300 rounded-md px-4 py-1.5 text-[12.5px] text-gray-700 hover:bg-gray-50"
           >
@@ -359,7 +485,7 @@ export function ReviewQueue({
           </button>
           <button
             onClick={() => saveEdit(draft, canResubmit)}
-            disabled={busyId === draft.id}
+            disabled={busyId === draft.id || uploading}
             className="bg-gray-900 text-white rounded-md px-4 py-1.5 text-[12.5px] font-semibold hover:bg-gray-800 disabled:opacity-50 flex items-center gap-1.5"
           >
             {busyId === draft.id && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
@@ -588,6 +714,16 @@ export function ReviewQueue({
 
   return (
     <div className="max-w-4xl">
+      {cropRequest && (
+        <SquareCropDialog
+          file={cropRequest}
+          onCancel={() => setCropRequest(null)}
+          onCropped={(cropped) => {
+            setCropRequest(null);
+            uploadEditAsset("feed", cropped);
+          }}
+        />
+      )}
       {error && (
         <p className="text-[12.5px] text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-4">
           {error}

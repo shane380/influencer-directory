@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { uploadToR2 } from "@/lib/r2-upload";
+import { isSquareImage, makeVideoThumb, sanitizeFileName } from "@/lib/ad-media";
 import type {
   AdCopy,
   AssetKind,
@@ -90,68 +91,6 @@ function newAd(defaults?: LauncherDefaults | null): AdState {
     phaseMsg: "",
     metaAdId: null,
   };
-}
-
-function sanitizeFileName(name: string): string {
-  return name.replace(/[^\w.-]+/g, "-").slice(-80);
-}
-
-/** Feed images must be square (1:1); allows a 2% tolerance for crop rounding. */
-async function isSquareImage(file: File): Promise<boolean> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      if (!img.naturalWidth || !img.naturalHeight) return resolve(true);
-      const ratio = img.naturalWidth / img.naturalHeight;
-      resolve(Math.abs(ratio - 1) <= 0.02);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      resolve(true);
-    };
-    img.src = url;
-  });
-}
-
-async function makeVideoThumb(file: File): Promise<Blob | null> {
-  return new Promise((resolve) => {
-    const video = document.createElement("video");
-    video.preload = "auto";
-    video.muted = true;
-    video.playsInline = true;
-    const url = URL.createObjectURL(file);
-    video.src = url;
-    const fail = () => {
-      URL.revokeObjectURL(url);
-      resolve(null);
-    };
-    video.onloadeddata = () => {
-      try {
-        video.currentTime = Math.min(0.5, (video.duration || 1) / 2);
-      } catch {
-        fail();
-      }
-    };
-    video.onseeked = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext("2d");
-      if (!ctx || !canvas.width) return fail();
-      ctx.drawImage(video, 0, 0);
-      canvas.toBlob(
-        (blob) => {
-          URL.revokeObjectURL(url);
-          resolve(blob);
-        },
-        "image/jpeg",
-        0.85
-      );
-    };
-    video.onerror = fail;
-  });
 }
 
 export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
