@@ -287,7 +287,9 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
         JSON.stringify({
           campaignId,
           adsetId,
-          ads: ads.map((a) => ({
+          // Published/submitted ads must not be restored on refresh — a
+          // resurrected "done" ad would arrive as a re-publishable draft.
+          ads: ads.filter((a) => a.phase !== "done").map((a) => ({
             adName: a.adName,
             partnership: a.partnership,
             sponsorId: a.sponsorId,
