@@ -718,14 +718,19 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
               <p className="text-sm text-gray-400 py-16 text-center">Add an ad to get started</p>
             ) : (
               <>
-                <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-                  <input
-                    value={selected.adName}
-                    onChange={(e) => updateAd(selected.localId, { adName: e.target.value })}
-                    placeholder="Ad name"
-                    className="border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] font-medium w-60"
-                  />
-                  <div className="flex items-center gap-2">
+                <div className="flex items-end justify-between gap-3 mb-4 flex-wrap">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wide text-gray-400 mb-1">
+                      Ad name
+                    </label>
+                    <input
+                      value={selected.adName}
+                      onChange={(e) => updateAd(selected.localId, { adName: e.target.value })}
+                      placeholder="e.g. linen-drop-hook-v1"
+                      className="border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] font-medium w-60"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 pb-1">
                     <span className="text-[12.5px] text-gray-600">Partnership ad</span>
                     <button
                       onClick={() =>
@@ -758,7 +763,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                             }}
                             className="border border-gray-300 rounded-md px-2 py-1.5 text-[12.5px] bg-white"
                           >
-                            <option value="">Pick creator…</option>
+                            <option value="">Pick partner…</option>
                             {defaults.partners.map((p) => (
                               <option key={p.sponsorId} value={p.sponsorId}>
                                 {p.label}
@@ -771,7 +776,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                           onChange={(e) =>
                             updateAd(selected.localId, { sponsorId: e.target.value })
                           }
-                          placeholder="Creator IG user ID"
+                          placeholder="Partner IG user ID"
                           className="border border-gray-300 rounded-md px-2 py-1.5 text-[12.5px] w-40"
                         />
                       </>

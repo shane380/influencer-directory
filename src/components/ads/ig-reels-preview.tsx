@@ -14,7 +14,10 @@ interface Props {
   isFallback?: boolean;
 }
 
-/** Lightweight stories/reels (9:16) mockup — renders the actual uploaded asset. */
+/**
+ * Stories/reels (9:16) mockup at ~3/4 iPhone scale (280×498)
+ * rendering the actual uploaded asset.
+ */
 export function IgReelsPreview({
   copy,
   ctaLabel,
@@ -26,11 +29,11 @@ export function IgReelsPreview({
   isFallback,
 }: Props) {
   const caption = copy.primaryText?.trim() || "Primary text shows here…";
-  const truncated = caption.length > 70 ? `${caption.slice(0, 70)}…` : caption;
+  const truncated = caption.length > 90 ? `${caption.slice(0, 90)}…` : caption;
 
   return (
-    <div className="w-[150px]">
-      <div className="relative w-[150px] h-[267px] rounded-xl bg-gray-900 overflow-hidden shadow-sm">
+    <div className="w-[280px] max-w-full">
+      <div className="relative w-full h-[498px] rounded-2xl bg-gray-900 overflow-hidden shadow-sm">
         {mediaUrl && mediaKind === "image" && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={mediaUrl} alt="Ad creative" className="absolute inset-0 w-full h-full object-cover" />
@@ -47,28 +50,35 @@ export function IgReelsPreview({
           />
         )}
         {!mediaUrl && (
-          <span className="absolute inset-0 flex items-center justify-center text-[11px] text-gray-500">
+          <span className="absolute inset-0 flex items-center justify-center text-sm text-gray-500">
             9:16 creative
           </span>
         )}
-        <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/50 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/70 to-transparent" />
-        <div className="absolute top-2 left-2 right-2 flex items-center gap-1.5">
-          <div className="w-5 h-5 rounded-full bg-gradient-to-br from-amber-200 to-rose-300 flex-shrink-0" />
+        <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/50 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/70 to-transparent" />
+        <div className="absolute top-3 left-3 right-3 flex items-center gap-2">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-200 to-rose-300 flex-shrink-0" />
           <div className="min-w-0">
-            <p className="text-[9.5px] font-semibold text-white leading-tight truncate">{identityName}</p>
-            <p className="text-[8.5px] text-white/70 leading-tight truncate">{identitySub}</p>
+            <p className="text-[13px] font-semibold text-white leading-tight truncate">{identityName}</p>
+            <p className="text-[11px] text-white/70 leading-tight truncate">{identitySub}</p>
           </div>
         </div>
-        <div className="absolute left-2 right-2 bottom-2">
-          <p className="text-[9.5px] text-white/90 leading-snug mb-1.5">{truncated}</p>
-          <div className="bg-white text-gray-900 rounded-full text-center text-[10.5px] font-semibold py-1.5">
+        <div className="absolute right-3 bottom-24 flex flex-col items-center gap-5 text-white/90 text-[20px] leading-none">
+          <span>♡</span>
+          <span>◌</span>
+          <span>➦</span>
+        </div>
+        <div className="absolute left-3 right-12 bottom-4">
+          <p className="text-[13px] text-white/95 leading-snug mb-2.5">{truncated}</p>
+          <div className="bg-white text-gray-900 rounded-lg text-center text-[14px] font-semibold py-2.5">
             {ctaLabel}
           </div>
         </div>
       </div>
       {isFallback && (
-        <p className="text-[10px] text-gray-400 text-center mt-1">Using feed creative (no 9:16 uploaded)</p>
+        <p className="text-[11px] text-gray-400 text-center mt-1.5">
+          Using feed creative (no 9:16 uploaded)
+        </p>
       )}
     </div>
   );
