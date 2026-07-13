@@ -583,7 +583,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                         onClick={() => {
                           setNotifOpen(false);
                           if (n.type === "ad_approval" || n.type === "ad_feedback") {
-                            router.push("/ads?review=1");
+                            router.push(`/ads?review=1&draft=${n.id}`);
                           } else if (n.type === "gift_selects" && n.campaign_id) {
                             router.push(`/campaigns/${n.campaign_id}`);
                           } else if (n.creator_id) {

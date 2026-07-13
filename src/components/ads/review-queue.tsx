@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { AdDraft, AssetRole, CampaignSummary, DraftAsset } from "@/types/meta-ads";
 import { IgFeedPreview } from "./ig-feed-preview";
 import { IgReelsPreview } from "./ig-reels-preview";
@@ -40,9 +40,12 @@ function timeAgo(dateStr: string): string {
 export function ReviewQueue({
   isAdmin,
   onQueueCount,
+  focusDraftId,
 }: {
   isAdmin: boolean;
   onQueueCount?: (n: number) => void;
+  /** Draft to scroll to and highlight (from a bell-notification deep link) */
+  focusDraftId?: string | null;
 }) {
   const [queue, setQueue] = useState<AdDraft[]>([]);
   const [reviewed, setReviewed] = useState<AdDraft[]>([]);
@@ -73,6 +76,9 @@ export function ReviewQueue({
   const [mediaProgress, setMediaProgress] = useState<Partial<Record<AssetRole, number>>>({});
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [cropRequest, setCropRequest] = useState<File | null>(null);
+  const [flashId, setFlashId] = useState<string | null>(null);
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const focusedRef = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -93,6 +99,19 @@ export function ReviewQueue({
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Deep link from a bell notification: scroll to the draft and flash it.
+  useEffect(() => {
+    if (!focusDraftId || loading) return;
+    if (focusedRef.current === focusDraftId) return;
+    const el = cardRefs.current.get(focusDraftId);
+    if (!el) return;
+    focusedRef.current = focusDraftId;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setFlashId(focusDraftId);
+    const t = setTimeout(() => setFlashId(null), 2500);
+    return () => clearTimeout(t);
+  }, [focusDraftId, loading, queue, mine, reviewed]);
 
   const approve = useCallback(
     async (draft: AdDraft) => {
@@ -588,7 +607,18 @@ export function ReviewQueue({
     const identitySub = draft.partnershipSponsorId ? "Paid partnership" : "Sponsored";
 
     return (
-      <div key={draft.id} className="bg-white border border-gray-200 rounded-lg p-4">
+      <div
+        key={draft.id}
+        ref={(el) => {
+          if (el) cardRefs.current.set(draft.id, el);
+          else cardRefs.current.delete(draft.id);
+        }}
+        className={`bg-white border rounded-lg p-4 transition-shadow duration-500 ${
+          flashId === draft.id
+            ? "border-blue-400 ring-2 ring-blue-300 shadow-md"
+            : "border-gray-200"
+        }`}
+      >
         <div className="flex items-start gap-3 flex-wrap">
           <div className="w-12 h-15 rounded bg-gray-100 overflow-hidden flex-shrink-0" style={{ height: 60 }}>
             {feed &&

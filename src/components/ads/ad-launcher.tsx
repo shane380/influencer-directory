@@ -120,12 +120,13 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
     searchParams?.get("review") ? "review" : "create"
   );
 
-  // Bell notifications navigate to /ads?review=1; when already on /ads only
-  // the query changes, so sync the tab to it after mount too.
+  // Bell notifications navigate to /ads?review=1&draft=<id>; when already on
+  // /ads only the query changes, so sync the tab to it after mount too.
   const reviewParam = searchParams?.get("review");
+  const focusDraftId = searchParams?.get("draft") || null;
   useEffect(() => {
     if (reviewParam) setTab("review");
-  }, [reviewParam]);
+  }, [reviewParam, focusDraftId]);
   const [defaults, setDefaults] = useState<LauncherDefaults | null>(null);
   const [targets, setTargets] = useState<TargetsResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -747,7 +748,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
       )}
 
       {tab === "review" ? (
-        <ReviewQueue isAdmin={isAdmin} onQueueCount={setPendingCount} />
+        <ReviewQueue isAdmin={isAdmin} onQueueCount={setPendingCount} focusDraftId={focusDraftId} />
       ) : (
         <div className="space-y-4">
           {/* Top bar — destination + batch */}
