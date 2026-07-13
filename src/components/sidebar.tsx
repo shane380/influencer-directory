@@ -54,7 +54,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
   const [pendingCodeRequests, setPendingCodeRequests] = useState(0);
   const [notifications, setNotifications] = useState<Array<{
     id: string;
-    type?: "content_submission" | "outfit_request" | "ad_approval" | "gift_selects";
+    type?: "content_submission" | "outfit_request" | "ad_approval" | "ad_feedback" | "gift_selects";
     creator_name: string;
     creator_id?: string;
     influencer_id?: string | null;
@@ -561,6 +561,8 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                   let description = "";
                   if (n.type === "ad_approval") {
                     description = `Ad "${n.ad_name}" awaiting review · ${timeAgo}`;
+                  } else if (n.type === "ad_feedback") {
+                    description = `Changes requested on "${n.ad_name}" · ${timeAgo}`;
                   } else if (n.type === "outfit_request") {
                     description = `Requested ${n.product_count} item${n.product_count !== 1 ? "s" : ""} · ${timeAgo}`;
                   } else if (n.type === "gift_selects") {
@@ -580,7 +582,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                       <button
                         onClick={() => {
                           setNotifOpen(false);
-                          if (n.type === "ad_approval") {
+                          if (n.type === "ad_approval" || n.type === "ad_feedback") {
                             router.push("/ads?review=1");
                           } else if (n.type === "gift_selects" && n.campaign_id) {
                             router.push(`/campaigns/${n.campaign_id}`);
