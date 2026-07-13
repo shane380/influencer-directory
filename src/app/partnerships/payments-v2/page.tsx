@@ -51,6 +51,9 @@ export default function PaymentsV2() {
   const [histPayMonth, setHistPayMonth] = useState<string | null>(null);
   const [histPayForm, setHistPayForm] = useState({ amount: "", sent_at: "", method: "paypal", reference: "" });
   const [histSaving, setHistSaving] = useState(false);
+  const [editPayId, setEditPayId] = useState<string | null>(null);
+  const [editPayForm, setEditPayForm] = useState({ amount: "", sent_at: "", method: "paypal", reference: "" });
+  const [payRowBusy, setPayRowBusy] = useState(false);
 
   async function reveal(r: Creator) {
     if (!r.influencerId || revealed[r.key]) return; // legacy detail already shown; partners decrypt on demand
@@ -70,7 +73,7 @@ export default function PaymentsV2() {
     return null;
   }
   async function openHistory(r: Creator) {
-    setHistoryFor(r); setHistoryData(null); setHistPayMonth(null);
+    setHistoryFor(r); setHistoryData(null); setHistPayMonth(null); setEditPayId(null);
     setHistoryData(await fetchHistory(r));
   }
   const guessMethod = (info: string) => /paypal/i.test(info) ? "paypal" : /bank/i.test(info) ? "bank" : "paypal";
@@ -92,6 +95,32 @@ export default function PaymentsV2() {
       if (res.ok) { setHistPayMonth(null); setHistoryData(await fetchHistory(historyFor)); load(); }
     } catch {}
     setHistSaving(false);
+  }
+
+  async function updateHistoryPayment() {
+    if (!historyFor || !editPayId) return;
+    const amt = Number(editPayForm.amount);
+    if (!Number.isFinite(amt) || amt === 0 || !editPayForm.sent_at) return;
+    setPayRowBusy(true);
+    try {
+      const res = await fetch("/api/admin/payouts", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editPayId, amount: amt, sent_at: editPayForm.sent_at, method: editPayForm.method, reference: editPayForm.reference || null }),
+      });
+      if (res.ok) { setEditPayId(null); setHistoryData(await fetchHistory(historyFor)); load(); }
+    } catch {}
+    setPayRowBusy(false);
+  }
+
+  async function deleteHistoryPayment(p: any) {
+    if (!historyFor) return;
+    if (!window.confirm(`Remove the ${p.sent_at} payment of $${money(p.amount)}? Months it covered will show as unpaid again.`)) return;
+    setPayRowBusy(true);
+    try {
+      const res = await fetch(`/api/admin/payouts?id=${p.id}`, { method: "DELETE" });
+      if (res.ok) { setHistoryData(await fetchHistory(historyFor)); load(); }
+    } catch {}
+    setPayRowBusy(false);
   }
 
   useEffect(() => {
@@ -386,10 +415,48 @@ export default function PaymentsV2() {
                     {historyData.payments.length ? (
                       <div className="space-y-1">
                         {historyData.payments.map((p: any, i: number) => (
-                          <div key={i} className="flex justify-between text-xs">
-                            <span className="text-gray-500">{p.sent_at} · {p.method || "—"}{p.covers_period ? ` · for ${periodLabel(p.covers_period)}` : " · auto-applied"}</span>
-                            <span className="text-gray-900">${money(p.amount)}</span>
-                          </div>
+                          p.id && p.id === editPayId ? (
+                            <div key={p.id} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="block text-[10px] uppercase tracking-wider text-gray-400 mb-1">Amount</label>
+                                  <input type="number" step="0.01" autoFocus value={editPayForm.amount} onChange={(e) => setEditPayForm({ ...editPayForm, amount: e.target.value })} className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs" />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] uppercase tracking-wider text-gray-400 mb-1">Date sent</label>
+                                  <input type="date" value={editPayForm.sent_at} onChange={(e) => setEditPayForm({ ...editPayForm, sent_at: e.target.value })} className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs" />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] uppercase tracking-wider text-gray-400 mb-1">Method</label>
+                                  <select value={editPayForm.method} onChange={(e) => setEditPayForm({ ...editPayForm, method: e.target.value })} className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs">
+                                    <option value="paypal">PayPal</option><option value="bank">Bank</option><option value="e_transfer">E-Transfer</option><option value="other">Other</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] uppercase tracking-wider text-gray-400 mb-1">Reference (optional)</label>
+                                  <input value={editPayForm.reference} onChange={(e) => setEditPayForm({ ...editPayForm, reference: e.target.value })} className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs" placeholder="PayPal txn id / note" />
+                                </div>
+                                <div className="col-span-2 flex justify-end gap-2">
+                                  <button onClick={() => setEditPayId(null)} className="px-3 py-1.5 text-xs text-gray-500">Cancel</button>
+                                  <button onClick={updateHistoryPayment} disabled={payRowBusy || !editPayForm.amount || !editPayForm.sent_at} className="px-3 py-1.5 bg-gray-900 text-white rounded text-xs font-medium disabled:opacity-40">{payRowBusy ? "…" : "Save"}</button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div key={p.id || i} className="flex items-center justify-between text-xs">
+                              <span className="text-gray-500">{p.sent_at} · {p.method || "—"}{p.covers_period ? ` · for ${periodLabel(p.covers_period)}` : " · auto-applied"}</span>
+                              <span className="flex items-center gap-2">
+                                {p.id && (
+                                  <>
+                                    <button onClick={() => { setEditPayId(p.id); setEditPayForm({ amount: String(p.amount), sent_at: p.sent_at, method: p.method || "paypal", reference: p.reference || "" }); }}
+                                      disabled={payRowBusy} className="text-gray-400 hover:text-blue-600 disabled:opacity-40">Edit</button>
+                                    <button onClick={() => deleteHistoryPayment(p)} disabled={payRowBusy} className="text-gray-400 hover:text-red-600 disabled:opacity-40">Remove</button>
+                                  </>
+                                )}
+                                <span className="text-gray-900 tabular-nums">${money(p.amount)}</span>
+                              </span>
+                            </div>
+                          )
                         ))}
                       </div>
                     ) : <div className="text-xs text-gray-400">No payments recorded yet.</div>}

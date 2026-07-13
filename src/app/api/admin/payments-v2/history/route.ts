@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     .sort((a, b) => b.period.localeCompare(a.period));
 
   const { data: payouts } = await (db.from("creator_payouts") as any)
-    .select("amount, sent_at, method, covers_period")
+    .select("id, amount, sent_at, method, reference, covers_period")
     .or(filter).eq("is_test", isTestEnv()).order("sent_at", { ascending: false });
 
   const totalEarned = round2(earnedByMonth.reduce((s, m) => s + m.amount, 0));
