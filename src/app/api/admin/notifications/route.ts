@@ -18,10 +18,6 @@ export async function GET() {
     // fall through: unowned notifications still show
   }
 
-  // Notifications are DERIVED from pending states, not stored — each type
-  // needs a state change that clears it, or it piles up forever.
-  const staleCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-
   // Fetch pending content submissions with creator info
   const { data: submissions } = await supabase
     .from("creator_content_submissions")
@@ -30,16 +26,13 @@ export async function GET() {
     .order("created_at", { ascending: false })
     .limit(20);
 
-  // Fetch recent confirmed outfit requests (product selections) that haven't
-  // been ordered yet. Orders often get placed outside this flow (order_id
-  // never linked back), so age these out after 30 days instead of showing forever.
+  // Fetch recent confirmed outfit requests (product selections) that haven't been ordered yet
   const { data: outfitRequests } = await (supabase
     .from("campaign_assignments") as any)
     .select("id, creator_id, confirmed_at, selected_products, order_id, campaign:creator_campaigns(title), creator:creators(creator_name)")
     .eq("status", "confirmed")
     .not("selected_products", "is", null)
     .is("order_id", null)
-    .gte("confirmed_at", staleCutoff)
     .order("confirmed_at", { ascending: false })
     .limit(20);
 
