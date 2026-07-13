@@ -16,8 +16,7 @@ const CSS = `
 .gf-col { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; background: #fff; }
 .gf-hero { width: 100%; aspect-ratio: 5/4; object-fit: cover; display: block; background: #f0ece4; }
 @media (min-width: 560px) { .gf-hero { aspect-ratio: 16/10; } }
-.gf-landing { background: #F5F1EA; }
-.gf-masthead { padding: 30px 34px 26px; border-bottom: 1px solid #E4DDD2; }
+.gf-masthead { padding: 30px 34px 26px; border-bottom: 1px solid #eee; }
 .gf-mast-eyebrow { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: #A89F94; margin-bottom: 12px; }
 .gf-mast-title { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 58px; line-height: 0.94; letter-spacing: -0.01em; color: #201D1A; }
 .gf-mast-title span { display: block; white-space: nowrap; }
@@ -25,9 +24,7 @@ const CSS = `
 .gf-letter-greeting { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 33px; font-weight: 400; line-height: 1.08; color: #201D1A; margin-bottom: 18px; }
 .gf-letter-body { font-size: 16.5px; line-height: 1.55; color: #4A453D; max-width: 34ch; margin-bottom: 18px; }
 .gf-sign { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 19px; color: #8A8177; margin: 0; }
-.gf-landing .gf-body { background: transparent; padding: 26px 34px 40px; }
-.gf-landing .gf-details { border-top-color: #E4DDD2; }
-.gf-landing .gf-detail-row { border-bottom-color: #E9E2D7; }
+.gf-landing .gf-body { padding: 26px 34px 40px; }
 .gf-landing .gf-coll-row { margin: 0 -34px; padding: 0 34px 4px; }
 .gf-collection { margin-bottom: 26px; }
 .gf-coll-row { display: flex; gap: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; margin: 0 -24px; padding: 0 24px 4px; }
