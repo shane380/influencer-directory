@@ -948,7 +948,8 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
             </div>
 
             {/* Publish — under the preview */}
-            <div className="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-between gap-4 flex-wrap">
+            <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
                 <p className="text-[13px] font-semibold text-gray-900">
                   {readyCount} ad{readyCount === 1 ? "" : "s"} ready
@@ -1011,6 +1012,42 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                     : "Submit for approval"}
                 </button>
               </div>
+            </div>
+            {ads.some((a) => a.phase !== "idle") && (
+              <ul className="border-t border-gray-100 mt-3 pt-3 space-y-1.5">
+                {ads
+                  .filter((a) => a.phase !== "idle")
+                  .map((a) => (
+                    <li key={a.localId} className="flex items-center gap-2 text-[12.5px]">
+                      {a.phase === "working" && (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500 flex-shrink-0" />
+                      )}
+                      {a.phase === "done" && (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                      )}
+                      {a.phase === "error" && (
+                        <AlertTriangle className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
+                      )}
+                      <span className="font-medium text-gray-800 truncate max-w-[240px]">
+                        {a.adName || "Untitled ad"}
+                      </span>
+                      <span className={a.phase === "error" ? "text-red-600" : "text-gray-500"}>
+                        {a.phaseMsg}
+                      </span>
+                      {a.phase === "done" && a.metaAdId && targets && (
+                        <a
+                          href={`https://adsmanager.facebook.com/adsmanager/manage/ads?act=${targets.accountId}&selected_ad_ids=${a.metaAdId}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-gray-400 hover:text-gray-700 flex items-center gap-0.5"
+                        >
+                          view <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                    </li>
+                  ))}
+              </ul>
+            )}
             </div>
         </div>
       )}
