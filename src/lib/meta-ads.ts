@@ -387,7 +387,10 @@ function buildCreativeParams(
 ): Record<string, any> {
   const feed = assets.find((a) => a.role === "feed");
   const vertical = assets.find((a) => a.role === "vertical");
-  if (!feed) throw new MetaApiError("An ad needs a feed creative", null);
+  const cards = assets
+    .filter((a) => a.role === "card")
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  if (!feed && cards.length < 2) throw new MetaApiError("An ad needs a feed creative", null);
 
   const cta = {
     type: draft.copy.cta,
@@ -417,6 +420,43 @@ function buildCreativeParams(
 
   const identity: Record<string, any> = { page_id: draft.pageId };
   if (draft.instagramUserId) identity.instagram_user_id = draft.instagramUserId;
+
+  if (cards.length >= 2) {
+    // Carousel — one set of square cards for every placement. No 9:16
+    // variant and no asset_feed_spec; carousels use link_data directly.
+    for (const c of cards) {
+      if (c.kind === "video" && !c.thumbnailUrl) {
+        throw new MetaApiError(
+          "A video card is missing its poster frame — re-upload that card",
+          null
+        );
+      }
+    }
+    params.object_story_spec = {
+      ...identity,
+      link_data: {
+        message: draft.copy.primaryText,
+        link: draft.copy.link,
+        name: draft.copy.headline || undefined,
+        description: draft.copy.description || undefined,
+        call_to_action: cta,
+        // Preserve the authored card order unless the submitter opted into
+        // Meta's reordering; never append the auto brand end-card.
+        multi_share_optimized: draft.copy.multiShareOptimized === true,
+        multi_share_end_card: false,
+        child_attachments: cards.map((c) => ({
+          link: c.cardLink || draft.copy.link,
+          name: c.cardHeadline || undefined,
+          ...(c.kind === "image"
+            ? { image_hash: c.imageHash }
+            : { video_id: c.videoId, picture: c.thumbnailUrl }),
+        })),
+      },
+    };
+    return params;
+  }
+
+  if (!feed) throw new MetaApiError("An ad needs a feed creative", null);
 
   if (!vertical) {
     // Single asset — plain object_story_spec.

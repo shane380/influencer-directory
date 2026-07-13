@@ -60,12 +60,13 @@ export async function PATCH(
     const assets = body.assets.filter(
       (a: any) =>
         a &&
-        (a.role === "feed" || a.role === "vertical") &&
+        (a.role === "feed" || a.role === "vertical" || a.role === "card") &&
         (a.kind === "image" || a.kind === "video") &&
         typeof a.fileUrl === "string" &&
         a.fileUrl
     );
-    if (!assets.some((a: any) => a.role === "feed")) {
+    const cardCount = assets.filter((a: any) => a.role === "card").length;
+    if (!assets.some((a: any) => a.role === "feed") && cardCount < 2) {
       return NextResponse.json({ error: "A feed creative is required" }, { status: 400 });
     }
     update.assets = assets.map((a: any) => ({
@@ -73,6 +74,13 @@ export async function PATCH(
       kind: a.kind,
       fileUrl: a.fileUrl,
       thumbnailUrl: typeof a.thumbnailUrl === "string" ? a.thumbnailUrl : null,
+      ...(a.role === "card"
+        ? {
+            order: typeof a.order === "number" ? a.order : 0,
+            cardHeadline: typeof a.cardHeadline === "string" ? a.cardHeadline : null,
+            cardLink: typeof a.cardLink === "string" ? a.cardLink : null,
+          }
+        : {}),
     }));
   }
   if (body.resubmit === true && isOwner) {

@@ -7,11 +7,16 @@ function validate(body: SubmitDraftRequest): string | null {
   if (!body.adName?.trim()) return "Ad name is required";
   if (!body.adsetId) return "Pick an ad set";
   if (!body.pageId) return "Missing brand page identity";
-  if (!Array.isArray(body.assets) || !body.assets.some((a) => a.role === "feed")) {
-    return "Upload a feed creative";
+  if (!Array.isArray(body.assets)) return "Upload a feed creative";
+  const cards = body.assets.filter((a) => a.role === "card");
+  if (cards.length > 0) {
+    if (cards.length < 2) return "A carousel needs at least 2 cards";
+    if (cards.length > 10) return "A carousel can have at most 10 cards";
+  } else {
+    if (!body.assets.some((a) => a.role === "feed")) return "Upload a feed creative";
+    const kinds = new Set(body.assets.map((a) => a.kind));
+    if (kinds.size > 1) return "Feed and 9:16 creatives must both be images or both videos";
   }
-  const kinds = new Set(body.assets.map((a) => a.kind));
-  if (kinds.size > 1) return "Feed and 9:16 creatives must both be images or both videos";
   if (!body.copy?.primaryText?.trim()) return "Primary text is required";
   if (!body.copy?.link?.trim()) return "Website URL is required";
   if (!body.copy?.cta) return "Pick a call to action";

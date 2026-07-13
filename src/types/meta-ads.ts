@@ -54,9 +54,14 @@ export interface AdCopy {
   link: string;
   cta: string;
   urlTags: string;
+  /**
+   * Carousel only: true = let Meta reorder cards for performance
+   * (multi_share_optimized); false/absent = keep the authored order.
+   */
+  multiShareOptimized?: boolean;
 }
 
-export type AssetRole = "feed" | "vertical";
+export type AssetRole = "feed" | "vertical" | "card";
 export type AssetKind = "image" | "video";
 
 export interface DraftAsset {
@@ -66,6 +71,12 @@ export interface DraftAsset {
   fileUrl: string;
   /** Public R2 URL of the poster frame (videos only) */
   thumbnailUrl?: string | null;
+  /** Carousel cards only: position in the deck (0-based) */
+  order?: number;
+  /** Carousel cards only: optional per-card headline (~35 chars on FB) */
+  cardHeadline?: string | null;
+  /** Carousel cards only: per-card destination; falls back to the ad link */
+  cardLink?: string | null;
 }
 
 export interface SubmitDraftRequest {
