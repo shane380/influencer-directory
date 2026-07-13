@@ -60,7 +60,9 @@ interface Preset {
 }
 
 const PRESETS_KEY = "adsLauncher.presets.v1";
-const DRAFT_KEY = "adsLauncher.draft.v1";
+// v2: v1 drafts could contain already-published ads (saved before the
+// done-ads exclusion existed), so they're deliberately abandoned.
+const DRAFT_KEY = "adsLauncher.draft.v2";
 
 const emptyCopy = (defaults?: LauncherDefaults | null): AdCopy => ({
   primaryText: "",
