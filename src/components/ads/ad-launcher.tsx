@@ -14,6 +14,7 @@ import type {
 import { IgFeedPreview } from "./ig-feed-preview";
 import { IgReelsPreview } from "./ig-reels-preview";
 import { ReviewQueue } from "./review-queue";
+import { SquareCropDialog } from "./square-crop-dialog";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -170,6 +171,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
   const [publishLive, setPublishLive] = useState(true);
   const [publishing, setPublishing] = useState(false);
   const [showPaused, setShowPaused] = useState(false);
+  const [cropRequest, setCropRequest] = useState<{ localId: string; file: File } | null>(null);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const restoredRef = useRef(false);
@@ -316,20 +318,8 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
     []
   );
 
-  const handleFile = useCallback(
-    async (localId: string, role: AssetRole, file: File) => {
-      const kind: AssetKind | null = file.type.startsWith("image/")
-        ? "image"
-        : file.type.startsWith("video/")
-          ? "video"
-          : null;
-      if (!kind) return;
-
-      if (role === "feed" && kind === "image" && !(await isSquareImage(file))) {
-        window.alert("Feed images must be square (1:1). Crop it to 1080×1080 and re-upload.");
-        return;
-      }
-
+  const beginUpload = useCallback(
+    async (localId: string, role: AssetRole, kind: AssetKind, file: File) => {
       const previewUrl = URL.createObjectURL(file);
       const slot: SlotState = {
         kind,
@@ -391,6 +381,26 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
       }
     },
     [updateAd]
+  );
+
+  const handleFile = useCallback(
+    async (localId: string, role: AssetRole, file: File) => {
+      const kind: AssetKind | null = file.type.startsWith("image/")
+        ? "image"
+        : file.type.startsWith("video/")
+          ? "video"
+          : null;
+      if (!kind) return;
+
+      // Non-square feed images go through the interactive 1:1 crop first.
+      if (role === "feed" && kind === "image" && !(await isSquareImage(file))) {
+        setCropRequest({ localId, file });
+        return;
+      }
+
+      beginUpload(localId, role, kind, file);
+    },
+    [beginUpload]
   );
 
   const validateAd = useCallback(
@@ -562,6 +572,18 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
           )}
         </button>
       </div>
+
+      {cropRequest && (
+        <SquareCropDialog
+          file={cropRequest.file}
+          onCancel={() => setCropRequest(null)}
+          onCropped={(cropped) => {
+            const id = cropRequest.localId;
+            setCropRequest(null);
+            beginUpload(id, "feed", "image", cropped);
+          }}
+        />
+      )}
 
       {defaults && !defaults.canPublish && (
         <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4 text-[13px] text-amber-800">
