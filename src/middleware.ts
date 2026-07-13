@@ -57,6 +57,7 @@ export async function middleware(request: NextRequest) {
     // auth-protected admin surfaces and must NOT match these prefixes.
     pathname.startsWith('/gift/') ||
     pathname.startsWith('/api/gift/t/') ||
+    pathname.startsWith('/api/gift/g/') ||
     pathname.startsWith('/terms') ||
     pathname.startsWith('/api/creators/signup') ||
     pathname.startsWith('/creator/login') ||
