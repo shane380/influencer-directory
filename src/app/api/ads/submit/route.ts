@@ -12,6 +12,13 @@ function validate(body: SubmitDraftRequest): string | null {
   if (cards.length > 0) {
     if (cards.length < 2) return "A carousel needs at least 2 cards";
     if (cards.length > 10) return "A carousel can have at most 10 cards";
+    const withVertical = cards.filter((c) => c.verticalFileUrl).length;
+    if (withVertical > 0 && withVertical < cards.length) {
+      return "Every carousel card needs a 9:16 version (or remove them all)";
+    }
+    if (withVertical > 0 && new Set(cards.map((c) => c.kind)).size > 1) {
+      return "Per-placement carousels need every card to be the same media type";
+    }
   } else {
     if (!body.assets.some((a) => a.role === "feed")) return "Upload a feed creative";
     const kinds = new Set(body.assets.map((a) => a.kind));

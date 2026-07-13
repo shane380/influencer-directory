@@ -49,6 +49,8 @@ type AdFormat = "single" | "carousel";
 interface CardState {
   cardId: string;
   slot: SlotState;
+  /** Optional 9:16 variant for stories/reels (all cards or none) */
+  vertical: SlotState | null;
   headline: string;
   link: string;
 }
@@ -234,6 +236,18 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
               thumbUrl: c.thumbUrl || null,
               error: null,
             },
+            vertical: c.vertical?.r2Url
+              ? {
+                  kind: c.vertical.kind,
+                  fileName: c.vertical.fileName || "card-9x16",
+                  previewUrl: c.vertical.r2Url,
+                  uploading: false,
+                  progress: 100,
+                  r2Url: c.vertical.r2Url,
+                  thumbUrl: c.vertical.thumbUrl || null,
+                  error: null,
+                }
+              : null,
           })),
         copy: { ...emptyCopy(null), ...(a.copy || {}) },
         feed: a.feed?.r2Url
@@ -298,6 +312,14 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                 thumbUrl: c.slot.thumbUrl,
                 headline: c.headline,
                 link: c.link,
+                vertical: c.vertical?.r2Url
+                  ? {
+                      kind: c.vertical.kind,
+                      fileName: c.vertical.fileName,
+                      r2Url: c.vertical.r2Url,
+                      thumbUrl: c.vertical.thumbUrl,
+                    }
+                  : null,
               })),
             copy: a.copy,
             feed: a.feed?.r2Url
@@ -424,6 +446,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                   cardId,
                   headline: "",
                   link: "",
+                  vertical: null,
                   slot: {
                     kind,
                     fileName: file.name,
@@ -489,6 +512,81 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
     [addCardUpload]
   );
 
+  const handleCardVerticalFile = useCallback(async (localId: string, cardId: string, file: File) => {
+    const kind: AssetKind | null = file.type.startsWith("image/")
+      ? "image"
+      : file.type.startsWith("video/")
+        ? "video"
+        : null;
+    if (!kind) return;
+    const previewUrl = URL.createObjectURL(file);
+    const setVertical = (vertical: SlotState | null | ((v: SlotState) => SlotState)) =>
+      setAds((prev) =>
+        prev.map((a) =>
+          a.localId === localId
+            ? {
+                ...a,
+                cards: a.cards.map((c) =>
+                  c.cardId === cardId
+                    ? {
+                        ...c,
+                        vertical:
+                          typeof vertical === "function"
+                            ? c.vertical
+                              ? vertical(c.vertical)
+                              : c.vertical
+                            : vertical,
+                      }
+                    : c
+                ),
+              }
+            : a
+        )
+      );
+
+    setVertical({
+      kind,
+      fileName: file.name,
+      previewUrl,
+      uploading: true,
+      progress: 0,
+      r2Url: null,
+      thumbUrl: null,
+      error: null,
+    });
+    try {
+      const asset = await uploadAdAsset(file, "card", kind, (p) =>
+        setVertical((v) => ({ ...v, progress: p }))
+      );
+      setVertical((v) => ({
+        ...v,
+        uploading: false,
+        progress: 100,
+        r2Url: asset.fileUrl,
+        thumbUrl: asset.thumbnailUrl || null,
+      }));
+    } catch (err) {
+      setVertical((v) => ({
+        ...v,
+        uploading: false,
+        error: err instanceof Error ? err.message : "Upload failed",
+      }));
+    }
+  }, []);
+
+  const clearCardVertical = useCallback((localId: string, cardId: string) => {
+    setAds((prev) =>
+      prev.map((a) =>
+        a.localId === localId
+          ? {
+              ...a,
+              cards: a.cards.map((c) => (c.cardId === cardId ? { ...c, vertical: null } : c)),
+            }
+          : a
+      )
+    );
+  }, []);
+
   const moveCard = useCallback((localId: string, cardId: string, dir: -1 | 1) => {
     setAds((prev) =>
       prev.map((a) => {
@@ -533,8 +631,22 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
       if (ad.format === "carousel") {
         if (ad.cards.length < 2) return "Add at least 2 carousel cards";
         if (ad.cards.length > 10) return "A carousel can have at most 10 cards";
-        if (ad.cards.some((c) => c.slot.uploading)) return "Still uploading";
+        if (ad.cards.some((c) => c.slot.uploading || c.vertical?.uploading)) return "Still uploading";
         if (ad.cards.some((c) => !c.slot.r2Url)) return "A card failed to upload — remove it and retry";
+        if (ad.cards.some((c) => c.vertical && !c.vertical.r2Url))
+          return "A 9:16 upload failed — remove it and retry";
+        const withVertical = ad.cards.filter((c) => c.vertical?.r2Url).length;
+        if (withVertical > 0 && withVertical < ad.cards.length) {
+          return "Every card needs a 9:16 version (or remove them all)";
+        }
+        if (withVertical > 0) {
+          if (new Set(ad.cards.map((c) => c.slot.kind)).size > 1) {
+            return "Per-placement carousels need every card to be the same media type";
+          }
+          if (ad.cards.some((c) => c.vertical && c.vertical.kind !== c.slot.kind)) {
+            return "Each 9:16 must be the same media type as its card";
+          }
+        }
       } else {
         if (!ad.feed?.r2Url) return "Upload a feed creative";
         if (ad.feed.uploading || ad.vertical?.uploading) return "Still uploading";
@@ -574,6 +686,8 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
           order: i,
           cardHeadline: c.headline.trim() || null,
           cardLink: c.link.trim() || null,
+          verticalFileUrl: c.vertical?.r2Url || null,
+          verticalThumbnailUrl: c.vertical?.thumbUrl || null,
         }));
       } else {
         assets = [
@@ -1018,7 +1132,8 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                 ) : (
                   <div className="mb-4">
                     <label className="text-xs text-gray-500 block mb-1.5">
-                      Cards ({selected.cards.length}/10) · square 1:1, min 600×600, videos ≤60s
+                      Cards ({selected.cards.length}/10) · square 1:1, min 600×600, videos ≤60s ·
+                      optional 9:16 per card for stories/reels (all cards or none)
                     </label>
                     <div className="space-y-2">
                       {selected.cards.map((c, i) => (
@@ -1070,6 +1185,60 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                             placeholder="Card link (defaults to ad URL)"
                             className="border border-gray-300 rounded-md px-2 py-1 text-[12px] flex-1 min-w-0"
                           />
+                          {c.vertical ? (
+                            <div
+                              className="relative w-8 h-12 rounded overflow-hidden bg-gray-900 flex-shrink-0"
+                              title="9:16 for stories/reels"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={
+                                  c.vertical.kind === "image"
+                                    ? c.vertical.previewUrl
+                                    : c.vertical.thumbUrl || c.vertical.previewUrl
+                                }
+                                alt=""
+                                className="w-full h-full object-cover"
+                              />
+                              {c.vertical.uploading && (
+                                <span className="absolute inset-0 bg-black/50 text-white text-[9px] flex items-center justify-center">
+                                  {c.vertical.progress}%
+                                </span>
+                              )}
+                              {c.vertical.error && (
+                                <span
+                                  className="absolute inset-0 bg-red-600/70 text-white flex items-center justify-center"
+                                  title={c.vertical.error}
+                                >
+                                  <AlertTriangle className="h-3 w-3" />
+                                </span>
+                              )}
+                              <button
+                                onClick={() => clearCardVertical(selected.localId, c.cardId)}
+                                className="absolute top-0 right-0 bg-black/60 text-white rounded-bl px-1 text-[9px] leading-3"
+                                aria-label="Remove 9:16"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ) : (
+                            <label
+                              className="w-8 h-12 border border-dashed border-gray-300 rounded text-[9px] text-gray-400 hover:text-gray-700 hover:border-gray-400 flex items-center justify-center cursor-pointer flex-shrink-0"
+                              title="Add a 9:16 version for stories/reels (all cards or none)"
+                            >
+                              9:16
+                              <input
+                                type="file"
+                                accept="image/*,video/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  if (f) handleCardVerticalFile(selected.localId, c.cardId, f);
+                                  e.target.value = "";
+                                }}
+                              />
+                            </label>
+                          )}
                           <span className="flex flex-col flex-shrink-0">
                             <button
                               onClick={() => moveCard(selected.localId, c.cardId, -1)}
@@ -1231,22 +1400,35 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <div className="flex gap-8 justify-center flex-wrap">
                 {selected?.format === "carousel" ? (
-                  <IgCarouselPreview
-                    copy={selected.copy}
-                    ctaLabel={ctaLabel}
-                    identityName={identityName}
-                    identitySub={identitySub}
-                    cards={
-                      selected.cards.length
-                        ? selected.cards.map((c) => ({
-                            mediaUrl: c.slot.previewUrl,
-                            mediaKind: c.slot.kind,
-                            posterUrl: c.slot.thumbUrl,
-                            headline: c.headline,
-                          }))
-                        : [{ mediaUrl: null, mediaKind: null }]
-                    }
-                  />
+                  <>
+                    <IgCarouselPreview
+                      copy={selected.copy}
+                      ctaLabel={ctaLabel}
+                      identityName={identityName}
+                      identitySub={identitySub}
+                      cards={
+                        selected.cards.length
+                          ? selected.cards.map((c) => ({
+                              mediaUrl: c.slot.previewUrl,
+                              mediaKind: c.slot.kind,
+                              posterUrl: c.slot.thumbUrl,
+                              headline: c.headline,
+                            }))
+                          : [{ mediaUrl: null, mediaKind: null }]
+                      }
+                    />
+                    {selected.cards.some((c) => c.vertical?.r2Url) && (
+                      <IgReelsPreview
+                        copy={selected.copy}
+                        ctaLabel={ctaLabel}
+                        identityName={identityName}
+                        identitySub={identitySub}
+                        mediaUrl={selected.cards[0]?.vertical?.previewUrl || null}
+                        mediaKind={selected.cards[0]?.vertical?.kind || null}
+                        posterUrl={selected.cards[0]?.vertical?.thumbUrl}
+                      />
+                    )}
+                  </>
                 ) : (
                   <>
                     <IgFeedPreview

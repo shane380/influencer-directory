@@ -77,6 +77,12 @@ export interface DraftAsset {
   cardHeadline?: string | null;
   /** Carousel cards only: per-card destination; falls back to the ad link */
   cardLink?: string | null;
+  /**
+   * Carousel cards only: optional 9:16 variant for stories/reels placements.
+   * Either every card has one or none do (Meta customizes the whole set).
+   */
+  verticalFileUrl?: string | null;
+  verticalThumbnailUrl?: string | null;
 }
 
 export interface SubmitDraftRequest {

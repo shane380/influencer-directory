@@ -298,6 +298,8 @@ async function waitForVideoReady(videoId: string, timeoutMs = 120_000): Promise<
 interface UploadedAsset extends DraftAsset {
   imageHash?: string;
   videoId?: string;
+  verticalImageHash?: string;
+  verticalVideoId?: string;
 }
 
 export interface PushDraftInput {
@@ -343,11 +345,20 @@ export async function pushDraftToMeta(
   const uploaded: UploadedAsset[] = [];
   for (const asset of draft.assets) {
     if (asset.kind === "image") {
-      uploaded.push({ ...asset, imageHash: await uploadImage(asset.fileUrl) });
+      const up: UploadedAsset = { ...asset, imageHash: await uploadImage(asset.fileUrl) };
+      if (asset.verticalFileUrl) {
+        up.verticalImageHash = await uploadImage(asset.verticalFileUrl);
+      }
+      uploaded.push(up);
     } else {
       const videoId = await uploadVideo(asset.fileUrl, `${draft.adName} (${asset.role})`);
+      let verticalVideoId: string | undefined;
+      if (asset.verticalFileUrl) {
+        verticalVideoId = await uploadVideo(asset.verticalFileUrl, `${draft.adName} (${asset.role} 9:16)`);
+      }
       await waitForVideoReady(videoId);
-      uploaded.push({ ...asset, videoId });
+      if (verticalVideoId) await waitForVideoReady(verticalVideoId);
+      uploaded.push({ ...asset, videoId, verticalVideoId });
     }
   }
 
@@ -422,8 +433,6 @@ function buildCreativeParams(
   if (draft.instagramUserId) identity.instagram_user_id = draft.instagramUserId;
 
   if (cards.length >= 2) {
-    // Carousel — one set of square cards for every placement. No 9:16
-    // variant and no asset_feed_spec; carousels use link_data directly.
     for (const c of cards) {
       if (c.kind === "video" && !c.thumbnailUrl) {
         throw new MetaApiError(
@@ -432,6 +441,118 @@ function buildCreativeParams(
         );
       }
     }
+
+    if (cards.some((c) => c.verticalFileUrl)) {
+      // Per-placement carousel: two card sets (1:1 for feeds, 9:16 for
+      // stories/reels) via the undocumented asset_feed_spec.carousels +
+      // carousel_label customization rules — the structure Ads Manager emits.
+      if (!cards.every((c) => c.verticalFileUrl)) {
+        throw new MetaApiError(
+          "Every carousel card needs a 9:16 version (or remove them all)",
+          null
+        );
+      }
+      const allImages = cards.every((c) => c.kind === "image");
+      const allVideos = cards.every((c) => c.kind === "video");
+      if (!allImages && !allVideos) {
+        throw new MetaApiError(
+          "Per-placement carousels need every card to be the same media type",
+          null
+        );
+      }
+
+      const images: any[] = [];
+      const videos: any[] = [];
+      const linkUrls: any[] = [{ website_url: draft.copy.link }];
+      const titles: any[] = draft.copy.headline ? [{ text: draft.copy.headline }] : [];
+      const feedChildren: any[] = [];
+      const vertChildren: any[] = [];
+
+      cards.forEach((c, i) => {
+        const feedLabel = { name: `card${i}_feed` };
+        const vertLabel = { name: `card${i}_vert` };
+        if (allImages) {
+          images.push({ hash: c.imageHash, adlabels: [feedLabel] });
+          images.push({ hash: c.verticalImageHash, adlabels: [vertLabel] });
+        } else {
+          videos.push({
+            video_id: c.videoId,
+            thumbnail_url: c.thumbnailUrl || undefined,
+            adlabels: [feedLabel],
+          });
+          videos.push({
+            video_id: c.verticalVideoId,
+            thumbnail_url: c.verticalThumbnailUrl || c.thumbnailUrl || undefined,
+            adlabels: [vertLabel],
+          });
+        }
+
+        let linkLabel: { name: string } | undefined;
+        if (c.cardLink) {
+          linkLabel = { name: `card${i}_link` };
+          linkUrls.push({ website_url: c.cardLink, adlabels: [linkLabel] });
+        }
+        let titleLabel: { name: string } | undefined;
+        if (c.cardHeadline) {
+          titleLabel = { name: `card${i}_title` };
+          titles.push({ text: c.cardHeadline, adlabels: [titleLabel] });
+        }
+        const child = (mediaLabel: { name: string }) => ({
+          ...(allImages ? { image_label: mediaLabel } : { video_label: mediaLabel }),
+          ...(linkLabel ? { link_url_label: linkLabel } : {}),
+          ...(titleLabel ? { title_label: titleLabel } : {}),
+        });
+        feedChildren.push(child(feedLabel));
+        vertChildren.push(child(vertLabel));
+      });
+
+      const feedCarouselLabel = { name: "carousel_feed" };
+      const vertCarouselLabel = { name: "carousel_vertical" };
+      const shareFlags = {
+        multi_share_optimized: draft.copy.multiShareOptimized === true,
+        multi_share_end_card: false,
+      };
+
+      params.object_story_spec = identity;
+      params.asset_feed_spec = {
+        ad_formats: [allImages ? "CAROUSEL_IMAGE" : "CAROUSEL_VIDEO"],
+        optimization_type: "PLACEMENT",
+        bodies: [{ text: draft.copy.primaryText }],
+        titles: titles.length ? titles : undefined,
+        descriptions: draft.copy.description ? [{ text: draft.copy.description }] : undefined,
+        link_urls: linkUrls,
+        call_to_action_types: [draft.copy.cta],
+        ...(allImages ? { images } : { videos }),
+        carousels: [
+          { adlabels: [feedCarouselLabel], child_attachments: feedChildren, ...shareFlags },
+          { adlabels: [vertCarouselLabel], child_attachments: vertChildren, ...shareFlags },
+        ],
+        asset_customization_rules: [
+          {
+            customization_spec: {
+              publisher_platforms: ["facebook", "instagram"],
+              facebook_positions: ["feed", "marketplace", "video_feeds", "search"],
+              instagram_positions: ["stream", "explore", "explore_home", "profile_feed"],
+            },
+            carousel_label: feedCarouselLabel,
+            priority: 1,
+          },
+          {
+            customization_spec: {
+              publisher_platforms: ["facebook", "instagram"],
+              facebook_positions: ["story", "facebook_reels"],
+              instagram_positions: ["story", "reels"],
+            },
+            carousel_label: vertCarouselLabel,
+            priority: 2,
+          },
+        ],
+      };
+      return params;
+    }
+
+    // Plain carousel — one set of square cards for every placement, no
+    // asset_feed_spec; carousels use link_data directly.
     params.object_story_spec = {
       ...identity,
       link_data: {
