@@ -42,6 +42,7 @@ export function ReviewQueue({
   onQueueCount?: (n: number) => void;
 }) {
   const [queue, setQueue] = useState<AdDraft[]>([]);
+  const [reviewed, setReviewed] = useState<AdDraft[]>([]);
   const [mine, setMine] = useState<AdDraft[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -56,6 +57,7 @@ export function ReviewQueue({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to load drafts");
       setQueue(data.queue || []);
+      setReviewed(data.reviewed || []);
       setMine(data.mine || []);
       onQueueCount?.(data.queue?.length || 0);
     } catch (err) {
@@ -181,7 +183,7 @@ export function ReviewQueue({
     );
   };
 
-  const renderCard = (draft: AdDraft, mode: "queue" | "mine") => {
+  const renderCard = (draft: AdDraft, mode: "queue" | "mine" | "reviewed") => {
     const status = STATUS_META[draft.status] || STATUS_META.pending;
     const feed = draft.assets.find((a) => a.role === "feed");
     const vertical = draft.assets.find((a) => a.role === "vertical") || feed;
@@ -211,13 +213,15 @@ export function ReviewQueue({
               </span>
             </div>
             <p className="text-[12px] text-gray-500 truncate">
-              {mode === "queue"
-                ? `Submitted by ${draft.createdByName} · ${timeAgo(draft.createdAt)}`
-                : `${draft.campaignName} → ${draft.adsetName} · ${timeAgo(draft.createdAt)}${
-                    draft.partnershipSponsorLabel
-                      ? ` · Partnership: ${draft.partnershipSponsorLabel}`
-                      : ""
-                  }`}
+              {mode === "queue" && `Submitted by ${draft.createdByName} · ${timeAgo(draft.createdAt)}`}
+              {mode === "reviewed" &&
+                `${draft.createdByName} · ${draft.campaignName} → ${draft.adsetName} · ${timeAgo(draft.createdAt)}`}
+              {mode === "mine" &&
+                `${draft.campaignName} → ${draft.adsetName} · ${timeAgo(draft.createdAt)}${
+                  draft.partnershipSponsorLabel
+                    ? ` · Partnership: ${draft.partnershipSponsorLabel}`
+                    : ""
+                }`}
             </p>
             <p className="text-[12px] text-gray-600 mt-1 line-clamp-2">
               &ldquo;{draft.copy.primaryText}&rdquo;
@@ -350,6 +354,13 @@ export function ReviewQueue({
             </p>
           ) : (
             <div className="space-y-3 mb-6">{queue.map((d) => renderCard(d, "queue"))}</div>
+          )}
+
+          {reviewed.length > 0 && (
+            <>
+              <h2 className="text-sm font-semibold text-gray-900 mb-3">Recently reviewed</h2>
+              <div className="space-y-3 mb-6">{reviewed.map((d) => renderCard(d, "reviewed"))}</div>
+            </>
           )}
         </>
       )}

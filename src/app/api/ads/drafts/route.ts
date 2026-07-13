@@ -48,6 +48,7 @@ export async function GET() {
   }
 
   let queue: any[] = [];
+  let reviewed: any[] = [];
   if (user.isAdmin) {
     const { data, error } = await base().eq("status", "pending").limit(50);
     if (error) {
@@ -55,11 +56,24 @@ export async function GET() {
       return NextResponse.json({ error: "Could not load review queue" }, { status: 500 });
     }
     queue = data || [];
+
+    // Review history: everyone else's non-pending drafts (own ones already
+    // appear under "My submitted ads").
+    const { data: reviewedData, error: reviewedErr } = await base()
+      .neq("status", "pending")
+      .neq("created_by", user.userId)
+      .limit(20);
+    if (reviewedErr) {
+      console.error("[ads/drafts] reviewed query failed:", reviewedErr.message);
+    } else {
+      reviewed = reviewedData || [];
+    }
   }
 
   return NextResponse.json({
     mine: (mine || []).map(rowToDraft),
     queue: queue.map(rowToDraft),
+    reviewed: reviewed.map(rowToDraft),
     isAdmin: user.isAdmin,
   });
 }
