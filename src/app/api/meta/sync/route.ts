@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { syncCreator, syncAllCreators, getServiceClient } from "@/lib/meta-sync";
 
+export const maxDuration = 300;
+
 async function verifyAdmin() {
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();

@@ -6,7 +6,7 @@ import mux from "./mux";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-const META_API_VERSION = "v19.0";
+const META_API_VERSION = "v25.0";
 const MAX_CALLS_PER_HOUR = 400;
 
 // In-memory call counter for a single invocation
@@ -869,7 +869,12 @@ export async function syncCreator(
 }
 
 export async function syncAllCreators(
-  supabase?: any
+  supabase?: any,
+  // Stop starting new creators this long after the run begins, so the run ends
+  // cleanly (status written, stoppedEarly recorded) instead of being killed by
+  // the platform's function timeout (maxDuration 300s on the calling routes).
+  // Headroom below 300s absorbs the in-flight creator finishing.
+  timeBudgetMs = 240_000
 ): Promise<{
   synced: number;
   failed: number;
@@ -877,6 +882,7 @@ export async function syncAllCreators(
   errors: string[];
 }> {
   const db = supabase || getServiceClient();
+  const deadline = Date.now() + timeBudgetMs;
 
   // Track two groups: partners with ad-spend deals (invites) AND influencers
   // whitelisted directly in the directory (whitelisting_enabled) who never went
@@ -908,6 +914,24 @@ export async function syncAllCreators(
     }
   }
 
+  // Least-recently-synced first. When a run can't finish everyone (time budget
+  // or rate limit), processing order decides who goes stale — a fixed order
+  // starves the same tail creators every night. Never-synced creators (no row
+  // or null synced_at) sort to the very front.
+  const { data: perfRows } = await (db.from("creator_ad_performance") as any)
+    .select("instagram_handle, synced_at");
+  const lastSynced = new Map<string, string>();
+  for (const r of perfRows || []) {
+    if (r?.instagram_handle) {
+      lastSynced.set(r.instagram_handle.toLowerCase(), r.synced_at || "");
+    }
+  }
+  creators.sort((a, b) =>
+    (lastSynced.get(a.handle.toLowerCase()) || "").localeCompare(
+      lastSynced.get(b.handle.toLowerCase()) || ""
+    )
+  );
+
   console.log(`[meta-sync] Starting sync for ${creators.length} creators`);
 
   let synced = 0;
@@ -916,6 +940,13 @@ export async function syncAllCreators(
   const errors: string[] = [];
 
   for (const creator of creators) {
+    if (Date.now() > deadline) {
+      stoppedEarly = true;
+      console.warn(
+        `[meta-sync] Stopped early: time budget reached after ${synced} synced, ${failed} failed (${creators.length - synced - failed} not attempted; they go first next run)`
+      );
+      break;
+    }
     try {
       const result = await syncCreator(creator.handle, creator.influencerId, db);
       if (result.success) {

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { syncAllCreators, getServiceClient } from "@/lib/meta-sync";
 
+export const maxDuration = 300;
+
 // GET: Daily cron job to sync Meta ad data for all creators
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
