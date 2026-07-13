@@ -68,7 +68,8 @@ const DRAFT_KEY = "adsLauncher.draft.v2";
 const emptyCopy = (defaults?: LauncherDefaults | null): AdCopy => ({
   primaryText: "",
   headline: "",
-  description: "",
+  // Default per Daisy: "nama" for brand visibility; tailor per ad as needed.
+  description: "nama",
   link: defaults?.suggestedLink || "",
   cta: "SHOP_NOW",
   urlTags: defaults?.suggestedUrlTags || "",
@@ -100,6 +101,13 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
   const [tab, setTab] = useState<"create" | "review">(
     searchParams?.get("review") ? "review" : "create"
   );
+
+  // Bell notifications navigate to /ads?review=1; when already on /ads only
+  // the query changes, so sync the tab to it after mount too.
+  const reviewParam = searchParams?.get("review");
+  useEffect(() => {
+    if (reviewParam) setTab("review");
+  }, [reviewParam]);
   const [defaults, setDefaults] = useState<LauncherDefaults | null>(null);
   const [targets, setTargets] = useState<TargetsResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -356,6 +364,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
       }
       if (ad.partnership && !ad.sponsorId.trim()) return "Pick or enter the partner's IG ID";
       if (!ad.copy.primaryText.trim()) return "Write the primary text";
+      if (!ad.copy.headline.trim()) return "Add a headline";
       if (!ad.copy.link.trim()) return "Add the website URL";
       return null;
     },
@@ -491,7 +500,10 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
     <div>
       <div className="flex items-center gap-1 mb-5">
         <button
-          onClick={() => setTab("create")}
+          onClick={() => {
+            setTab("create");
+            router.replace("/ads");
+          }}
           className={`px-4 py-1.5 rounded-md text-sm transition-colors ${
             tab === "create" ? "bg-gray-900 text-white font-medium" : "text-gray-600 hover:bg-gray-100"
           }`}
@@ -806,7 +818,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                 />
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Headline</label>
+                    <label className="text-xs text-gray-500 block mb-1">Headline (required)</label>
                     <input
                       value={selected.copy.headline}
                       onChange={(e) => updateCopy(selected.localId, { headline: e.target.value })}
