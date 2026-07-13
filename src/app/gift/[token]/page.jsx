@@ -60,6 +60,7 @@ const CSS = `
 .gf-card-title { font-size: 12px; line-height: 1.35; color: #111; }
 .gf-card-size { font-size: 11px; color: #666; margin-top: 3px; }
 .gf-check { position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; z-index: 2; }
+.gf-uncheck { position: absolute; top: 8px; left: 8px; width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,0.94); border: 1px solid #d8d8d8; color: #555; display: flex; align-items: center; justify-content: center; font-size: 13px; line-height: 1; z-index: 2; cursor: pointer; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
 .gf-opts { padding: 0 10px 12px; }
 .gf-opts.pulse { animation: gf-pulse 0.5s ease 2; }
 @keyframes gf-pulse { 50% { transform: scale(1.03); } }
@@ -463,6 +464,9 @@ export default function GiftPage() {
                 return (
                   <div key={product.product_id} className={`gf-card${picked ? ' sel' : ''}`}>
                     {picked && <div className="gf-check">✓</div>}
+                    {picked && (
+                      <button className="gf-uncheck" title="Remove" onClick={(e) => { e.stopPropagation(); removePick(picked) }}>×</button>
+                    )}
                     <img className="gf-card-img" src={product.image || ''} alt={product.title} onClick={() => tapProduct(product)} />
                     <div className="gf-card-body" onClick={() => tapProduct(product)}>
                       <div className="gf-card-title">{product.title}</div>
@@ -521,7 +525,7 @@ export default function GiftPage() {
                       </div>
                     ))}
                     {picked && (
-                      <button className="gf-sheet-remove" onClick={() => { removePick(picked); setSheetProduct(null) }}>Remove this piece</button>
+
                     )}
                   </div>
                 </>
