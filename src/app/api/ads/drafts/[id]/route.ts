@@ -56,6 +56,25 @@ export async function PATCH(
   if (body.copy && typeof body.copy === "object" && !Array.isArray(body.copy)) {
     update.copy = { ...(row.copy || {}), ...body.copy };
   }
+  if (Array.isArray(body.assets)) {
+    const assets = body.assets.filter(
+      (a: any) =>
+        a &&
+        (a.role === "feed" || a.role === "vertical") &&
+        (a.kind === "image" || a.kind === "video") &&
+        typeof a.fileUrl === "string" &&
+        a.fileUrl
+    );
+    if (!assets.some((a: any) => a.role === "feed")) {
+      return NextResponse.json({ error: "A feed creative is required" }, { status: 400 });
+    }
+    update.assets = assets.map((a: any) => ({
+      role: a.role,
+      kind: a.kind,
+      fileUrl: a.fileUrl,
+      thumbnailUrl: typeof a.thumbnailUrl === "string" ? a.thumbnailUrl : null,
+    }));
+  }
   if (body.resubmit === true && isOwner) {
     update.status = "pending";
   }
