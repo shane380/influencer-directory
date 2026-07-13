@@ -559,7 +559,7 @@ export function ReviewQueue({
         label: "Format",
         value: `Carousel · ${cards.length} cards · ${
           draft.copy.multiShareOptimized ? "Meta may reorder cards" : "fixed card order"
-        }`,
+        }${cards.every((c) => c.verticalFileUrl) ? " · 9:16 set for stories/reels" : ""}`,
       });
     }
     if (draft.partnershipSponsorLabel || draft.partnershipSponsorId) {
@@ -761,18 +761,31 @@ export function ReviewQueue({
         {expanded && (
           <div className="mt-4 border-t border-gray-100 pt-4 flex gap-4 justify-center flex-wrap">
             {cards.length > 0 ? (
-              <IgCarouselPreview
-                copy={draft.copy}
-                ctaLabel={CTA_LABELS[draft.copy.cta] || "Shop now"}
-                identityName={identityName}
-                identitySub={identitySub}
-                cards={cards.map((c) => ({
-                  mediaUrl: c.fileUrl,
-                  mediaKind: c.kind,
-                  posterUrl: c.thumbnailUrl,
-                  headline: c.cardHeadline,
-                }))}
-              />
+              <>
+                <IgCarouselPreview
+                  copy={draft.copy}
+                  ctaLabel={CTA_LABELS[draft.copy.cta] || "Shop now"}
+                  identityName={identityName}
+                  identitySub={identitySub}
+                  cards={cards.map((c) => ({
+                    mediaUrl: c.fileUrl,
+                    mediaKind: c.kind,
+                    posterUrl: c.thumbnailUrl,
+                    headline: c.cardHeadline,
+                  }))}
+                />
+                {cards[0]?.verticalFileUrl && (
+                  <IgReelsPreview
+                    copy={draft.copy}
+                    ctaLabel={CTA_LABELS[draft.copy.cta] || "Shop now"}
+                    identityName={identityName}
+                    identitySub={identitySub}
+                    mediaUrl={cards[0].verticalFileUrl}
+                    mediaKind={cards[0].kind}
+                    posterUrl={cards[0].verticalThumbnailUrl}
+                  />
+                )}
+              </>
             ) : (
               <>
                 <IgFeedPreview

@@ -79,6 +79,9 @@ export async function PATCH(
             order: typeof a.order === "number" ? a.order : 0,
             cardHeadline: typeof a.cardHeadline === "string" ? a.cardHeadline : null,
             cardLink: typeof a.cardLink === "string" ? a.cardLink : null,
+            verticalFileUrl: typeof a.verticalFileUrl === "string" ? a.verticalFileUrl : null,
+            verticalThumbnailUrl:
+              typeof a.verticalThumbnailUrl === "string" ? a.verticalThumbnailUrl : null,
           }
         : {}),
     }));
