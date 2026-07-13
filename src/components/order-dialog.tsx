@@ -610,13 +610,18 @@ export function OrderDialog({
 
   const handleShowEditCustomerForm = () => {
     if (shopifyCustomer) {
+      // Fill any blanks from the address the influencer confirmed on the gift
+      // page — e.g. "add phone number" opens with her confirmed phone ready.
+      const gift = (campaignInfluencer as any).gift_shipping || null;
       setNewCustomerForm({
-        email: shopifyCustomer.email || "",
+        email: shopifyCustomer.email || gift?.email || "",
         first_name: shopifyCustomer.first_name || "",
         last_name: shopifyCustomer.last_name || "",
-        phone: shopifyCustomer.phone || "",
-        address: shopifyCustomer.address?.address1 || "",
-        country: (shopifyCustomer.address?.country_code || "US").toUpperCase(),
+        phone: shopifyCustomer.phone || gift?.phone || "",
+        address:
+          shopifyCustomer.address?.address1 ||
+          (gift ? [gift.address1, gift.address2, gift.city, `${gift.province || ""} ${gift.zip || ""}`.trim()].filter(Boolean).join(", ") : ""),
+        country: (shopifyCustomer.address?.country_code || gift?.country_code || "US").toUpperCase(),
       });
       setShowEditCustomerForm(true);
       setShowCreateCustomerForm(false);
