@@ -579,57 +579,73 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
       ) : (
         <div className="space-y-4">
           {/* Top bar — destination + batch */}
-          <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 flex items-center gap-3 flex-wrap">
-            <select
-              value={campaignId}
-              onChange={(e) => {
-                setCampaignId(e.target.value);
-                setAdsetId("");
-              }}
-              className="w-64 border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] bg-white"
-            >
-              <option value="">
-                {loadingTargets ? "Loading…" : "Select campaign"}
-              </option>
-              {visibleCampaigns.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} {c.effective_status === "PAUSED" ? "(paused)" : ""}
+          <div className="bg-white border border-gray-200 rounded-lg px-4 py-2.5 flex items-end gap-3 flex-wrap">
+            <div>
+              <label className="block text-[10px] uppercase tracking-wide text-gray-400 mb-1">
+                Campaign
+              </label>
+              <select
+                value={campaignId}
+                onChange={(e) => {
+                  setCampaignId(e.target.value);
+                  setAdsetId("");
+                }}
+                className="w-64 border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] bg-white"
+              >
+                <option value="">
+                  {loadingTargets ? "Loading…" : "Select campaign"}
                 </option>
-              ))}
-            </select>
-            <select
-              value={adsetId}
-              onChange={(e) => setAdsetId(e.target.value)}
-              disabled={!campaign}
-              className="w-56 border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] bg-white disabled:bg-gray-50 disabled:text-gray-400"
-            >
-              <option value="">Select ad set</option>
-              {visibleAdsets.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name} {a.effective_status === "PAUSED" ? "(paused)" : ""}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={fetchTargets}
-              title="Refresh campaigns"
-              className="text-gray-400 hover:text-gray-700"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${loadingTargets ? "animate-spin" : ""}`} />
-            </button>
-            <label className="flex items-center gap-1.5 text-[11.5px] text-gray-500 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={showPaused}
-                onChange={(e) => setShowPaused(e.target.checked)}
-                className="h-3 w-3 rounded border-gray-300"
-              />
-              Show paused
-            </label>
-            {loadError && <span className="text-[11px] text-red-600">{loadError}</span>}
+                {visibleCampaigns.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} {c.effective_status === "PAUSED" ? "(paused)" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] uppercase tracking-wide text-gray-400 mb-1">
+                Ad set
+              </label>
+              <select
+                value={adsetId}
+                onChange={(e) => setAdsetId(e.target.value)}
+                disabled={!campaign}
+                className="w-56 border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] bg-white disabled:bg-gray-50 disabled:text-gray-400"
+              >
+                <option value="">Select ad set</option>
+                {visibleAdsets.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name} {a.effective_status === "PAUSED" ? "(paused)" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-3 pb-2">
+              <button
+                onClick={fetchTargets}
+                title="Refresh campaigns"
+                className="text-gray-400 hover:text-gray-700"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${loadingTargets ? "animate-spin" : ""}`} />
+              </button>
+              <label className="flex items-center gap-1.5 text-[11.5px] text-gray-500 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={showPaused}
+                  onChange={(e) => setShowPaused(e.target.checked)}
+                  className="h-3 w-3 rounded border-gray-300"
+                />
+                Show paused
+              </label>
+              {loadError && <span className="text-[11px] text-red-600">{loadError}</span>}
+            </div>
 
-            <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
-            <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="self-stretch w-px bg-gray-200 mx-1 hidden sm:block" />
+            <div>
+              <label className="block text-[10px] uppercase tracking-wide text-gray-400 mb-1">
+                Ads in this batch
+              </label>
+              <div className="flex items-center gap-1.5 flex-wrap">
               {ads.map((ad) => (
                 <button
                   key={ad.localId}
@@ -692,6 +708,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
               >
                 <Plus className="h-3 w-3" /> Add ad
               </button>
+              </div>
             </div>
           </div>
 
@@ -701,14 +718,19 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
               <p className="text-sm text-gray-400 py-16 text-center">Add an ad to get started</p>
             ) : (
               <>
-                <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-                  <input
-                    value={selected.adName}
-                    onChange={(e) => updateAd(selected.localId, { adName: e.target.value })}
-                    placeholder="Ad name"
-                    className="border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] font-medium w-60"
-                  />
-                  <div className="flex items-center gap-2">
+                <div className="flex items-end justify-between gap-3 mb-4 flex-wrap">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wide text-gray-400 mb-1">
+                      Ad name
+                    </label>
+                    <input
+                      value={selected.adName}
+                      onChange={(e) => updateAd(selected.localId, { adName: e.target.value })}
+                      placeholder="e.g. linen-drop-hook-v1"
+                      className="border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] font-medium w-60"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 pb-1">
                     <span className="text-[12.5px] text-gray-600">Partnership ad</span>
                     <button
                       onClick={() =>
@@ -741,7 +763,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                             }}
                             className="border border-gray-300 rounded-md px-2 py-1.5 text-[12.5px] bg-white"
                           >
-                            <option value="">Pick creator…</option>
+                            <option value="">Pick partner…</option>
                             {defaults.partners.map((p) => (
                               <option key={p.sponsorId} value={p.sponsorId}>
                                 {p.label}
@@ -754,7 +776,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                           onChange={(e) =>
                             updateAd(selected.localId, { sponsorId: e.target.value })
                           }
-                          placeholder="Creator IG user ID"
+                          placeholder="Partner IG user ID"
                           className="border border-gray-300 rounded-md px-2 py-1.5 text-[12.5px] w-40"
                         />
                       </>
