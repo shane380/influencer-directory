@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { AdDraft } from "@/types/meta-ads";
 import { IgFeedPreview } from "./ig-feed-preview";
 import { IgReelsPreview } from "./ig-reels-preview";
@@ -132,6 +132,55 @@ export function ReviewQueue({
     );
   }
 
+  const renderDetails = (draft: AdDraft) => {
+    const rows: { label: string; value: ReactNode }[] = [
+      { label: "Campaign", value: draft.campaignName },
+      { label: "Ad set", value: draft.adsetName },
+    ];
+    if (draft.partnershipSponsorLabel || draft.partnershipSponsorId) {
+      rows.push({
+        label: "Partnership",
+        value: draft.partnershipSponsorLabel || draft.partnershipSponsorId,
+      });
+    }
+    rows.push({
+      label: "Landing page",
+      value: draft.copy.link ? (
+        <a
+          href={draft.copy.link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-700 hover:underline break-all"
+        >
+          {draft.copy.link}
+        </a>
+      ) : (
+        <span className="text-gray-400">—</span>
+      ),
+    });
+    if (draft.copy.urlTags) rows.push({ label: "URL params", value: draft.copy.urlTags });
+    rows.push({
+      label: "Headline",
+      value: draft.copy.headline || <span className="text-gray-400">—</span>,
+    });
+    rows.push({
+      label: "Description",
+      value: draft.copy.description || <span className="text-gray-400">—</span>,
+    });
+    rows.push({ label: "CTA button", value: CTA_LABELS[draft.copy.cta] || draft.copy.cta });
+
+    return (
+      <div className="mt-3 border-t border-gray-100 pt-3 grid grid-cols-[110px_1fr] gap-x-3 gap-y-1.5 text-[12.5px]">
+        {rows.map((row) => (
+          <div key={row.label} className="contents">
+            <span className="text-gray-400">{row.label}</span>
+            <span className="text-gray-800 min-w-0">{row.value}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const renderCard = (draft: AdDraft, mode: "queue" | "mine") => {
     const status = STATUS_META[draft.status] || STATUS_META.pending;
     const feed = draft.assets.find((a) => a.role === "feed");
@@ -162,9 +211,13 @@ export function ReviewQueue({
               </span>
             </div>
             <p className="text-[12px] text-gray-500 truncate">
-              {mode === "queue" ? `${draft.createdByName} · ` : ""}
-              {draft.campaignName} → {draft.adsetName} · {timeAgo(draft.createdAt)}
-              {draft.partnershipSponsorLabel ? ` · Partnership: ${draft.partnershipSponsorLabel}` : ""}
+              {mode === "queue"
+                ? `Submitted by ${draft.createdByName} · ${timeAgo(draft.createdAt)}`
+                : `${draft.campaignName} → ${draft.adsetName} · ${timeAgo(draft.createdAt)}${
+                    draft.partnershipSponsorLabel
+                      ? ` · Partnership: ${draft.partnershipSponsorLabel}`
+                      : ""
+                  }`}
             </p>
             <p className="text-[12px] text-gray-600 mt-1 line-clamp-2">
               &ldquo;{draft.copy.primaryText}&rdquo;
@@ -226,6 +279,8 @@ export function ReviewQueue({
             </button>
           </div>
         </div>
+
+        {(mode === "queue" || expanded) && renderDetails(draft)}
 
         {feedbackFor === draft.id && (
           <div className="mt-3 border-t border-gray-100 pt-3">
