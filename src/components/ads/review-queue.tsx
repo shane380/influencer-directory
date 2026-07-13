@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { AdDraft, AssetRole, CampaignSummary, DraftAsset } from "@/types/meta-ads";
 import { IgFeedPreview } from "./ig-feed-preview";
 import { IgReelsPreview } from "./ig-reels-preview";
+import { IgCarouselPreview } from "./ig-carousel-preview";
 import { SquareCropDialog } from "./square-crop-dialog";
 import { fileAssetKind, isSquareImage, uploadAdAsset } from "@/lib/ad-media";
 import { CheckCircle2, Clock, Loader2, MessageSquare, Pencil, Trash2, Upload, XCircle } from "lucide-react";
@@ -135,7 +136,7 @@ export function ReviewQueue({
     [feedbackText, refresh]
   );
 
-  const uploadEditAsset = useCallback(async (role: AssetRole, file: File) => {
+  const uploadEditAsset = useCallback(async (role: "feed" | "vertical", file: File) => {
     const kind = fileAssetKind(file);
     if (!kind) return;
     setMediaError(null);
@@ -157,7 +158,7 @@ export function ReviewQueue({
   }, []);
 
   const handleEditFile = useCallback(
-    async (role: AssetRole, file: File) => {
+    async (role: "feed" | "vertical", file: File) => {
       const kind = fileAssetKind(file);
       if (!kind) return;
       // Non-square feed images go through the interactive 1:1 crop first.
@@ -173,10 +174,17 @@ export function ReviewQueue({
   const startEdit = useCallback(
     (draft: AdDraft) => {
       setEditingId(draft.id);
-      setEditAssets({
-        feed: draft.assets.find((a) => a.role === "feed") || null,
-        vertical: draft.assets.find((a) => a.role === "vertical") || null,
-      });
+      // Carousel drafts keep their card set — the edit form covers copy and
+      // targeting only, so leave assets untouched (null = don't send).
+      const isCarousel = draft.assets.some((a) => a.role === "card");
+      setEditAssets(
+        isCarousel
+          ? null
+          : {
+              feed: draft.assets.find((a) => a.role === "feed") || null,
+              vertical: draft.assets.find((a) => a.role === "vertical") || null,
+            }
+      );
       setMediaProgress({});
       setMediaError(null);
       setEditForm({
@@ -291,7 +299,7 @@ export function ReviewQueue({
     const canResubmit = mode === "mine" && draft.status === "changes_requested";
     const uploading = Object.keys(mediaProgress).length > 0;
 
-    const mediaRow = (role: AssetRole, label: string, removable: boolean) => {
+    const mediaRow = (role: "feed" | "vertical", label: string, removable: boolean) => {
       const asset = editAssets?.[role] || null;
       const progress = mediaProgress[role];
       return {
@@ -383,8 +391,19 @@ export function ReviewQueue({
           </span>
         ),
       },
-      mediaRow("feed", "Feed media", false),
-      mediaRow("vertical", "9:16 media", true),
+      ...(editAssets
+        ? [mediaRow("feed", "Feed media", false), mediaRow("vertical", "9:16 media", true)]
+        : [
+            {
+              label: "Media",
+              field: (
+                <span className="text-[12.5px] text-gray-500">
+                  Carousel · {draftCards(draft).length} cards — swap card media by
+                  resubmitting; copy and targeting are editable here.
+                </span>
+              ),
+            },
+          ]),
       {
         label: "Primary text",
         field: (
@@ -496,11 +515,25 @@ export function ReviewQueue({
     );
   };
 
+  const draftCards = (draft: AdDraft) =>
+    draft.assets
+      .filter((a) => a.role === "card")
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
   const renderDetails = (draft: AdDraft) => {
+    const cards = draftCards(draft);
     const rows: { label: string; value: ReactNode }[] = [
       { label: "Campaign", value: draft.campaignName },
       { label: "Ad set", value: draft.adsetName },
     ];
+    if (cards.length > 0) {
+      rows.push({
+        label: "Format",
+        value: `Carousel · ${cards.length} cards · ${
+          draft.copy.multiShareOptimized ? "Meta may reorder cards" : "fixed card order"
+        }`,
+      });
+    }
     if (draft.partnershipSponsorLabel || draft.partnershipSponsorId) {
       rows.push({
         label: "Partnership",
@@ -547,7 +580,8 @@ export function ReviewQueue({
 
   const renderCard = (draft: AdDraft, mode: "queue" | "mine" | "reviewed") => {
     const status = STATUS_META[draft.status] || STATUS_META.pending;
-    const feed = draft.assets.find((a) => a.role === "feed");
+    const cards = draftCards(draft);
+    const feed = draft.assets.find((a) => a.role === "feed") || cards[0];
     const vertical = draft.assets.find((a) => a.role === "vertical") || feed;
     const expanded = expandedId === draft.id;
     const identityName = draft.partnershipSponsorLabel || "namaclo";
@@ -687,25 +721,42 @@ export function ReviewQueue({
 
         {expanded && (
           <div className="mt-4 border-t border-gray-100 pt-4 flex gap-4 justify-center flex-wrap">
-            <IgFeedPreview
-              copy={draft.copy}
-              ctaLabel={CTA_LABELS[draft.copy.cta] || "Shop now"}
-              identityName={identityName}
-              identitySub={identitySub}
-              mediaUrl={feed?.fileUrl || null}
-              mediaKind={feed?.kind || null}
-              posterUrl={feed?.thumbnailUrl}
-            />
-            <IgReelsPreview
-              copy={draft.copy}
-              ctaLabel={CTA_LABELS[draft.copy.cta] || "Shop now"}
-              identityName={identityName}
-              identitySub={identitySub}
-              mediaUrl={vertical?.fileUrl || null}
-              mediaKind={vertical?.kind || null}
-              posterUrl={vertical?.thumbnailUrl}
-              isFallback={!draft.assets.some((a) => a.role === "vertical")}
-            />
+            {cards.length > 0 ? (
+              <IgCarouselPreview
+                copy={draft.copy}
+                ctaLabel={CTA_LABELS[draft.copy.cta] || "Shop now"}
+                identityName={identityName}
+                identitySub={identitySub}
+                cards={cards.map((c) => ({
+                  mediaUrl: c.fileUrl,
+                  mediaKind: c.kind,
+                  posterUrl: c.thumbnailUrl,
+                  headline: c.cardHeadline,
+                }))}
+              />
+            ) : (
+              <>
+                <IgFeedPreview
+                  copy={draft.copy}
+                  ctaLabel={CTA_LABELS[draft.copy.cta] || "Shop now"}
+                  identityName={identityName}
+                  identitySub={identitySub}
+                  mediaUrl={feed?.fileUrl || null}
+                  mediaKind={feed?.kind || null}
+                  posterUrl={feed?.thumbnailUrl}
+                />
+                <IgReelsPreview
+                  copy={draft.copy}
+                  ctaLabel={CTA_LABELS[draft.copy.cta] || "Shop now"}
+                  identityName={identityName}
+                  identitySub={identitySub}
+                  mediaUrl={vertical?.fileUrl || null}
+                  mediaKind={vertical?.kind || null}
+                  posterUrl={vertical?.thumbnailUrl}
+                  isFallback={!draft.assets.some((a) => a.role === "vertical")}
+                />
+              </>
+            )}
           </div>
         )}
       </div>

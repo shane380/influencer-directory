@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { uploadToR2 } from "@/lib/r2-upload";
-import { isSquareImage, makeVideoThumb, sanitizeFileName } from "@/lib/ad-media";
+import { isSquareImage, makeVideoThumb, sanitizeFileName, uploadAdAsset } from "@/lib/ad-media";
+import { IgCarouselPreview } from "./ig-carousel-preview";
 import type {
   AdCopy,
   AssetKind,
@@ -19,6 +20,8 @@ import { SquareCropDialog } from "./square-crop-dialog";
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   ExternalLink,
   Loader2,
   Plus,
@@ -40,6 +43,14 @@ interface SlotState {
 }
 
 type AdPhase = "idle" | "working" | "done" | "error";
+type AdFormat = "single" | "carousel";
+
+interface CardState {
+  cardId: string;
+  slot: SlotState;
+  headline: string;
+  link: string;
+}
 
 interface AdState {
   localId: string;
@@ -47,8 +58,12 @@ interface AdState {
   partnership: boolean;
   sponsorId: string;
   sponsorLabel: string;
+  format: AdFormat;
   feed: SlotState | null;
   vertical: SlotState | null;
+  cards: CardState[];
+  /** Carousel: let Meta reorder cards (multi_share_optimized) */
+  letMetaOrder: boolean;
   copy: AdCopy;
   phase: AdPhase;
   phaseMsg: string;
@@ -85,8 +100,11 @@ function newAd(defaults?: LauncherDefaults | null): AdState {
     partnership: false,
     sponsorId: "",
     sponsorLabel: "",
+    format: "single",
     feed: null,
     vertical: null,
+    cards: [],
+    letMetaOrder: false,
     copy: emptyCopy(defaults),
     phase: "idle",
     phaseMsg: "",
@@ -120,7 +138,12 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
   const [publishLive, setPublishLive] = useState(true);
   const [publishing, setPublishing] = useState(false);
   const [showPaused, setShowPaused] = useState(false);
-  const [cropRequest, setCropRequest] = useState<{ localId: string; file: File } | null>(null);
+  const [cropRequest, setCropRequest] = useState<{
+    localId: string;
+    file: File;
+    /** true when the crop target is a new carousel card, not the feed slot */
+    card?: boolean;
+  } | null>(null);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const restoredRef = useRef(false);
@@ -191,6 +214,25 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
         partnership: !!a.partnership,
         sponsorId: a.sponsorId || "",
         sponsorLabel: a.sponsorLabel || "",
+        format: a.format === "carousel" ? ("carousel" as const) : ("single" as const),
+        letMetaOrder: !!a.letMetaOrder,
+        cards: (a.cards || [])
+          .filter((c: any) => c?.r2Url)
+          .map((c: any) => ({
+            cardId: nextId(),
+            headline: c.headline || "",
+            link: c.link || "",
+            slot: {
+              kind: c.kind,
+              fileName: c.fileName || "card",
+              previewUrl: c.r2Url,
+              uploading: false,
+              progress: 100,
+              r2Url: c.r2Url,
+              thumbUrl: c.thumbUrl || null,
+              error: null,
+            },
+          })),
         copy: { ...emptyCopy(null), ...(a.copy || {}) },
         feed: a.feed?.r2Url
           ? {
@@ -243,6 +285,18 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
             partnership: a.partnership,
             sponsorId: a.sponsorId,
             sponsorLabel: a.sponsorLabel,
+            format: a.format,
+            letMetaOrder: a.letMetaOrder,
+            cards: a.cards
+              .filter((c) => c.slot.r2Url)
+              .map((c) => ({
+                kind: c.slot.kind,
+                fileName: c.slot.fileName,
+                r2Url: c.slot.r2Url,
+                thumbUrl: c.slot.thumbUrl,
+                headline: c.headline,
+                link: c.link,
+              })),
             copy: a.copy,
             feed: a.feed?.r2Url
               ? { kind: a.feed.kind, fileName: a.feed.fileName, r2Url: a.feed.r2Url, thumbUrl: a.feed.thumbUrl }
@@ -354,13 +408,137 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
     [beginUpload]
   );
 
+  const addCardUpload = useCallback(async (localId: string, kind: AssetKind, file: File) => {
+    const cardId = nextId();
+    const previewUrl = URL.createObjectURL(file);
+    setAds((prev) =>
+      prev.map((a) =>
+        a.localId === localId && a.cards.length < 10
+          ? {
+              ...a,
+              cards: [
+                ...a.cards,
+                {
+                  cardId,
+                  headline: "",
+                  link: "",
+                  slot: {
+                    kind,
+                    fileName: file.name,
+                    previewUrl,
+                    uploading: true,
+                    progress: 0,
+                    r2Url: null,
+                    thumbUrl: null,
+                    error: null,
+                  },
+                },
+              ],
+            }
+          : a
+      )
+    );
+
+    const setCardSlot = (patch: Partial<SlotState>) =>
+      setAds((prev) =>
+        prev.map((a) =>
+          a.localId === localId
+            ? {
+                ...a,
+                cards: a.cards.map((c) =>
+                  c.cardId === cardId ? { ...c, slot: { ...c.slot, ...patch } } : c
+                ),
+              }
+            : a
+        )
+      );
+
+    try {
+      const asset = await uploadAdAsset(file, "card", kind, (p) => setCardSlot({ progress: p }));
+      setCardSlot({
+        uploading: false,
+        progress: 100,
+        r2Url: asset.fileUrl,
+        thumbUrl: asset.thumbnailUrl || null,
+      });
+    } catch (err) {
+      setCardSlot({
+        uploading: false,
+        error: err instanceof Error ? err.message : "Upload failed",
+      });
+    }
+  }, []);
+
+  const handleCardFile = useCallback(
+    async (localId: string, file: File) => {
+      const kind: AssetKind | null = file.type.startsWith("image/")
+        ? "image"
+        : file.type.startsWith("video/")
+          ? "video"
+          : null;
+      if (!kind) return;
+      // Carousel cards must be square on Instagram — crop non-square images.
+      if (kind === "image" && !(await isSquareImage(file))) {
+        setCropRequest({ localId, file, card: true });
+        return;
+      }
+      addCardUpload(localId, kind, file);
+    },
+    [addCardUpload]
+  );
+
+  const moveCard = useCallback((localId: string, cardId: string, dir: -1 | 1) => {
+    setAds((prev) =>
+      prev.map((a) => {
+        if (a.localId !== localId) return a;
+        const idx = a.cards.findIndex((c) => c.cardId === cardId);
+        const to = idx + dir;
+        if (idx < 0 || to < 0 || to >= a.cards.length) return a;
+        const cards = [...a.cards];
+        [cards[idx], cards[to]] = [cards[to], cards[idx]];
+        return { ...a, cards };
+      })
+    );
+  }, []);
+
+  const removeCard = useCallback((localId: string, cardId: string) => {
+    setAds((prev) =>
+      prev.map((a) =>
+        a.localId === localId ? { ...a, cards: a.cards.filter((c) => c.cardId !== cardId) } : a
+      )
+    );
+  }, []);
+
+  const updateCard = useCallback(
+    (localId: string, cardId: string, patch: Partial<Pick<CardState, "headline" | "link">>) => {
+      setAds((prev) =>
+        prev.map((a) =>
+          a.localId === localId
+            ? {
+                ...a,
+                cards: a.cards.map((c) => (c.cardId === cardId ? { ...c, ...patch } : c)),
+              }
+            : a
+        )
+      );
+    },
+    []
+  );
+
   const validateAd = useCallback(
     (ad: AdState): string | null => {
       if (!ad.adName.trim()) return "Name the ad";
-      if (!ad.feed?.r2Url) return "Upload a feed creative";
-      if (ad.feed.uploading || ad.vertical?.uploading) return "Still uploading";
-      if (ad.vertical && ad.vertical.kind !== ad.feed.kind) {
-        return "Feed and 9:16 must both be images or both videos";
+      if (ad.format === "carousel") {
+        if (ad.cards.length < 2) return "Add at least 2 carousel cards";
+        if (ad.cards.length > 10) return "A carousel can have at most 10 cards";
+        if (ad.cards.some((c) => c.slot.uploading)) return "Still uploading";
+        if (ad.cards.some((c) => !c.slot.r2Url)) return "A card failed to upload — remove it and retry";
+      } else {
+        if (!ad.feed?.r2Url) return "Upload a feed creative";
+        if (ad.feed.uploading || ad.vertical?.uploading) return "Still uploading";
+        if (ad.vertical && ad.vertical.kind !== ad.feed.kind) {
+          return "Feed and 9:16 must both be images or both videos";
+        }
       }
       if (ad.partnership && !ad.sponsorId.trim()) return "Pick or enter the partner's IG ID";
       if (!ad.copy.primaryText.trim()) return "Write the primary text";
@@ -384,21 +562,34 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
       }
 
       updateAd(ad.localId, { phase: "working", phaseMsg: "Saving draft…" });
-      const assets: DraftAsset[] = [
-        {
-          role: "feed",
-          kind: ad.feed!.kind,
-          fileUrl: ad.feed!.r2Url!,
-          thumbnailUrl: ad.feed!.thumbUrl,
-        },
-      ];
-      if (ad.vertical?.r2Url) {
-        assets.push({
-          role: "vertical",
-          kind: ad.vertical.kind,
-          fileUrl: ad.vertical.r2Url,
-          thumbnailUrl: ad.vertical.thumbUrl,
-        });
+      let assets: DraftAsset[];
+      if (ad.format === "carousel") {
+        assets = ad.cards.map((c, i) => ({
+          role: "card" as const,
+          kind: c.slot.kind,
+          fileUrl: c.slot.r2Url!,
+          thumbnailUrl: c.slot.thumbUrl,
+          order: i,
+          cardHeadline: c.headline.trim() || null,
+          cardLink: c.link.trim() || null,
+        }));
+      } else {
+        assets = [
+          {
+            role: "feed",
+            kind: ad.feed!.kind,
+            fileUrl: ad.feed!.r2Url!,
+            thumbnailUrl: ad.feed!.thumbUrl,
+          },
+        ];
+        if (ad.vertical?.r2Url) {
+          assets.push({
+            role: "vertical",
+            kind: ad.vertical.kind,
+            fileUrl: ad.vertical.r2Url,
+            thumbnailUrl: ad.vertical.thumbUrl,
+          });
+        }
       }
 
       try {
@@ -416,7 +607,10 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
             partnershipSponsorId: ad.partnership ? ad.sponsorId.trim() : null,
             partnershipSponsorLabel: ad.partnership ? ad.sponsorLabel.trim() || null : null,
             assets,
-            copy: ad.copy,
+            copy:
+              ad.format === "carousel"
+                ? { ...ad.copy, multiShareOptimized: ad.letMetaOrder }
+                : ad.copy,
           }),
         });
         const submitData = await submitRes.json();
@@ -533,9 +727,10 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
           file={cropRequest.file}
           onCancel={() => setCropRequest(null)}
           onCropped={(cropped) => {
-            const id = cropRequest.localId;
+            const { localId: id, card } = cropRequest;
             setCropRequest(null);
-            beginUpload(id, "feed", "image", cropped);
+            if (card) addCardUpload(id, "image", cropped);
+            else beginUpload(id, "feed", "image", cropped);
           }}
         />
       )}
@@ -761,26 +956,162 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                   </div>
                 </div>
 
-                <div className="flex gap-4 mb-4 flex-wrap">
-                  <CreativeSlot
-                    label="Feed · 1:1 (square)"
-                    slot={selected.feed}
-                    wide
-                    onFile={(f) => handleFile(selected.localId, "feed", f)}
-                    onClear={() => updateAd(selected.localId, { feed: null })}
-                  />
-                  <CreativeSlot
-                    label="Stories & Reels · 9:16 (optional)"
-                    slot={selected.vertical}
-                    onFile={(f) => handleFile(selected.localId, "vertical", f)}
-                    onClear={() => updateAd(selected.localId, { vertical: null })}
-                  />
-                  {selected.vertical && selected.feed && selected.vertical.kind !== selected.feed.kind && (
-                    <p className="text-[11.5px] text-red-600 self-end">
-                      Both slots must be the same media type (Meta limitation).
-                    </p>
-                  )}
+                <div className="flex items-center gap-1 mb-3">
+                  {(["single", "carousel"] as const).map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => updateAd(selected.localId, { format: f })}
+                      className={`px-3 py-1 rounded-md text-[12px] transition-colors ${
+                        selected.format === f
+                          ? "bg-gray-900 text-white font-medium"
+                          : "text-gray-600 hover:bg-gray-100 border border-gray-200"
+                      }`}
+                    >
+                      {f === "single" ? "Single image/video" : "Carousel"}
+                    </button>
+                  ))}
                 </div>
+
+                {selected.format === "single" ? (
+                  <div className="flex gap-4 mb-4 flex-wrap">
+                    <CreativeSlot
+                      label="Feed · 1:1 (square)"
+                      slot={selected.feed}
+                      wide
+                      onFile={(f) => handleFile(selected.localId, "feed", f)}
+                      onClear={() => updateAd(selected.localId, { feed: null })}
+                    />
+                    <CreativeSlot
+                      label="Stories & Reels · 9:16 (optional)"
+                      slot={selected.vertical}
+                      onFile={(f) => handleFile(selected.localId, "vertical", f)}
+                      onClear={() => updateAd(selected.localId, { vertical: null })}
+                    />
+                    {selected.vertical && selected.feed && selected.vertical.kind !== selected.feed.kind && (
+                      <p className="text-[11.5px] text-red-600 self-end">
+                        Both slots must be the same media type (Meta limitation).
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mb-4">
+                    <label className="text-xs text-gray-500 block mb-1.5">
+                      Cards ({selected.cards.length}/10) · square 1:1, min 600×600, videos ≤60s
+                    </label>
+                    <div className="space-y-2">
+                      {selected.cards.map((c, i) => (
+                        <div
+                          key={c.cardId}
+                          className="flex items-center gap-2.5 border border-gray-200 rounded-md p-2"
+                        >
+                          <span className="text-[11px] text-gray-400 w-4 text-center flex-shrink-0">
+                            {i + 1}
+                          </span>
+                          <div className="w-12 h-12 rounded bg-gray-100 overflow-hidden flex-shrink-0 relative">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={
+                                c.slot.kind === "image"
+                                  ? c.slot.previewUrl
+                                  : c.slot.thumbUrl || c.slot.previewUrl
+                              }
+                              alt=""
+                              className="w-full h-full object-cover"
+                            />
+                            {c.slot.uploading && (
+                              <span className="absolute inset-0 bg-black/50 text-white text-[10px] flex items-center justify-center">
+                                {c.slot.progress}%
+                              </span>
+                            )}
+                            {c.slot.error && (
+                              <span
+                                className="absolute inset-0 bg-red-600/70 text-white flex items-center justify-center"
+                                title={c.slot.error}
+                              >
+                                <AlertTriangle className="h-4 w-4" />
+                              </span>
+                            )}
+                          </div>
+                          <input
+                            value={c.headline}
+                            onChange={(e) =>
+                              updateCard(selected.localId, c.cardId, { headline: e.target.value })
+                            }
+                            placeholder="Card headline (optional)"
+                            className="border border-gray-300 rounded-md px-2 py-1 text-[12px] flex-1 min-w-0"
+                          />
+                          <input
+                            value={c.link}
+                            onChange={(e) =>
+                              updateCard(selected.localId, c.cardId, { link: e.target.value })
+                            }
+                            placeholder="Card link (defaults to ad URL)"
+                            className="border border-gray-300 rounded-md px-2 py-1 text-[12px] flex-1 min-w-0"
+                          />
+                          <span className="flex flex-col flex-shrink-0">
+                            <button
+                              onClick={() => moveCard(selected.localId, c.cardId, -1)}
+                              disabled={i === 0}
+                              className="text-gray-300 hover:text-gray-700 disabled:opacity-30"
+                              aria-label="Move card up"
+                            >
+                              <ChevronUp className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => moveCard(selected.localId, c.cardId, 1)}
+                              disabled={i === selected.cards.length - 1}
+                              className="text-gray-300 hover:text-gray-700 disabled:opacity-30"
+                              aria-label="Move card down"
+                            >
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            </button>
+                          </span>
+                          <button
+                            onClick={() => removeCard(selected.localId, c.cardId)}
+                            className="text-gray-300 hover:text-red-500 flex-shrink-0"
+                            aria-label="Remove card"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                      {selected.cards.length < 10 && (
+                        <label className="border border-dashed border-gray-300 rounded-md px-3 py-2.5 text-[12.5px] text-gray-500 hover:text-gray-800 hover:border-gray-400 flex items-center gap-1.5 cursor-pointer w-fit">
+                          <UploadCloud className="h-3.5 w-3.5" /> Add card
+                          <input
+                            type="file"
+                            accept="image/*,video/*"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => {
+                              for (const f of Array.from(e.target.files || [])) {
+                                handleCardFile(selected.localId, f);
+                              }
+                              e.target.value = "";
+                            }}
+                          />
+                        </label>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-2.5">
+                      <span className="text-[12px] text-gray-500">Card order</span>
+                      {([false, true] as const).map((v) => (
+                        <button
+                          key={String(v)}
+                          onClick={() => updateAd(selected.localId, { letMetaOrder: v })}
+                          className={`px-2.5 py-1 rounded-md text-[11.5px] transition-colors ${
+                            selected.letMetaOrder === v
+                              ? "bg-gray-900 text-white font-medium"
+                              : "text-gray-600 hover:bg-gray-100 border border-gray-200"
+                          }`}
+                        >
+                          {v ? "Let Meta optimize" : "Keep my order"}
+                        </button>
+                      ))}
+                      <span className="text-[11px] text-gray-400">No end card either way.</span>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-center gap-1.5 flex-wrap mb-3">
                   <span className="text-[11px] text-gray-400">Presets</span>
@@ -877,28 +1208,51 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
           {/* Preview — under the editor */}
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <div className="flex gap-8 justify-center flex-wrap">
-                <IgFeedPreview
-                  copy={selected?.copy || emptyCopy(defaults)}
-                  ctaLabel={ctaLabel}
-                  identityName={identityName}
-                  identitySub={identitySub}
-                  mediaUrl={feedMedia?.previewUrl || null}
-                  mediaKind={feedMedia?.kind || null}
-                  posterUrl={feedMedia?.thumbUrl}
-                />
-                <IgReelsPreview
-                  copy={selected?.copy || emptyCopy(defaults)}
-                  ctaLabel={ctaLabel}
-                  identityName={identityName}
-                  identitySub={identitySub}
-                  mediaUrl={verticalMedia?.previewUrl || null}
-                  mediaKind={verticalMedia?.kind || null}
-                  posterUrl={verticalMedia?.thumbUrl}
-                  isFallback={!selected?.vertical && !!selected?.feed}
-                />
+                {selected?.format === "carousel" ? (
+                  <IgCarouselPreview
+                    copy={selected.copy}
+                    ctaLabel={ctaLabel}
+                    identityName={identityName}
+                    identitySub={identitySub}
+                    cards={
+                      selected.cards.length
+                        ? selected.cards.map((c) => ({
+                            mediaUrl: c.slot.previewUrl,
+                            mediaKind: c.slot.kind,
+                            posterUrl: c.slot.thumbUrl,
+                            headline: c.headline,
+                          }))
+                        : [{ mediaUrl: null, mediaKind: null }]
+                    }
+                  />
+                ) : (
+                  <>
+                    <IgFeedPreview
+                      copy={selected?.copy || emptyCopy(defaults)}
+                      ctaLabel={ctaLabel}
+                      identityName={identityName}
+                      identitySub={identitySub}
+                      mediaUrl={feedMedia?.previewUrl || null}
+                      mediaKind={feedMedia?.kind || null}
+                      posterUrl={feedMedia?.thumbUrl}
+                    />
+                    <IgReelsPreview
+                      copy={selected?.copy || emptyCopy(defaults)}
+                      ctaLabel={ctaLabel}
+                      identityName={identityName}
+                      identitySub={identitySub}
+                      mediaUrl={verticalMedia?.previewUrl || null}
+                      mediaKind={verticalMedia?.kind || null}
+                      posterUrl={verticalMedia?.thumbUrl}
+                      isFallback={!selected?.vertical && !!selected?.feed}
+                    />
+                  </>
+                )}
               </div>
               <p className="text-[11px] text-gray-400 text-center mt-3">
-                Live preview · feed and stories/reels
+                {selected?.format === "carousel"
+                  ? "Live preview · feed carousel (scroll the cards)"
+                  : "Live preview · feed and stories/reels"}
               </p>
             </div>
 
