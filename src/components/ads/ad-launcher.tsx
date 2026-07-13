@@ -93,6 +93,25 @@ function sanitizeFileName(name: string): string {
   return name.replace(/[^\w.-]+/g, "-").slice(-80);
 }
 
+/** Feed images must be square (1:1); allows a 2% tolerance for crop rounding. */
+async function isSquareImage(file: File): Promise<boolean> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      if (!img.naturalWidth || !img.naturalHeight) return resolve(true);
+      const ratio = img.naturalWidth / img.naturalHeight;
+      resolve(Math.abs(ratio - 1) <= 0.02);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(true);
+    };
+    img.src = url;
+  });
+}
+
 async function makeVideoThumb(file: File): Promise<Blob | null> {
   return new Promise((resolve) => {
     const video = document.createElement("video");
@@ -150,6 +169,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [publishLive, setPublishLive] = useState(true);
   const [publishing, setPublishing] = useState(false);
+  const [showPaused, setShowPaused] = useState(false);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const restoredRef = useRef(false);
@@ -157,6 +177,14 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
   const selected = ads.find((a) => a.localId === selectedId) || null;
   const campaign = targets?.campaigns.find((c) => c.id === campaignId) || null;
   const adset = campaign?.adsets.find((a) => a.id === adsetId) || null;
+
+  // Hide paused campaigns/ad sets unless asked — but never hide the current selection.
+  const visibleCampaigns = (targets?.campaigns || []).filter(
+    (c) => showPaused || c.effective_status === "ACTIVE" || c.id === campaignId
+  );
+  const visibleAdsets = (campaign?.adsets || []).filter(
+    (a) => showPaused || a.effective_status === "ACTIVE" || a.id === adsetId
+  );
 
   const fetchTargets = useCallback(async () => {
     setLoadingTargets(true);
@@ -296,6 +324,11 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
           ? "video"
           : null;
       if (!kind) return;
+
+      if (role === "feed" && kind === "image" && !(await isSquareImage(file))) {
+        window.alert("Feed images must be square (1:1). Crop it to 1080×1080 and re-upload.");
+        return;
+      }
 
       const previewUrl = URL.createObjectURL(file);
       const slot: SlotState = {
@@ -544,139 +577,126 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
       {tab === "review" ? (
         <ReviewQueue isAdmin={isAdmin} onQueueCount={setPendingCount} />
       ) : (
-        <div className="flex gap-4 items-start">
-          {/* Left pane — destination + batch */}
-          <div className="w-60 flex-shrink-0 bg-white border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-xs text-gray-500">Campaign</label>
-              <button
-                onClick={fetchTargets}
-                title="Refresh campaigns"
-                className="text-gray-400 hover:text-gray-700"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${loadingTargets ? "animate-spin" : ""}`} />
-              </button>
-            </div>
+        <div className="space-y-4">
+          {/* Top bar — destination + batch */}
+          <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 flex items-center gap-3 flex-wrap">
             <select
               value={campaignId}
               onChange={(e) => {
                 setCampaignId(e.target.value);
                 setAdsetId("");
               }}
-              className="w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] mb-3 bg-white"
+              className="w-64 border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] bg-white"
             >
               <option value="">
                 {loadingTargets ? "Loading…" : "Select campaign"}
               </option>
-              {targets?.campaigns.map((c) => (
+              {visibleCampaigns.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name} {c.effective_status === "PAUSED" ? "(paused)" : ""}
                 </option>
               ))}
             </select>
-            <label className="text-xs text-gray-500 block mb-1">Ad set</label>
             <select
               value={adsetId}
               onChange={(e) => setAdsetId(e.target.value)}
               disabled={!campaign}
-              className="w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] bg-white disabled:bg-gray-50 disabled:text-gray-400"
+              className="w-56 border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] bg-white disabled:bg-gray-50 disabled:text-gray-400"
             >
               <option value="">Select ad set</option>
-              {campaign?.adsets.map((a) => (
+              {visibleAdsets.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name} {a.effective_status === "PAUSED" ? "(paused)" : ""}
                 </option>
               ))}
             </select>
-            {loadError && <p className="text-[11px] text-red-600 mt-2">{loadError}</p>}
+            <button
+              onClick={fetchTargets}
+              title="Refresh campaigns"
+              className="text-gray-400 hover:text-gray-700"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loadingTargets ? "animate-spin" : ""}`} />
+            </button>
+            <label className="flex items-center gap-1.5 text-[11.5px] text-gray-500 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={showPaused}
+                onChange={(e) => setShowPaused(e.target.checked)}
+                className="h-3 w-3 rounded border-gray-300"
+              />
+              Show paused
+            </label>
+            {loadError && <span className="text-[11px] text-red-600">{loadError}</span>}
 
-            <div className="border-t border-gray-100 mt-4 pt-3">
-              <p className="text-[11px] uppercase tracking-wide text-gray-400 mb-2">
-                Ads in this batch
-              </p>
-              <ul className="space-y-1">
-                {ads.map((ad) => (
-                  <li key={ad.localId}>
-                    <button
-                      onClick={() => setSelectedId(ad.localId)}
-                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors ${
-                        ad.localId === selectedId ? "bg-gray-100" : "hover:bg-gray-50"
-                      }`}
+            <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {ads.map((ad) => (
+                <button
+                  key={ad.localId}
+                  onClick={() => setSelectedId(ad.localId)}
+                  className={`flex items-center gap-1.5 border rounded-md pl-1.5 pr-2 py-1 transition-colors ${
+                    ad.localId === selectedId
+                      ? "bg-gray-100 border-gray-400"
+                      : "border-gray-200 hover:bg-gray-50"
+                  }`}
+                >
+                  <div className="w-5 h-5 rounded bg-gray-100 overflow-hidden flex-shrink-0">
+                    {ad.feed && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={ad.feed.kind === "image" ? ad.feed.previewUrl : ad.feed.thumbUrl || ad.feed.previewUrl}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                  </div>
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                      ad.phase === "error"
+                        ? "bg-red-500"
+                        : ad.phase === "done"
+                          ? "bg-emerald-500"
+                          : ad.phase === "working"
+                            ? "bg-blue-500 animate-pulse"
+                            : "bg-gray-300"
+                    }`}
+                    title={ad.phase === "idle" ? undefined : ad.phaseMsg}
+                  />
+                  <span className="text-[12px] font-medium text-gray-800 truncate max-w-[130px]">
+                    {ad.adName || "Untitled ad"}
+                  </span>
+                  {ads.length > 1 && ad.phase !== "done" && (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAds((prev) => prev.filter((x) => x.localId !== ad.localId));
+                        if (selectedId === ad.localId) setSelectedId(null);
+                      }}
+                      className="text-gray-300 hover:text-red-500 flex-shrink-0"
+                      aria-label="Remove ad"
                     >
-                      <div className="w-7 h-9 rounded bg-gray-100 overflow-hidden flex-shrink-0">
-                        {ad.feed &&
-                          (ad.feed.kind === "image" ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={ad.feed.previewUrl}
-                              alt=""
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={ad.feed.thumbUrl || ad.feed.previewUrl}
-                              alt=""
-                              className="w-full h-full object-cover"
-                            />
-                          ))}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[12.5px] font-medium text-gray-900 truncate">
-                          {ad.adName || "Untitled ad"}
-                        </p>
-                        <p
-                          className={`text-[11px] truncate ${
-                            ad.phase === "error"
-                              ? "text-red-600"
-                              : ad.phase === "done"
-                                ? "text-emerald-600"
-                                : "text-gray-500"
-                          }`}
-                        >
-                          {ad.phase === "idle"
-                            ? ad.feed
-                              ? ad.vertical
-                                ? "feed + 9:16"
-                                : "feed only"
-                              : "no creative"
-                            : ad.phaseMsg}
-                        </p>
-                      </div>
-                      {ads.length > 1 && ad.phase !== "done" && (
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setAds((prev) => prev.filter((x) => x.localId !== ad.localId));
-                            if (selectedId === ad.localId) setSelectedId(null);
-                          }}
-                          className="text-gray-300 hover:text-red-500 flex-shrink-0"
-                          aria-label="Remove ad"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                ))}
-              </ul>
+                      <X className="h-3 w-3" />
+                    </span>
+                  )}
+                </button>
+              ))}
               <button
                 onClick={() => {
                   const ad = newAd(defaults);
                   setAds((prev) => [...prev, ad]);
                   setSelectedId(ad.localId);
                 }}
-                className="w-full mt-2 border border-dashed border-gray-300 rounded-md py-1.5 text-[12.5px] text-gray-500 hover:text-gray-800 hover:border-gray-400 flex items-center justify-center gap-1"
+                className="border border-dashed border-gray-300 rounded-md px-2.5 py-1 text-[12px] text-gray-500 hover:text-gray-800 hover:border-gray-400 flex items-center gap-1"
               >
-                <Plus className="h-3.5 w-3.5" /> Add ad
+                <Plus className="h-3 w-3" /> Add ad
               </button>
             </div>
           </div>
 
-          {/* Center pane — editor */}
-          <div className="flex-1 min-w-0 bg-white border border-gray-200 rounded-lg p-4">
+          {/* Editor */}
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
             {!selected ? (
               <p className="text-sm text-gray-400 py-16 text-center">Add an ad to get started</p>
             ) : (
@@ -744,7 +764,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
 
                 <div className="flex gap-4 mb-4 flex-wrap">
                   <CreativeSlot
-                    label="Feed · 1:1 or 4:5"
+                    label="Feed · 1:1 (square)"
                     slot={selected.feed}
                     wide
                     onFile={(f) => handleFile(selected.localId, "feed", f)}
@@ -855,10 +875,9 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
             )}
           </div>
 
-          {/* Right pane — previews + publish */}
-          <div className="w-[280px] flex-shrink-0 space-y-4 sticky top-4">
+          {/* Preview — under the editor */}
             <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <div className="flex gap-3 justify-center flex-wrap">
+              <div className="flex gap-8 justify-center flex-wrap">
                 <IgFeedPreview
                   copy={selected?.copy || emptyCopy(defaults)}
                   ctaLabel={ctaLabel}
@@ -884,67 +903,71 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
               </p>
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <p className="text-[13px] font-semibold text-gray-900">
-                {readyCount} ad{readyCount === 1 ? "" : "s"} ready
-                {adset ? ` → ${adset.name}` : ""}
-              </p>
-              <p className="text-[11.5px] text-gray-500 mb-3">
-                {campaign ? campaign.name : "Pick a campaign and ad set"}
-              </p>
-              {isAdmin ? (
-                <div className="inline-flex border border-gray-300 rounded-full overflow-hidden text-[12px] mb-3">
-                  <button
-                    onClick={() => setPublishLive(true)}
-                    className={`px-3.5 py-1 ${publishLive ? "bg-gray-900 text-white" : "text-gray-500"}`}
-                  >
-                    Live
-                  </button>
-                  <button
-                    onClick={() => setPublishLive(false)}
-                    className={`px-3.5 py-1 ${!publishLive ? "bg-gray-900 text-white" : "text-gray-500"}`}
-                  >
-                    Paused
-                  </button>
-                </div>
-              ) : (
-                <p className="text-[11.5px] text-gray-500 mb-3">
-                  Your ads are saved for admin review — nothing goes to Meta until approved.
+            {/* Publish — under the preview */}
+            <div className="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-between gap-4 flex-wrap">
+              <div>
+                <p className="text-[13px] font-semibold text-gray-900">
+                  {readyCount} ad{readyCount === 1 ? "" : "s"} ready
+                  {adset ? ` → ${adset.name}` : ""}
                 </p>
-              )}
-              <button
-                onClick={publishAll}
-                disabled={publishing || !adset || readyCount === 0}
-                className="w-full bg-gray-900 text-white rounded-lg py-2.5 text-[13px] font-semibold disabled:opacity-40 flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors"
-              >
-                {publishing && <Loader2 className="h-4 w-4 animate-spin" />}
-                {isAdmin
-                  ? `Publish ${readyCount || ""} ad${readyCount === 1 ? "" : "s"}`
-                  : "Submit for approval"}
-              </button>
-              {ads.some((a) => a.phase === "done" && a.metaAdId) && targets && (
-                <a
-                  href={`https://adsmanager.facebook.com/adsmanager/manage/ads?act=${targets.accountId}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-2 flex items-center justify-center gap-1 text-[12px] text-gray-500 hover:text-gray-800"
-                >
-                  Open Ads Manager <ExternalLink className="h-3 w-3" />
-                </a>
-              )}
-              {ads.some((a) => a.phase === "done") && (
+                <p className="text-[11.5px] text-gray-500">
+                  {campaign ? campaign.name : "Pick a campaign and ad set"}
+                </p>
+              </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                {ads.some((a) => a.phase === "done" && a.metaAdId) && targets && (
+                  <a
+                    href={`https://adsmanager.facebook.com/adsmanager/manage/ads?act=${targets.accountId}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 text-[12px] text-gray-500 hover:text-gray-800"
+                  >
+                    Open Ads Manager <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+                {ads.some((a) => a.phase === "done") && (
+                  <button
+                    onClick={() => {
+                      setAds([newAd(defaults)]);
+                      setSelectedId(null);
+                    }}
+                    className="text-[12px] text-gray-500 hover:text-gray-800 flex items-center gap-1"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Start a new batch
+                  </button>
+                )}
+                {isAdmin ? (
+                  <div className="inline-flex border border-gray-300 rounded-full overflow-hidden text-[12px]">
+                    <button
+                      onClick={() => setPublishLive(true)}
+                      className={`px-3.5 py-1 ${publishLive ? "bg-gray-900 text-white" : "text-gray-500"}`}
+                    >
+                      Live
+                    </button>
+                    <button
+                      onClick={() => setPublishLive(false)}
+                      className={`px-3.5 py-1 ${!publishLive ? "bg-gray-900 text-white" : "text-gray-500"}`}
+                    >
+                      Paused
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-[11.5px] text-gray-500 max-w-[260px]">
+                    Your ads are saved for admin review — nothing goes to Meta until approved.
+                  </p>
+                )}
                 <button
-                  onClick={() => {
-                    setAds([newAd(defaults)]);
-                    setSelectedId(null);
-                  }}
-                  className="mt-2 w-full text-[12px] text-gray-500 hover:text-gray-800 flex items-center justify-center gap-1"
+                  onClick={publishAll}
+                  disabled={publishing || !adset || readyCount === 0}
+                  className="bg-gray-900 text-white rounded-lg px-6 py-2.5 text-[13px] font-semibold disabled:opacity-40 flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors"
                 >
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Start a new batch
+                  {publishing && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {isAdmin
+                    ? `Publish ${readyCount || ""} ad${readyCount === 1 ? "" : "s"}`
+                    : "Submit for approval"}
                 </button>
-              )}
+              </div>
             </div>
-          </div>
         </div>
       )}
     </div>
@@ -966,7 +989,7 @@ function CreativeSlot({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
-  const width = wide ? "w-[150px]" : "w-[106px]";
+  const box = wide ? "w-[160px] h-[160px]" : "w-[106px] h-[188px]";
 
   return (
     <div className="text-center">
@@ -983,7 +1006,7 @@ function CreativeSlot({
           const file = e.dataTransfer.files?.[0];
           if (file) onFile(file);
         }}
-        className={`${width} h-[188px] rounded-lg overflow-hidden relative ${
+        className={`${box} rounded-lg overflow-hidden relative ${
           slot
             ? "bg-gray-100"
             : `border-2 border-dashed cursor-pointer flex flex-col items-center justify-center gap-1.5 ${

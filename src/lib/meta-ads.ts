@@ -158,13 +158,48 @@ export async function getDefaults(): Promise<LauncherDefaults> {
     console.warn("[meta-ads] Failed to scan for partnership sponsors:", err);
   }
 
+  if (!pageId) {
+    try {
+      const pages = await graphGet("me/accounts", { fields: "id,name", limit: "5" });
+      if (pages.data?.[0]?.id) pageId = String(pages.data[0].id);
+    } catch {
+      // No pages visible; the recent-ads scan is the only source.
+    }
+  }
+
   let pageName: string | null = null;
+  let brandIgId: string | null = instagramUserId;
   if (pageId) {
     try {
-      const page = await graphGet(pageId, { fields: "name" });
+      const page = await graphGet(pageId, { fields: "name,instagram_business_account" });
       pageName = page.name || null;
+      if (page.instagram_business_account?.id) {
+        brandIgId = String(page.instagram_business_account.id);
+        if (!instagramUserId) instagramUserId = brandIgId;
+      }
     } catch {
       // Page name is cosmetic; the id is what matters.
+    }
+  }
+
+  // Every creator with account-level partnership permission — the same list
+  // Ads Manager's "Select partnership" dialog shows. The recent-ads scan
+  // above stays as a fallback for sponsors granted only at the post level.
+  if (brandIgId) {
+    try {
+      const perms = await graphGet(`${brandIgId}/branded_content_ad_permissions`, {
+        limit: "100",
+      });
+      for (const p of perms.data || []) {
+        if (String(p.permission_status || "").toLowerCase() !== "approved") continue;
+        if (!p.creator_ig_id) continue;
+        partnerMap.set(String(p.creator_ig_id), {
+          sponsorId: String(p.creator_ig_id),
+          label: p.creator_username ? `@${p.creator_username}` : String(p.creator_ig_id),
+        });
+      }
+    } catch (err) {
+      console.warn("[meta-ads] Failed to list partnership permissions:", err);
     }
   }
 
@@ -273,6 +308,24 @@ export async function pushDraftToMeta(
 ): Promise<PushDraftResult> {
   const { actId } = getEnv();
 
+  // For partnership ads, also resolve the creator's FB page so both the IG
+  // and Facebook sponsor identities are linked on the creative.
+  let sponsorPageId: string | null = null;
+  if (draft.partnershipSponsorId && draft.instagramUserId) {
+    try {
+      const perms = await graphGet(
+        `${draft.instagramUserId}/branded_content_ad_permissions`,
+        { limit: "100" }
+      );
+      const rec = (perms.data || []).find(
+        (p: any) => String(p.creator_ig_id) === draft.partnershipSponsorId
+      );
+      if (rec?.creator_fb_page_id) sponsorPageId = String(rec.creator_fb_page_id);
+    } catch {
+      // Optional enrichment — instagram_branded_content alone still works.
+    }
+  }
+
   const uploaded: UploadedAsset[] = [];
   for (const asset of draft.assets) {
     if (asset.kind === "image") {
@@ -284,7 +337,7 @@ export async function pushDraftToMeta(
     }
   }
 
-  const creativeParams = buildCreativeParams(draft, uploaded);
+  const creativeParams = buildCreativeParams(draft, uploaded, sponsorPageId);
   let creative: any;
   try {
     creative = await graphPost(`${actId}/adcreatives`, creativeParams);
@@ -313,7 +366,11 @@ export async function setAdStatus(adId: string, status: "ACTIVE" | "PAUSED"): Pr
   await graphPost(adId, { status });
 }
 
-function buildCreativeParams(draft: PushDraftInput, assets: UploadedAsset[]): Record<string, any> {
+function buildCreativeParams(
+  draft: PushDraftInput,
+  assets: UploadedAsset[],
+  sponsorPageId: string | null = null
+): Record<string, any> {
   const feed = assets.find((a) => a.role === "feed");
   const vertical = assets.find((a) => a.role === "vertical");
   if (!feed) throw new MetaApiError("An ad needs a feed creative", null);
@@ -339,6 +396,9 @@ function buildCreativeParams(draft: PushDraftInput, assets: UploadedAsset[]): Re
 
   if (draft.partnershipSponsorId) {
     params.instagram_branded_content = { sponsor_id: draft.partnershipSponsorId };
+    if (sponsorPageId) {
+      params.facebook_branded_content = { sponsor_page_id: sponsorPageId };
+    }
   }
 
   const identity: Record<string, any> = { page_id: draft.pageId };
