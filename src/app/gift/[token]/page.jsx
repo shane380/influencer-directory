@@ -29,8 +29,8 @@ const CSS = `
 .gf-collection { margin-bottom: 26px; }
 .gf-coll-row { display: flex; gap: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; margin: 0 -24px; padding: 0 24px 4px; }
 .gf-coll-row::-webkit-scrollbar { display: none; }
-.gf-coll-item { flex: 0 0 96px; cursor: pointer; }
-@media (min-width: 560px) { .gf-coll-item { flex: 0 0 124px; } }
+.gf-coll-item { flex: 0 0 96px; min-width: 0; max-width: 96px; cursor: pointer; }
+@media (min-width: 560px) { .gf-coll-item { flex: 0 0 124px; max-width: 124px; } }
 .gf-coll-imgwrap { position: relative; aspect-ratio: 2/3; overflow: hidden; background: #f5f2ec; }
 .gf-coll-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
 .gf-coll-name { font-size: 10.5px; color: #555; margin-top: 5px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -524,9 +524,6 @@ export default function GiftPage() {
                         </div>
                       </div>
                     ))}
-                    {picked && (
-
-                    )}
                   </div>
                 </>
               )
