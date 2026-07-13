@@ -43,6 +43,8 @@ export interface LauncherDefaults {
   ctaOptions: { value: string; label: string }[];
   /** True when the token holds ads_management (publishing possible) */
   canPublish: boolean;
+  /** Non-fatal errors hit while assembling defaults (for troubleshooting) */
+  diagnostics: string[];
 }
 
 export interface AdCopy {

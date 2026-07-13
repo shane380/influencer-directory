@@ -113,10 +113,34 @@ export async function getDefaults(): Promise<LauncherDefaults> {
   const { actId } = getEnv();
 
   let pageId: string | null = null;
+  let pageName: string | null = null;
+  let pageIgId: string | null = null;
   let instagramUserId: string | null = null;
   let suggestedLink: string | null = null;
   let suggestedUrlTags: string | null = null;
   const partnerMap = new Map<string, PartnerIdentity>();
+  const diagnostics: string[] = [];
+  const errMsg = (err: unknown) =>
+    err instanceof MetaApiError ? err.userMessage : err instanceof Error ? err.message : String(err);
+
+  // Brand identity comes from the page granted to the token. Pages seen on
+  // existing ads are often creators' pages (whitelisting ads run under the
+  // creator's identity), so ad metadata is only a last-resort fallback.
+  try {
+    const pages = await graphGet("me/accounts", { fields: "id,name", limit: "5" });
+    const granted = pages.data?.[0];
+    if (granted?.id) {
+      pageId = String(granted.id);
+      pageName = granted.name || null;
+      const g = await graphGet(pageId, { fields: "instagram_business_account" });
+      if (g.instagram_business_account?.id) {
+        pageIgId = String(g.instagram_business_account.id);
+        instagramUserId = pageIgId;
+      }
+    }
+  } catch (err) {
+    diagnostics.push(`granted page: ${errMsg(err)}`);
+  }
 
   try {
     const ads = await graphGet(`${actId}/ads`, {
@@ -136,6 +160,7 @@ export async function getDefaults(): Promise<LauncherDefaults> {
     }
   } catch (err) {
     console.warn("[meta-ads] Failed to scan recent ads for defaults:", err);
+    diagnostics.push(`ads scan: ${errMsg(err)}`);
   }
 
   // Partnership sponsors seen on existing partnership ads. Read separately —
@@ -156,40 +181,20 @@ export async function getDefaults(): Promise<LauncherDefaults> {
     }
   } catch (err) {
     console.warn("[meta-ads] Failed to scan for partnership sponsors:", err);
-  }
-
-  if (!pageId) {
-    try {
-      const pages = await graphGet("me/accounts", { fields: "id,name", limit: "5" });
-      if (pages.data?.[0]?.id) pageId = String(pages.data[0].id);
-    } catch {
-      // No pages visible; the recent-ads scan is the only source.
-    }
-  }
-
-  let pageName: string | null = null;
-  let brandIgId: string | null = instagramUserId;
-  if (pageId) {
-    try {
-      const page = await graphGet(pageId, { fields: "name,instagram_business_account" });
-      pageName = page.name || null;
-      if (page.instagram_business_account?.id) {
-        brandIgId = String(page.instagram_business_account.id);
-        if (!instagramUserId) instagramUserId = brandIgId;
-      }
-    } catch {
-      // Page name is cosmetic; the id is what matters.
-    }
+    diagnostics.push(`sponsor scan: ${errMsg(err)}`);
   }
 
   // Every creator with account-level partnership permission — the same list
-  // Ads Manager's "Select partnership" dialog shows. The recent-ads scan
-  // above stays as a fallback for sponsors granted only at the post level.
-  if (brandIgId) {
+  // Ads Manager's "Select partnership" dialog shows. Try each brand IG
+  // candidate (page-linked first, then the identity seen on recent ads);
+  // the recent-ads sponsor scan above stays as a last-resort fallback.
+  const brandIgCandidates = [...new Set([pageIgId, instagramUserId].filter(Boolean))] as string[];
+  for (const igId of brandIgCandidates) {
     try {
-      const perms = await graphGet(`${brandIgId}/branded_content_ad_permissions`, {
+      const perms = await graphGet(`${igId}/branded_content_ad_permissions`, {
         limit: "100",
       });
+      let added = 0;
       for (const p of perms.data || []) {
         if (String(p.permission_status || "").toLowerCase() !== "approved") continue;
         if (!p.creator_ig_id) continue;
@@ -197,11 +202,19 @@ export async function getDefaults(): Promise<LauncherDefaults> {
           sponsorId: String(p.creator_ig_id),
           label: p.creator_username ? `@${p.creator_username}` : String(p.creator_ig_id),
         });
+        added++;
       }
+      if (added > 0) break;
+      diagnostics.push(`partnership permissions on ${igId}: 0 approved records`);
     } catch (err) {
       console.warn("[meta-ads] Failed to list partnership permissions:", err);
+      diagnostics.push(`partnership permissions on ${igId}: ${errMsg(err)}`);
     }
   }
+
+  // The brand's own accounts can show up as "sponsors" on creator-primary
+  // whitelisting ads — they aren't pickable partners.
+  for (const ownId of brandIgCandidates) partnerMap.delete(ownId);
 
   let canPublish = false;
   try {
@@ -223,6 +236,7 @@ export async function getDefaults(): Promise<LauncherDefaults> {
     suggestedUrlTags,
     ctaOptions: CTA_OPTIONS,
     canPublish,
+    diagnostics,
   };
 }
 
