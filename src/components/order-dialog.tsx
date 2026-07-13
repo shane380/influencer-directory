@@ -767,7 +767,8 @@ export function OrderDialog({
       return;
     }
 
-    if (shopifyCustomer && !shopifyCustomer.phone) {
+    const gift = (campaignInfluencer as any)?.gift_shipping || null;
+    if (shopifyCustomer && !shopifyCustomer.phone && !gift?.phone) {
       setError("Phone number is required to create a draft order. Please edit the customer to add a phone number.");
       return;
     }
@@ -776,6 +777,49 @@ export function OrderDialog({
     setError(null);
 
     try {
+      // The gift page collected the influencer's freshest confirmed details.
+      // Draft orders ship to the customer's default address, so sync the
+      // gift-confirmed phone/address onto the customer before ordering —
+      // otherwise the order goes to whatever stale address Shopify has.
+      if (shopifyCustomer && gift) {
+        const needsPhone = !shopifyCustomer.phone && !!gift.phone;
+        const norm = (v: any) => String(v || "").replace(/\s+/g, " ").trim().toLowerCase();
+        const custAddr = shopifyCustomer.address;
+        const needsAddress =
+          !!gift.address1 &&
+          (norm(custAddr?.address1) !== norm(gift.address1) ||
+            norm(custAddr?.zip).replace(/ /g, "") !== norm(gift.zip).replace(/ /g, ""));
+        if (needsPhone || needsAddress) {
+          const syncResponse = await fetch("/api/shopify/customers", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: shopifyCustomer.id,
+              ...(needsPhone ? { phone: gift.phone } : {}),
+              ...(needsAddress
+                ? {
+                    address: gift.address1,
+                    address2: gift.address2 || "",
+                    city: gift.city || undefined,
+                    province: gift.province || undefined,
+                    zip: gift.zip || undefined,
+                    country_code: gift.country_code || undefined,
+                  }
+                : {}),
+            }),
+          });
+          const syncData = await syncResponse.json();
+          if (!syncResponse.ok) {
+            throw new Error(
+              syncData.error
+                ? `Couldn't save the gift-confirmed details to the customer: ${syncData.error}`
+                : "Couldn't save the gift-confirmed details to the customer"
+            );
+          }
+          if (syncData.customer) setShopifyCustomer(syncData.customer);
+        }
+      }
+
       const response = await fetch("/api/shopify/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1254,9 +1298,9 @@ export function OrderDialog({
                   Searching for customer...
                 </div>
               ) : shopifyCustomer && customerConfirmed && !showEditCustomerForm ? (
-                <div className={`${shopifyCustomer.phone ? "bg-green-50" : "bg-yellow-50"} p-3 rounded-lg`}>
+                <div className={`${shopifyCustomer.phone || (campaignInfluencer as any)?.gift_shipping?.phone ? "bg-green-50" : "bg-yellow-50"} p-3 rounded-lg`}>
                   <div className="flex items-center gap-3">
-                    {shopifyCustomer.phone ? (
+                    {shopifyCustomer.phone || (campaignInfluencer as any)?.gift_shipping?.phone ? (
                       <Check className="h-5 w-5 text-green-600 flex-shrink-0" />
                     ) : (
                       <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0" />
@@ -1266,6 +1310,11 @@ export function OrderDialog({
                       <p className="text-sm text-gray-600">{shopifyCustomer.email}</p>
                       {shopifyCustomer.phone ? (
                         <p className="text-sm text-gray-500">{shopifyCustomer.phone}</p>
+                      ) : (campaignInfluencer as any)?.gift_shipping?.phone ? (
+                        <p className="text-sm text-gray-500">
+                          {(campaignInfluencer as any).gift_shipping.phone}{" "}
+                          <span className="text-green-700">· from gift page, saved when you order</span>
+                        </p>
                       ) : (
                         <p className="text-sm text-yellow-700 font-medium mt-1">
                           Phone number required — <button className="underline hover:text-yellow-900" onClick={handleShowEditCustomerForm}>add phone number</button>
@@ -2084,7 +2133,7 @@ export function OrderDialog({
             </Button>
             <Button
               onClick={handleCreateOrder}
-              disabled={creatingOrder || cart.length === 0 || !shopifyCustomer || !customerConfirmed || !shopifyCustomer?.phone}
+              disabled={creatingOrder || cart.length === 0 || !shopifyCustomer || !customerConfirmed || !(shopifyCustomer?.phone || (campaignInfluencer as any)?.gift_shipping?.phone)}
               title={!shopifyCustomer || !customerConfirmed ? "Please confirm a customer first" : !shopifyCustomer?.phone ? "Phone number required — edit customer to add" : ""}
             >
               {creatingOrder ? (
