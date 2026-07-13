@@ -14,23 +14,25 @@ const CSS = `
 .gf-wrap { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #111; background: #fff; min-height: 100vh; -webkit-font-smoothing: antialiased; }
 .gf-wrap *, .gf-wrap *::before, .gf-wrap *::after { box-sizing: border-box; margin: 0; padding: 0; }
 .gf-col { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; background: #fff; }
-.gf-hero-wrap { position: relative; }
 .gf-hero { width: 100%; aspect-ratio: 5/4; object-fit: cover; display: block; background: #f0ece4; }
 @media (min-width: 560px) { .gf-hero { aspect-ratio: 16/10; } }
-.gf-hero-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(17,17,17,0.18) 45%, rgba(0,0,0,0.04) 72%, transparent 100%); }
-.gf-hero-text { position: absolute; left: 22px; right: 22px; bottom: 20px; color: #fff; }
-.gf-hero-eyebrow { font-size: 10px; letter-spacing: 0.34em; text-transform: uppercase; color: rgba(255,255,255,0.85); margin-bottom: 8px; }
-.gf-hero-name { font-family: 'Playfair Display', serif; font-weight: 300; font-size: 34px; line-height: 1.05; color: #fff; white-space: nowrap; }
-.gf-hero-subtitle { font-size: 12.5px; color: rgba(255,255,255,0.92); margin-top: 7px; }
-.gf-sign { font-family: 'Playfair Display', serif; font-style: italic; font-size: 14px; color: #555; margin: 0 0 22px; }
+.gf-masthead { padding: 30px 34px 26px; border-bottom: 1px solid #eee; }
+.gf-mast-eyebrow { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: #A89F94; margin-bottom: 12px; }
+.gf-mast-title { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 58px; line-height: 0.94; letter-spacing: -0.01em; color: #201D1A; }
+.gf-mast-title span { display: block; white-space: nowrap; }
+.gf-letter { padding: 26px 34px 8px; }
+.gf-letter-greeting { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 33px; font-weight: 400; line-height: 1.08; color: #201D1A; margin-bottom: 18px; }
+.gf-letter-body { font-size: 16.5px; line-height: 1.55; color: #4A453D; max-width: 34ch; margin-bottom: 18px; }
+.gf-sign { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 19px; color: #8A8177; margin: 0; }
+.gf-landing .gf-body { padding: 26px 34px 40px; }
+.gf-landing .gf-coll-row { margin: 0 -34px; padding: 0 34px 4px; }
 .gf-collection { margin-bottom: 26px; }
 .gf-coll-row { display: flex; gap: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; margin: 0 -24px; padding: 0 24px 4px; }
 .gf-coll-row::-webkit-scrollbar { display: none; }
 .gf-coll-item { flex: 0 0 96px; cursor: pointer; }
 @media (min-width: 560px) { .gf-coll-item { flex: 0 0 124px; } }
-.gf-coll-imgwrap { position: relative; }
-.gf-coll-img { width: 100%; height: 144px; object-fit: cover; display: block; background: #f5f2ec; }
-@media (min-width: 560px) { .gf-coll-img { height: 186px; } }
+.gf-coll-imgwrap { position: relative; aspect-ratio: 2/3; overflow: hidden; background: #f5f2ec; }
+.gf-coll-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
 .gf-coll-name { font-size: 10.5px; color: #555; margin-top: 5px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gf-details { border-top: 1px solid #eee; margin-bottom: 26px; }
 .gf-detail-row { display: flex; align-items: center; gap: 14px; padding: 13px 0; border-bottom: 1px solid #f2f2f2; }
@@ -58,6 +60,7 @@ const CSS = `
 .gf-card-title { font-size: 12px; line-height: 1.35; color: #111; }
 .gf-card-size { font-size: 11px; color: #666; margin-top: 3px; }
 .gf-check { position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; z-index: 2; }
+.gf-uncheck { position: absolute; top: 8px; left: 8px; width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,0.94); border: 1px solid #d8d8d8; color: #555; display: flex; align-items: center; justify-content: center; font-size: 13px; line-height: 1; z-index: 2; cursor: pointer; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
 .gf-opts { padding: 0 10px 12px; }
 .gf-opts.pulse { animation: gf-pulse 0.5s ease 2; }
 @keyframes gf-pulse { 50% { transform: scale(1.03); } }
@@ -383,26 +386,26 @@ export default function GiftPage() {
       <div className="gf-col">
 
         {step === 'landing' && (
-          <>
-            {c.hero_image_url ? (
-              <div className="gf-hero-wrap">
-                <img className="gf-hero" src={c.hero_image_url} alt={c.name} />
-                <div className="gf-hero-overlay" />
-                <div className="gf-hero-text">
-                  <div className="gf-hero-eyebrow">Nama</div>
-                  <div className="gf-hero-name" ref={titleRef} data-base="34">{c.name}</div>
-                </div>
+          <div className="gf-landing">
+            {c.hero_image_url && <img className="gf-hero" src={c.hero_image_url} alt={c.name} />}
+            <div className="gf-masthead">
+              <div className="gf-mast-eyebrow">Nama{(() => {
+                if (!c.launch_date) return ''
+                const d = new Date(c.launch_date + 'T00:00:00')
+                const m = d.getMonth() + 1
+                const season = m === 12 || m <= 2 ? 'Winter' : m <= 5 ? 'Spring' : m <= 8 ? 'Summer' : 'Fall'
+                return ` · ${season} '${String(d.getFullYear()).slice(2)}`
+              })()}</div>
+              <div className="gf-mast-title" ref={titleRef} data-base="58">
+                {c.name.split(/\s+/).map((w, i) => <span key={i}>{w}</span>)}
               </div>
-            ) : (
-              <div className="gf-body" style={{ flex: 'none', paddingBottom: 0 }}>
-                <div className="gf-eyebrow">Nama</div>
-                <div className="gf-hero-title" ref={titleRef} data-base="42" style={{ whiteSpace: 'nowrap' }}>{c.name}</div>
-              </div>
-            )}
-            <div className="gf-body" style={{ flex: 'none' }}>
-              <div className="gf-greeting">{data.influencer.first_name}, you&rsquo;re on the list.</div>
-              <div className="gf-sub" style={{ marginBottom: 6 }}>{c.blurb || `${c.name} is almost here — before it goes live, we'd love you in it. Pick your pieces below.`}</div>
+            </div>
+            <div className="gf-letter">
+              <div className="gf-letter-greeting">{data.influencer.first_name}, you&rsquo;re on the list.</div>
+              <div className="gf-letter-body">{c.blurb || `${c.name} is almost here — before it goes live, we'd love you in it. Pick your pieces below.`}</div>
               <div className="gf-sign">— Daisy &amp; the Nama team</div>
+            </div>
+            <div className="gf-body" style={{ flex: 'none' }}>
               <div className="gf-details">
                 <div className="gf-detail-row">
                   <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
@@ -445,7 +448,7 @@ export default function GiftPage() {
               )}
               <button className="gf-btn" onClick={() => setStep('select')}>Select Your Pieces</button>
             </div>
-          </>
+          </div>
         )}
 
         {step === 'select' && (
@@ -461,6 +464,9 @@ export default function GiftPage() {
                 return (
                   <div key={product.product_id} className={`gf-card${picked ? ' sel' : ''}`}>
                     {picked && <div className="gf-check">✓</div>}
+                    {picked && (
+                      <button className="gf-uncheck" title="Remove" onClick={(e) => { e.stopPropagation(); removePick(picked) }}>×</button>
+                    )}
                     <img className="gf-card-img" src={product.image || ''} alt={product.title} onClick={() => tapProduct(product)} />
                     <div className="gf-card-body" onClick={() => tapProduct(product)}>
                       <div className="gf-card-title">{product.title}</div>
@@ -519,7 +525,7 @@ export default function GiftPage() {
                       </div>
                     ))}
                     {picked && (
-                      <button className="gf-sheet-remove" onClick={() => { removePick(picked); setSheetProduct(null) }}>Remove this piece</button>
+
                     )}
                   </div>
                 </>
