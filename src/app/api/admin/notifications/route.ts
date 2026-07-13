@@ -75,6 +75,27 @@ export async function GET() {
     created_at: d.created_at,
   }));
 
+  // Feedback on the viewer's own submitted ads — clears when they resubmit
+  // or withdraw the draft.
+  let adFeedbackNotifications: any[] = [];
+  if (viewerId) {
+    const { data: feedbackDrafts } = await (supabase
+      .from("ad_drafts") as any)
+      .select("id, ad_name, feedback, reviewed_at, created_at")
+      .eq("created_by", viewerId)
+      .eq("status", "changes_requested")
+      .order("reviewed_at", { ascending: false })
+      .limit(20);
+
+    adFeedbackNotifications = (feedbackDrafts || []).map((d: any) => ({
+      id: d.id,
+      type: "ad_feedback" as const,
+      creator_name: "Ad review",
+      ad_name: d.ad_name,
+      created_at: d.reviewed_at || d.created_at,
+    }));
+  }
+
   const outfitNotifications = (outfitRequests || []).map((req: any) => ({
     id: req.id,
     type: "outfit_request" as const,
@@ -104,7 +125,7 @@ export async function GET() {
       };
     });
 
-  const notifications = [...contentNotifications, ...outfitNotifications, ...adNotifications, ...giftNotifications]
+  const notifications = [...contentNotifications, ...outfitNotifications, ...adNotifications, ...adFeedbackNotifications, ...giftNotifications]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 20);
 

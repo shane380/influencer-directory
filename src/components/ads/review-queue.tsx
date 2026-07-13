@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import type { AdDraft } from "@/types/meta-ads";
+import type { AdDraft, CampaignSummary } from "@/types/meta-ads";
 import { IgFeedPreview } from "./ig-feed-preview";
 import { IgReelsPreview } from "./ig-reels-preview";
-import { CheckCircle2, Clock, Loader2, MessageSquare, Trash2, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, Loader2, MessageSquare, Pencil, Trash2, XCircle } from "lucide-react";
 
 const CTA_LABELS: Record<string, string> = {
   SHOP_NOW: "Shop now",
@@ -50,6 +50,19 @@ export function ReviewQueue({
   const [feedbackText, setFeedbackText] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{
+    adName: string;
+    adsetId: string;
+    primaryText: string;
+    headline: string;
+    description: string;
+    link: string;
+    urlTags: string;
+    cta: string;
+  } | null>(null);
+  const [targets, setTargets] = useState<CampaignSummary[] | null>(null);
+  const [targetsLoading, setTargetsLoading] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -113,6 +126,79 @@ export function ReviewQueue({
     [feedbackText, refresh]
   );
 
+  const startEdit = useCallback(
+    (draft: AdDraft) => {
+      setEditingId(draft.id);
+      setEditForm({
+        adName: draft.adName,
+        adsetId: draft.adsetId,
+        primaryText: draft.copy.primaryText || "",
+        headline: draft.copy.headline || "",
+        description: draft.copy.description || "",
+        link: draft.copy.link || "",
+        urlTags: draft.copy.urlTags || "",
+        cta: draft.copy.cta || "SHOP_NOW",
+      });
+      if (!targets && !targetsLoading) {
+        setTargetsLoading(true);
+        fetch("/api/ads/targets")
+          .then((res) => res.json())
+          .then((data) => setTargets(data.campaigns || []))
+          .catch(() => setTargets([]))
+          .finally(() => setTargetsLoading(false));
+      }
+    },
+    [targets, targetsLoading]
+  );
+
+  const saveEdit = useCallback(
+    async (draft: AdDraft, resubmit: boolean) => {
+      if (!editForm) return;
+      setBusyId(draft.id);
+      setError(null);
+      try {
+        // Resolve campaign/adset names from the live target list; if the
+        // adset wasn't changed (or targets failed to load) leave targeting as is.
+        const campaign = targets?.find((c) => c.adsets.some((a) => a.id === editForm.adsetId));
+        const adset = campaign?.adsets.find((a) => a.id === editForm.adsetId);
+        const res = await fetch(`/api/ads/drafts/${draft.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            adName: editForm.adName,
+            ...(campaign && adset
+              ? {
+                  campaignId: campaign.id,
+                  campaignName: campaign.name,
+                  adsetId: adset.id,
+                  adsetName: adset.name,
+                }
+              : {}),
+            copy: {
+              primaryText: editForm.primaryText,
+              headline: editForm.headline,
+              description: editForm.description,
+              link: editForm.link,
+              urlTags: editForm.urlTags,
+              cta: editForm.cta,
+            },
+            ...(resubmit ? { resubmit: true } : {}),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Could not save changes");
+        setEditingId(null);
+        setEditForm(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not save changes");
+      } finally {
+        setBusyId(null);
+        refresh();
+      }
+    },
+    [editForm, targets, refresh]
+  );
+
   const withdraw = useCallback(
     async (draftId: string) => {
       setBusyId(draftId);
@@ -133,6 +219,156 @@ export function ReviewQueue({
       </div>
     );
   }
+
+  const renderEditForm = (draft: AdDraft, mode: "queue" | "mine" | "reviewed") => {
+    if (!editForm) return null;
+    const inputCls =
+      "w-full border border-gray-300 rounded-md px-2 py-1 text-[12.5px] text-gray-800";
+    const set = (patch: Partial<NonNullable<typeof editForm>>) =>
+      setEditForm((f) => (f ? { ...f, ...patch } : f));
+    const canResubmit = mode === "mine" && draft.status === "changes_requested";
+
+    const rows: { label: string; field: ReactNode }[] = [
+      {
+        label: "Ad name",
+        field: (
+          <input
+            value={editForm.adName}
+            onChange={(e) => set({ adName: e.target.value })}
+            className={inputCls}
+          />
+        ),
+      },
+      {
+        label: "Ad set",
+        field: targetsLoading ? (
+          <span className="text-gray-400 text-[12.5px]">Loading campaigns…</span>
+        ) : targets && targets.length > 0 ? (
+          <select
+            value={editForm.adsetId}
+            onChange={(e) => set({ adsetId: e.target.value })}
+            className={inputCls}
+          >
+            {!targets.some((c) => c.adsets.some((a) => a.id === editForm.adsetId)) && (
+              <option value={editForm.adsetId}>{draft.adsetName} (current)</option>
+            )}
+            {targets.map((c) => (
+              <optgroup key={c.id} label={c.name}>
+                {c.adsets.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        ) : (
+          <span className="text-gray-500 text-[12.5px]">
+            {draft.adsetName} <span className="text-gray-400">(campaign list unavailable)</span>
+          </span>
+        ),
+      },
+      {
+        label: "Primary text",
+        field: (
+          <textarea
+            value={editForm.primaryText}
+            onChange={(e) => set({ primaryText: e.target.value })}
+            rows={3}
+            className={inputCls}
+          />
+        ),
+      },
+      {
+        label: "Landing page",
+        field: (
+          <input
+            value={editForm.link}
+            onChange={(e) => set({ link: e.target.value })}
+            className={inputCls}
+          />
+        ),
+      },
+      {
+        label: "URL params",
+        field: (
+          <input
+            value={editForm.urlTags}
+            onChange={(e) => set({ urlTags: e.target.value })}
+            className={inputCls}
+          />
+        ),
+      },
+      {
+        label: "Headline",
+        field: (
+          <input
+            value={editForm.headline}
+            onChange={(e) => set({ headline: e.target.value })}
+            className={inputCls}
+          />
+        ),
+      },
+      {
+        label: "Description",
+        field: (
+          <input
+            value={editForm.description}
+            onChange={(e) => set({ description: e.target.value })}
+            className={inputCls}
+          />
+        ),
+      },
+      {
+        label: "CTA button",
+        field: (
+          <select
+            value={editForm.cta}
+            onChange={(e) => set({ cta: e.target.value })}
+            className={inputCls}
+          >
+            {Object.entries(CTA_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        ),
+      },
+    ];
+
+    return (
+      <div className="mt-3 border-t border-gray-100 pt-3">
+        <div className="grid grid-cols-[110px_1fr] gap-x-3 gap-y-2 text-[12.5px] items-start">
+          {rows.map((row) => (
+            <div key={row.label} className="contents">
+              <span className="text-gray-400 pt-1.5">{row.label}</span>
+              <span className="min-w-0">{row.field}</span>
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-end gap-2 mt-3">
+          <button
+            onClick={() => {
+              setEditingId(null);
+              setEditForm(null);
+            }}
+            className="border border-gray-300 rounded-md px-4 py-1.5 text-[12.5px] text-gray-700 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => saveEdit(draft, canResubmit)}
+            disabled={busyId === draft.id}
+            className="bg-gray-900 text-white rounded-md px-4 py-1.5 text-[12.5px] font-semibold hover:bg-gray-800 disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {busyId === draft.id && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {canResubmit ? "Save & resubmit" : "Save changes"}
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const renderDetails = (draft: AdDraft) => {
     const rows: { label: string; value: ReactNode }[] = [
@@ -263,7 +499,21 @@ export function ReviewQueue({
                 >
                   Request changes
                 </button>
+                <button
+                  onClick={() => (editingId === draft.id ? setEditingId(null) : startEdit(draft))}
+                  className="border border-gray-300 rounded-md py-1.5 text-[12.5px] text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-1.5"
+                >
+                  <Pencil className="h-3 w-3" /> Edit details
+                </button>
               </>
+            )}
+            {mode === "mine" && draft.status === "changes_requested" && (
+              <button
+                onClick={() => (editingId === draft.id ? setEditingId(null) : startEdit(draft))}
+                className="bg-gray-900 text-white rounded-md py-1.5 text-[12.5px] font-semibold hover:bg-gray-800 flex items-center justify-center gap-1.5"
+              >
+                <Pencil className="h-3 w-3" /> Edit & resubmit
+              </button>
             )}
             {mode === "mine" &&
               (draft.status === "pending" || draft.status === "changes_requested") && (
@@ -284,7 +534,9 @@ export function ReviewQueue({
           </div>
         </div>
 
-        {(mode === "queue" || expanded) && renderDetails(draft)}
+        {editingId === draft.id
+          ? renderEditForm(draft, mode)
+          : (mode === "queue" || expanded) && renderDetails(draft)}
 
         {feedbackFor === draft.id && (
           <div className="mt-3 border-t border-gray-100 pt-3">
