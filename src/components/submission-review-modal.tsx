@@ -48,22 +48,20 @@ export function SubmissionReviewModal({ submission, onClose, onAction }: Props) 
   }
 
   function handleDownloadAll() {
-    if (downloadableFiles.length === 0) return;
-    if (downloadableFiles.length === 1) {
-      const f = downloadableFiles[0];
-      const a = document.createElement("a");
-      a.href = f.r2_url!;
-      a.download = f.name || "";
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      return;
-    }
-    for (const f of downloadableFiles) {
-      window.open(f.r2_url!, "_blank", "noopener,noreferrer");
-    }
+    // R2 files are cross-origin, so a.download is ignored and window.open gets
+    // popup-blocked. Route through /api/r2/download, which redirects to a
+    // presigned URL with attachment disposition; stagger clicks so the browser
+    // doesn't drop rapid successive downloads.
+    downloadableFiles.forEach((f, i) => {
+      setTimeout(() => {
+        const a = document.createElement("a");
+        a.href = `/api/r2/download?url=${encodeURIComponent(f.r2_url!)}&name=${encodeURIComponent(f.name || "")}`;
+        a.download = f.name || "";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }, i * 350);
+    });
   }
 
   return (
