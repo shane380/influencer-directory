@@ -810,6 +810,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
   );
 
   const readyCount = ads.filter((a) => !validateAd(a) && a.phase !== "done").length;
+  const allDone = ads.length > 0 && ads.every((a) => a.phase === "done");
   const ctaLabel = useMemo(
     () =>
       defaults?.ctaOptions.find((c) => c.value === selected?.copy.cta)?.label || "Shop now",
@@ -1465,7 +1466,9 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
                 <p className="text-[13px] font-semibold text-gray-900">
-                  {readyCount} ad{readyCount === 1 ? "" : "s"} ready
+                  {allDone
+                    ? `${ads.length} ad${ads.length === 1 ? "" : "s"} ${isAdmin ? "published" : "submitted"}`
+                    : `${readyCount} ad${readyCount === 1 ? "" : "s"} ready`}
                   {adset ? ` → ${adset.name}` : ""}
                 </p>
                 <p className="text-[11.5px] text-gray-500">
@@ -1483,7 +1486,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                     Open Ads Manager <ExternalLink className="h-3 w-3" />
                   </a>
                 )}
-                {ads.some((a) => a.phase === "done") && (
+                {ads.some((a) => a.phase === "done") && !allDone && (
                   <button
                     onClick={() => {
                       setAds([newAd(defaults)]);
@@ -1494,36 +1497,55 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Start a new batch
                   </button>
                 )}
-                {isAdmin ? (
-                  <div className="inline-flex border border-gray-300 rounded-full overflow-hidden text-[12px]">
+                {!allDone &&
+                  (isAdmin ? (
+                    <div className="inline-flex border border-gray-300 rounded-full overflow-hidden text-[12px]">
+                      <button
+                        onClick={() => setPublishLive(true)}
+                        className={`px-3.5 py-1 ${publishLive ? "bg-gray-900 text-white" : "text-gray-500"}`}
+                      >
+                        Live
+                      </button>
+                      <button
+                        onClick={() => setPublishLive(false)}
+                        className={`px-3.5 py-1 ${!publishLive ? "bg-gray-900 text-white" : "text-gray-500"}`}
+                      >
+                        Paused
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-[11.5px] text-gray-500 max-w-[260px]">
+                      Your ads are saved for admin review — nothing goes to Meta until approved.
+                    </p>
+                  ))}
+                {allDone ? (
+                  <>
+                    <span className="flex items-center gap-1.5 text-[13px] font-semibold text-emerald-600">
+                      <CheckCircle2 className="h-4 w-4" />
+                      {isAdmin ? "Published" : "Submitted"}
+                    </span>
                     <button
-                      onClick={() => setPublishLive(true)}
-                      className={`px-3.5 py-1 ${publishLive ? "bg-gray-900 text-white" : "text-gray-500"}`}
+                      onClick={() => {
+                        setAds([newAd(defaults)]);
+                        setSelectedId(null);
+                      }}
+                      className="bg-gray-900 text-white rounded-lg px-6 py-2.5 text-[13px] font-semibold flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors"
                     >
-                      Live
+                      Start a new batch
                     </button>
-                    <button
-                      onClick={() => setPublishLive(false)}
-                      className={`px-3.5 py-1 ${!publishLive ? "bg-gray-900 text-white" : "text-gray-500"}`}
-                    >
-                      Paused
-                    </button>
-                  </div>
+                  </>
                 ) : (
-                  <p className="text-[11.5px] text-gray-500 max-w-[260px]">
-                    Your ads are saved for admin review — nothing goes to Meta until approved.
-                  </p>
+                  <button
+                    onClick={publishAll}
+                    disabled={publishing || !adset || readyCount === 0}
+                    className="bg-gray-900 text-white rounded-lg px-6 py-2.5 text-[13px] font-semibold disabled:opacity-40 flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors"
+                  >
+                    {publishing && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {isAdmin
+                      ? `Publish ${readyCount || ""} ad${readyCount === 1 ? "" : "s"}`
+                      : "Submit for approval"}
+                  </button>
                 )}
-                <button
-                  onClick={publishAll}
-                  disabled={publishing || !adset || readyCount === 0}
-                  className="bg-gray-900 text-white rounded-lg px-6 py-2.5 text-[13px] font-semibold disabled:opacity-40 flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors"
-                >
-                  {publishing && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {isAdmin
-                    ? `Publish ${readyCount || ""} ad${readyCount === 1 ? "" : "s"}`
-                    : "Submit for approval"}
-                </button>
               </div>
             </div>
             {ads.some((a) => a.phase !== "idle") && (
