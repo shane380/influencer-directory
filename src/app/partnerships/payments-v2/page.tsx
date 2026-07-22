@@ -7,6 +7,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { allocatePayments } from "@/lib/payout-allocation";
 import { Sidebar } from "@/components/sidebar";
 
 interface Creator {
@@ -336,23 +337,10 @@ export default function PaymentsV2() {
             </div>
             <div className="overflow-y-auto flex-1 p-6 space-y-5">
               {!historyData ? <div className="text-xs text-gray-400">Loading…</div> : (() => {
-                // FIFO allocation: payments pinned to a month settle that month first;
-                // everything else is a pool applied to the oldest unpaid months first.
+                // FIFO allocation (shared with the monthly grid API): pinned payments
+                // settle their month first, pooled payments fill oldest unpaid months.
                 // You record real transfers (date + amount) — the app figures out coverage.
-                const months = [...historyData.earnedByMonth].sort((a: any, b: any) => a.period.localeCompare(b.period)); // oldest first
-                const paidByMonth: Record<string, number> = {};
-                let pool = 0;
-                for (const p of historyData.payments || []) {
-                  if (p.covers_period) paidByMonth[p.covers_period] = (paidByMonth[p.covers_period] || 0) + Number(p.amount);
-                  else pool += Number(p.amount);
-                }
-                for (const m of months) {
-                  const need = Math.max(0, m.amount - (paidByMonth[m.period] || 0));
-                  const take = Math.min(pool, need);
-                  paidByMonth[m.period] = (paidByMonth[m.period] || 0) + take;
-                  pool = Math.round((pool - take) * 100) / 100;
-                }
-                const overpay = Math.round(pool * 100) / 100; // leftover = credit / overpayment
+                const { paidByMonth, credit: overpay } = allocatePayments(historyData.earnedByMonth, historyData.payments || []);
                 const poolOpen = histPayMonth === "__pool__";
                 return (
                 <>

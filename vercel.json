@@ -13,6 +13,10 @@
       "schedule": "30 6 * * *"
     },
     {
+      "path": "/api/cron/sync-commission-events",
+      "schedule": "45 6 * * *"
+    },
+    {
       "path": "/api/cron/sync-influencer-orders",
       "schedule": "0 5 * * *"
     },

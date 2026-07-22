@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdmin, getAdminClient } from "@/lib/admin-auth";
 import { isTestEnv } from "@/lib/payout-env";
+import { fetchAllRows } from "@/lib/partnerships/paginate";
+import { allocatePayments } from "@/lib/payout-allocation";
 
 // Consolidated per-creator payments for a period, derived from the ledgers:
 //   earned  = SUM(commission_events.amount) in the period (refunds are negative)
-//   paid    = SUM(creator_payouts.amount) allocated to the period (covers_period)
+//   paid    = the slice of the creator's payouts FIFO-allocated to the period
+//             (same allocation as the History drawer — pinned covers_period
+//             payments settle their month first, pooled payments fill oldest
+//             unpaid months first), NOT just payouts tagged with the period
 //   balance = earned − paid
 // One row per creator: a creator's partner (inf:) and legacy (legacy:) streams
 // merge by influencer_id; legacy affiliates with no influencer stand alone.
@@ -18,9 +23,13 @@ export async function GET(request: NextRequest) {
   }
   const db = getAdminClient();
 
-  const { data: events } = await (db.from("commission_events") as any)
-    .select("influencer_id, legacy_affiliate_id, event_type, amount, basis, rate, detail")
-    .eq("period", period);
+  const events = await fetchAllRows<any>((from, to) =>
+    (db.from("commission_events") as any)
+      .select("influencer_id, legacy_affiliate_id, event_type, amount, basis, rate, detail")
+      .eq("period", period)
+      .order("id")
+      .range(from, to),
+  );
 
   // Group by consolidation key: influencer_id, else legacy:<id>.
   type Grp = {
@@ -47,15 +56,51 @@ export async function GET(request: NextRequest) {
     else if (e.event_type === "refund") { g.affiliate += amt; g.affRefunds += Number(e.basis) || 0; }
   }
 
-  // Payouts allocated to this period.
-  const { data: payouts } = await (db.from("creator_payouts") as any)
-    .select("influencer_id, legacy_affiliate_id, amount, covers_period")
-    .eq("covers_period", period)
-    .eq("is_test", isTestEnv());
+  // Paid for this period = FIFO allocation over each creator's FULL history
+  // (all periods' earnings + all payouts), then take this period's slice.
+  // Most payouts are recorded from the History drawer as a pool with no
+  // covers_period, so matching on the tag alone shows creators as unpaid
+  // forever — the double-payment bug this replaces.
+  const allEvents = await fetchAllRows<any>((from, to) =>
+    (db.from("commission_events") as any)
+      .select("influencer_id, legacy_affiliate_id, period, amount")
+      .order("id")
+      .range(from, to),
+  );
+  const allPayouts = await fetchAllRows<any>((from, to) =>
+    (db.from("creator_payouts") as any)
+      .select("influencer_id, legacy_affiliate_id, amount, covers_period")
+      .eq("is_test", isTestEnv())
+      .order("id")
+      .range(from, to),
+  );
+  const keyOf = (r: any) => (r.influencer_id ? `inf:${r.influencer_id}` : `legacy:${r.legacy_affiliate_id}`);
+  const earnedByKeyMonth = new Map<string, Map<string, number>>();
+  for (const e of allEvents) {
+    const key = keyOf(e);
+    let m = earnedByKeyMonth.get(key);
+    if (!m) { m = new Map(); earnedByKeyMonth.set(key, m); }
+    m.set(e.period, (m.get(e.period) || 0) + (Number(e.amount) || 0));
+  }
+  const payoutsByKey = new Map<string, any[]>();
+  for (const p of allPayouts) {
+    const key = keyOf(p);
+    if (!payoutsByKey.has(key)) payoutsByKey.set(key, []);
+    payoutsByKey.get(key)!.push(p);
+  }
   const paidByKey = new Map<string, number>();
-  for (const p of payouts || []) {
-    const key = p.influencer_id ? `inf:${p.influencer_id}` : `legacy:${p.legacy_affiliate_id}`;
-    paidByKey.set(key, (paidByKey.get(key) || 0) + (Number(p.amount) || 0));
+  for (const g of groups.values()) {
+    // merge the group's inf: and legacy: streams, same as the history endpoint
+    const keys = [...new Set([g.influencerId && `inf:${g.influencerId}`, g.legacyAffiliateId && `legacy:${g.legacyAffiliateId}`].filter(Boolean))] as string[];
+    const monthTotals = new Map<string, number>();
+    const payments: any[] = [];
+    for (const k of keys) {
+      for (const [p, amt] of earnedByKeyMonth.get(k) || []) monthTotals.set(p, (monthTotals.get(p) || 0) + amt);
+      payments.push(...(payoutsByKey.get(k) || []));
+    }
+    const earnedByMonth = [...monthTotals.entries()].map(([p, amount]) => ({ period: p, amount }));
+    const { paidByMonth } = allocatePayments(earnedByMonth, payments);
+    paidByKey.set(g.key, paidByMonth[period] || 0);
   }
 
   // Names / handles / payment info.
