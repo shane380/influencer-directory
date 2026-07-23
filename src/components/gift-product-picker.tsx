@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { Search, X } from "lucide-react";
+import { GripVertical, Search, X } from "lucide-react";
 import type { GiftPoolProduct } from "@/types/database";
 
 // Shared Shopify product picker for the gift pool (campaign settings) and
@@ -28,6 +28,7 @@ export function GiftProductPicker({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchProduct[]>([]);
   const [searching, setSearching] = useState(false);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
   const searchSeq = useRef(0);
 
   // Auto-search: fires 350ms after typing pauses; stale responses are dropped.
@@ -67,6 +68,16 @@ export function GiftProductPicker({
 
   function remove(id: string) {
     onChange(products.filter((x) => String(x.product_id) !== String(id)));
+  }
+
+  // Pool order = display order on the gift page, so coordinators can merch
+  // products next to each other by dragging rows.
+  function moveTo(from: number, to: number) {
+    if (from === to || from < 0 || to < 0 || from >= products.length || to >= products.length) return;
+    const next = [...products];
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    onChange(next);
   }
 
   return (
@@ -121,8 +132,25 @@ export function GiftProductPicker({
             No products yet — search above to build the pool.
           </div>
         )}
-        {products.map((p) => (
-          <div key={p.product_id} className="flex items-center gap-3 border rounded-md px-3 py-2">
+        {products.map((p, i) => (
+          <div
+            key={p.product_id}
+            className={`flex items-center gap-3 border rounded-md px-3 py-2 bg-white ${dragIdx === i ? "opacity-50 border-gray-400" : ""}`}
+            draggable
+            onDragStart={(e) => {
+              setDragIdx(i);
+              e.dataTransfer.effectAllowed = "move";
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (dragIdx === null || dragIdx === i) return;
+              moveTo(dragIdx, i);
+              setDragIdx(i);
+            }}
+            onDragEnd={() => setDragIdx(null)}
+            onDrop={(e) => e.preventDefault()}
+          >
+            <GripVertical className="h-4 w-4 text-gray-300 flex-shrink-0 cursor-grab" />
             {p.image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={p.image_url} alt="" className="w-8 h-10 object-cover rounded flex-shrink-0" />
@@ -133,6 +161,24 @@ export function GiftProductPicker({
               <span className="block text-sm truncate">{p.product_title}</span>
               {p.color && <span className="block text-xs text-gray-500 truncate">{p.color}</span>}
             </span>
+            <div className="flex flex-col -my-1">
+              <button
+                className="text-gray-300 hover:text-gray-700 disabled:opacity-30 leading-none px-1"
+                disabled={i === 0}
+                title="Move up"
+                onClick={() => moveTo(i, i - 1)}
+              >
+                ▲
+              </button>
+              <button
+                className="text-gray-300 hover:text-gray-700 disabled:opacity-30 leading-none px-1"
+                disabled={i === products.length - 1}
+                title="Move down"
+                onClick={() => moveTo(i, i + 1)}
+              >
+                ▼
+              </button>
+            </div>
             <button className="text-gray-400 hover:text-red-600" onClick={() => remove(String(p.product_id))}>
               <X className="h-4 w-4" />
             </button>
