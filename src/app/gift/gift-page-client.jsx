@@ -29,8 +29,6 @@ const CSS = `
 .gf-letter-body { font-size: 16.5px; line-height: 1.55; color: #4A453D; max-width: 34ch; margin-bottom: 18px; }
 .gf-sign { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 19px; color: #8A8177; margin: 0; }
 .gf-landing .gf-body { padding: 26px 34px 40px; }
-.gf-landing .gf-bodyL { padding-bottom: 0; }
-.gf-landing .gf-bodyR { padding-top: 0; }
 .gf-landing .gf-coll-row { margin: 0 -34px; padding: 0 34px 4px; }
 .gf-collection { margin-bottom: 26px; }
 .gf-coll-row { display: flex; gap: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; margin: 0 -24px; padding: 0 24px 4px; }
@@ -131,14 +129,17 @@ const CSS = `
      title/letter/details left, collection preview + CTA right — sized so the
      whole invite lands above the fold. Mobile untouched. */
   .gf-landing .gf-hero { aspect-ratio: 3.5/1; object-position: 50% 15%; }
-  .gf-cols { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); align-items: start; }
+  .gf-cols { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); }
   .gf-colL { border-right: 1px solid #eee; }
   .gf-colL .gf-masthead { max-width: none; margin: 0; padding: 24px 44px 14px 48px; }
-  .gf-colL .gf-letter { max-width: none; margin: 0; padding: 12px 44px 18px 48px; }
+  .gf-colL .gf-letter { max-width: none; margin: 0; padding: 12px 44px 24px 48px; }
   .gf-colL .gf-letter-body { margin-bottom: 12px; }
-  .gf-colL .gf-body { max-width: none; margin: 0; padding: 0 44px 32px 48px; }
-  .gf-colL .gf-detail-row { padding: 9px 0; }
-  .gf-colR .gf-body { max-width: none; margin: 0; padding: 30px 48px 40px 44px; }
+  .gf-colR .gf-body { max-width: none; margin: 0; padding: 22px 48px 36px 44px; }
+  .gf-colR .gf-details { border-top: none; margin-bottom: 16px; }
+  .gf-colR .gf-detail-row { padding: 8px 0; gap: 10px; }
+  .gf-colR .gf-detail-icon { width: 16px; height: 16px; }
+  .gf-colR .gf-detail-label { font-size: 9px; }
+  .gf-colR .gf-detail-value { font-size: 12.5px; }
   .gf-colR .gf-coll-row { margin: 0; padding: 0 0 4px; }
   .gf-colR .gf-coll-item { flex: 0 0 118px; max-width: 118px; }
 }
@@ -443,7 +444,9 @@ export default function GiftPageClient({ token, generic = false }) {
               <div className="gf-letter-body">{c.blurb || `${c.name} is almost here — before it goes live, we'd love you in it. Pick your pieces below.`}</div>
               <div className="gf-sign">— Daisy &amp; the Nama team</div>
             </div>
-            <div className="gf-body gf-bodyL" style={{ flex: 'none' }}>
+            </div>
+            <div className="gf-colR">
+            <div className="gf-body" style={{ flex: 'none' }}>
               <div className="gf-details">
                 <div className="gf-detail-row">
                   <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
@@ -469,10 +472,6 @@ export default function GiftPageClient({ token, generic = false }) {
                   </div>
                 </div>
               </div>
-            </div>
-            </div>
-            <div className="gf-colR">
-            <div className="gf-body gf-bodyR" style={{ flex: 'none' }}>
               {(data.products || []).length > 0 && (
                 <div className="gf-collection">
                   <div className="gf-section-label">The Collection</div>
