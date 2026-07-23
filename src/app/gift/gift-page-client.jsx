@@ -125,13 +125,21 @@ const CSS = `
   .gf-counterbar { padding: 14px 32px; }
   .gf-footer { padding-left: 32px; padding-right: 32px; }
   .gf-body { max-width: 520px; margin: 0 auto; width: 100%; }
-  /* Desktop landing: wide banner hero up top, then the masthead/letter/
-     details constrained to a centered readable column. Mobile untouched. */
+  /* Desktop landing: wide banner hero up top, then an editorial two-column
+     spread — masthead + letter on the left, details/collection/CTA panel on
+     the right behind a hairline. Heroless landings keep a centered column.
+     Mobile untouched. */
   .gf-landing .gf-hero { aspect-ratio: 21/9; }
   .gf-landing .gf-masthead { max-width: 680px; margin: 0 auto; width: 100%; padding: 40px 40px 28px; }
   .gf-landing .gf-letter { max-width: 680px; margin: 0 auto; width: 100%; padding: 28px 40px 8px; }
   .gf-landing .gf-body { max-width: 680px; margin: 0 auto; padding: 26px 40px 48px; }
   .gf-landing .gf-coll-row { margin: 0 -40px; padding: 0 40px 4px; }
+  .gf-landing:has(.gf-hero) { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr); }
+  .gf-landing:has(.gf-hero) .gf-hero { grid-column: 1 / -1; }
+  .gf-landing:has(.gf-hero) .gf-masthead { grid-column: 1; max-width: none; margin: 0; padding: 48px 44px 26px 48px; }
+  .gf-landing:has(.gf-hero) .gf-letter { grid-column: 1; max-width: none; margin: 0; padding: 26px 44px 44px 48px; }
+  .gf-landing:has(.gf-hero) .gf-body { grid-column: 2; grid-row: 2 / span 2; max-width: none; margin: 0; padding: 52px 48px 48px 44px; border-left: 1px solid #eee; }
+  .gf-landing:has(.gf-hero) .gf-coll-row { margin: 0; padding: 0 0 4px; }
 }
 `
 
