@@ -8,7 +8,9 @@ import type { GiftShipping } from "@/types/database";
 // The response is ALLOWLIST-BUILT — never include notes, compensation,
 // approval fields, or prices. Unknown tokens get a uniform 404.
 
-async function shopifyCustomerAddress(customerId: string): Promise<Partial<GiftShipping> | null> {
+async function shopifyCustomerContact(
+  customerId: string
+): Promise<{ email: string; phone: string; address: Partial<GiftShipping> | null } | null> {
   try {
     const storeUrl = getShopifyStoreUrl();
     const accessToken = await getShopifyAccessToken();
@@ -18,15 +20,21 @@ async function shopifyCustomerAddress(customerId: string): Promise<Partial<GiftS
     });
     if (!res.ok) return null;
     const { customer } = await res.json();
-    const addr = customer?.default_address || customer?.addresses?.[0];
-    if (!addr) return null;
+    if (!customer) return null;
+    const addr = customer.default_address || customer.addresses?.[0];
     return {
-      address1: addr.address1 || "",
-      address2: addr.address2 || "",
-      city: addr.city || "",
-      province: addr.province_code || addr.province || "",
-      zip: addr.zip || "",
-      country_code: (addr.country_code || "").toUpperCase(),
+      email: customer.email || "",
+      phone: customer.phone || addr?.phone || "",
+      address: addr?.address1
+        ? {
+            address1: addr.address1 || "",
+            address2: addr.address2 || "",
+            city: addr.city || "",
+            province: addr.province_code || addr.province || "",
+            zip: addr.zip || "",
+            country_code: (addr.country_code || "").toUpperCase(),
+          }
+        : null,
     };
   } catch {
     return null;
@@ -95,8 +103,14 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   if (assignment.gift_shipping) {
     prefill = { ...prefill, ...assignment.gift_shipping, source: "gift_shipping" };
   } else if (influencer.shopify_customer_id) {
-    const addr = await shopifyCustomerAddress(influencer.shopify_customer_id);
-    if (addr && addr.address1) prefill = { ...prefill, ...addr, source: "shopify_customer" };
+    // The influencer row often lacks email/phone even when the linked Shopify
+    // customer has them — fill any blanks from the customer record too.
+    const contact = await shopifyCustomerContact(influencer.shopify_customer_id);
+    if (contact) {
+      if (!prefill.email && contact.email) prefill.email = contact.email;
+      if (!prefill.phone && contact.phone) prefill.phone = contact.phone;
+      if (contact.address) prefill = { ...prefill, ...contact.address, source: "shopify_customer" };
+    }
   }
   if (prefill.source === "none" && influencer.mailing_address) {
     prefill.address1 = influencer.mailing_address;
