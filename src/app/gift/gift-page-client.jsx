@@ -125,21 +125,26 @@ const CSS = `
   .gf-counterbar { padding: 14px 32px; }
   .gf-footer { padding-left: 32px; padding-right: 32px; }
   .gf-body { max-width: 520px; margin: 0 auto; width: 100%; }
-  /* Desktop landing: wide banner hero up top, then an editorial two-column
-     spread — masthead + letter on the left, details/collection/CTA panel on
-     the right behind a hairline. Heroless landings keep a centered column.
-     Mobile untouched. */
-  .gf-landing .gf-hero { aspect-ratio: 21/9; }
+  /* Desktop landing: face-safe banner up top (crop anchored near the top of
+     the portrait source), then title + letter on the left and details + CTA
+     on the right, with the collection breaking out into a full-width
+     lookbook row beneath. Heroless landings keep a centered column; mobile
+     untouched. */
+  .gf-landing .gf-hero { aspect-ratio: 2/1; object-position: 50% 18%; }
   .gf-landing .gf-masthead { max-width: 680px; margin: 0 auto; width: 100%; padding: 40px 40px 28px; }
   .gf-landing .gf-letter { max-width: 680px; margin: 0 auto; width: 100%; padding: 28px 40px 8px; }
   .gf-landing .gf-body { max-width: 680px; margin: 0 auto; padding: 26px 40px 48px; }
   .gf-landing .gf-coll-row { margin: 0 -40px; padding: 0 40px 4px; }
-  .gf-landing:has(.gf-hero) { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr); }
-  .gf-landing:has(.gf-hero) .gf-hero { grid-column: 1 / -1; }
-  .gf-landing:has(.gf-hero) .gf-masthead { grid-column: 1; max-width: none; margin: 0; padding: 48px 44px 26px 48px; }
-  .gf-landing:has(.gf-hero) .gf-letter { grid-column: 1; max-width: none; margin: 0; padding: 26px 44px 44px 48px; }
-  .gf-landing:has(.gf-hero) .gf-body { grid-column: 2; grid-row: 2 / span 2; max-width: none; margin: 0; padding: 52px 48px 48px 44px; border-left: 1px solid #eee; }
+  .gf-landing:has(.gf-hero) { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); grid-template-rows: auto auto 1fr auto; }
+  .gf-landing:has(.gf-hero) .gf-hero { grid-column: 1 / -1; grid-row: 1; }
+  .gf-landing:has(.gf-hero) .gf-masthead { grid-column: 1; grid-row: 2; max-width: none; margin: 0; padding: 44px 44px 26px 48px; border-right: 1px solid #eee; }
+  .gf-landing:has(.gf-hero) .gf-letter { grid-column: 1; grid-row: 3; max-width: none; margin: 0; padding: 24px 44px 44px 48px; border-right: 1px solid #eee; }
+  .gf-landing:has(.gf-hero) .gf-body { display: contents; }
+  .gf-landing:has(.gf-hero) .gf-details { grid-column: 2; grid-row: 2; align-self: start; margin: 44px 48px 0 44px; }
+  .gf-landing:has(.gf-hero) .gf-body > .gf-btn { grid-column: 2; grid-row: 3; align-self: start; margin: 20px 48px 32px 44px; width: auto; }
+  .gf-landing:has(.gf-hero) .gf-collection { grid-column: 1 / -1; grid-row: 4; margin: 0; padding: 30px 48px 44px; border-top: 1px solid #eee; }
   .gf-landing:has(.gf-hero) .gf-coll-row { margin: 0; padding: 0 0 4px; }
+  .gf-landing:has(.gf-hero) .gf-coll-item { flex: 0 0 150px; max-width: 150px; }
 }
 `
 
