@@ -133,7 +133,11 @@ const CSS = `
   .gf-colL { border-right: 1px solid #eee; }
   .gf-colL .gf-masthead { max-width: none; margin: 0; padding: 24px 44px 14px 48px; }
   .gf-colL .gf-letter { max-width: none; margin: 0; padding: 12px 44px 24px 48px; }
-  .gf-colL .gf-letter-body { margin-bottom: 12px; }
+  /* The 16.5px mobile body size (iOS zoom guard) reads oversized on
+     desktop — step the letter down to editorial sizes. */
+  .gf-colL .gf-letter-greeting { font-size: 28px; }
+  .gf-colL .gf-letter-body { font-size: 14px; line-height: 1.7; max-width: 42ch; margin-bottom: 14px; }
+  .gf-colL .gf-sign { font-size: 16px; }
   .gf-colR .gf-body { max-width: none; margin: 0; padding: 22px 48px 36px 44px; }
   .gf-colR .gf-details { border-top: none; margin-bottom: 16px; }
   .gf-colR .gf-detail-row { padding: 8px 0; gap: 10px; }
