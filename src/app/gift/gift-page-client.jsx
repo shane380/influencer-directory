@@ -130,12 +130,14 @@ const CSS = `
   /* Desktop landing: short face-safe banner, then two independent columns —
      title/letter/details left, collection preview + CTA right — sized so the
      whole invite lands above the fold. Mobile untouched. */
-  .gf-landing .gf-hero { aspect-ratio: 3.2/1; object-position: 50% 15%; }
+  .gf-landing .gf-hero { aspect-ratio: 3.5/1; object-position: 50% 15%; }
   .gf-cols { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); align-items: start; }
   .gf-colL { border-right: 1px solid #eee; }
-  .gf-colL .gf-masthead { max-width: none; margin: 0; padding: 30px 44px 18px 48px; }
-  .gf-colL .gf-letter { max-width: none; margin: 0; padding: 16px 44px 22px 48px; }
-  .gf-colL .gf-body { max-width: none; margin: 0; padding: 0 44px 36px 48px; }
+  .gf-colL .gf-masthead { max-width: none; margin: 0; padding: 24px 44px 14px 48px; }
+  .gf-colL .gf-letter { max-width: none; margin: 0; padding: 12px 44px 18px 48px; }
+  .gf-colL .gf-letter-body { margin-bottom: 12px; }
+  .gf-colL .gf-body { max-width: none; margin: 0; padding: 0 44px 32px 48px; }
+  .gf-colL .gf-detail-row { padding: 9px 0; }
   .gf-colR .gf-body { max-width: none; margin: 0; padding: 30px 48px 40px 44px; }
   .gf-colR .gf-coll-row { margin: 0; padding: 0 0 4px; }
   .gf-colR .gf-coll-item { flex: 0 0 118px; max-width: 118px; }
