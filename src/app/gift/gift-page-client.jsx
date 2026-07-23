@@ -120,11 +120,23 @@ const CSS = `
 .gf-center { min-height: 70vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px 24px; }
 @media (min-width: 560px) { .gf-col { border-left: 1px solid #eee; border-right: 1px solid #eee; } }
 @media (min-width: 768px) {
-  .gf-col { max-width: 980px; }
+  .gf-col { max-width: 1040px; }
   .gf-grid { grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 24px 32px 32px; }
   .gf-counterbar { padding: 14px 32px; }
   .gf-footer { padding-left: 32px; padding-right: 32px; }
   .gf-body { max-width: 520px; margin: 0 auto; width: 100%; }
+  /* Landing becomes a split-screen editorial spread when a hero exists:
+     image fills the left half (sticky, full viewport height), the letter
+     column reads on the right. Mobile keeps the stacked flow untouched. */
+  .gf-landing:has(.gf-hero) { display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
+  .gf-landing:has(.gf-hero) .gf-hero { grid-column: 1; grid-row: 1 / 4; position: sticky; top: 0; height: 100vh; aspect-ratio: auto; }
+  .gf-landing:has(.gf-hero) .gf-masthead,
+  .gf-landing:has(.gf-hero) .gf-letter,
+  .gf-landing:has(.gf-hero) .gf-body { grid-column: 2; }
+  .gf-landing:has(.gf-hero) .gf-masthead { padding: 48px 40px 28px; border-bottom: 1px solid #eee; }
+  .gf-landing:has(.gf-hero) .gf-letter { padding: 28px 40px 8px; }
+  .gf-landing:has(.gf-hero) .gf-body { max-width: none; margin: 0; padding: 26px 40px 48px; }
+  .gf-landing:has(.gf-hero) .gf-coll-row { margin: 0 -40px; padding: 0 40px 4px; }
 }
 `
 
