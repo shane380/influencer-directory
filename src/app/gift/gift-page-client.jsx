@@ -125,18 +125,13 @@ const CSS = `
   .gf-counterbar { padding: 14px 32px; }
   .gf-footer { padding-left: 32px; padding-right: 32px; }
   .gf-body { max-width: 520px; margin: 0 auto; width: 100%; }
-  /* Landing becomes a split-screen editorial spread when a hero exists:
-     image fills the left half (sticky, full viewport height), the letter
-     column reads on the right. Mobile keeps the stacked flow untouched. */
-  .gf-landing:has(.gf-hero) { display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
-  .gf-landing:has(.gf-hero) .gf-hero { grid-column: 1; grid-row: 1 / 4; position: sticky; top: 0; height: 100vh; aspect-ratio: auto; }
-  .gf-landing:has(.gf-hero) .gf-masthead,
-  .gf-landing:has(.gf-hero) .gf-letter,
-  .gf-landing:has(.gf-hero) .gf-body { grid-column: 2; }
-  .gf-landing:has(.gf-hero) .gf-masthead { padding: 48px 40px 28px; border-bottom: 1px solid #eee; }
-  .gf-landing:has(.gf-hero) .gf-letter { padding: 28px 40px 8px; }
-  .gf-landing:has(.gf-hero) .gf-body { max-width: none; margin: 0; padding: 26px 40px 48px; }
-  .gf-landing:has(.gf-hero) .gf-coll-row { margin: 0 -40px; padding: 0 40px 4px; }
+  /* Desktop landing: wide banner hero up top, then the masthead/letter/
+     details constrained to a centered readable column. Mobile untouched. */
+  .gf-landing .gf-hero { aspect-ratio: 21/9; }
+  .gf-landing .gf-masthead { max-width: 680px; margin: 0 auto; width: 100%; padding: 40px 40px 28px; }
+  .gf-landing .gf-letter { max-width: 680px; margin: 0 auto; width: 100%; padding: 28px 40px 8px; }
+  .gf-landing .gf-body { max-width: 680px; margin: 0 auto; padding: 26px 40px 48px; }
+  .gf-landing .gf-coll-row { margin: 0 -40px; padding: 0 40px 4px; }
 }
 `
 
