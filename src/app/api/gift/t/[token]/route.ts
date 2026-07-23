@@ -53,6 +53,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     campaign: {
       name: campaign.name,
       hero_image_url: campaign.gift_hero_image?.url || null,
+      hero_image_mobile_url: campaign.gift_hero_image?.mobile_url || null,
       blurb: campaign.gift_blurb || null,
       outfits: effectiveOutfits(assignment, campaign),
       max_selects: effectiveMaxPieces(assignment, campaign),

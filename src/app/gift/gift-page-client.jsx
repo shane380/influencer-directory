@@ -418,7 +418,12 @@ export default function GiftPageClient({ token, generic = false }) {
 
         {step === 'landing' && (
           <div className="gf-landing">
-            {c.hero_image_url && <img className="gf-hero" src={c.hero_image_url} alt={c.name} />}
+            {c.hero_image_url && (
+              <picture>
+                {c.hero_image_mobile_url && <source media="(max-width: 767px)" srcSet={c.hero_image_mobile_url} />}
+                <img className="gf-hero" src={c.hero_image_url} alt={c.name} />
+              </picture>
+            )}
             <div className="gf-cols">
             <div className="gf-colL">
             <div className="gf-masthead">
