@@ -58,6 +58,7 @@ export function GiftSettingsDialog({
   const [heroMobile, setHeroMobile] = useState<{ url: string; r2_key: string } | null>(null);
   const [blurb, setBlurb] = useState("");
   const [maxSelects, setMaxSelects] = useState(3);
+  const [selectsDeadline, setSelectsDeadline] = useState("");
   const [pool, setPool] = useState<GiftPoolProduct[]>([]);
   const [genericEnabled, setGenericEnabled] = useState(false);
   const [genericToken, setGenericToken] = useState<string | null>(null);
@@ -78,6 +79,7 @@ export function GiftSettingsDialog({
     );
     setBlurb(campaign.gift_blurb ?? "");
     setMaxSelects(campaign.gift_max_selects ?? 3);
+    setSelectsDeadline((campaign as any).gift_selects_deadline || "");
     setPool(campaign.gift_products ?? []);
     setGenericEnabled((campaign as any).gift_generic_enabled ?? false);
     setGenericToken((campaign as any).gift_generic_token ?? null);
@@ -117,6 +119,9 @@ export function GiftSettingsDialog({
         : null,
       gift_blurb: blurb.trim() || null,
       gift_max_selects: Math.max(1, Math.min(10, maxSelects || 3)),
+      ...("gift_selects_deadline" in (campaign as any) || selectsDeadline
+        ? { gift_selects_deadline: selectsDeadline || null }
+        : {}),
       gift_products: pool,
       // Written only when the columns exist (migration applied) or the user
       // touched the feature — so saving other settings never breaks pre-migration.
@@ -256,6 +261,17 @@ export function GiftSettingsDialog({
               className="w-20"
             />
             <span className="text-xs text-gray-500">An outfit is 2–3 pieces — she can pick up to {Math.max(1, Math.min(10, maxSelects || 3)) * 3} pieces. Overridable per influencer.</span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="text-sm font-medium">Selects deadline</div>
+            <Input
+              type="date"
+              value={selectsDeadline}
+              onChange={(e) => setSelectsDeadline(e.target.value)}
+              className="w-40"
+            />
+            <span className="text-xs text-gray-500">Shown on the page ("make your picks by …"). Leave empty to show shipping time instead.</span>
           </div>
 
           <div className="border rounded-md p-3 space-y-2.5">

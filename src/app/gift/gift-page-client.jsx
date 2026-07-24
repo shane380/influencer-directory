@@ -468,13 +468,23 @@ export default function GiftPageClient({ token, generic = false }) {
                     </div>
                   </div>
                 )}
-                <div className="gf-detail-row">
-                  <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z" /><path d="M3.3 8.3L12 13l8.7-4.7" /><line x1="12" y1="13" x2="12" y2="21" /></svg>
-                  <div>
-                    <div className="gf-detail-label">Ships</div>
-                    <div className="gf-detail-value">Within 5 days</div>
+                {c.selects_deadline ? (
+                  <div className="gf-detail-row">
+                    <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><polyline points="12 7 12 12 15.5 14" /></svg>
+                    <div>
+                      <div className="gf-detail-label">Selects deadline</div>
+                      <div className="gf-detail-value">Make your picks by {new Date(c.selects_deadline + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</div>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="gf-detail-row">
+                    <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z" /><path d="M3.3 8.3L12 13l8.7-4.7" /><line x1="12" y1="13" x2="12" y2="21" /></svg>
+                    <div>
+                      <div className="gf-detail-label">Ships</div>
+                      <div className="gf-detail-value">Within 5 days</div>
+                    </div>
+                  </div>
+                )}
               </div>
               {(data.products || []).length > 0 && (
                 <div className="gf-collection">

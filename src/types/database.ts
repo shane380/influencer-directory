@@ -144,6 +144,7 @@ export interface Campaign {
   gift_generic_enabled: boolean;
   gift_generic_token: string | null;
   gift_generic_max_selects: number;
+  gift_selects_deadline: string | null;
   created_at: string;
   updated_at: string;
 }

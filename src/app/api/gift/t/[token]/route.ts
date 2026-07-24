@@ -58,6 +58,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       outfits: effectiveOutfits(assignment, campaign),
       max_selects: effectiveMaxPieces(assignment, campaign),
       launch_date: campaign.start_date || null,
+      selects_deadline: campaign.gift_selects_deadline || null,
     },
     influencer: {
       first_name: firstName,

@@ -51,6 +51,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       outfits,
       max_selects: outfits * 3,
       launch_date: campaign.start_date || null,
+      selects_deadline: campaign.gift_selects_deadline || null,
     },
     influencer: { first_name: null, top_size: null, bottoms_size: null },
     prefill: {

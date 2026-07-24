@@ -23,7 +23,7 @@ export async function loadGiftAssignment(token: string) {
       `id, campaign_id, influencer_id, gift_products_override, gift_max_selects_override,
        gift_viewed_at, gift_submitted_at, gift_shipping, product_selections,
        shopify_order_id, shopify_order_status, tracking_number, tracking_url,
-       campaigns!inner(name, start_date, gift_enabled, gift_hero_image, gift_blurb, gift_products, gift_max_selects),
+       campaigns!inner(name, start_date, gift_enabled, gift_hero_image, gift_blurb, gift_products, gift_max_selects, gift_selects_deadline),
        influencers!inner(id, name, email, phone, mailing_address, top_size, bottoms_size, shopify_customer_id)`
     )
     .eq("gift_token", token)
@@ -59,7 +59,7 @@ export async function loadGenericCampaign(token: string) {
   const { data } = await supabase
     .from("campaigns")
     .select(
-      "id, name, start_date, gift_enabled, gift_hero_image, gift_blurb, gift_products, gift_generic_enabled, gift_generic_token, gift_generic_max_selects"
+      "id, name, start_date, gift_enabled, gift_hero_image, gift_blurb, gift_products, gift_generic_enabled, gift_generic_token, gift_generic_max_selects, gift_selects_deadline"
     )
     .eq("gift_generic_token", token)
     .single();
