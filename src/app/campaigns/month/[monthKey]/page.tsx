@@ -913,6 +913,7 @@ export default function MonthCampaignViewPage() {
                   </TableHead>
                   <TableHead>Order</TableHead>
                   <TableHead>Content</TableHead>
+                  <TableHead>Deal</TableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -1158,6 +1159,16 @@ export default function MonthCampaignViewPage() {
                           <option value="reel">Reel</option>
                           <option value="tiktok">TikTok</option>
                         </Select>
+                      )}
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      {ci.partnership_type === "paid" ? (
+                        <DealSummaryBadge
+                          deal={deals.get(`${ci.influencer_id}-${ci.campaign_id}`) || null}
+                          onClick={() => handleOpenDealDialog(ci)}
+                        />
+                      ) : (
+                        <span className="text-gray-300">-</span>
                       )}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
