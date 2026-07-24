@@ -871,7 +871,6 @@ export default function CampaignDetailPage() {
                   <TableHead className="w-[150px]">Selects</TableHead>
                   <TableHead className="w-[76px]">Order</TableHead>
                   <TableHead className="w-[100px]">Content Posted</TableHead>
-                  <TableHead className="w-[120px]">Deal</TableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -1121,16 +1120,6 @@ export default function CampaignDetailPage() {
                           <option value="tiktok">TikTok</option>
                         </Select>
                         </span>
-                      )}
-                    </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      {ci.partnership_type === "paid" ? (
-                        <DealSummaryBadge
-                          deal={deals.get(ci.influencer_id) || null}
-                          onClick={() => handleOpenDealDialog(ci)}
-                        />
-                      ) : (
-                        <span className="text-gray-300">-</span>
                       )}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
