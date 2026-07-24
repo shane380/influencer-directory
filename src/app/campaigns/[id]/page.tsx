@@ -696,8 +696,7 @@ export default function CampaignDetailPage() {
           <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
             <div className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />
-              {campaign.start_date ? formatDate(campaign.start_date) : "No start date"}
-              {campaign.end_date && <> - {formatDate(campaign.end_date)}</>}
+              {campaign.start_date ? formatDate(campaign.start_date) : "No launch date"}
             </div>
           </div>
           <CampaignStatsPanel
