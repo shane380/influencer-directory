@@ -626,18 +626,20 @@ export function OrderDialog({
 
   const handleShowEditCustomerForm = () => {
     if (shopifyCustomer) {
-      // Fill any blanks from the address the influencer confirmed on the gift
-      // page — e.g. "add phone number" opens with her confirmed phone ready.
+      // The gift page holds what the influencer herself just confirmed, so it
+      // beats whatever Shopify has on file — prefill from it and fall back to
+      // the customer record only where the gift page left a field blank.
       const gift = (campaignInfluencer as any).gift_shipping || null;
+      const giftAddress = gift
+        ? [gift.address1, gift.address2, gift.city, `${gift.province || ""} ${gift.zip || ""}`.trim()].filter(Boolean).join(", ")
+        : "";
       setNewCustomerForm({
-        email: shopifyCustomer.email || gift?.email || "",
+        email: gift?.email || shopifyCustomer.email || "",
         first_name: shopifyCustomer.first_name || "",
         last_name: shopifyCustomer.last_name || "",
-        phone: shopifyCustomer.phone || gift?.phone || "",
-        address:
-          shopifyCustomer.address?.address1 ||
-          (gift ? [gift.address1, gift.address2, gift.city, `${gift.province || ""} ${gift.zip || ""}`.trim()].filter(Boolean).join(", ") : ""),
-        country: (shopifyCustomer.address?.country_code || gift?.country_code || "US").toUpperCase(),
+        phone: gift?.phone || shopifyCustomer.phone || "",
+        address: giftAddress || shopifyCustomer.address?.address1 || "",
+        country: (gift?.country_code || shopifyCustomer.address?.country_code || "US").toUpperCase(),
       });
       setShowEditCustomerForm(true);
       setShowCreateCustomerForm(false);
