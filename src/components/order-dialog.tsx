@@ -1501,6 +1501,24 @@ export function OrderDialog({
                   {customerError && (
                     <p className="text-sm text-red-600 mt-2">{customerError}</p>
                   )}
+                  {customerSearchResults.length > 0 && (
+                    <div className="border rounded-lg max-h-40 overflow-y-auto mt-2 bg-white">
+                      {customerSearchResults.map((customer) => (
+                        <button
+                          key={customer.id}
+                          type="button"
+                          className="w-full p-3 flex items-center justify-between hover:bg-gray-50 border-b last:border-b-0 text-left"
+                          onClick={() => handleSelectCustomer(customer)}
+                        >
+                          <div>
+                            <p className="font-medium">{customer.name}</p>
+                            <p className="text-sm text-gray-500">{customer.email}</p>
+                          </div>
+                          <Plus className="h-4 w-4 text-gray-400" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-3">
