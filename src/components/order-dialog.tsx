@@ -129,6 +129,8 @@ export function OrderDialog({
   const [customerSearchResults, setCustomerSearchResults] = useState<ShopifyCustomer[]>([]);
   const [showCustomerSearch, setShowCustomerSearch] = useState(false);
   const [customerConfirmed, setCustomerConfirmed] = useState(false);
+  const [customerMatchExhausted, setCustomerMatchExhausted] = useState(false);
+  const autoCreateAttempted = useRef(false);
   const [showCreateCustomerForm, setShowCreateCustomerForm] = useState(false);
   const [showEditCustomerForm, setShowEditCustomerForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(false);
@@ -196,6 +198,8 @@ export function OrderDialog({
     setCustomerSearchResults([]);
     setShowCustomerSearch(false);
     setCustomerConfirmed(false);
+    setCustomerMatchExhausted(false);
+    autoCreateAttempted.current = false;
     setShowCreateCustomerForm(false);
     setCampaignHistoryExpanded(false);
     // Pre-fill form: an address confirmed on the gift page beats our stale
@@ -315,6 +319,7 @@ export function OrderDialog({
 
         // No match found
         setShopifyCustomer(null);
+        setCustomerMatchExhausted(true);
       } catch (err) {
         console.error("Error matching customer:", err);
       } finally {
@@ -616,6 +621,22 @@ export function OrderDialog({
       setCreatingCustomer(false);
     }
   };
+
+  // First-time gifted influencers usually don't exist in Shopify yet. When
+  // the influencer confirmed her details on the gift page and no customer
+  // matched, create the customer from that submission automatically instead
+  // of waiting for a manual "Create Customer" click. Runs once per dialog
+  // open; an email/phone conflict falls into handleCreateCustomer's existing
+  // find-and-select flow.
+  useEffect(() => {
+    if (!open || autoCreateAttempted.current) return;
+    if (!customerMatchExhausted || customerSearching || shopifyCustomer) return;
+    const gift = (campaignInfluencer as any).gift_shipping || null;
+    if (!gift?.email || !gift?.phone) return;
+    autoCreateAttempted.current = true;
+    handleCreateCustomer();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, customerMatchExhausted, customerSearching, shopifyCustomer]);
 
   const handleShowCreateCustomerForm = () => {
     setShowCustomerSearch(false);
