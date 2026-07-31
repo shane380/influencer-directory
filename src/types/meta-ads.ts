@@ -83,6 +83,36 @@ export interface DraftAsset {
    */
   verticalFileUrl?: string | null;
   verticalThumbnailUrl?: string | null;
+  /**
+   * Existing-post ads only: the organic IG media id promoted via the
+   * creative's source_instagram_media_id. When set, nothing is uploaded to
+   * Meta — fileUrl/thumbnailUrl hold the post's IG CDN preview for the UI.
+   */
+  sourceInstagramMediaId?: string | null;
+  /** Existing-post ads only: permalink to the organic post */
+  instagramPermalink?: string | null;
+}
+
+/** One organic post from the brand's IG account (GET /api/ads/ig-media). */
+export interface IgMediaItem {
+  id: string;
+  mediaType: "IMAGE" | "VIDEO" | "CAROUSEL_ALBUM";
+  /** FEED, REELS, STORY… — null on very old media */
+  mediaProductType: string | null;
+  mediaUrl: string | null;
+  /** Videos only: poster image */
+  thumbnailUrl: string | null;
+  permalink: string | null;
+  caption: string | null;
+  timestamp: string | null;
+  /** null = Meta didn't report eligibility (treat as promotable) */
+  eligibleToBoost: boolean | null;
+}
+
+export interface IgMediaResponse {
+  media: IgMediaItem[];
+  /** Cursor for the next page, or null when exhausted */
+  nextCursor: string | null;
 }
 
 export interface SubmitDraftRequest {
@@ -123,4 +153,21 @@ export interface PublishResponse {
   adId?: string;
   creativeId?: string;
   error?: string;
+}
+
+/** Copy fields that can be saved as reusable templates (subset of AdCopy keys). */
+export type TemplateFieldType = "primaryText" | "headline" | "description" | "link";
+
+export interface AdTemplate {
+  id: string;
+  collectionId: string;
+  fieldType: TemplateFieldType;
+  name: string;
+  content: string;
+}
+
+export interface AdTemplateCollection {
+  id: string;
+  name: string;
+  templates: AdTemplate[];
 }

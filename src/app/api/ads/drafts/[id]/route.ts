@@ -74,6 +74,15 @@ export async function PATCH(
       kind: a.kind,
       fileUrl: a.fileUrl,
       thumbnailUrl: typeof a.thumbnailUrl === "string" ? a.thumbnailUrl : null,
+      // Existing-post ads: keep the organic media reference, otherwise an
+      // edit would turn the draft into an upload ad with an expiring IG URL.
+      ...(typeof a.sourceInstagramMediaId === "string" && a.sourceInstagramMediaId
+        ? {
+            sourceInstagramMediaId: a.sourceInstagramMediaId,
+            instagramPermalink:
+              typeof a.instagramPermalink === "string" ? a.instagramPermalink : null,
+          }
+        : {}),
       ...(a.role === "card"
         ? {
             order: typeof a.order === "number" ? a.order : 0,

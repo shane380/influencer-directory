@@ -202,11 +202,13 @@ export function ReviewQueue({
   const startEdit = useCallback(
     (draft: AdDraft) => {
       setEditingId(draft.id);
-      // Carousel drafts keep their card set — the edit form covers copy and
-      // targeting only, so leave assets untouched (null = don't send).
+      // Carousel and existing-post drafts keep their media — the edit form
+      // covers copy and targeting only, so leave assets untouched (null =
+      // don't send). Swapping in an uploaded file on an existing-post draft
+      // would be silently ignored at publish time.
       const isCarousel = draft.assets.some((a) => a.role === "card");
       setEditAssets(
-        isCarousel
+        isCarousel || draft.assets.some((a) => a.sourceInstagramMediaId)
           ? null
           : {
               feed: draft.assets.find((a) => a.role === "feed") || null,
@@ -426,15 +428,41 @@ export function ReviewQueue({
               label: "Media",
               field: (
                 <span className="text-[12.5px] text-gray-500">
-                  Carousel · {draftCards(draft).length} cards — swap card media by
-                  resubmitting; copy and targeting are editable here.
+                  {draftPost(draft) ? (
+                    <>
+                      Existing Instagram post — media and caption come from the post
+                      itself; button, destination and targeting are editable here.
+                      {draftPost(draft)?.instagramPermalink && (
+                        <>
+                          {" "}
+                          <a
+                            href={draftPost(draft)!.instagramPermalink!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-700 hover:underline"
+                          >
+                            View post
+                          </a>
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      Carousel · {draftCards(draft).length} cards — swap card media by
+                      resubmitting; copy and targeting are editable here.
+                    </>
+                  )}
                 </span>
               ),
             },
           ]),
       {
-        label: "Primary text",
-        field: (
+        label: draftPost(draft) ? "Caption" : "Primary text",
+        field: draftPost(draft) ? (
+          <span className="text-[12.5px] text-gray-500 whitespace-pre-wrap">
+            {draft.copy.primaryText || "—"}
+          </span>
+        ) : (
           <textarea
             value={editForm.primaryText}
             onChange={(e) => set({ primaryText: e.target.value })}
@@ -463,26 +491,32 @@ export function ReviewQueue({
           />
         ),
       },
-      {
-        label: "Headline",
-        field: (
-          <input
-            value={editForm.headline}
-            onChange={(e) => set({ headline: e.target.value })}
-            className={inputCls}
-          />
-        ),
-      },
-      {
-        label: "Description",
-        field: (
-          <input
-            value={editForm.description}
-            onChange={(e) => set({ description: e.target.value })}
-            className={inputCls}
-          />
-        ),
-      },
+      // An existing-post creative carries no headline/description — Meta
+      // renders the organic post as-is.
+      ...(draftPost(draft)
+        ? []
+        : [
+            {
+              label: "Headline",
+              field: (
+                <input
+                  value={editForm.headline}
+                  onChange={(e) => set({ headline: e.target.value })}
+                  className={inputCls}
+                />
+              ),
+            },
+            {
+              label: "Description",
+              field: (
+                <input
+                  value={editForm.description}
+                  onChange={(e) => set({ description: e.target.value })}
+                  className={inputCls}
+                />
+              ),
+            },
+          ]),
       {
         label: "CTA button",
         field: (
@@ -548,12 +582,34 @@ export function ReviewQueue({
       .filter((a) => a.role === "card")
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
+  /** The promoted organic post, when the draft is an existing-post ad. */
+  const draftPost = (draft: AdDraft) =>
+    draft.assets.find((a) => a.sourceInstagramMediaId) || null;
+
   const renderDetails = (draft: AdDraft) => {
     const cards = draftCards(draft);
     const rows: { label: string; value: ReactNode }[] = [
       { label: "Campaign", value: draft.campaignName },
       { label: "Ad set", value: draft.adsetName },
     ];
+    const post = draftPost(draft);
+    if (post) {
+      rows.push({
+        label: "Format",
+        value: post.instagramPermalink ? (
+          <a
+            href={post.instagramPermalink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-700 hover:underline"
+          >
+            Existing Instagram post — view
+          </a>
+        ) : (
+          "Existing Instagram post"
+        ),
+      });
+    }
     if (cards.length > 0) {
       rows.push({
         label: "Format",
@@ -584,14 +640,16 @@ export function ReviewQueue({
       ),
     });
     if (draft.copy.urlTags) rows.push({ label: "URL params", value: draft.copy.urlTags });
-    rows.push({
-      label: "Headline",
-      value: draft.copy.headline || <span className="text-gray-400">—</span>,
-    });
-    rows.push({
-      label: "Description",
-      value: draft.copy.description || <span className="text-gray-400">—</span>,
-    });
+    if (!post) {
+      rows.push({
+        label: "Headline",
+        value: draft.copy.headline || <span className="text-gray-400">—</span>,
+      });
+      rows.push({
+        label: "Description",
+        value: draft.copy.description || <span className="text-gray-400">—</span>,
+      });
+    }
     rows.push({ label: "CTA button", value: CTA_LABELS[draft.copy.cta] || draft.copy.cta });
 
     return (

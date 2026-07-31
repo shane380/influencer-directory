@@ -8,6 +8,15 @@ function validate(body: SubmitDraftRequest): string | null {
   if (!body.adsetId) return "Pick an ad set";
   if (!body.pageId) return "Missing brand page identity";
   if (!Array.isArray(body.assets)) return "Upload a feed creative";
+  // Existing-post ads: the organic post supplies the media and caption, so
+  // only the CTA destination is required (and partnership doesn't apply).
+  if (body.assets.some((a) => a.sourceInstagramMediaId)) {
+    if (body.partnershipSponsorId) return "Partnership ads can't use an existing post";
+    if (!body.instagramUserId) return "Missing the brand's Instagram identity";
+    if (!body.copy?.link?.trim()) return "Website URL is required";
+    if (!body.copy?.cta) return "Pick a call to action";
+    return null;
+  }
   const cards = body.assets.filter((a) => a.role === "card");
   if (cards.length > 0) {
     if (cards.length < 2) return "A carousel needs at least 2 cards";

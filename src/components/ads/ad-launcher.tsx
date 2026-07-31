@@ -11,19 +11,23 @@ import type {
   AssetKind,
   AssetRole,
   DraftAsset,
+  IgMediaItem,
   LauncherDefaults,
   TargetsResponse,
 } from "@/types/meta-ads";
 import { IgFeedPreview } from "./ig-feed-preview";
 import { IgReelsPreview } from "./ig-reels-preview";
+import { IgPostPicker } from "./ig-post-picker";
 import { ReviewQueue } from "./review-queue";
 import { SquareCropDialog } from "./square-crop-dialog";
+import { CollectionBar, TemplateActions, useTemplateLibrary } from "./copy-templates";
 import {
   AlertTriangle,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  Instagram,
   Loader2,
   Plus,
   RefreshCw,
@@ -44,7 +48,8 @@ interface SlotState {
 }
 
 type AdPhase = "idle" | "working" | "done" | "error";
-type AdFormat = "single" | "carousel";
+/** "post" promotes an existing organic IG post instead of uploaded media. */
+type AdFormat = "single" | "carousel" | "post";
 
 interface CardState {
   cardId: string;
@@ -67,6 +72,8 @@ interface AdState {
   cards: CardState[];
   /** Carousel: let Meta reorder cards (multi_share_optimized) */
   letMetaOrder: boolean;
+  /** format === "post": the organic post being promoted */
+  igPost: IgMediaItem | null;
   copy: AdCopy;
   phase: AdPhase;
   phaseMsg: string;
@@ -108,6 +115,7 @@ function newAd(defaults?: LauncherDefaults | null): AdState {
     vertical: null,
     cards: [],
     letMetaOrder: false,
+    igPost: null,
     copy: emptyCopy(defaults),
     phase: "idle",
     phaseMsg: "",
@@ -151,6 +159,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
   const [presets, setPresets] = useState<Preset[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const restoredRef = useRef(false);
+  const templateLib = useTemplateLibrary();
 
   const selected = ads.find((a) => a.localId === selectedId) || null;
   const campaign = targets?.campaigns.find((c) => c.id === campaignId) || null;
@@ -218,8 +227,14 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
         partnership: !!a.partnership,
         sponsorId: a.sponsorId || "",
         sponsorLabel: a.sponsorLabel || "",
-        format: a.format === "carousel" ? ("carousel" as const) : ("single" as const),
+        format:
+          a.format === "carousel"
+            ? ("carousel" as const)
+            : a.format === "post"
+              ? ("post" as const)
+              : ("single" as const),
         letMetaOrder: !!a.letMetaOrder,
+        igPost: a.igPost || null,
         cards: (a.cards || [])
           .filter((c: any) => c?.r2Url)
           .map((c: any) => ({
@@ -303,6 +318,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
             sponsorLabel: a.sponsorLabel,
             format: a.format,
             letMetaOrder: a.letMetaOrder,
+            igPost: a.igPost,
             cards: a.cards
               .filter((c) => c.slot.r2Url)
               .map((c) => ({
@@ -628,6 +644,13 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
   const validateAd = useCallback(
     (ad: AdState): string | null => {
       if (!ad.adName.trim()) return "Name the ad";
+      // Existing posts carry their own media and caption — only the button
+      // destination is authored here.
+      if (ad.format === "post") {
+        if (!ad.igPost) return "Pick an Instagram post";
+        if (!ad.copy.link.trim()) return "Add the website URL";
+        return null;
+      }
       if (ad.format === "carousel") {
         if (ad.cards.length < 2) return "Add at least 2 carousel cards";
         if (ad.cards.length > 10) return "A carousel can have at most 10 cards";
@@ -677,7 +700,21 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
 
       updateAd(ad.localId, { phase: "working", phaseMsg: "Saving draft…" });
       let assets: DraftAsset[];
-      if (ad.format === "carousel") {
+      if (ad.format === "post") {
+        const post = ad.igPost!;
+        assets = [
+          {
+            role: "feed",
+            kind: post.mediaType === "VIDEO" ? "video" : "image",
+            // IG CDN URLs expire, but they only feed the preview — Meta pulls
+            // the real media from source_instagram_media_id.
+            fileUrl: post.mediaUrl || post.thumbnailUrl || "",
+            thumbnailUrl: post.thumbnailUrl,
+            sourceInstagramMediaId: post.id,
+            instagramPermalink: post.permalink,
+          },
+        ];
+      } else if (ad.format === "carousel") {
         assets = ad.cards.map((c, i) => ({
           role: "card" as const,
           kind: c.slot.kind,
@@ -720,8 +757,12 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
             adsetName: adset.name,
             pageId: defaults.pageId,
             instagramUserId: defaults.instagramUserId,
-            partnershipSponsorId: ad.partnership ? ad.sponsorId.trim() : null,
-            partnershipSponsorLabel: ad.partnership ? ad.sponsorLabel.trim() || null : null,
+            // Partnership ads can't reference an organic post — Meta builds
+            // the branded-content link from a creative it owns.
+            partnershipSponsorId:
+              ad.partnership && ad.format !== "post" ? ad.sponsorId.trim() : null,
+            partnershipSponsorLabel:
+              ad.partnership && ad.format !== "post" ? ad.sponsorLabel.trim() || null : null,
             assets,
             copy:
               ad.format === "carousel"
@@ -824,8 +865,18 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
     ? `Paid partnership · ${defaults?.pageName || "brand"}`
     : "Sponsored";
 
-  const feedMedia = selected?.feed;
-  const verticalMedia = selected?.vertical || selected?.feed;
+  // Existing-post ads have no uploaded slots — preview the post's own media
+  // (a carousel post previews its cover image, which is what the CDN returns).
+  const postMedia: { previewUrl: string; kind: AssetKind; thumbUrl: string | null } | null =
+    selected?.format === "post" && selected.igPost?.mediaUrl
+      ? {
+          previewUrl: selected.igPost.mediaUrl,
+          kind: selected.igPost.mediaType === "VIDEO" ? "video" : "image",
+          thumbUrl: selected.igPost.thumbnailUrl,
+        }
+      : null;
+  const feedMedia = postMedia || selected?.feed;
+  const verticalMedia = postMedia || selected?.vertical || selected?.feed;
 
   return (
     <div>
@@ -966,14 +1017,20 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                   }`}
                 >
                   <div className="w-5 h-5 rounded bg-gray-100 overflow-hidden flex-shrink-0">
-                    {ad.feed && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={ad.feed.kind === "image" ? ad.feed.previewUrl : ad.feed.thumbUrl || ad.feed.previewUrl}
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
-                    )}
+                    {(() => {
+                      const chip =
+                        ad.format === "post"
+                          ? ad.igPost?.thumbnailUrl || ad.igPost?.mediaUrl
+                          : ad.feed
+                            ? ad.feed.kind === "image"
+                              ? ad.feed.previewUrl
+                              : ad.feed.thumbUrl || ad.feed.previewUrl
+                            : ad.cards[0]?.slot.previewUrl;
+                      return chip ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={chip} alt="" className="w-full h-full object-cover" />
+                      ) : null;
+                    })()}
                   </div>
                   <span
                     className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
@@ -1039,7 +1096,11 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                       className="border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] font-medium w-60"
                     />
                   </div>
-                  <div className="flex items-center gap-2 pb-1">
+                  <div
+                    className={`flex items-center gap-2 pb-1 ${
+                      selected.format === "post" ? "hidden" : ""
+                    }`}
+                  >
                     <span className="text-[12.5px] text-gray-600">Partnership ad</span>
                     <button
                       onClick={() =>
@@ -1094,22 +1155,71 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                 </div>
 
                 <div className="flex items-center gap-1 mb-3">
-                  {(["single", "carousel"] as const).map((f) => (
+                  {(["single", "carousel", "post"] as const).map((f) => (
                     <button
                       key={f}
                       onClick={() => updateAd(selected.localId, { format: f })}
-                      className={`px-3 py-1 rounded-md text-[12px] transition-colors ${
+                      className={`px-3 py-1 rounded-md text-[12px] transition-colors flex items-center gap-1 ${
                         selected.format === f
                           ? "bg-gray-900 text-white font-medium"
                           : "text-gray-600 hover:bg-gray-100 border border-gray-200"
                       }`}
                     >
-                      {f === "single" ? "Single image/video" : "Carousel"}
+                      {f === "post" && <Instagram className="h-3 w-3" />}
+                      {f === "single"
+                        ? "Single image/video"
+                        : f === "carousel"
+                          ? "Carousel"
+                          : "Existing Instagram post"}
                     </button>
                   ))}
                 </div>
 
-                {selected.format === "single" ? (
+                {selected.format === "post" ? (
+                  <div className="mb-4">
+                    <div className="flex items-baseline justify-between mb-2">
+                      <label className="text-[10px] uppercase tracking-wide text-gray-400">
+                        Pick a post to promote
+                      </label>
+                      {selected.igPost?.permalink && (
+                        <a
+                          href={selected.igPost.permalink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[11.5px] text-gray-400 hover:text-gray-700 inline-flex items-center gap-0.5"
+                        >
+                          view selected post on Instagram <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                    </div>
+                    <IgPostPicker
+                      selectedId={selected.igPost?.id || null}
+                      onSelect={(item) =>
+                        setAds((prev) =>
+                          prev.map((a) =>
+                            a.localId === selected.localId
+                              ? {
+                                  ...a,
+                                  igPost: item,
+                                  // The post's own caption is the ad text; mirror
+                                  // it into copy so the preview matches what ships.
+                                  copy: { ...a.copy, primaryText: item.caption || "" },
+                                  adName:
+                                    a.adName.trim() ||
+                                    `ig-post-${(item.timestamp || "").slice(0, 10)}`,
+                                }
+                              : a
+                          )
+                        )
+                      }
+                    />
+                    <p className="text-[11px] text-gray-400 mt-2">
+                      The post keeps its own caption, likes and comments — you only choose the
+                      button and destination below. Posts Meta marks ineligible (e.g. licensed
+                      music) are greyed out.
+                    </p>
+                  </div>
+                ) : selected.format === "single" ? (
                   <div className="flex gap-4 mb-4 flex-wrap">
                     <CreativeSlot
                       label="Feed · 1:1 (square)"
@@ -1331,33 +1441,92 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                   </button>
                 </div>
 
-                <label className="text-xs text-gray-500 block mb-1">Primary text</label>
-                <textarea
-                  value={selected.copy.primaryText}
-                  onChange={(e) => updateCopy(selected.localId, { primaryText: e.target.value })}
-                  rows={3}
-                  className="w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] mb-3 resize-y"
-                  placeholder="The main ad text…"
-                />
+                <CollectionBar lib={templateLib} />
+
+                {selected.format === "post" ? (
+                  <>
+                    <label className="text-xs text-gray-500 block mb-1">
+                      Caption (from the post — not editable)
+                    </label>
+                    <p className="w-full border border-gray-200 bg-gray-50 rounded-md px-2.5 py-1.5 text-[13px] text-gray-600 mb-3 whitespace-pre-wrap max-h-24 overflow-y-auto">
+                      {selected.igPost?.caption || (
+                        <span className="text-gray-400">
+                          {selected.igPost ? "This post has no caption" : "Pick a post above"}
+                        </span>
+                      )}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs text-gray-500">Primary text</label>
+                      <TemplateActions
+                        lib={templateLib}
+                        fieldType="primaryText"
+                        value={selected.copy.primaryText}
+                        onInsert={(v) => updateCopy(selected.localId, { primaryText: v })}
+                      />
+                    </div>
+                    <textarea
+                      value={selected.copy.primaryText}
+                      onChange={(e) => updateCopy(selected.localId, { primaryText: e.target.value })}
+                      rows={3}
+                      className="w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] mb-3 resize-y"
+                      placeholder="The main ad text…"
+                    />
+                  </>
+                )}
                 <div className="grid grid-cols-2 gap-3 mb-3">
+                  {/* An existing-post creative carries no headline or
+                      description — Meta renders the organic post as-is. */}
+                  {selected.format !== "post" && (
+                    <>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs text-gray-500">Headline (required)</label>
+                          <TemplateActions
+                            lib={templateLib}
+                            fieldType="headline"
+                            value={selected.copy.headline}
+                            onInsert={(v) => updateCopy(selected.localId, { headline: v })}
+                          />
+                        </div>
+                        <input
+                          value={selected.copy.headline}
+                          onChange={(e) => updateCopy(selected.localId, { headline: e.target.value })}
+                          className="w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px]"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs text-gray-500">Description (optional)</label>
+                          <TemplateActions
+                            lib={templateLib}
+                            fieldType="description"
+                            value={selected.copy.description}
+                            onInsert={(v) => updateCopy(selected.localId, { description: v })}
+                          />
+                        </div>
+                        <input
+                          value={selected.copy.description}
+                          onChange={(e) =>
+                            updateCopy(selected.localId, { description: e.target.value })
+                          }
+                          className="w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px]"
+                        />
+                      </div>
+                    </>
+                  )}
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Headline (required)</label>
-                    <input
-                      value={selected.copy.headline}
-                      onChange={(e) => updateCopy(selected.localId, { headline: e.target.value })}
-                      className="w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px]"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 block mb-1">Description (optional)</label>
-                    <input
-                      value={selected.copy.description}
-                      onChange={(e) => updateCopy(selected.localId, { description: e.target.value })}
-                      className="w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px]"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 block mb-1">Website URL</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs text-gray-500">Website URL</label>
+                      <TemplateActions
+                        lib={templateLib}
+                        fieldType="link"
+                        value={selected.copy.link}
+                        onInsert={(v) => updateCopy(selected.localId, { link: v })}
+                      />
+                    </div>
                     <input
                       value={selected.copy.link}
                       onChange={(e) => updateCopy(selected.localId, { link: e.target.value })}
@@ -1449,7 +1618,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                       mediaUrl={verticalMedia?.previewUrl || null}
                       mediaKind={verticalMedia?.kind || null}
                       posterUrl={verticalMedia?.thumbUrl}
-                      isFallback={!selected?.vertical && !!selected?.feed}
+                      isFallback={!postMedia && !selected?.vertical && !!selected?.feed}
                     />
                   </>
                 )}

@@ -4,6 +4,8 @@ import type {
   AdCopy,
   CampaignSummary,
   DraftAsset,
+  IgMediaItem,
+  IgMediaResponse,
   LauncherDefaults,
   PartnerIdentity,
   TargetsResponse,
@@ -246,6 +248,60 @@ function adNameToPartnerLabel(name: string | undefined): string | null {
   return m ? m[0] : null;
 }
 
+/** The brand IG account linked to the page granted to the token. */
+async function resolveBrandIgUserId(): Promise<string> {
+  const pages = await graphGet("me/accounts", { fields: "id,name", limit: "5" });
+  const pageId = pages.data?.[0]?.id;
+  if (!pageId) {
+    throw new MetaApiError("No Facebook Page is granted to the Meta access token", null);
+  }
+  const page = await graphGet(String(pageId), { fields: "instagram_business_account" });
+  const igId = page.instagram_business_account?.id;
+  if (!igId) {
+    throw new MetaApiError("The brand page has no linked Instagram business account", null);
+  }
+  return String(igId);
+}
+
+const IG_MEDIA_FIELDS =
+  "id,media_type,media_product_type,media_url,thumbnail_url,permalink,caption,timestamp";
+
+/** List the brand IG account's organic posts (newest first, paginated). */
+export async function listInstagramMedia(after?: string | null): Promise<IgMediaResponse> {
+  const igUserId = await resolveBrandIgUserId();
+  const params: Record<string, string> = { limit: "24" };
+  if (after) params.after = after;
+
+  // boost_eligibility_info needs extra token capabilities on some setups —
+  // fall back to the plain field list rather than failing the whole picker.
+  let data: any;
+  try {
+    data = await graphGet(`${igUserId}/media`, {
+      ...params,
+      fields: `${IG_MEDIA_FIELDS},boost_eligibility_info`,
+    });
+  } catch {
+    data = await graphGet(`${igUserId}/media`, { ...params, fields: IG_MEDIA_FIELDS });
+  }
+
+  const media: IgMediaItem[] = (data.data || []).map((m: any) => ({
+    id: String(m.id),
+    mediaType: m.media_type,
+    mediaProductType: m.media_product_type || null,
+    mediaUrl: m.media_url || null,
+    thumbnailUrl: m.thumbnail_url || null,
+    permalink: m.permalink || null,
+    caption: m.caption || null,
+    timestamp: m.timestamp || null,
+    eligibleToBoost:
+      typeof m.boost_eligibility_info?.eligible_to_boost === "boolean"
+        ? m.boost_eligibility_info.eligible_to_boost
+        : null,
+  }));
+
+  return { media, nextCursor: data.paging?.cursors?.after && data.paging?.next ? data.paging.cursors.after : null };
+}
+
 /** Download a file from R2 and register it as an ad image; returns the hash. */
 async function uploadImage(fileUrl: string): Promise<string> {
   const { actId, accessToken } = getEnv();
@@ -323,6 +379,39 @@ export async function pushDraftToMeta(
   status: "ACTIVE" | "PAUSED"
 ): Promise<PushDraftResult> {
   const { actId } = getEnv();
+
+  // Existing-post ads reference the organic IG media directly — no upload,
+  // no object_story_spec; the post's caption becomes the ad text.
+  const existingPost = draft.assets.find((a) => a.sourceInstagramMediaId);
+  if (existingPost?.sourceInstagramMediaId) {
+    if (draft.partnershipSponsorId) {
+      throw new MetaApiError(
+        "Partnership ads can't be built from an existing post here",
+        null
+      );
+    }
+    if (!draft.instagramUserId) {
+      throw new MetaApiError("The brand page has no linked Instagram account", null);
+    }
+    const params: Record<string, any> = {
+      name: `${draft.adName} — creative`,
+      object_id: draft.pageId,
+      instagram_user_id: draft.instagramUserId,
+      source_instagram_media_id: existingPost.sourceInstagramMediaId,
+      url_tags: draft.copy.urlTags || undefined,
+    };
+    if (draft.copy.cta && draft.copy.link) {
+      params.call_to_action = { type: draft.copy.cta, value: { link: draft.copy.link } };
+    }
+    const creative = await graphPost(`${actId}/adcreatives`, params);
+    const ad = await graphPost(`${actId}/ads`, {
+      name: draft.adName,
+      adset_id: draft.adsetId,
+      creative: { creative_id: creative.id },
+      status,
+    });
+    return { adId: ad.id, creativeId: creative.id };
+  }
 
   // For partnership ads, also resolve the creator's FB page so both the IG
   // and Facebook sponsor identities are linked on the creative.
