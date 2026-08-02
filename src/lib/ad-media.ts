@@ -56,13 +56,15 @@ export async function makeVideoThumb(file: File): Promise<Blob | null> {
       const ctx = canvas.getContext("2d");
       if (!ctx || !canvas.width) return fail();
       ctx.drawImage(video, 0, 0);
+      // Meta shows this frame as the ad's thumbnail, so keep it close to the
+      // video's own quality — it's captured at full native resolution.
       canvas.toBlob(
         (blob) => {
           URL.revokeObjectURL(url);
           resolve(blob);
         },
         "image/jpeg",
-        0.85
+        0.92
       );
     };
     video.onerror = fail;

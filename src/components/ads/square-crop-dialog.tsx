@@ -10,12 +10,15 @@ interface Props {
 }
 
 const VIEW = 460; // max display size of the source image
-const OUTPUT = 1080; // exported square size
+/** Meta's recommended 1:1 resolution — below this an ad can look soft. */
+const IDEAL = 1080;
+/** Meta's hard minimum for a 1:1 feed image; the zoom never crops below it. */
+const MIN_SRC_SIDE = 600;
 /**
- * Smallest crop allowed, in *source* pixels. Below this the 1080 export is
- * upscaled enough to look obviously soft, so the zoom stops here.
+ * Ceiling on the export. Meta's own 1:1 guidance tops out at 1440, so this
+ * leaves headroom without producing needlessly huge uploads (30MB limit).
  */
-const MIN_SRC_SIDE = 500;
+const MAX_OUTPUT = 2048;
 
 type Corner = "nw" | "ne" | "sw" | "se";
 interface Crop {
@@ -163,35 +166,51 @@ export function SquareCropDialog({ file, onCancel, onCropped }: Props) {
   };
 
   const srcSide = Math.round(crop.size * scale);
-  const soft = natural ? srcSide < OUTPUT : false;
+  const soft = natural ? srcSide < IDEAL : false;
+  /**
+   * Export at the crop's own resolution rather than a fixed size: never
+   * upscale (that invents no detail, just bytes) and never downscale unless
+   * the crop is bigger than the ceiling.
+   */
+  const outputSide = Math.min(srcSide, MAX_OUTPUT);
 
   const confirm = useCallback(async () => {
     if (!natural || !imgRef.current || exporting) return;
     setExporting(true);
     try {
+      const side = Math.round(crop.size * scale);
+      const out = Math.min(side, MAX_OUTPUT);
       const canvas = document.createElement("canvas");
-      canvas.width = OUTPUT;
-      canvas.height = OUTPUT;
+      canvas.width = out;
+      canvas.height = out;
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("Canvas unavailable");
+      // Only matters when the crop exceeds the ceiling and gets scaled down;
+      // browsers default to a cheap filter that visibly aliases fine detail.
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
       ctx.drawImage(
         imgRef.current,
         Math.round(crop.x * scale),
         Math.round(crop.y * scale),
-        Math.round(crop.size * scale),
-        Math.round(crop.size * scale),
+        side,
+        side,
         0,
         0,
-        OUTPUT,
-        OUTPUT
+        out,
+        out
       );
 
+      // Keep PNG sources lossless — they're usually graphics or text, where
+      // JPEG ringing is obvious. Photos stay JPEG at a high quality factor.
+      const png = file.type === "image/png";
       const blob = await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob(resolve, "image/jpeg", 0.9)
+        canvas.toBlob(resolve, png ? "image/png" : "image/jpeg", png ? undefined : 0.92)
       );
       if (!blob) throw new Error("Could not export the crop");
-      const name = file.name.replace(/\.[^.]+$/, "") + "-1x1.jpg";
-      onCropped(new File([blob], name, { type: "image/jpeg" }));
+      const ext = png ? "png" : "jpg";
+      const name = `${file.name.replace(/\.[^.]+$/, "")}-1x1.${ext}`;
+      onCropped(new File([blob], name, { type: png ? "image/png" : "image/jpeg" }));
     } catch {
       setExporting(false);
     }
@@ -290,12 +309,20 @@ export function SquareCropDialog({ file, onCancel, onCropped }: Props) {
             />
           </div>
         )}
+        {natural && (
+          <p className="text-[11px] text-gray-400 mt-1.5">
+            Exports at {outputSide}&times;{outputSide}
+            {srcSide > MAX_OUTPUT && ` (crop is ${srcSide}px, capped)`}
+          </p>
+        )}
         {soft && (
-          <p className="text-[11px] text-amber-700 mt-1.5">
-            {crop.size >= maxSize - 1
-              ? // Already fully zoomed out — the source itself is the limit.
-                `This image is only ${srcSide}px on its short side, under Meta's 1080px ideal, so the ad may look slightly soft.`
-              : `This crop is ${srcSide}px wide — below Meta's 1080px ideal, so the ad may look slightly soft. Zoom out a little for a sharper export.`}
+          <p className="text-[11px] text-amber-700 mt-1">
+            {srcSide < MIN_SRC_SIDE
+              ? `Only ${srcSide}px — under Meta's 600px minimum, so this image may be rejected.`
+              : crop.size >= maxSize - 1
+                ? // Already fully zoomed out — the source itself is the limit.
+                  `This image is only ${srcSide}px on its short side, under Meta's ${IDEAL}px ideal, so the ad may look slightly soft.`
+                : `This crop is ${srcSide}px wide — below Meta's ${IDEAL}px ideal, so the ad may look slightly soft. Zoom out a little for a sharper export.`}
           </p>
         )}
 
