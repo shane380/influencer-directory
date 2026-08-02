@@ -5,8 +5,14 @@ import type { AdDraft, AssetRole, CampaignSummary, DraftAsset } from "@/types/me
 import { IgFeedPreview } from "./ig-feed-preview";
 import { IgReelsPreview } from "./ig-reels-preview";
 import { IgCarouselPreview } from "./ig-carousel-preview";
-import { SquareCropDialog } from "./square-crop-dialog";
-import { fileAssetKind, isSquareImage, uploadAdAsset } from "@/lib/ad-media";
+import { CropDialog } from "./crop-dialog";
+import {
+  FEED_ASPECT,
+  VERTICAL_ASPECT,
+  fileAssetKind,
+  matchesAspect,
+  uploadAdAsset,
+} from "@/lib/ad-media";
 import { CheckCircle2, Clock, Loader2, MessageSquare, Pencil, Trash2, Upload, XCircle } from "lucide-react";
 
 const CTA_LABELS: Record<string, string> = {
@@ -75,7 +81,11 @@ export function ReviewQueue({
   } | null>(null);
   const [mediaProgress, setMediaProgress] = useState<Partial<Record<AssetRole, number>>>({});
   const [mediaError, setMediaError] = useState<string | null>(null);
-  const [cropRequest, setCropRequest] = useState<File | null>(null);
+  const [cropRequest, setCropRequest] = useState<{
+    file: File;
+    aspect: number;
+    role: "feed" | "vertical";
+  } | null>(null);
   const [flashId, setFlashId] = useState<string | null>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const focusedRef = useRef<string | null>(null);
@@ -189,10 +199,14 @@ export function ReviewQueue({
     async (role: "feed" | "vertical", file: File) => {
       const kind = fileAssetKind(file);
       if (!kind) return;
-      // Non-square feed images go through the interactive 1:1 crop first.
-      if (role === "feed" && kind === "image" && !(await isSquareImage(file))) {
-        setCropRequest(file);
-        return;
+      // Images that don't already match the slot's ratio go through the
+      // interactive crop first — 1:1 for feed, 9:16 for stories & reels.
+      if (kind === "image") {
+        const aspect = role === "feed" ? FEED_ASPECT : VERTICAL_ASPECT;
+        if (!(await matchesAspect(file, aspect))) {
+          setCropRequest({ file, aspect, role });
+          return;
+        }
       }
       uploadEditAsset(role, file);
     },
@@ -876,12 +890,14 @@ export function ReviewQueue({
   return (
     <div className="max-w-4xl">
       {cropRequest && (
-        <SquareCropDialog
-          file={cropRequest}
+        <CropDialog
+          file={cropRequest.file}
+          aspect={cropRequest.aspect}
           onCancel={() => setCropRequest(null)}
           onCropped={(cropped) => {
+            const { role } = cropRequest;
             setCropRequest(null);
-            uploadEditAsset("feed", cropped);
+            uploadEditAsset(role, cropped);
           }}
         />
       )}

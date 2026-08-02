@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { uploadToR2 } from "@/lib/r2-upload";
-import { isSquareImage, makeVideoThumb, sanitizeFileName, uploadAdAsset } from "@/lib/ad-media";
+import {
+  FEED_ASPECT,
+  VERTICAL_ASPECT,
+  makeVideoThumb,
+  matchesAspect,
+  sanitizeFileName,
+  uploadAdAsset,
+} from "@/lib/ad-media";
 import { IgCarouselPreview } from "./ig-carousel-preview";
 import type {
   AdCopy,
@@ -19,7 +26,7 @@ import { IgFeedPreview } from "./ig-feed-preview";
 import { IgReelsPreview } from "./ig-reels-preview";
 import { IgPostPicker } from "./ig-post-picker";
 import { ReviewQueue } from "./review-queue";
-import { SquareCropDialog } from "./square-crop-dialog";
+import { CropDialog } from "./crop-dialog";
 import { CollectionBar, TemplateActions, useTemplateLibrary } from "./copy-templates";
 import {
   AlertTriangle,
@@ -153,8 +160,10 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
   const [cropRequest, setCropRequest] = useState<{
     localId: string;
     file: File;
-    /** true when the crop target is a new carousel card, not the feed slot */
-    card?: boolean;
+    /** Target ratio — 1 for feed/cards, 9/16 for the stories & reels slot */
+    aspect: number;
+    /** Slot the cropped file goes back into */
+    target: "feed" | "vertical" | "card";
   } | null>(null);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
@@ -437,10 +446,14 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
           : null;
       if (!kind) return;
 
-      // Non-square feed images go through the interactive 1:1 crop first.
-      if (role === "feed" && kind === "image" && !(await isSquareImage(file))) {
-        setCropRequest({ localId, file });
-        return;
+      // Images that don't already match the slot's ratio go through the
+      // interactive crop first — 1:1 for feed, 9:16 for stories & reels.
+      if (kind === "image" && (role === "feed" || role === "vertical")) {
+        const aspect = role === "feed" ? FEED_ASPECT : VERTICAL_ASPECT;
+        if (!(await matchesAspect(file, aspect))) {
+          setCropRequest({ localId, file, aspect, target: role });
+          return;
+        }
       }
 
       beginUpload(localId, role, kind, file);
@@ -519,8 +532,8 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
           : null;
       if (!kind) return;
       // Carousel cards must be square on Instagram — crop non-square images.
-      if (kind === "image" && !(await isSquareImage(file))) {
-        setCropRequest({ localId, file, card: true });
+      if (kind === "image" && !(await matchesAspect(file, FEED_ASPECT))) {
+        setCropRequest({ localId, file, aspect: FEED_ASPECT, target: "card" });
         return;
       }
       addCardUpload(localId, kind, file);
@@ -911,14 +924,15 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
       </div>
 
       {cropRequest && (
-        <SquareCropDialog
+        <CropDialog
           file={cropRequest.file}
+          aspect={cropRequest.aspect}
           onCancel={() => setCropRequest(null)}
           onCropped={(cropped) => {
-            const { localId: id, card } = cropRequest;
+            const { localId: id, target } = cropRequest;
             setCropRequest(null);
-            if (card) addCardUpload(id, "image", cropped);
-            else beginUpload(id, "feed", "image", cropped);
+            if (target === "card") addCardUpload(id, "image", cropped);
+            else beginUpload(id, target, "image", cropped);
           }}
         />
       )}

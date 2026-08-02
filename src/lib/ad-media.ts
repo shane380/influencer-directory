@@ -11,8 +11,16 @@ export function sanitizeFileName(name: string): string {
   return name.replace(/[^\w.-]+/g, "-").slice(-80);
 }
 
-/** Feed images must be square (1:1); allows a 2% tolerance for crop rounding. */
-export async function isSquareImage(file: File): Promise<boolean> {
+/** Aspect targets for the two creative slots, as width / height. */
+export const FEED_ASPECT = 1;
+export const VERTICAL_ASPECT = 9 / 16;
+
+/**
+ * True when an image already matches the target aspect closely enough to skip
+ * cropping. Allows 2% for rounding — a match uploads the original bytes
+ * untouched rather than re-encoding it through a canvas.
+ */
+export async function matchesAspect(file: File, aspect: number): Promise<boolean> {
   return new Promise((resolve) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
@@ -20,7 +28,7 @@ export async function isSquareImage(file: File): Promise<boolean> {
       URL.revokeObjectURL(url);
       if (!img.naturalWidth || !img.naturalHeight) return resolve(true);
       const ratio = img.naturalWidth / img.naturalHeight;
-      resolve(Math.abs(ratio - 1) <= 0.02);
+      resolve(Math.abs(ratio / aspect - 1) <= 0.02);
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);

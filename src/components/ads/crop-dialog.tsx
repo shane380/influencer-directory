@@ -5,36 +5,43 @@ import { Loader2 } from "lucide-react";
 
 interface Props {
   file: File;
+  /** Target aspect as width / height — 1 for feed, 9/16 for stories & reels. */
+  aspect: number;
   onCancel: () => void;
   onCropped: (file: File) => void;
 }
 
 const VIEW = 460; // max display size of the source image
-/** Meta's recommended 1:1 resolution — below this an ad can look soft. */
-const IDEAL = 1080;
-/** Meta's hard minimum for a 1:1 feed image; the zoom never crops below it. */
-const MIN_SRC_SIDE = 600;
-/**
- * Ceiling on the export. Meta's own 1:1 guidance tops out at 1440, so this
- * leaves headroom without producing needlessly huge uploads (30MB limit).
- */
-const MAX_OUTPUT = 2048;
+/** Meta's recommended short edge — below this an ad can look soft. */
+const IDEAL_SHORT = 1080;
+/** Meta's hard minimum short edge for an image ad; the zoom never goes below. */
+const MIN_SRC_SHORT = 600;
+/** Export ceilings. Meta's own guidance tops out well below these. */
+const MAX_SHORT = 2048;
+const MAX_LONG = 2560;
 
 type Corner = "nw" | "ne" | "sw" | "se";
+/** Crop rect in display pixels; height is derived from `w` and the aspect. */
 interface Crop {
   x: number;
   y: number;
-  size: number;
+  w: number;
+}
+
+export function ratioLabel(aspect: number): string {
+  if (Math.abs(aspect - 1) < 0.01) return "1:1";
+  if (Math.abs(aspect - 9 / 16) < 0.01) return "9:16";
+  return aspect.toFixed(2);
 }
 
 /**
- * Interactive 1:1 crop for feed images: drag the square to reposition it,
- * drag a corner (or the zoom slider) to tighten the framing.
+ * Interactive fixed-ratio crop: drag the frame to reposition it, drag a
+ * corner (or the zoom slider) to tighten the framing.
  */
-export function SquareCropDialog({ file, onCancel, onCropped }: Props) {
+export function CropDialog({ file, aspect, onCancel, onCropped }: Props) {
   const [src, setSrc] = useState<string | null>(null);
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
-  const [crop, setCrop] = useState<Crop>({ x: 0, y: 0, size: 0 });
+  const [crop, setCrop] = useState<Crop>({ x: 0, y: 0, w: 0 });
   const [exporting, setExporting] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
@@ -56,22 +63,25 @@ export function SquareCropDialog({ file, onCancel, onCropped }: Props) {
   const dispH = natural ? (landscape ? Math.round((natural.h / natural.w) * VIEW) : VIEW) : VIEW;
   /** Source pixels per displayed pixel (uniform — the preview keeps aspect). */
   const scale = natural ? natural.w / dispW : 1;
-  const maxSize = Math.min(dispW, dispH);
-  const minSize = useMemo(
-    () => Math.min(maxSize, Math.max(48, MIN_SRC_SIDE / scale)),
-    [maxSize, scale]
+  const cropH = useCallback((w: number) => w / aspect, [aspect]);
+  /** Widest crop of this ratio that still fits inside the image. */
+  const maxW = Math.min(dispW, dispH * aspect);
+  const minW = useMemo(
+    () => Math.min(maxW, Math.max(32, (MIN_SRC_SHORT * Math.max(1, aspect)) / scale)),
+    [maxW, aspect, scale]
   );
 
   const clampCrop = useCallback(
     (c: Crop): Crop => {
-      const size = Math.max(minSize, Math.min(maxSize, c.size));
+      const w = Math.max(minW, Math.min(maxW, c.w));
+      const h = cropH(w);
       return {
-        size,
-        x: Math.max(0, Math.min(dispW - size, c.x)),
-        y: Math.max(0, Math.min(dispH - size, c.y)),
+        w,
+        x: Math.max(0, Math.min(dispW - w, c.x)),
+        y: Math.max(0, Math.min(dispH - h, c.y)),
       };
     },
-    [dispW, dispH, minSize, maxSize]
+    [dispW, dispH, minW, maxW, cropH]
   );
 
   const beginDrag = (mode: "move" | Corner) => (e: React.PointerEvent) => {
@@ -102,51 +112,51 @@ export function SquareCropDialog({ file, onCancel, onCropped }: Props) {
     }
 
     // Resize: the corner opposite the one being dragged stays pinned, and the
-    // square follows whichever axis the pointer moved furthest along.
+    // frame follows whichever axis the pointer moved furthest along.
     const rect = frameRef.current?.getBoundingClientRect();
     if (!rect) return;
     const px = e.clientX - rect.left;
     const py = e.clientY - rect.top;
-    const right = start.x + start.size;
-    const bottom = start.y + start.size;
+    const right = start.x + start.w;
+    const bottom = start.y + cropH(start.w);
 
     let anchorX: number;
     let anchorY: number;
-    let size: number;
+    let w: number;
     let limit: number;
 
     switch (mode) {
       case "se":
         anchorX = start.x;
         anchorY = start.y;
-        size = Math.max(px - anchorX, py - anchorY);
-        limit = Math.min(dispW - anchorX, dispH - anchorY);
+        w = Math.max(px - anchorX, (py - anchorY) * aspect);
+        limit = Math.min(dispW - anchorX, (dispH - anchorY) * aspect);
         break;
       case "nw":
         anchorX = right;
         anchorY = bottom;
-        size = Math.max(anchorX - px, anchorY - py);
-        limit = Math.min(anchorX, anchorY);
+        w = Math.max(anchorX - px, (anchorY - py) * aspect);
+        limit = Math.min(anchorX, anchorY * aspect);
         break;
       case "ne":
         anchorX = start.x;
         anchorY = bottom;
-        size = Math.max(px - anchorX, anchorY - py);
-        limit = Math.min(dispW - anchorX, anchorY);
+        w = Math.max(px - anchorX, (anchorY - py) * aspect);
+        limit = Math.min(dispW - anchorX, anchorY * aspect);
         break;
       default: // "sw"
         anchorX = right;
         anchorY = start.y;
-        size = Math.max(anchorX - px, py - anchorY);
-        limit = Math.min(anchorX, dispH - anchorY);
+        w = Math.max(anchorX - px, (py - anchorY) * aspect);
+        limit = Math.min(anchorX, (dispH - anchorY) * aspect);
         break;
     }
 
-    size = Math.max(minSize, Math.min(limit, size));
+    w = Math.max(minW, Math.min(limit, w));
     setCrop({
-      size,
-      x: mode === "nw" || mode === "sw" ? anchorX - size : anchorX,
-      y: mode === "nw" || mode === "ne" ? anchorY - size : anchorY,
+      w,
+      x: mode === "nw" || mode === "sw" ? anchorX - w : anchorX,
+      y: mode === "nw" || mode === "ne" ? anchorY - cropH(w) : anchorY,
     });
   };
 
@@ -154,51 +164,57 @@ export function SquareCropDialog({ file, onCancel, onCropped }: Props) {
     dragRef.current = null;
   };
 
-  /** Zoom slider: resize around the crop's centre so framing holds. */
-  const setZoomSize = (size: number) => {
+  /** Zoom slider: resize around the frame's centre so framing holds. */
+  const setZoomWidth = (w: number) => {
     setCrop((prev) =>
       clampCrop({
-        size,
-        x: prev.x + (prev.size - size) / 2,
-        y: prev.y + (prev.size - size) / 2,
+        w,
+        x: prev.x + (prev.w - w) / 2,
+        y: prev.y + (cropH(prev.w) - cropH(w)) / 2,
       })
     );
   };
 
-  const srcSide = Math.round(crop.size * scale);
-  const soft = natural ? srcSide < IDEAL : false;
-  /**
-   * Export at the crop's own resolution rather than a fixed size: never
-   * upscale (that invents no detail, just bytes) and never downscale unless
-   * the crop is bigger than the ceiling.
-   */
-  const outputSide = Math.min(srcSide, MAX_OUTPUT);
+  /** Export size: the crop's own resolution, never upscaled, capped. */
+  const exportSize = useCallback(
+    (cropWidth: number) => {
+      const srcW = cropWidth * scale;
+      const srcH = srcW / aspect;
+      const short = Math.min(srcW, srcH);
+      const long = Math.max(srcW, srcH);
+      const factor = Math.min(1, MAX_SHORT / short, MAX_LONG / long);
+      return { w: Math.round(srcW * factor), h: Math.round(srcH * factor), srcW, srcH };
+    },
+    [scale, aspect]
+  );
+
+  const out = exportSize(crop.w);
+  const srcShort = Math.round(Math.min(out.srcW, out.srcH));
+  const soft = natural ? srcShort < IDEAL_SHORT : false;
+  const capped = out.w < Math.round(out.srcW);
 
   const confirm = useCallback(async () => {
     if (!natural || !imgRef.current || exporting) return;
     setExporting(true);
     try {
-      const side = Math.round(crop.size * scale);
-      const out = Math.min(side, MAX_OUTPUT);
+      const { w: outW, h: outH } = exportSize(crop.w);
       const canvas = document.createElement("canvas");
-      canvas.width = out;
-      canvas.height = out;
+      canvas.width = outW;
+      canvas.height = outH;
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("Canvas unavailable");
-      // Only matters when the crop exceeds the ceiling and gets scaled down;
-      // browsers default to a cheap filter that visibly aliases fine detail.
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(
         imgRef.current,
         Math.round(crop.x * scale),
         Math.round(crop.y * scale),
-        side,
-        side,
+        Math.round(crop.w * scale),
+        Math.round(cropH(crop.w) * scale),
         0,
         0,
-        out,
-        out
+        outW,
+        outH
       );
 
       // Keep PNG sources lossless — they're usually graphics or text, where
@@ -209,22 +225,26 @@ export function SquareCropDialog({ file, onCancel, onCropped }: Props) {
       );
       if (!blob) throw new Error("Could not export the crop");
       const ext = png ? "png" : "jpg";
-      const name = `${file.name.replace(/\.[^.]+$/, "")}-1x1.${ext}`;
+      const tag = ratioLabel(aspect).replace(":", "x");
+      const name = `${file.name.replace(/\.[^.]+$/, "")}-${tag}.${ext}`;
       onCropped(new File([blob], name, { type: png ? "image/png" : "image/jpeg" }));
     } catch {
       setExporting(false);
     }
-  }, [natural, crop, scale, file, onCropped, exporting]);
+  }, [natural, crop, scale, aspect, cropH, exportSize, file, onCropped, exporting]);
 
   const handleCls =
     "absolute w-3.5 h-3.5 bg-white border border-gray-400 rounded-[2px] shadow-sm";
+  const label = ratioLabel(aspect);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-xl p-5 max-w-[560px]">
-        <p className="text-sm font-semibold text-gray-900">Crop to 1:1 for feed</p>
+        <p className="text-sm font-semibold text-gray-900">
+          Crop to {label} for {label === "1:1" ? "feed" : "stories & reels"}
+        </p>
         <p className="text-[12px] text-gray-500 mb-4">
-          Drag the square to reposition, drag a corner to zoom — everything dimmed gets cut.
+          Drag the frame to reposition, drag a corner to zoom — everything dimmed gets cut.
         </p>
 
         <div
@@ -242,28 +262,25 @@ export function SquareCropDialog({ file, onCancel, onCropped }: Props) {
               onLoad={(e) => {
                 const el = e.currentTarget;
                 setNatural({ w: el.naturalWidth, h: el.naturalHeight });
-                const w = el.naturalWidth >= el.naturalHeight
-                  ? VIEW
-                  : Math.round((el.naturalWidth / el.naturalHeight) * VIEW);
-                const h = el.naturalWidth >= el.naturalHeight
-                  ? Math.round((el.naturalHeight / el.naturalWidth) * VIEW)
-                  : VIEW;
-                const size = Math.min(w, h);
-                setCrop({ size, x: (w - size) / 2, y: (h - size) / 2 });
+                const wide = el.naturalWidth >= el.naturalHeight;
+                const w = wide ? VIEW : Math.round((el.naturalWidth / el.naturalHeight) * VIEW);
+                const h = wide ? Math.round((el.naturalHeight / el.naturalWidth) * VIEW) : VIEW;
+                const cw = Math.min(w, h * aspect);
+                setCrop({ w: cw, x: (w - cw) / 2, y: (h - cw / aspect) / 2 });
               }}
               style={{ width: dispW, height: dispH }}
               className="block"
             />
           )}
-          {natural && crop.size > 0 && (
+          {natural && crop.w > 0 && (
             <div
               onPointerDown={beginDrag("move")}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
               className="absolute border-2 border-white rounded-sm cursor-grab active:cursor-grabbing"
               style={{
-                width: crop.size,
-                height: crop.size,
+                width: crop.w,
+                height: cropH(crop.w),
                 left: crop.x,
                 top: crop.y,
                 boxShadow: "0 0 0 9999px rgba(0,0,0,0.55)",
@@ -294,35 +311,34 @@ export function SquareCropDialog({ file, onCancel, onCropped }: Props) {
           )}
         </div>
 
-        {natural && maxSize > minSize && (
+        {natural && maxW > minW && (
           <div className="flex items-center gap-2 mt-3">
             <span className="text-[11px] text-gray-400 w-8">Zoom</span>
             <input
               type="range"
-              min={minSize}
-              max={maxSize}
+              min={minW}
+              max={maxW}
               step={1}
-              // Inverted: dragging right shrinks the square, i.e. zooms in.
-              value={minSize + maxSize - crop.size}
-              onChange={(e) => setZoomSize(minSize + maxSize - Number(e.target.value))}
+              // Inverted: dragging right shrinks the frame, i.e. zooms in.
+              value={minW + maxW - crop.w}
+              onChange={(e) => setZoomWidth(minW + maxW - Number(e.target.value))}
               className="flex-1"
             />
           </div>
         )}
         {natural && (
           <p className="text-[11px] text-gray-400 mt-1.5">
-            Exports at {outputSide}&times;{outputSide}
-            {srcSide > MAX_OUTPUT && ` (crop is ${srcSide}px, capped)`}
+            Exports at {out.w}&times;{out.h}
+            {capped && ` (crop is ${Math.round(out.srcW)}px wide, capped)`}
           </p>
         )}
         {soft && (
           <p className="text-[11px] text-amber-700 mt-1">
-            {srcSide < MIN_SRC_SIDE
-              ? `Only ${srcSide}px — under Meta's 600px minimum, so this image may be rejected.`
-              : crop.size >= maxSize - 1
-                ? // Already fully zoomed out — the source itself is the limit.
-                  `This image is only ${srcSide}px on its short side, under Meta's ${IDEAL}px ideal, so the ad may look slightly soft.`
-                : `This crop is ${srcSide}px wide — below Meta's ${IDEAL}px ideal, so the ad may look slightly soft. Zoom out a little for a sharper export.`}
+            {srcShort < MIN_SRC_SHORT
+              ? `Only ${srcShort}px on the short edge — under Meta's ${MIN_SRC_SHORT}px minimum, so this image may be rejected.`
+              : crop.w >= maxW - 1
+                ? `This image gives ${srcShort}px on the short edge, under Meta's ${IDEAL_SHORT}px ideal, so the ad may look slightly soft.`
+                : `This crop is ${srcShort}px on the short edge — below Meta's ${IDEAL_SHORT}px ideal, so the ad may look slightly soft. Zoom out a little for a sharper export.`}
           </p>
         )}
 
