@@ -263,6 +263,35 @@ async function resolveBrandIgUserId(): Promise<string> {
   return String(igId);
 }
 
+// ---- Partnership ads access (account-level) ----
+// Same edge the partner picker reads; POST sends the in-app request the
+// Ads Manager "Add partners" flow would. Docs: instagram-platform/
+// instagram-api-with-facebook-login/partnership-ads/account-level-permissioning
+export interface PartnershipPermissionRecord {
+  creator_ig_id: string | null;
+  creator_username: string | null;
+  permission_status: string;
+  permission_url: string | null;
+}
+
+export async function listPartnershipPermissions(): Promise<PartnershipPermissionRecord[]> {
+  const igId = await resolveBrandIgUserId();
+  const res = await graphGet(`${igId}/branded_content_ad_permissions`, { limit: "200" });
+  return (res.data || []).map((p: any) => ({
+    creator_ig_id: p.creator_ig_id ? String(p.creator_ig_id) : null,
+    creator_username: p.creator_username ? String(p.creator_username) : null,
+    permission_status: String(p.permission_status || "UNKNOWN").toUpperCase(),
+    permission_url: p.permission_url ? String(p.permission_url) : null,
+  }));
+}
+
+export async function requestPartnershipPermission(username: string): Promise<any> {
+  const igId = await resolveBrandIgUserId();
+  return graphPost(`${igId}/branded_content_ad_permissions`, {
+    creator_instagram_username: username,
+  });
+}
+
 const IG_MEDIA_FIELDS =
   "id,media_type,media_product_type,media_url,thumbnail_url,permalink,caption,timestamp";
 

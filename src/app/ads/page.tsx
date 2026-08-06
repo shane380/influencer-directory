@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Sidebar } from "@/components/sidebar";
 import { AdLauncher } from "@/components/ads/ad-launcher";
+import { PartnersPanel } from "@/components/ads/partners-panel";
 import { Loader2 } from "lucide-react";
 
 export default function AdsPage() {
@@ -63,9 +64,12 @@ export default function AdsPage() {
             <Loader2 className="h-4 w-4 animate-spin" /> Loading…
           </div>
         ) : (
-          <Suspense fallback={null}>
-            <AdLauncher isAdmin={currentUser?.isAdmin || false} />
-          </Suspense>
+          <>
+            <Suspense fallback={null}>
+              <AdLauncher isAdmin={currentUser?.isAdmin || false} />
+            </Suspense>
+            <PartnersPanel />
+          </>
         )}
       </main>
     </div>
