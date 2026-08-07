@@ -65,7 +65,9 @@ export function PartnersPanel() {
   const [sending, setSending] = useState<string | null>(null);
   const [confirmHandle, setConfirmHandle] = useState<string | null>(null);
   const [justSent, setJustSent] = useState<Set<string>>(new Set());
+  const [dirMatches, setDirMatches] = useState<Suggestion[]>([]);
   const loadedOnce = useRef(false);
+  const searchSeq = useRef(0);
 
   async function load() {
     setLoading(true);
@@ -114,16 +116,46 @@ export function PartnersPanel() {
   }
 
   const q = query.trim().replace(/^@+/, "").toLowerCase();
+
+  // Typed queries search the WHOLE directory (server-side), not just flagged
+  // whitelisters — requests can go to anyone on file.
+  useEffect(() => {
+    if (q.length < 2) {
+      setDirMatches([]);
+      return;
+    }
+    const seq = ++searchSeq.current;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/ads/partners/search?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        if (seq === searchSeq.current) setDirMatches(data.influencers || []);
+      } catch {
+        if (seq === searchSeq.current) setDirMatches([]);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [q]);
+
+  const knownHandles = useMemo(
+    () => new Set(permissions.map((p) => (p.creator_username || "").toLowerCase()).filter(Boolean)),
+    [permissions]
+  );
   const matchedSuggestions = useMemo(() => {
     if (!q) return suggestions.slice(0, 6);
-    return suggestions
-      .filter(
-        (s) =>
-          s.instagram_handle.toLowerCase().includes(q) ||
-          s.name.toLowerCase().includes(q)
-      )
+    return dirMatches
+      .filter((s) => !knownHandles.has(String(s.instagram_handle || "").toLowerCase()))
       .slice(0, 6);
-  }, [q, suggestions]);
+  }, [q, suggestions, dirMatches, knownHandles]);
+
+  const filteredPermissions = useMemo(() => {
+    if (!q) return permissions;
+    return permissions.filter(
+      (p) =>
+        (p.creator_username || "").toLowerCase().includes(q) ||
+        (p.influencer?.name || "").toLowerCase().includes(q)
+    );
+  }, [q, permissions]);
 
   const validFreeHandle = /^[a-z0-9._]{1,30}$/.test(q);
 
@@ -194,7 +226,7 @@ export function PartnersPanel() {
           {matchedSuggestions.length > 0 && (
             <div className="border rounded-md divide-y">
               <div className="px-3 py-1.5 text-[11px] uppercase tracking-wide text-gray-400">
-                Whitelisters without access
+                {q ? "Directory matches without access" : "Whitelisters without access"}
               </div>
               {matchedSuggestions.map((s) => {
                 const handle = s.instagram_handle.toLowerCase();
@@ -243,13 +275,13 @@ export function PartnersPanel() {
               <div className="flex items-center gap-2 text-sm text-gray-400 py-3">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading from Meta…
               </div>
-            ) : permissions.length === 0 ? (
+            ) : filteredPermissions.length === 0 ? (
               <div className="text-sm text-gray-400 border border-dashed rounded-md px-3 py-4 text-center">
-                No partnership requests yet.
+                {q ? `No existing access matching “${q}”.` : "No partnership requests yet."}
               </div>
             ) : (
               <div className="border rounded-md divide-y">
-                {permissions.map((p, i) => (
+                {filteredPermissions.map((p, i) => (
                   <div key={`${p.creator_ig_id || p.creator_username || i}`} className="flex items-center gap-3 px-3 py-2">
                     {p.influencer?.profile_photo_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
