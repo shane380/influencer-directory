@@ -47,6 +47,8 @@ export default function PaymentsV2() {
   const [saving, setSaving] = useState(false);
   const [breakdown, setBreakdown] = useState<{ row: Creator; type: "ad" | "aff" } | null>(null);
   const [revealed, setRevealed] = useState<Record<string, string>>({});
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [historyFor, setHistoryFor] = useState<Creator | null>(null);
   const [historyData, setHistoryData] = useState<any>(null);
   const [histPayMonth, setHistPayMonth] = useState<string | null>(null);
@@ -141,6 +143,26 @@ export default function PaymentsV2() {
   }, [period]);
   useEffect(() => { load(); }, [load]);
 
+  // Re-scan recent Shopify orders + refunds on demand (same job as the cron),
+  // then reload the grid — so numbers are current before recording payments.
+  async function forceRefresh() {
+    setSyncing(true);
+    setSyncMsg(null);
+    try {
+      const res = await fetch("/api/admin/payments-v2/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setSyncMsg({ text: `Up to date — checked ${d.ordersScanned ?? 0} recent orders`, ok: true });
+        await load();
+      } else {
+        setSyncMsg({ text: d.error || "Refresh failed — try again", ok: false });
+      }
+    } catch {
+      setSyncMsg({ text: "Refresh failed — try again", ok: false });
+    }
+    setSyncing(false);
+  }
+
   async function recordPayment() {
     if (!payFor) return;
     const amt = Number(payForm.amount);
@@ -171,9 +193,17 @@ export default function PaymentsV2() {
             <h1 className="text-2xl font-semibold text-gray-900">Payments</h1>
             <p className="text-sm text-gray-500 mt-1">Manage creator payment runs</p>
           </div>
-          <select className="border border-gray-200 rounded px-3 py-2 text-sm bg-white" value={period} onChange={(e) => setPeriod(e.target.value)}>
-            {monthOptions().map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
+          <div className="flex items-center gap-2">
+            {syncMsg && <span className={`text-xs ${syncMsg.ok ? "text-green-600" : "text-red-600"}`}>{syncMsg.text}</span>}
+            <button onClick={forceRefresh} disabled={syncing}
+              className="border border-gray-200 rounded px-3 py-2 text-sm bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              title="Pull the latest orders and refunds from Shopify right now">
+              {syncing ? "Refreshing… (can take a minute)" : "⟳ Refresh Shopify data"}
+            </button>
+            <select className="border border-gray-200 rounded px-3 py-2 text-sm bg-white" value={period} onChange={(e) => setPeriod(e.target.value)}>
+              {monthOptions().map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-4 mb-8">
