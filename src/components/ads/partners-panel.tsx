@@ -127,7 +127,7 @@ export function PartnersPanel() {
   const validFreeHandle = /^[a-z0-9._]{1,30}$/.test(q);
 
   return (
-    <div className="mt-8 bg-white border rounded-xl">
+    <div className="mb-5 bg-white border rounded-xl">
       <button
         className="w-full flex items-center justify-between px-5 py-4 text-left"
         onClick={() => setOpen(!open)}

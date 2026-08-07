@@ -65,10 +65,10 @@ export default function AdsPage() {
           </div>
         ) : (
           <>
+            <PartnersPanel />
             <Suspense fallback={null}>
               <AdLauncher isAdmin={currentUser?.isAdmin || false} />
             </Suspense>
-            <PartnersPanel />
           </>
         )}
       </main>
