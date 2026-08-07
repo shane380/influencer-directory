@@ -63,6 +63,7 @@ export function PartnersPanel() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [sending, setSending] = useState<string | null>(null);
+  const [confirmHandle, setConfirmHandle] = useState<string | null>(null);
   const [justSent, setJustSent] = useState<Set<string>>(new Set());
   const loadedOnce = useRef(false);
 
@@ -154,7 +155,7 @@ export function PartnersPanel() {
               />
             </div>
             <Button
-              onClick={() => sendRequest(q)}
+              onClick={() => setConfirmHandle(q)}
               disabled={!validFreeHandle || sending !== null}
               title="Send a request to this handle"
             >
@@ -165,6 +166,30 @@ export function PartnersPanel() {
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             </Button>
           </div>
+
+          {confirmHandle && (
+            <div className="flex items-center gap-3 border border-amber-200 bg-amber-50 rounded-md px-3 py-2.5">
+              <span className="flex-1 text-sm text-amber-800">
+                Send a partnership request to <span className="font-medium">@{confirmHandle}</span>? Meta can&rsquo;t
+                preview accounts from here — double-check the spelling. It must be a business or creator account
+                (personal accounts are rejected).
+              </span>
+              <Button
+                size="sm"
+                disabled={sending !== null}
+                onClick={async () => {
+                  const h = confirmHandle;
+                  setConfirmHandle(null);
+                  await sendRequest(h);
+                }}
+              >
+                {sending === confirmHandle ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Confirm & send"}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setConfirmHandle(null)}>
+                Cancel
+              </Button>
+            </div>
+          )}
 
           {matchedSuggestions.length > 0 && (
             <div className="border rounded-md divide-y">
