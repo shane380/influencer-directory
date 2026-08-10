@@ -313,6 +313,36 @@ export function ReviewQueue({
     [editForm, editAssets, mediaProgress, targets, refresh]
   );
 
+  /**
+   * Admin-only: drop a submitted draft that isn't going to be published.
+   * Deletes the row, so it confirms first — this is someone else's work and
+   * the submitter gets no feedback, unlike "Request changes".
+   */
+  const dismiss = useCallback(
+    async (draft: AdDraft) => {
+      const ok = window.confirm(
+        `Dismiss "${draft.adName}" from ${draft.createdByName}?\n\n` +
+          `The draft is deleted and they aren't told why. To send them a reason instead, use "Request changes".`
+      );
+      if (!ok) return;
+      setBusyId(draft.id);
+      setError(null);
+      try {
+        const res = await fetch(`/api/ads/drafts/${draft.id}`, { method: "DELETE" });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || "Could not dismiss the draft");
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not dismiss the draft");
+      } finally {
+        setBusyId(null);
+        refresh();
+      }
+    },
+    [refresh]
+  );
+
   const withdraw = useCallback(
     async (draftId: string) => {
       setBusyId(draftId);
@@ -775,6 +805,13 @@ export function ReviewQueue({
                   className="border border-gray-300 rounded-md py-1.5 text-[12.5px] text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-1.5"
                 >
                   <Pencil className="h-3 w-3" /> Edit details
+                </button>
+                <button
+                  onClick={() => dismiss(draft)}
+                  disabled={busyId === draft.id}
+                  className="text-[12px] text-gray-400 hover:text-red-600 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  <Trash2 className="h-3 w-3" /> Dismiss
                 </button>
               </>
             )}
