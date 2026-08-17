@@ -2,7 +2,10 @@
 // Field shapes verified against developers.facebook.com v25.0 docs, July 2026.
 import type {
   AdCopy,
+  AdsetSummary,
+  AdsetTemplate,
   CampaignSummary,
+  CreateAdsetRequest,
   DraftAsset,
   IgMediaItem,
   IgMediaResponse,
@@ -109,6 +112,348 @@ export async function listTargets(): Promise<TargetsResponse> {
   }));
 
   return { accountId: actId.replace(/^act_/, ""), campaigns };
+}
+
+// ---- Creating ad sets in an existing campaign ----
+// New ad sets clone an existing one in the same campaign rather than asking
+// for a full ad-set editor: in this account every whitelisting ad set is the
+// same setup with a different name/country list. Only the fields that really
+// vary are editable; everything else is copied verbatim from the source.
+
+/**
+ * Targeting keys we copy forward. A whitelist rather than a blanket copy —
+ * reads echo back derived fields (age_range, targeting_optimization_types)
+ * that the write endpoint rejects.
+ */
+const WRITABLE_TARGETING_KEYS = [
+  "age_min",
+  "age_max",
+  "genders",
+  "geo_locations",
+  "excluded_geo_locations",
+  "targeting_automation",
+  "targeting_relaxation_types",
+  "publisher_platforms",
+  "facebook_positions",
+  "instagram_positions",
+  "messenger_positions",
+  "threads_positions",
+  "audience_network_positions",
+  "device_platforms",
+  "user_os",
+  "user_device",
+  "locales",
+  "flexible_spec",
+  "exclusions",
+  "interests",
+  "behaviors",
+  "custom_audiences",
+  "excluded_custom_audiences",
+  "brand_safety_content_filter_levels",
+] as const;
+
+function sanitizeTargeting(targeting: any): Record<string, any> {
+  const out: Record<string, any> = {};
+  for (const key of WRITABLE_TARGETING_KEYS) {
+    if (targeting?.[key] !== undefined && targeting[key] !== null) out[key] = targeting[key];
+  }
+
+  // Meta now rejects explore_home without explore ("You Must Also Select
+  // Instagram Explore"), but happily *returns* that pair on ad sets created
+  // before the rule — so a verbatim clone of an older ad set fails. Add the
+  // implied placement rather than dropping the one that was chosen.
+  const ig: string[] = out.instagram_positions || [];
+  if (ig.includes("explore_home") && !ig.includes("explore")) {
+    out.instagram_positions = [...ig, "explore"];
+  }
+
+  return out;
+}
+
+/**
+ * Used only when the chosen campaign has no ad set to copy. Mirrors the
+ * "Contrast Winners // CA + USA // incremental /# of conv //" ad set in the
+ * whitelisting CBO — the setup every whitelisting ad set in this account uses.
+ */
+const FALLBACK_ADSET_BLUEPRINT: AdsetBlueprint = {
+  optimizationGoal: "OFFSITE_CONVERSIONS",
+  billingEvent: "IMPRESSIONS",
+  bidStrategy: null,
+  bidAmount: 7000,
+  bidConstraints: null,
+  dailyBudget: null,
+  destinationType: null,
+  promotedObject: { pixel_id: "680666762114076", custom_event_type: "PURCHASE" },
+  attributionSpec: [
+    { event_type: "CLICK_THROUGH", window_days: 7 },
+    { event_type: "VIEW_THROUGH", window_days: 1 },
+    { event_type: "ENGAGED_VIDEO_VIEW", window_days: 1 },
+  ],
+  targeting: {
+    age_min: 18,
+    age_max: 65,
+    genders: [2],
+    geo_locations: { countries: ["US", "CA"], location_types: ["home", "recent"] },
+    targeting_automation: { advantage_audience: 1, individual_setting: { age: 1, gender: 1 } },
+    publisher_platforms: ["instagram", "messenger", "threads"],
+    instagram_positions: [
+      "stream",
+      "story",
+      "reels",
+      "explore_home",
+      "profile_feed",
+      "ig_search",
+    ],
+    messenger_positions: ["story"],
+    threads_positions: ["threads_stream"],
+    device_platforms: ["mobile", "desktop"],
+  },
+};
+
+interface AdsetBlueprint {
+  optimizationGoal: string;
+  billingEvent: string;
+  /**
+   * Set on the ad set only under ABO — with campaign budget optimization the
+   * strategy lives on the campaign and the ad set reads back null.
+   */
+  bidStrategy: string | null;
+  bidAmount: number | null;
+  /** ROAS-goal strategies bid via a roas_average_floor instead of bid_amount */
+  bidConstraints: Record<string, any> | null;
+  dailyBudget: number | null;
+  destinationType: string | null;
+  promotedObject: Record<string, any> | null;
+  attributionSpec: any[] | null;
+  targeting: Record<string, any>;
+}
+
+const ADSET_READ_FIELDS =
+  "id,name,created_time,effective_status,optimization_goal,billing_event,bid_amount," +
+  "daily_budget,destination_type,promoted_object,attribution_spec,targeting," +
+  "bid_strategy,bid_constraints";
+
+function toBlueprint(adset: any): AdsetBlueprint {
+  const promoted = adset.promoted_object ? { ...adset.promoted_object } : null;
+  // Read-only echo on promoted_object; the write endpoint rejects it.
+  if (promoted) delete promoted.smart_pse_enabled;
+  return {
+    optimizationGoal: adset.optimization_goal || FALLBACK_ADSET_BLUEPRINT.optimizationGoal,
+    billingEvent: adset.billing_event || FALLBACK_ADSET_BLUEPRINT.billingEvent,
+    bidStrategy: adset.bid_strategy || null,
+    bidAmount: adset.bid_amount ? Number(adset.bid_amount) : null,
+    bidConstraints: adset.bid_constraints || null,
+    dailyBudget: adset.daily_budget ? Number(adset.daily_budget) : null,
+    // "UNDEFINED" is Meta's way of saying "no explicit destination".
+    destinationType:
+      adset.destination_type && adset.destination_type !== "UNDEFINED"
+        ? adset.destination_type
+        : null,
+    promotedObject: promoted,
+    attributionSpec: adset.attribution_spec || null,
+    targeting: sanitizeTargeting(adset.targeting),
+  };
+}
+
+/** Bid strategies that make a per-ad-set bid/cost cap mandatory. */
+const BID_AMOUNT_STRATEGIES = ["COST_CAP", "LOWEST_COST_WITH_BID_CAP"];
+
+/**
+ * Under CBO the strategy is a campaign field; under ABO it is per ad set and
+ * siblings routinely differ, so fall back to whichever one the source used.
+ */
+function effectiveBidStrategy(campaign: any, bp: AdsetBlueprint): string | null {
+  return campaign.bid_strategy || bp.bidStrategy || null;
+}
+
+async function loadCampaignAndSource(campaignId: string, sourceAdsetId?: string | null) {
+  const campaign = await graphGet(campaignId, {
+    fields: "id,name,objective,status,daily_budget,lifetime_budget,bid_strategy",
+  });
+
+  const list = await graphGet(`${campaignId}/adsets`, {
+    fields: ADSET_READ_FIELDS,
+    limit: "100",
+  });
+  // Newest first — the most recent ad set is the one worth cloning.
+  const adsets: any[] = (list.data || []).sort((a: any, b: any) =>
+    String(b.created_time || "").localeCompare(String(a.created_time || ""))
+  );
+  const source =
+    (sourceAdsetId && adsets.find((a) => String(a.id) === String(sourceAdsetId))) ||
+    adsets.find((a) => a.effective_status === "ACTIVE") ||
+    adsets[0] ||
+    null;
+
+  return { campaign, adsets, source };
+}
+
+const COUNTRY_NAMES: Record<string, string> = {
+  US: "United States",
+  CA: "Canada",
+  AU: "Australia",
+  GB: "United Kingdom",
+  NZ: "New Zealand",
+};
+
+function describeBlueprint(bp: AdsetBlueprint): string[] {
+  const lines: string[] = [];
+  const goal = bp.optimizationGoal.replace(/_/g, " ").toLowerCase();
+  lines.push(`Optimizing for ${goal}, billed on ${bp.billingEvent.toLowerCase()}`);
+  if (bp.promotedObject?.pixel_id) {
+    lines.push(
+      `Pixel ${bp.promotedObject.pixel_id}` +
+        (bp.promotedObject.custom_event_type
+          ? ` · ${String(bp.promotedObject.custom_event_type).toLowerCase()} event`
+          : "")
+    );
+  }
+  if (bp.attributionSpec?.length) {
+    const parts = bp.attributionSpec.map((a: any) => {
+      const label =
+        a.event_type === "CLICK_THROUGH"
+          ? "click"
+          : a.event_type === "VIEW_THROUGH"
+            ? "view"
+            : "video view";
+      return `${a.window_days}-day ${label}`;
+    });
+    lines.push(`Attribution: ${parts.join(", ")}`);
+  }
+  if (bp.bidConstraints?.roas_average_floor) {
+    lines.push(`Minimum ROAS floor ${Number(bp.bidConstraints.roas_average_floor) / 10000}`);
+  }
+  const t = bp.targeting;
+  const gender =
+    Array.isArray(t.genders) && t.genders.length === 1
+      ? t.genders[0] === 1
+        ? "Men"
+        : "Women"
+      : "All genders";
+  lines.push(`${gender}, ages ${t.age_min ?? 18}–${t.age_max ?? 65}`);
+  if (t.publisher_platforms?.length) {
+    lines.push(`Platforms: ${t.publisher_platforms.join(", ")}`);
+  }
+  if (t.instagram_positions?.length) {
+    lines.push(`Instagram placements: ${t.instagram_positions.join(", ")}`);
+  }
+  if (t.targeting_automation?.advantage_audience === 1) {
+    lines.push("Advantage+ audience on");
+  }
+  const audiences = (t.custom_audiences || []).length;
+  const excluded = (t.excluded_custom_audiences || []).length;
+  if (audiences || excluded) {
+    lines.push(`${audiences} custom audience(s), ${excluded} excluded`);
+  }
+  return lines;
+}
+
+/** Everything the "New ad set" dialog needs to prefill itself. */
+export async function getAdsetTemplate(
+  campaignId: string,
+  sourceAdsetId?: string | null
+): Promise<AdsetTemplate> {
+  const { campaign, adsets, source } = await loadCampaignAndSource(campaignId, sourceAdsetId);
+  const bp = source ? toBlueprint(source) : FALLBACK_ADSET_BLUEPRINT;
+
+  const cbo = Boolean(campaign.daily_budget || campaign.lifetime_budget);
+  const bidStrategy = effectiveBidStrategy(campaign, bp);
+  const requiresBidAmount = Boolean(bidStrategy && BID_AMOUNT_STRATEGIES.includes(bidStrategy));
+
+  return {
+    campaignId: String(campaign.id),
+    campaignName: campaign.name || "",
+    objective: campaign.objective || null,
+    campaignBudgetOptimization: cbo,
+    bidStrategy,
+    requiresBidAmount,
+    sourceAdsetId: source ? String(source.id) : null,
+    sourceAdsetName: source?.name || null,
+    sourceOptions: adsets.map((a) => ({ id: String(a.id), name: a.name || a.id })),
+    name: source?.name || "",
+    countries: bp.targeting.geo_locations?.countries || [],
+    bidAmount: requiresBidAmount ? bp.bidAmount : null,
+    dailyBudget: cbo ? null : bp.dailyBudget,
+    inherited: describeBlueprint(bp),
+  };
+}
+
+/**
+ * Create an ad set in an existing campaign, cloning a sibling's setup.
+ * Only name, countries, bid and budget come from the caller — the rest is
+ * re-read from Meta at create time so a stale client can't smuggle settings in.
+ */
+export async function createAdset(
+  input: CreateAdsetRequest,
+  opts: { validateOnly?: boolean } = {}
+): Promise<AdsetSummary> {
+  const { actId } = getEnv();
+  const name = input.name?.trim();
+  if (!name) throw new MetaApiError("Give the ad set a name", null);
+  const countries = (input.countries || []).map((c) => c.trim().toUpperCase()).filter(Boolean);
+  if (!countries.length) throw new MetaApiError("Pick at least one country", null);
+
+  const { campaign, source } = await loadCampaignAndSource(input.campaignId, input.sourceAdsetId);
+  const bp = source ? toBlueprint(source) : FALLBACK_ADSET_BLUEPRINT;
+
+  const cbo = Boolean(campaign.daily_budget || campaign.lifetime_budget);
+  const bidStrategy = effectiveBidStrategy(campaign, bp);
+  const requiresBidAmount = Boolean(bidStrategy && BID_AMOUNT_STRATEGIES.includes(bidStrategy));
+
+  const targeting = {
+    ...bp.targeting,
+    geo_locations: {
+      ...(bp.targeting.geo_locations || {}),
+      countries,
+    },
+  };
+
+  const params: Record<string, any> = {
+    name,
+    campaign_id: input.campaignId,
+    optimization_goal: bp.optimizationGoal,
+    billing_event: bp.billingEvent,
+    targeting,
+    status: input.status === "ACTIVE" ? "ACTIVE" : "PAUSED",
+  };
+  if (bp.promotedObject) params.promoted_object = bp.promotedObject;
+  if (bp.attributionSpec) params.attribution_spec = bp.attributionSpec;
+  if (bp.destinationType) params.destination_type = bp.destinationType;
+
+  // Only ABO ad sets carry their own strategy; sending one under CBO is an error.
+  if (!cbo && bp.bidStrategy) params.bid_strategy = bp.bidStrategy;
+  if (bp.bidConstraints) params.bid_constraints = bp.bidConstraints;
+
+  if (requiresBidAmount) {
+    const bid = input.bidAmount ?? bp.bidAmount;
+    if (!bid || bid <= 0) {
+      throw new MetaApiError(`This ad set bids with ${bidStrategy} — set a cost cap`, null);
+    }
+    params.bid_amount = Math.round(bid);
+  }
+
+  // Under campaign budget optimization the budget lives on the campaign;
+  // sending one here is an error, not an override.
+  if (!cbo) {
+    const budget = input.dailyBudget ?? bp.dailyBudget;
+    if (!budget || budget <= 0) {
+      throw new MetaApiError("This campaign has no shared budget — set a daily budget", null);
+    }
+    params.daily_budget = Math.round(budget);
+  }
+
+  if (opts.validateOnly) params.execution_options = ["validate_only"];
+
+  const created = await graphPost(`${actId}/adsets`, params);
+
+  return {
+    id: String(created.id || ""),
+    name,
+    status: params.status,
+    effective_status: params.status,
+    daily_budget: params.daily_budget ? String(params.daily_budget) : null,
+    lifetime_budget: null,
+  };
 }
 
 export async function getDefaults(): Promise<LauncherDefaults> {

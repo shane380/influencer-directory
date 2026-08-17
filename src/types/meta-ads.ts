@@ -23,6 +23,45 @@ export interface TargetsResponse {
   campaigns: CampaignSummary[];
 }
 
+/** Read-only summary of the setup a new ad set will inherit from a template. */
+export interface AdsetTemplate {
+  campaignId: string;
+  campaignName: string;
+  /** OUTCOME_SALES, CONVERSIONS… — decides which optimization goals are legal */
+  objective: string | null;
+  /** True when the campaign holds the budget (CBO) — ad sets must not set one */
+  campaignBudgetOptimization: boolean;
+  /** Campaign-level bid strategy, e.g. COST_CAP */
+  bidStrategy: string | null;
+  /** True when bidStrategy makes a per-ad-set bid/cost cap mandatory */
+  requiresBidAmount: boolean;
+  /** Ad set the settings were read from (null when the campaign has none yet) */
+  sourceAdsetId: string | null;
+  sourceAdsetName: string | null;
+  /** Every ad set in the campaign, newest first — pickable as the source */
+  sourceOptions: { id: string; name: string }[];
+  /** Prefilled values for the editable fields */
+  name: string;
+  countries: string[];
+  /** Cost cap / bid in account cents; null when not applicable */
+  bidAmount: number | null;
+  /** Daily budget in account cents; null under CBO */
+  dailyBudget: number | null;
+  /** Plain-English lines describing what gets copied verbatim */
+  inherited: string[];
+}
+
+export interface CreateAdsetRequest {
+  campaignId: string;
+  /** Ad set to copy the setup from; defaults to the newest in the campaign */
+  sourceAdsetId?: string | null;
+  name: string;
+  countries: string[];
+  bidAmount?: number | null;
+  dailyBudget?: number | null;
+  status: "ACTIVE" | "PAUSED";
+}
+
 export interface PartnerIdentity {
   /** Instagram user id used as instagram_branded_content.sponsor_id */
   sponsorId: string;

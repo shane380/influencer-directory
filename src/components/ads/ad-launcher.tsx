@@ -27,6 +27,7 @@ import { IgReelsPreview } from "./ig-reels-preview";
 import { IgPostPicker } from "./ig-post-picker";
 import { ReviewQueue } from "./review-queue";
 import { CropDialog } from "./crop-dialog";
+import { NewAdsetDialog } from "./new-adset-dialog";
 import { CollectionBar, TemplateActions, useTemplateLibrary } from "./copy-templates";
 import {
   AlertTriangle,
@@ -53,6 +54,9 @@ interface SlotState {
   thumbUrl: string | null;
   error: string | null;
 }
+
+/** Sentinel value for the "+ New ad set…" entry in the ad set select. */
+const NEW_ADSET_OPTION = "__new_adset__";
 
 type AdPhase = "idle" | "working" | "done" | "error";
 /** "post" promotes an existing organic IG post instead of uploaded media. */
@@ -165,6 +169,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
     /** Slot the cropped file goes back into */
     target: "feed" | "vertical" | "card";
   } | null>(null);
+  const [showNewAdset, setShowNewAdset] = useState(false);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const restoredRef = useRef(false);
@@ -937,6 +942,31 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
         />
       )}
 
+      {showNewAdset && campaign && (
+        <NewAdsetDialog
+          campaignId={campaign.id}
+          campaignName={campaign.name}
+          onCancel={() => setShowNewAdset(false)}
+          onCreated={(adset) => {
+            setShowNewAdset(false);
+            // Show it straight away, then reconcile with Meta in the
+            // background — the campaigns fetch takes a second or two.
+            setTargets((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    campaigns: prev.campaigns.map((c) =>
+                      c.id === campaign.id ? { ...c, adsets: [adset, ...c.adsets] } : c
+                    ),
+                  }
+                : prev
+            );
+            setAdsetId(adset.id);
+            fetchTargets();
+          }}
+        />
+      )}
+
       {defaults && !defaults.canPublish && (
         <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4 text-[13px] text-amber-800">
           <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
@@ -982,7 +1012,13 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
               </label>
               <select
                 value={adsetId}
-                onChange={(e) => setAdsetId(e.target.value)}
+                onChange={(e) => {
+                  if (e.target.value === NEW_ADSET_OPTION) {
+                    setShowNewAdset(true);
+                    return;
+                  }
+                  setAdsetId(e.target.value);
+                }}
                 disabled={!campaign}
                 className="w-56 border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] bg-white disabled:bg-gray-50 disabled:text-gray-400"
               >
@@ -992,6 +1028,9 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                     {a.name} {a.effective_status === "PAUSED" ? "(paused)" : ""}
                   </option>
                 ))}
+                {isAdmin && campaign && (
+                  <option value={NEW_ADSET_OPTION}>+ New ad set…</option>
+                )}
               </select>
             </div>
             <div className="flex items-center gap-3 pb-2">
