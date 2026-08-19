@@ -1,0 +1,65 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { Sidebar } from "@/components/sidebar";
+import { PerformanceDashboard } from "@/components/ads/performance-dashboard";
+import { Loader2 } from "lucide-react";
+
+export default function AdPerformancePage() {
+  const router = useRouter();
+  const supabase = createClient();
+  const [currentUser, setCurrentUser] = useState<{
+    displayName: string;
+    email: string;
+    profilePhotoUrl: string | null;
+    isAdmin: boolean;
+    isManager: boolean;
+  } | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await (supabase.from("profiles") as any)
+          .select("display_name, profile_photo_url, is_admin, is_manager")
+          .eq("id", user.id)
+          .single();
+        setCurrentUser({
+          displayName: profile?.display_name || user.email?.split("@")[0] || "User",
+          email: user.email || "",
+          profilePhotoUrl: profile?.profile_photo_url || null,
+          isAdmin: profile?.is_admin || false,
+          isManager: profile?.is_manager || false,
+        });
+      }
+      setLoaded(true);
+    }
+    load();
+  }, [supabase]);
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex">
+      <Sidebar
+        activeTab="ads"
+        onTabChange={() => {}}
+        currentUser={currentUser}
+        onLogout={async () => {
+          await supabase.auth.signOut();
+          router.push("/login");
+        }}
+      />
+      <main className="flex-1 px-8 pt-10 pb-8 min-w-0">
+        {!loaded ? (
+          <div className="flex items-center gap-2 text-sm text-gray-400 py-16 justify-center">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+          </div>
+        ) : (
+          <PerformanceDashboard />
+        )}
+      </main>
+    </div>
+  );
+}
