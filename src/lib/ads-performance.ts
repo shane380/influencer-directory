@@ -24,7 +24,7 @@ export interface PerfAd {
   spend: number;
   impressions: number;
   clicks: number;
-  purchases: number;
+  purchases: number | null;
   revenue: number;
   roas: number | null;
   ctr: number | null;
@@ -39,7 +39,8 @@ export interface PerfMetrics {
   spend: number;
   impressions: number;
   clicks: number;
-  purchases: number;
+  /** Null when any contributing ad-day had an unknown purchase count. */
+  purchases: number | null;
   revenue: number;
   roas: number | null;
   ctr: number | null;
@@ -158,9 +159,11 @@ export function eligibleForRanking(metric: MetricKey, ad: PerfAd): boolean {
     case "ctr":
       return ad.impressions >= MIN_IMPRESSIONS_FOR_RATE;
     case "roas":
+      return ad.spend >= MIN_SPEND_FOR_RETURN;
     case "cpa":
     case "aov":
-      return ad.spend >= MIN_SPEND_FOR_RETURN && ad.purchases > 0;
+      // Purchase-derived, so an ad with an unknown count cannot be ranked here.
+      return ad.spend >= MIN_SPEND_FOR_RETURN && (ad.purchases ?? 0) > 0;
     default:
       return true;
   }
@@ -190,7 +193,7 @@ export function emptyMetrics(): PerfMetrics {
   return {
     spend: 0, impressions: 0, clicks: 0, purchases: 0, revenue: 0,
     roas: null, ctr: null, cpa: null, aov: null,
-  };
+  } as PerfMetrics;
 }
 
 /**
@@ -199,21 +202,30 @@ export function emptyMetrics(): PerfMetrics {
  * Rates are derived from summed numerators/denominators, never averaged across
  * ads — averaging rates would weight a $5 ad the same as a $5,000 one.
  */
-export function aggregate(ads: { spend: number; impressions: number; clicks: number; purchases: number; revenue: number }[]): PerfMetrics {
+export function aggregate(
+  ads: { spend: number; impressions: number; clicks: number; purchases: number | null; revenue: number }[],
+): PerfMetrics {
   const t = emptyMetrics();
+  // One unknown contributor makes the whole sum unknown. Adding the known ones
+  // and presenting the result as a total would understate it by exactly the
+  // amount nobody can see.
+  let purchases = 0;
+  let purchasesKnown = true;
   for (const a of ads) {
     t.spend += a.spend;
     t.impressions += a.impressions;
     t.clicks += a.clicks;
-    t.purchases += a.purchases;
     t.revenue += a.revenue;
+    if (a.purchases == null) purchasesKnown = false;
+    else purchases += a.purchases;
   }
   t.spend = Math.round(t.spend * 100) / 100;
   t.revenue = Math.round(t.revenue * 100) / 100;
+  t.purchases = purchasesKnown ? purchases : null;
   t.roas = t.spend > 0 ? t.revenue / t.spend : null;
   t.ctr = t.impressions > 0 ? (t.clicks / t.impressions) * 100 : null;
-  t.cpa = t.purchases > 0 ? t.spend / t.purchases : null;
-  t.aov = t.purchases > 0 ? t.revenue / t.purchases : null;
+  t.cpa = purchasesKnown && purchases > 0 ? t.spend / purchases : null;
+  t.aov = purchasesKnown && purchases > 0 ? t.revenue / purchases : null;
   return t;
 }
 

@@ -112,6 +112,8 @@ export function PerformanceDashboard() {
     previous: { start: string; end: string };
     data_since: string | null;
     comparison_complete: boolean;
+    purchases_complete: boolean;
+    purchases_unknown_share: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -160,6 +162,13 @@ export function PerformanceDashboard() {
   // the size of the gap. Showing nothing is the honest option — a wrong number
   // here is worse than no number, because it reads as a real trend.
   const showDeltas = data?.comparison_complete !== false;
+
+  // Purchase counts only exist from the point the account-wide sync started.
+  // Ranges reaching into backfilled history render Purchases, CPA and AOV as
+  // "—" rather than a number that is understated by an unknowable amount.
+  const purchasesKnown = data?.purchases_complete !== false;
+  // Non-zero but under the suppression threshold: the figures stand, with a note.
+  const purchasesApprox = purchasesKnown && (data?.purchases_unknown_share ?? 0) > 0;
 
   // Ads that actually delivered in the selected range. An ad present only
   // because it ran in the COMPARISON window would otherwise show up as a $0 row.
@@ -323,6 +332,22 @@ export function PerformanceDashboard() {
               </div>
             ))}
           </div>
+
+          {purchasesApprox && (
+            <p className="text-[11px] text-gray-400 mb-4 -mt-2">
+              Purchase counts are missing for {((data?.purchases_unknown_share ?? 0) * 100).toFixed(2)}% of
+              spend in this range, so Purchases, CPA and AOV are marginally understated.
+            </p>
+          )}
+
+          {!purchasesKnown && (
+            <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 mb-4 text-[13px] text-gray-600">
+              <span className="font-medium text-gray-900">Purchases, CPA and AOV unavailable for this range.</span>{" "}
+              {(((data?.purchases_unknown_share ?? 0) * 100).toFixed(0))}% of spend in this range predates
+              purchase-count tracking — that history was backfilled from a table which stored revenue but not
+              order counts. Spend, revenue, ROAS and link CTR are complete throughout.
+            </div>
+          )}
 
           {!showDeltas && (
             <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 mb-4 text-[13px] text-gray-600">
