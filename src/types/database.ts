@@ -277,6 +277,11 @@ export interface Deliverable {
   quantity: number;
 }
 
+// A milestone carries two independent facts the books need kept apart:
+// whether it has been EARNED (its gate was met — `earned_on`) and whether it has
+// been PAID (`is_paid`). A retainer installment is routinely earned and unpaid.
+export type MilestoneGate = 'on_execution' | 'on_content_live' | 'on_date' | 'manual';
+
 export interface PaymentMilestone {
   id: string;
   description: string;
@@ -285,12 +290,25 @@ export interface PaymentMilestone {
   is_paid: boolean;
   paid_date: string | null;
   paid_by: string | null;
+  // Added 2026-08-11 for content-gated retainers. Optional: milestones written
+  // before this date have none, and are treated as gate 'manual', unearned.
+  gate?: MilestoneGate;
+  earned_on?: string | null;
+  due_on?: string | null;
 }
+
+export type DealKind = 'one_off' | 'retainer';
 
 export interface CampaignDeal {
   id: string;
   campaign_id: string;
   influencer_id: string;
+  // Retainers are deals with a term and content-gated installments. Optional
+  // because rows read before the 20260811 migration lands have no value.
+  deal_kind?: DealKind;
+  starts_on?: string | null;
+  ends_on?: string | null;
+  term_months?: number | null;
   deliverables: Deliverable[];
   total_deal_value: number;
   deal_status: DealStatus;
@@ -318,6 +336,10 @@ export interface CampaignDeal {
 export interface CampaignDealInsert {
   campaign_id: string;
   influencer_id: string;
+  deal_kind?: DealKind;
+  starts_on?: string | null;
+  ends_on?: string | null;
+  term_months?: number | null;
   deliverables?: Deliverable[];
   total_deal_value?: number;
   deal_status?: DealStatus;

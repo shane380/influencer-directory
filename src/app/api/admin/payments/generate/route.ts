@@ -136,17 +136,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Retainer
-    if (invite.has_retainer && !existingTypes.has("retainer")) {
-      rowsToInsert.push({
-        influencer_id: influencerId,
-        month,
-        payment_type: "retainer",
-        amount_owed: invite.retainer_amount || 0,
-        payment_method: paymentMethod,
-        payment_detail: paymentDetail,
-      });
-    }
+    // Retainer — DISABLED 2026-08-11.
+    // This billed `invite.retainer_amount` every calendar month with no start
+    // date, no term, and no content gate. That field turned out to hold the
+    // CONTRACT TOTAL on some invites and a stale rate on others, so it booked
+    // $3,328 against a $1,664 contract and grew every run. Retainers are now
+    // recorded as campaign_deals with content-gated milestones, and accrue from
+    // those instead. Do not re-enable this against creator_invites.
 
     // Affiliate commission — auto-calculate from Shopify orders
     if (invite.has_affiliate && !existingTypes.has("affiliate_commission")) {

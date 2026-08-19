@@ -19,6 +19,9 @@ import { InfluencerDialog } from "@/components/influencer-dialog";
 import { CampaignDialog } from "@/components/campaign-dialog";
 import { PaidCollabDialog } from "@/components/paid-collab-dialog";
 import { PaidCollabsBudgetBar } from "@/components/paid-collabs-budget-bar";
+import { RetainerSummaryBar } from "@/components/retainer-summary-bar";
+import { RetainerInstallments, RetainerTerm } from "@/components/retainer-installments";
+import { dealTotals } from "@/lib/retainers";
 import { OrderDialog } from "@/components/order-dialog";
 import { Sidebar } from "@/components/sidebar";
 import { WhitelistingTab } from "@/components/whitelisting-tab";
@@ -145,6 +148,7 @@ function HomePageContent() {
   const [whitelistingLoaded, setWhitelistingLoaded] = useState(false);
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>("all");
   const [dealStatusFilter, setDealStatusFilter] = useState<string>("all");
+  const [dealKindFilter, setDealKindFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [partnershipTypeFilter, setPartnershipTypeFilter] = useState<string>("all");
@@ -310,6 +314,10 @@ function HomePageContent() {
       query = query.eq("deal_status", dealStatusFilter);
     }
 
+    if (dealKindFilter !== "all") {
+      query = query.eq("deal_kind", dealKindFilter);
+    }
+
     const { data, error } = await query;
 
     if (error) {
@@ -347,7 +355,7 @@ function HomePageContent() {
     setPaidCollabs(deals);
     setPaidCollabsLoaded(true);
     setLoadingPaidCollabs(false);
-  }, [supabase, paymentStatusFilter, dealStatusFilter]);
+  }, [supabase, paymentStatusFilter, dealStatusFilter, dealKindFilter]);
 
   const fetchWhitelisting = useCallback(async (forceRefresh = false) => {
     // Skip if already loaded and not forcing refresh
@@ -517,7 +525,7 @@ function HomePageContent() {
     if (paidCollabsLoaded) {
       fetchPaidCollabs(true);
     }
-  }, [paymentStatusFilter, dealStatusFilter]);
+  }, [paymentStatusFilter, dealStatusFilter, dealKindFilter]);
 
   // Fetch whitelisting influencers on first visit
   useEffect(() => {
@@ -648,6 +656,10 @@ function HomePageContent() {
     if (!search) return true;
     return campaign.name.toLowerCase().includes(search.toLowerCase());
   });
+
+  // Retainers need term/accrual columns that are meaningless for one-off deals,
+  // so the table swaps them in only when the list is filtered to retainers.
+  const showRetainerCols = dealKindFilter === "retainer";
 
   // Client-side filter for paid collabs
   const filteredPaidCollabs = paidCollabs.filter((collab) => {
@@ -1051,10 +1063,16 @@ function HomePageContent() {
           {activeTab === "paid_collabs" && <div>
           {/* Budget Bar - only render after deals have loaded to prevent flicker */}
           {paidCollabsLoaded && (
-            <PaidCollabsBudgetBar
-              deals={paidCollabs}
-              onBudgetChange={() => fetchPaidCollabs(true)}
-            />
+            dealKindFilter === "retainer" ? (
+              // The month-budget bar measures one-off spend against a monthly
+              // budget, which says nothing about an ongoing retainer.
+              <RetainerSummaryBar deals={paidCollabs} />
+            ) : (
+              <PaidCollabsBudgetBar
+                deals={paidCollabs}
+                onBudgetChange={() => fetchPaidCollabs(true)}
+              />
+            )
           )}
 
           {/* Paid Collabs Filters */}
@@ -1081,6 +1099,11 @@ function HomePageContent() {
               <option value="paid_on_post">Paid on Post</option>
               <option value="paid_in_full">Paid in Full</option>
             </Select>
+            <Select value={dealKindFilter} onChange={(e) => setDealKindFilter(e.target.value)} className="w-auto sm:w-[140px] flex-shrink-0">
+              <option value="all">All Types</option>
+              <option value="one_off">One-off</option>
+              <option value="retainer">Retainers</option>
+            </Select>
             <Button onClick={() => setPaidCollabDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               New Paid Collab
@@ -1100,12 +1123,29 @@ function HomePageContent() {
                     <TableHead className="w-12"></TableHead>
                     <TableHead>Influencer</TableHead>
                     <TableHead>Handle</TableHead>
-                    <TableHead>Campaign</TableHead>
+                    {showRetainerCols ? (
+                      <>
+                        <TableHead>Started</TableHead>
+                        <TableHead>Term / Ends</TableHead>
+                      </>
+                    ) : (
+                      <TableHead>Campaign</TableHead>
+                    )}
                     <TableHead>Deliverables</TableHead>
                     <TableHead>Deal Value</TableHead>
                     <TableHead>Deal</TableHead>
-                    <TableHead>Order</TableHead>
-                    <TableHead>Content</TableHead>
+                    {showRetainerCols ? (
+                      <>
+                        <TableHead>Installments</TableHead>
+                        <TableHead>Earned</TableHead>
+                        <TableHead>Balance</TableHead>
+                      </>
+                    ) : (
+                      <>
+                        <TableHead>Order</TableHead>
+                        <TableHead>Content</TableHead>
+                      </>
+                    )}
                     <TableHead>Payment</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
@@ -1144,19 +1184,37 @@ function HomePageContent() {
                         </div>
                       </TableCell>
                       <TableCell className="font-medium">
-                        {collab.influencer?.name || "-"}
+                        <div className="flex items-center gap-1.5">
+                          <span>{collab.influencer?.name || "-"}</span>
+                          {!showRetainerCols && collab.deal_kind === "retainer" && (
+                            <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px]">
+                              Retainer
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-gray-600">
                         {collab.influencer?.instagram_handle ? `@${collab.influencer.instagram_handle}` : "-"}
                       </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <button
-                          className="text-gray-600 text-left hover:text-purple-600 hover:underline cursor-pointer"
-                          onClick={() => router.push(`/campaigns/${collab.campaign_id}`)}
-                        >
-                          {collab.campaign?.name || "-"}
-                        </button>
-                      </TableCell>
+                      {showRetainerCols ? (
+                        <>
+                          <TableCell className="text-xs text-gray-600">
+                            {collab.starts_on || <span className="text-amber-600">Not set</span>}
+                          </TableCell>
+                          <TableCell>
+                            <RetainerTerm deal={collab} />
+                          </TableCell>
+                        </>
+                      ) : (
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <button
+                            className="text-gray-600 text-left hover:text-purple-600 hover:underline cursor-pointer"
+                            onClick={() => router.push(`/campaigns/${collab.campaign_id}`)}
+                          >
+                            {collab.campaign?.name || "-"}
+                          </button>
+                        </TableCell>
+                      )}
                       <TableCell className="text-gray-600 text-sm max-w-[200px] truncate">
                         {formatDeliverables(collab.deliverables)}
                       </TableCell>
@@ -1168,43 +1226,68 @@ function HomePageContent() {
                           {dealStatusLabels[(collab.deal_status || "negotiating") as DealStatus]}
                         </Badge>
                       </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        {collab.campaign_influencer ? (
-                          (collab as any).shopify_order_id ? (
-                            <button
-                              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900"
-                              onClick={() => handleOpenOrderDialog(collab)}
-                            >
-                              <Badge className={orderStatusColors[((collab as any).shopify_order_status || "none") as ShopifyOrderStatus | "none"]}>
-                                {orderStatusLabels[((collab as any).shopify_order_status || "none") as ShopifyOrderStatus | "none"]}
-                              </Badge>
-                            </button>
-                          ) : collab.campaign_influencer.product_selections && (collab.campaign_influencer.product_selections as any[]).length > 0 ? (
-                            <button
-                              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900"
-                              onClick={() => handleOpenOrderDialog(collab)}
-                            >
-                              <Badge className="bg-purple-100 text-purple-800">
-                                {(collab.campaign_influencer.product_selections as any[]).length} items
-                              </Badge>
-                            </button>
+                      {showRetainerCols ? (
+                        <>
+                          <TableCell>
+                            <RetainerInstallments
+                              deal={collab}
+                              onSaved={() => fetchPaidCollabs(true)}
+                            />
+                          </TableCell>
+                          <TableCell className="text-sm text-gray-700">
+                            {formatCurrency(dealTotals(collab).earned)}
+                          </TableCell>
+                          <TableCell className="text-sm font-medium">
+                            {dealTotals(collab).balance > 0 ? (
+                              <span className="text-amber-600">
+                                {formatCurrency(dealTotals(collab).balance)}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </TableCell>
+                        </>
+                      ) : (
+                        <>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          {collab.campaign_influencer ? (
+                            (collab as any).shopify_order_id ? (
+                              <button
+                                className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900"
+                                onClick={() => handleOpenOrderDialog(collab)}
+                              >
+                                <Badge className={orderStatusColors[((collab as any).shopify_order_status || "none") as ShopifyOrderStatus | "none"]}>
+                                  {orderStatusLabels[((collab as any).shopify_order_status || "none") as ShopifyOrderStatus | "none"]}
+                                </Badge>
+                              </button>
+                            ) : collab.campaign_influencer.product_selections && (collab.campaign_influencer.product_selections as any[]).length > 0 ? (
+                              <button
+                                className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900"
+                                onClick={() => handleOpenOrderDialog(collab)}
+                              >
+                                <Badge className="bg-purple-100 text-purple-800">
+                                  {(collab.campaign_influencer.product_selections as any[]).length} items
+                                </Badge>
+                              </button>
+                            ) : (
+                              <button
+                                className="text-xs text-gray-400 hover:text-gray-600"
+                                onClick={() => handleOpenOrderDialog(collab)}
+                              >
+                                <ShoppingCart className="h-4 w-4" />
+                              </button>
+                            )
                           ) : (
-                            <button
-                              className="text-xs text-gray-400 hover:text-gray-600"
-                              onClick={() => handleOpenOrderDialog(collab)}
-                            >
-                              <ShoppingCart className="h-4 w-4" />
-                            </button>
-                          )
-                        ) : (
-                          <span className="text-gray-300">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={contentStatusColors[(collab.content_status || "not_started") as ContentStatus]}>
-                          {contentStatusLabels[(collab.content_status || "not_started") as ContentStatus]}
-                        </Badge>
-                      </TableCell>
+                            <span className="text-gray-300">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={contentStatusColors[(collab.content_status || "not_started") as ContentStatus]}>
+                            {contentStatusLabels[(collab.content_status || "not_started") as ContentStatus]}
+                          </Badge>
+                        </TableCell>
+                        </>
+                      )}
                       <TableCell>
                         <Badge className={paymentStatusColors[collab.payment_status]}>
                           {paymentStatusLabels[collab.payment_status]}
@@ -1227,7 +1310,8 @@ function HomePageContent() {
           )}
 
           <div className="mt-4 text-sm text-gray-500">
-            Showing {filteredPaidCollabs.length} of {paidCollabs.length} paid collaborations
+            Showing {filteredPaidCollabs.length} of {paidCollabs.length}{" "}
+            {showRetainerCols ? "retainers" : "paid collaborations"}
           </div>
           </div>}
 

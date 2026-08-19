@@ -284,15 +284,44 @@ export function DealDialog({
     }
   };
 
+  // A paid milestone is a historical record of money that actually moved, so its
+  // amount and who/when paid it must survive any regeneration. Without this,
+  // reopening a preset deal reset every milestone to unpaid and Save wrote that
+  // back, erasing the payment history.
+  const preservePaid = (
+    fresh: PaymentMilestone[],
+    prev: PaymentMilestone[]
+  ): PaymentMilestone[] =>
+    fresh.map((m) => {
+      const existing = prev.find((p) => p.id === m.id);
+      if (!existing?.is_paid) return m;
+      return {
+        ...m,
+        amount: existing.amount,
+        is_paid: true,
+        paid_date: existing.paid_date,
+        paid_by: existing.paid_by,
+      };
+    });
+
   // Update milestones when total or type changes
   useEffect(() => {
     if (paymentTermsType !== "custom") {
-      setPaymentMilestones(generateMilestones(paymentTermsType, totalDealValue));
-    } else if (paymentMilestones.length > 0) {
-      // Update amounts for custom milestones based on new total
       setPaymentMilestones((prev) =>
-        prev.map((m) => ({ ...m, amount: totalDealValue * (m.percentage / 100) }))
+        preservePaid(generateMilestones(paymentTermsType, totalDealValue), prev)
       );
+    } else if (paymentMilestones.length > 0) {
+      setPaymentMilestones((prev) => {
+        // Amounts that already reconcile to the deal total are left alone —
+        // re-deriving them from percentages drifts on splits like 3 x 33.33%.
+        const sum = prev.reduce((t, m) => t + (m.amount || 0), 0);
+        if (Math.abs(sum - totalDealValue) < 0.01) return prev;
+        return prev.map((m) =>
+          m.is_paid
+            ? m
+            : { ...m, amount: Math.round(totalDealValue * (m.percentage / 100) * 100) / 100 }
+        );
+      });
     }
   }, [totalDealValue, paymentTermsType]);
 
