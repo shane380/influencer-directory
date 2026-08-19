@@ -32,3 +32,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local planning notes and payment snapshots. These contain real creator handles
+# and spend figures, so they must never reach git (see CLAUDE.md §7).
+.claude/plans/
