@@ -10,7 +10,13 @@ export type ContentPostedType = 'none' | 'stories' | 'in_feed_post' | 'reel' | '
 export type ApprovalStatus = 'pending' | 'approved' | 'declined';
 export type ContentStatus = 'not_started' | 'content_approved' | 'content_live';
 export type WhitelistingStatus = 'not_applicable' | 'pending' | 'live' | 'ended';
-export type DealStatus = 'negotiating' | 'confirmed' | 'cancelled';
+// Lifecycle: negotiating (quoted) -> active (committed, running) -> closed
+// (finished, no further action). cancelled = did not happen.
+export type DealStatus = 'negotiating' | 'active' | 'closed' | 'cancelled';
+
+// Statuses that represent a real commitment — the deal was agreed, so its value
+// counts as spend and its milestones accrue. A closed deal still earned.
+export const COMMITTED_DEAL_STATUSES: DealStatus[] = ['active', 'closed'];
 export type ContractType = 'paid_collab' | 'whitelisting';
 export type ContractStatus = 'draft' | 'sent' | 'signed';
 export type ShopifyOrderStatus = 'draft' | 'fulfilled' | 'shipped' | 'delivered';

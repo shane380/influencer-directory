@@ -77,13 +77,15 @@ const paymentStatusLabels: Record<PaymentStatus, string> = {
 
 const dealStatusColors: Record<DealStatus, string> = {
   negotiating: "bg-yellow-100 text-yellow-800",
-  confirmed: "bg-green-100 text-green-800",
+  active: "bg-green-100 text-green-800",
+  closed: "bg-gray-100 text-gray-600",
   cancelled: "bg-gray-100 text-gray-800",
 };
 
 const dealStatusLabels: Record<DealStatus, string> = {
   negotiating: "Negotiating",
-  confirmed: "Confirmed",
+  active: "Active",
+  closed: "Closed",
   cancelled: "Cancelled",
 };
 
@@ -1089,7 +1091,8 @@ function HomePageContent() {
             <Select value={dealStatusFilter} onChange={(e) => setDealStatusFilter(e.target.value)} className="w-auto sm:w-[140px] flex-shrink-0">
               <option value="all">All Deal Statuses</option>
               <option value="negotiating">Negotiating</option>
-              <option value="confirmed">Confirmed</option>
+              <option value="active">Active</option>
+              <option value="closed">Closed</option>
               <option value="cancelled">Cancelled</option>
             </Select>
             <Select value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value)} className="w-auto sm:w-[160px] flex-shrink-0">

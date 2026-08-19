@@ -137,14 +137,20 @@ export interface RetainerSummary {
 }
 
 export function summarize(deals: Array<Pick<CampaignDeal, "deal_status" | "starts_on" | "ends_on" | "term_months" | "payment_terms" | "total_deal_value">>): RetainerSummary {
-  const active = deals.filter((d) => d.deal_status === "confirmed");
-  const s: RetainerSummary = { active: active.length, contract: 0, earned: 0, paid: 0, outstanding: 0, endingSoon: 0, awaitingDelivery: 0, undated: 0 };
-  for (const d of active) {
+  // Money covers every committed deal: a closed retainer you still owe belongs
+  // in Outstanding. The headline count is only the ones still running.
+  const committed = deals.filter((d) => d.deal_status === "active" || d.deal_status === "closed");
+  const s: RetainerSummary = {
+    active: committed.filter((d) => d.deal_status === "active").length,
+    contract: 0, earned: 0, paid: 0, outstanding: 0, endingSoon: 0, awaitingDelivery: 0, undated: 0,
+  };
+  for (const d of committed) {
     const t = dealTotals(d);
     s.contract += t.contract;
     s.earned += t.earned;
     s.paid += t.paid;
     s.outstanding += t.balance;
+    if (d.deal_status !== "active") continue; // the rest describe live work only
     if (isEndingWithin(d, 30)) s.endingSoon++;
     if (retainerState(d) === "awaiting_delivery") s.awaitingDelivery++;
     if (!d.starts_on) s.undated++;

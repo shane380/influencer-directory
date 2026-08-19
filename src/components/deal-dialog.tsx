@@ -763,7 +763,8 @@ export function DealDialog({
                     className="w-full h-9 px-3 border rounded-md text-sm bg-white"
                   >
                     <option value="negotiating">Negotiating</option>
-                    <option value="confirmed">Confirmed</option>
+                    <option value="active">Active</option>
+                    <option value="closed">Closed</option>
                     <option value="cancelled">Cancelled</option>
                   </select>
                 </div>

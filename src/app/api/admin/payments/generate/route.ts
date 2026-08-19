@@ -217,7 +217,9 @@ export async function POST(request: NextRequest) {
   const { data: deals } = await supabase
     .from("campaign_deals")
     .select("id, influencer_id, total_deal_value, notes, campaign:campaigns!campaign_deals_campaign_id_fkey(id, name, start_date)")
-    .eq("deal_status", "confirmed");
+    // Committed deals: active AND closed. A closed deal was still delivered and
+    // still earned — filtering it out would silently drop its earnings.
+    .in("deal_status", ["active", "closed"]);
 
   for (const deal of deals || []) {
     const campaign = (deal as any).campaign;

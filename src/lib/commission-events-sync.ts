@@ -167,7 +167,9 @@ async function buildAdSpendEvents(db: any, months: string[]): Promise<Commission
 async function buildPaidCollabEvents(db: any, months: string[]): Promise<CommissionEvent[]> {
   const { data: deals } = await (db.from("campaign_deals") as any)
     .select("id, influencer_id, total_deal_value, campaign:campaigns!campaign_deals_campaign_id_fkey(start_date)")
-    .eq("deal_status", "confirmed");
+    // Committed deals: active AND closed. A closed deal was still delivered and
+    // still earned — filtering it out would silently drop its earnings.
+    .in("deal_status", ["active", "closed"]);
   const monthSet = new Set(months);
   const events: CommissionEvent[] = [];
   for (const d of deals || []) {

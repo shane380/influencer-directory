@@ -91,7 +91,7 @@ export function PaidCollabsBudgetBar({ deals, onBudgetChange }: PaidCollabsBudge
           const existing = monthMap.get(monthKey);
           if (existing) {
             const dealStatus = (deal.deal_status || "negotiating") as DealStatus;
-            if (dealStatus === "confirmed") {
+            if (dealStatus === "active" || dealStatus === "closed") {
               existing.confirmed += deal.total_deal_value || 0;
             } else if (dealStatus === "negotiating") {
               existing.negotiating += deal.total_deal_value || 0;
@@ -141,7 +141,7 @@ export function PaidCollabsBudgetBar({ deals, onBudgetChange }: PaidCollabsBudge
           const monthData = updatedMonths.find((m) => m.monthKey === monthKey);
           if (monthData) {
             const dealStatus = (deal.deal_status || "negotiating") as DealStatus;
-            if (dealStatus === "confirmed") {
+            if (dealStatus === "active" || dealStatus === "closed") {
               monthData.confirmed += deal.total_deal_value || 0;
             } else if (dealStatus === "negotiating") {
               monthData.negotiating += deal.total_deal_value || 0;
