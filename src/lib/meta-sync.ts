@@ -2,54 +2,15 @@ import { createClient } from "@supabase/supabase-js";
 import { r2Client, R2_BUCKET, getPublicUrl } from "./r2";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import mux from "./mux";
+import { metaFetch, META_API_VERSION, sumActionValue, pickActionValue, metaCallCount } from "./meta-fetch";
+import {
+  fetchAccountSweep,
+  fetchAdCreatives,
+  type AccountSweep,
+} from "./meta-account-sync";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const META_API_VERSION = "v25.0";
-const MAX_CALLS_PER_HOUR = 400;
-
-// In-memory call counter for a single invocation
-let callCount = 0;
-let callCountResetAt = Date.now() + 3600_000;
-
-function checkRateLimit() {
-  if (Date.now() > callCountResetAt) {
-    callCount = 0;
-    callCountResetAt = Date.now() + 3600_000;
-  }
-  if (callCount >= MAX_CALLS_PER_HOUR) {
-    throw new Error("Rate limit reached: exceeded 200 Meta API calls this hour");
-  }
-}
-
-async function metaFetch(url: string, retries = 3): Promise<any> {
-  checkRateLimit();
-  callCount++;
-
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    const res = await fetch(url);
-
-    if (res.status === 429 && attempt < retries) {
-      const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
-      console.warn(`[meta-sync] Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${retries})`);
-      await new Promise((r) => setTimeout(r, delay));
-      continue;
-    }
-
-    const data = await res.json();
-
-    if (data.error?.code === 4 && attempt < retries) {
-      // Meta "too many calls" error code
-      const delay = Math.pow(2, attempt) * 1000;
-      console.warn(`[meta-sync] Meta error code 4, retrying in ${delay}ms`);
-      await new Promise((r) => setTimeout(r, delay));
-      continue;
-    }
-
-    return data;
-  }
-}
 
 /**
  * Download an image from a URL and upload it to R2.
@@ -88,19 +49,6 @@ async function mirrorImageToR2(
     console.warn(`[meta-sync] Failed to mirror image to R2 (${r2Key}):`, err);
     return null;
   }
-}
-
-/**
- * Pick the best available image URL from a Meta ad creative.
- * Priority: video cover > full-res static > thumbnail fallback.
- */
-function getBestImageUrl(ad: any): string | null {
-  return (
-    ad.creative?.object_story_spec?.video_data?.image_url ||
-    ad.creative?.image_url ||
-    ad.creative?.thumbnail_url ||
-    null
-  );
 }
 
 interface AdResult {
@@ -153,330 +101,539 @@ interface SyncResult {
   adsListError: string | null;
 }
 
-// Meta returns action_values / outbound_clicks / purchase_roas as arrays of
-// {action_type, value}. These helpers extract the numeric we care about.
-function sumActionValue(arr: any[] | undefined, actionType?: string): number {
-  if (!Array.isArray(arr)) return 0;
-  let total = 0;
-  for (const row of arr) {
-    if (!row) continue;
-    if (actionType && row.action_type !== actionType) continue;
-    total += parseFloat(row.value || "0");
-  }
-  return total;
+/**
+ * Meta's `CONTAIN` filter is a case-insensitive substring test on the ad name.
+ * Attribution used to happen server-side, once per creator; now it happens here,
+ * once, over the account-wide sweep. Replicating the exact semantics matters —
+ * these handles decide which rows land in the payment-critical
+ * creator_ad_performance_daily table.
+ *
+ * An ad can match MORE than one handle (e.g. "alice" also matches "alice.cox").
+ * The old code had the same behaviour, since each creator's filtered call
+ * claimed the ad independently, so every match is returned here too.
+ */
+function handlesMatching(
+  adName: string | null,
+  handles: { handle: string; influencerId: string | null }[],
+): { handle: string; influencerId: string | null }[] {
+  if (!adName) return [];
+  const lower = adName.toLowerCase();
+  return handles.filter((h) => lower.includes(h.handle.toLowerCase()));
 }
 
-function pickActionValue(arr: any[] | undefined, actionType: string): number | null {
-  if (!Array.isArray(arr)) return null;
-  for (const row of arr) {
-    if (row?.action_type === actionType) {
-      const v = parseFloat(row.value || "0");
-      return isFinite(v) ? v : null;
-    }
-  }
-  return null;
+/** Strip the "@handle // " prefix the team puts on partnership ad names. */
+function displayNameFor(adName: string | null, handle: string): string {
+  return (adName || "").replace(new RegExp(`@?${handle}\\s*\\/\\/\\s*`, "i"), "").trim();
 }
 
-async function fetchAdsForHandle(
-  handle: string,
+/**
+ * Row shape for the meta_ads dimension table.
+ * Mutable fields (status, name, campaign) refresh every run; creative fields are
+ * fetched once per ad and then carried forward.
+ */
+interface MetaAdRow {
+  ad_id: string;
+  ad_name: string | null;
+  status: string | null;
+  effective_status: string | null;
+  campaign_id: string | null;
+  campaign_name: string | null;
+  adset_id: string | null;
+  adset_name: string | null;
+  created_time: string | null;
+  format: string | null;
+  hook_line: string | null;
+  thumbnail_url: string | null;
+  video_id: string | null;
+  mux_playback_id: string | null;
+  ig_media_id: string | null;
+  ig_media_type: string | null;
+  carousel_urls: string[] | null;
+  preview_html: string | null;
+  partnership: boolean;
+  instagram_handle: string | null;
+  influencer_id: string | null;
+  creative_synced_at: string | null;
+  updated_at: string;
+}
+
+/**
+ * Enrich one ad's creative: mirror the thumbnail to R2, pull a real video frame
+ * when the creative image is missing or a placeholder, and mirror carousel
+ * children. Lifted from the old per-handle fetchAdsForHandle so the behaviour
+ * (and its hard-won edge cases) is preserved exactly — it just runs once per ad
+ * id now instead of once per ad per sync.
+ */
+async function enrichCreative(
+  row: MetaAdRow,
+  creative: { thumbnail_url: string | null; video_id: string | null; ig_media_id: string | null },
   accessToken: string,
-  actId: string,
-  influencerId: string | null,
-  existingThumbs?: Map<string, string>,
-  existingCarousels?: Map<string, string[]>
-): Promise<SyncResult> {
-  const filtering = JSON.stringify([
-    { field: "name", operator: "CONTAIN", value: handle },
-  ]);
-
-  // Creative/status only — NO per-ad insights expansion. The lifetime per-ad
-  // insights (insights.date_preset(maximum)) was the heavy part that tripped Meta's
-  // "reduce the amount of data" limit on large accounts. Per-ad spend/impressions/
-  // ROAS/CTR are now rebuilt from the stored daily table by the caller.
-  // adset{id,name} — including `id` alongside `name` avoids Meta's URL parser
-  // mistaking single-subfield `adset{name}` for brace value-substitution syntax.
-  // thumbnail_width/height ask Meta for a real-size creative thumbnail instead
-  // of the 64×64 default (the source of blurry carousel/static previews).
-  const fields =
-    `name,status,effective_status,adset{id,name},` +
-    `creative.thumbnail_width(1080).thumbnail_height(1080){thumbnail_url,image_url,effective_instagram_media_id,object_story_spec{video_data{image_url,video_id}},asset_feed_spec{videos{video_id}}}`;
-  // Page through the ads list in SMALL pages, following paging.next. Even without
-  // the per-ad insights, creative-field expansion across many ads still trips Meta's
-  // "reduce the amount of data" limit in one large page (a heavy creator fails at
-  // limit=10 but succeeds at limit=5), and the old call never paginated (silently
-  // capped at the first 50 ads). Small pages return the full gallery reliably.
-  const PAGE_SIZE = 5;
-  let listUrl: string | null =
-    `https://graph.facebook.com/${META_API_VERSION}/${actId}/ads?` +
-    `fields=${fields}` +
-    `&filtering=${encodeURIComponent(filtering)}` +
-    `&limit=${PAGE_SIZE}` +
-    `&access_token=${accessToken}`;
-
-  // Resilient path preserved: if any page fails, record the error, discard partial
-  // pages, and continue — the caller keeps the previous gallery while monthly/daily
-  // payment data still refreshes from the separate daily call.
-  let adsListError: string | null = null;
-  let rawAds: any[] = [];
-  while (listUrl) {
-    const listData = await metaFetch(listUrl);
-    if (listData.error) {
-      adsListError = `Meta API error: ${listData.error.message}`;
-      console.error(
-        `[meta-sync] Ads-list call failed for ${handle} — gallery will be preserved, monthly data still refreshes: ${adsListError}`
-      );
-      rawAds = [];
-      break;
-    }
-    rawAds.push(...(listData.data || []));
-    listUrl = listData.paging?.next || null;
-  }
-
-  // The daily-insights window only needs to cover what Meta can still restate
-  // (~28 days of attribution) plus a buffer — older days are already permanently
-  // stored in creator_ad_performance_daily and never change. 35 days covers the
-  // restatement horizon and the whole current month at month-end payment time.
-  const now = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const windowStart = new Date(now);
-  windowStart.setDate(windowStart.getDate() - 35);
-  const since = `${windowStart.getFullYear()}-${pad(windowStart.getMonth() + 1)}-${pad(windowStart.getDate())}`;
-  const until = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-
-  // Per-day, per-ad rows that we'll persist to creator_ad_performance_daily.
-  // Keyed by `${ad_id}:${date}` for in-memory dedupe across pagination. Monthly /
-  // MTD totals are NOT computed here anymore — the caller derives them from the
-  // full daily table after these rows are upserted, so correctness no longer
-  // depends on how wide a window we pull.
-  const dailyMap = new Map<string, DailyAdRow>();
-
-  // Account-level daily insights, filtered to this handle's ads. Paginated.
-  try {
-    const insightsFiltering = JSON.stringify([
-      { field: "ad.name", operator: "CONTAIN", value: handle },
-    ]);
-    // `actions` carries 3-second video plays as action_type "video_view" (the
-    // standalone video_3_sec field is deprecated); thruplays have their own field.
-    const dailyFields =
-      "ad_id,spend,impressions,outbound_clicks,action_values,purchase_roas,actions,video_thruplay_watched_actions";
-    const timeRange = encodeURIComponent(JSON.stringify({ since, until }));
-    let insightsPageUrl: string | null =
-      `https://graph.facebook.com/${META_API_VERSION}/${actId}/insights?` +
-      `fields=${dailyFields}` +
-      `&level=ad` +
-      `&time_increment=1` +
-      `&time_range=${timeRange}` +
-      `&filtering=${encodeURIComponent(insightsFiltering)}` +
-      `&limit=500` +
-      `&access_token=${accessToken}`;
-
-    while (insightsPageUrl) {
-      const insightsData = await metaFetch(insightsPageUrl);
-      if (insightsData.error) {
-        throw new Error(`Meta insights error: ${insightsData.error.message}`);
-      }
-      for (const row of insightsData.data || []) {
-        const dateStr = row.date_start?.substring(0, 10);
-        const spend = parseFloat(row.spend || "0");
-        const impressions = parseInt(row.impressions || "0");
-        const outboundClicks = sumActionValue(row.outbound_clicks);
-        const purchaseValue = sumActionValue(row.action_values, "purchase");
-        const purchaseRoas = pickActionValue(row.purchase_roas, "purchase");
-        const video3s = pickActionValue(row.actions, "video_view") ?? 0;
-        const thruplays = pickActionValue(row.video_thruplay_watched_actions, "video_view") ?? 0;
-
-        if (dateStr && row.ad_id) {
-          dailyMap.set(`${row.ad_id}:${dateStr}`, {
-            ad_id: String(row.ad_id),
-            date: dateStr,
-            spend,
-            impressions,
-            outbound_clicks: Math.round(outboundClicks),
-            purchase_value: Math.round(purchaseValue * 100) / 100,
-            purchase_roas: purchaseRoas,
-            video_3s_views: Math.round(video3s),
-            video_thruplays: Math.round(thruplays),
-          });
-        }
-      }
-
-      // Handle pagination
-      insightsPageUrl = insightsData.paging?.next || null;
-    }
-  } catch (err) {
-    console.error(`[meta-sync] Account-level insights failed for ${handle}:`, err);
-  }
-
-  // Build ads array — download thumbnails to R2
+  folder: string,
+): Promise<void> {
   const r2Enabled = !!(process.env.R2_ACCOUNT_ID && process.env.R2_BUCKET_NAME);
-  const creatorFolder = influencerId || handle;
   const r2Prefix = r2Enabled ? getPublicUrl("") : null;
 
-  const ads: AdResult[] = [];
+  let thumbnailUrl = creative.thumbnail_url;
+  if (r2Enabled && thumbnailUrl) {
+    const mirrored = await mirrorImageToR2(thumbnailUrl, `ads/${folder}/${row.ad_id}/thumbnail.jpg`, 3000);
+    if (mirrored) thumbnailUrl = mirrored;
+  }
 
-  for (const ad of rawAds) {
-    let displayName = ad.name || "";
-    displayName = displayName
-      .replace(new RegExp(`@?${handle}\\s*\\/\\/\\s*`, "i"), "")
-      .trim();
-
-    // Get best available image and mirror to R2
-    const metaImageUrl = getBestImageUrl(ad);
-    let thumbnailUrl = metaImageUrl;
-
-    if (r2Enabled && metaImageUrl) {
-      const r2Key = `ads/${creatorFolder}/${ad.id}/thumbnail.jpg`;
-      const r2Url = await mirrorImageToR2(metaImageUrl, r2Key, 3000);
-      if (r2Url) {
-        thumbnailUrl = r2Url;
+  // Video ads with NO usable mirrored creative image: ask the video's
+  // /thumbnails edge for a real frame (preferred, else largest). The /picture
+  // URL is a last resort — it returns a 50x50 placeholder GIF for many
+  // whitelisted IG videos, and must never OVERWRITE a good creative image.
+  const hasGoodMirror = !!(r2Prefix && thumbnailUrl && thumbnailUrl.startsWith(r2Prefix));
+  if (creative.video_id && !hasGoodMirror) {
+    try {
+      const tData = await metaFetch(
+        `https://graph.facebook.com/${META_API_VERSION}/${creative.video_id}/thumbnails?access_token=${accessToken}`,
+      );
+      const thumbs = ((tData?.data || []) as any[]).filter((t) => t?.uri);
+      const best =
+        thumbs.find((t) => t.is_preferred) || thumbs.sort((a, b) => (b.width || 0) - (a.width || 0))[0];
+      const candidate = best?.uri || `https://graph.facebook.com/${creative.video_id}/picture`;
+      if (r2Enabled) {
+        const mirrored = await mirrorImageToR2(candidate, `ads/${folder}/${row.ad_id}/video-thumb.jpg`, 3000);
+        if (mirrored) thumbnailUrl = mirrored;
+      } else {
+        thumbnailUrl = candidate;
       }
+    } catch (err) {
+      console.warn(`[meta-sync] video thumbnails lookup failed for ${creative.video_id}:`, err);
     }
+  }
 
-    // Extract video_id from creative (standard or dynamic creative format)
-    const videoId =
-      ad.creative?.object_story_spec?.video_data?.video_id ||
-      ad.creative?.asset_feed_spec?.videos?.[0]?.video_id ||
-      null;
+  row.thumbnail_url = thumbnailUrl;
+  row.video_id = creative.video_id;
+  row.ig_media_id = creative.ig_media_id;
 
-    // Video ads with NO usable mirrored creative image: ask the video's
-    // /thumbnails edge for a real frame (preferred, else largest). The old
-    // /picture URL is a last resort only — it returns a 50×50 placeholder GIF
-    // for many whitelisted IG videos, and it must never OVERWRITE a good
-    // creative image (which the previous code did unconditionally).
-    const hasGoodMirror = !!(r2Prefix && thumbnailUrl && thumbnailUrl.startsWith(r2Prefix));
-    if (videoId && !hasGoodMirror) {
-      try {
-        const tData = await metaFetch(
-          `https://graph.facebook.com/${META_API_VERSION}/${videoId}/thumbnails?access_token=${accessToken}`
-        );
-        const thumbs = ((tData?.data || []) as any[]).filter((t) => t?.uri);
-        const best =
-          thumbs.find((t) => t.is_preferred) ||
-          thumbs.sort((a, b) => (b.width || 0) - (a.width || 0))[0];
-        const candidate = best?.uri || `https://graph.facebook.com/${videoId}/picture`;
-        if (r2Enabled) {
-          const r2Key = `ads/${creatorFolder}/${ad.id}/video-thumb.jpg`;
-          const r2Url = await mirrorImageToR2(candidate, r2Key, 3000);
-          if (r2Url) thumbnailUrl = r2Url;
-        } else {
-          thumbnailUrl = candidate;
+  // Image carousels (boosted CAROUSEL_ALBUM posts) have no video — mirror their
+  // frames to R2 once so the dashboard shows a native viewer instead of Meta's
+  // iframe.
+  if (!creative.video_id && creative.ig_media_id && r2Enabled) {
+    try {
+      const mData = await metaFetch(
+        `https://graph.facebook.com/${META_API_VERSION}/${creative.ig_media_id}?fields=media_type,children{media_type,media_url}&access_token=${accessToken}`,
+      );
+      row.ig_media_type = mData?.media_type || null;
+      if (mData?.media_type === "CAROUSEL_ALBUM") {
+        const children = ((mData.children?.data || []) as any[])
+          .filter((c) => c?.media_type === "IMAGE" && c.media_url)
+          .slice(0, 10);
+        const urls: string[] = [];
+        for (let ci = 0; ci < children.length; ci++) {
+          const u = await mirrorImageToR2(children[ci].media_url, `ads/${folder}/${row.ad_id}/carousel-${ci}.jpg`, 3000);
+          if (u) urls.push(u);
         }
-      } catch (err) {
-        console.warn(`[meta-sync] video thumbnails lookup failed for ${videoId}:`, err);
-      }
-    }
-
-    // Meta CDN URLs expire, so a previously-mirrored R2 thumbnail beats any
-    // non-R2 URL this sync produced (e.g. when the mirror upload failed).
-    const existingThumb = existingThumbs?.get(String(ad.id)) || null;
-    if (
-      existingThumb &&
-      r2Prefix &&
-      existingThumb.startsWith(r2Prefix) &&
-      (!thumbnailUrl || !thumbnailUrl.startsWith(r2Prefix))
-    ) {
-      thumbnailUrl = existingThumb;
-    }
-
-    // Image carousels (boosted CAROUSEL_ALBUM posts) have no video — mirror
-    // their frames to R2 once so the dashboard can show a native image viewer
-    // instead of Meta's iframe. Preserved across syncs; only fetched when new.
-    let carouselUrls: string[] | null = null;
-    let igMediaType: string | null = null;
-    const igMediaId = ad.creative?.effective_instagram_media_id ? String(ad.creative.effective_instagram_media_id) : null;
-    const preservedCarousel = existingCarousels?.get(String(ad.id));
-    if (preservedCarousel && preservedCarousel.length > 0) {
-      carouselUrls = preservedCarousel;
-      igMediaType = "CAROUSEL_ALBUM";
-    } else if (!videoId && igMediaId && r2Enabled) {
-      try {
-        const mData = await metaFetch(
-          `https://graph.facebook.com/${META_API_VERSION}/${igMediaId}?fields=media_type,children{media_type,media_url}&access_token=${accessToken}`
-        );
-        igMediaType = mData?.media_type || null;
-        if (mData?.media_type === "CAROUSEL_ALBUM") {
-          const children = ((mData.children?.data || []) as any[])
-            .filter((c) => c?.media_type === "IMAGE" && c.media_url)
-            .slice(0, 10);
-          const urls: string[] = [];
-          for (let ci = 0; ci < children.length; ci++) {
-            const u = await mirrorImageToR2(children[ci].media_url, `ads/${creatorFolder}/${ad.id}/carousel-${ci}.jpg`, 3000);
-            if (u) urls.push(u);
-          }
-          if (urls.length > 0) carouselUrls = urls;
+        if (urls.length > 0) {
+          row.carousel_urls = urls;
+          row.format = "carousel";
         }
-      } catch (err) {
-        console.warn(`[meta-sync] carousel fetch failed for ad ${ad.id}:`, err);
+      }
+    } catch (err) {
+      console.warn(`[meta-sync] carousel fetch failed for ad ${row.ad_id}:`, err);
+    }
+  }
+}
+
+/**
+ * Write the account-wide sweep to meta_ad_daily + meta_ads.
+ *
+ * Runs ONCE per sync, before any per-creator work. Everything expensive lives
+ * here and is keyed on "have we already done this for this ad id?", so steady
+ * state costs almost nothing.
+ */
+async function persistAccountSweep(
+  db: any,
+  sweep: AccountSweep,
+  creators: { handle: string; influencerId: string | null }[],
+  accessToken: string,
+  opts: {
+    creativeDeadline: number;
+    /**
+     * Report what WOULD happen without touching anything. Exists because the
+     * first real run is irreversible in two expensive ways — Mux encodes are
+     * billed per asset, and R2 mirroring rewrites thumbnail URLs — so it is
+     * worth confirming the seed carried creative forward before letting either
+     * loose on ~230 previously-synced ads.
+     */
+    dryRun?: boolean;
+  },
+): Promise<void> {
+  const dry = !!opts.dryRun;
+  // ── 1. Daily facts ────────────────────────────────────────────────────────
+  if (sweep.daily.length > 0 && !dry) {
+    const rows = sweep.daily.map((d) => ({
+      ad_id: d.ad_id,
+      date: d.date,
+      spend: d.spend,
+      impressions: d.impressions,
+      outbound_clicks: d.outbound_clicks,
+      purchases: d.purchases,
+      purchase_value: d.purchase_value,
+      purchase_roas: d.purchase_roas,
+      video_3s_views: d.video_3s_views,
+      video_thruplays: d.video_thruplays,
+      synced_at: new Date().toISOString(),
+    }));
+    const CHUNK = 500;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const { error } = await db
+        .from("meta_ad_daily")
+        .upsert(rows.slice(i, i + CHUNK), { onConflict: "ad_id,date" });
+      if (error) {
+        console.warn(`[meta-sync] meta_ad_daily upsert failed:`, error.message);
+        break;
       }
     }
+    console.log(`[meta-sync] meta_ad_daily: ${rows.length} rows upserted`);
+  }
 
-    ads.push({
-      id: String(ad.id),
-      name: displayName,
-      status: ad.status,
-      effective_status: ad.effective_status || ad.status,
-      adset_name: ad.adset?.name || null,
-      // Metrics are placeholders here — enriched from the daily table in syncCreator.
-      spend: "0.00",
-      impressions: "0",
-      outbound_clicks: 0,
-      outbound_clicks_ctr: 0,
-      purchase_value: 0,
-      purchase_roas: null,
-      video_3s_views: 0,
-      video_thruplays: 0,
-      thumbnailUrl,
-      video_id: videoId ? String(videoId) : null,
-      ig_media_id: igMediaId,
-      ig_media_type: igMediaType,
-      mux_playback_id: null, // will be filled in by processVideoUploads
-      previewHtml: null, // filled in for ads Mux can't serve (source denied)
-      carousel_urls: carouselUrls,
+  // ── 2. What do we already know about these ads? ───────────────────────────
+  const { data: existingRows } = await db
+    .from("meta_ads")
+    .select(
+      "ad_id, thumbnail_url, video_id, mux_playback_id, ig_media_id, ig_media_type, carousel_urls, preview_html, hook_line, format, creative_synced_at",
+    );
+  const existing = new Map<string, any>();
+  for (const r of (existingRows as any[]) || []) existing.set(String(r.ad_id), r);
+
+  // First run only: carry creative work forward from the old per-creator blobs.
+  // Without this, every ad looks new and we would re-mirror ~231 thumbnails and
+  // re-upload ~115 videos to Mux — real money and hours of processing, for data
+  // we already have.
+  const seed = new Map<string, any>();
+  if (existing.size === 0) {
+    const { data: blobs } = await db
+      .from("creator_ad_performance")
+      .select("instagram_handle, influencer_id, ads");
+    for (const b of (blobs as any[]) || []) {
+      for (const ad of (b.ads as any[]) || []) {
+        if (!ad?.id || seed.has(String(ad.id))) continue;
+        // Carry the owning handle: the blob stores a DISPLAY name with the
+        // "@handle // " prefix already stripped, so it cannot be re-attributed
+        // by substring match the way a raw Meta ad name can.
+        seed.set(String(ad.id), {
+          ...ad,
+          __handle: b.instagram_handle || null,
+          __influencerId: b.influencer_id || null,
+        });
+      }
+    }
+    if (seed.size > 0) {
+      console.log(`[meta-sync] Seeding meta_ads creative from ${seed.size} previously-synced ads`);
+    }
+  }
+
+  // ── 3. Build the dimension rows ───────────────────────────────────────────
+  const rowsById = new Map<string, MetaAdRow>();
+  for (const [adId, listRec] of sweep.list) {
+    const prior = existing.get(adId);
+    const seeded = seed.get(adId);
+    const matches = handlesMatching(listRec.ad_name, creators);
+    // Most specific handle wins the single-value column (an ad matching both
+    // "alice" and "alice.cox" belongs to the latter). Every match still gets its
+    // own row in creator_ad_performance_daily.
+    const owner = matches.sort((a, b) => b.handle.length - a.handle.length)[0] || null;
+
+    rowsById.set(adId, {
+      ad_id: adId,
+      ad_name: listRec.ad_name,
+      status: listRec.status,
+      effective_status: listRec.effective_status,
+      campaign_id: listRec.campaign_id,
+      campaign_name: listRec.campaign_name,
+      adset_id: listRec.adset_id,
+      adset_name: listRec.adset_name,
+      created_time: listRec.created_time,
+      format: prior?.format ?? seeded?.format ?? null,
+      hook_line: prior?.hook_line ?? null,
+      thumbnail_url: prior?.thumbnail_url ?? seeded?.thumbnailUrl ?? null,
+      video_id: prior?.video_id ?? seeded?.video_id ?? null,
+      mux_playback_id: prior?.mux_playback_id ?? seeded?.mux_playback_id ?? null,
+      ig_media_id: prior?.ig_media_id ?? seeded?.ig_media_id ?? null,
+      ig_media_type: prior?.ig_media_type ?? seeded?.ig_media_type ?? null,
+      carousel_urls: prior?.carousel_urls ?? seeded?.carousel_urls ?? null,
+      preview_html: prior?.preview_html ?? seeded?.previewHtml ?? null,
+      partnership: matches.length > 0,
+      instagram_handle: owner?.handle ?? null,
+      influencer_id: owner?.influencerId ?? null,
+      // Seeded ads count as already-enriched: we have their creative from the
+      // old sync, so re-fetching it would be pure waste.
+      creative_synced_at: prior?.creative_synced_at ?? (seeded ? new Date().toISOString() : null),
+      updated_at: new Date().toISOString(),
     });
   }
 
-  const adsLiveCount = ads.filter((a) => a.effective_status === "ACTIVE").length;
+  // Ads that are visible today but fall outside the sweep (paused, and last
+  // spent more than the window ago) must still get a meta_ads row. Without this,
+  // day one of the refactor would shrink every gallery to "active or recently
+  // spending", and api/creator/top-ads — which supports a 92-day window and
+  // skips ads missing from the gallery — would drop their cards.
+  //
+  // meta_ads is append-only in practice, so this matters only for the first run;
+  // afterwards an ad stays once it has been seen.
+  for (const [adId, seeded] of seed) {
+    if (rowsById.has(adId)) continue;
+    rowsById.set(adId, {
+      ad_id: adId,
+      ad_name: seeded.name || null,
+      status: seeded.status ?? null,
+      effective_status: seeded.effective_status ?? seeded.status ?? null,
+      campaign_id: null,
+      campaign_name: null,
+      adset_id: null,
+      adset_name: seeded.adset_name ?? null,
+      created_time: null,
+      format: seeded.format ?? null,
+      hook_line: null,
+      thumbnail_url: seeded.thumbnailUrl ?? null,
+      video_id: seeded.video_id ?? null,
+      mux_playback_id: seeded.mux_playback_id ?? null,
+      ig_media_id: seeded.ig_media_id ?? null,
+      ig_media_type: seeded.ig_media_type ?? null,
+      carousel_urls: seeded.carousel_urls ?? null,
+      preview_html: seeded.previewHtml ?? null,
+      partnership: !!seeded.__handle,
+      instagram_handle: seeded.__handle ?? null,
+      influencer_id: seeded.__influencerId ?? null,
+      creative_synced_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+  }
 
-  // Lifetime totals: a single account-level summary (one row, no per-ad or daily
-  // expansion), so it stays tiny and can't trip Meta's "reduce the amount of data"
-  // limit the way the per-ad lifetime insights expansion does. Independent of the
-  // ads-list call, so totals refresh even when the gallery call fails.
-  let totals: { spend: number; impressions: number; purchase_value: number } | null = null;
-  try {
-    const totalsFiltering = JSON.stringify([
-      { field: "ad.name", operator: "CONTAIN", value: handle },
-    ]);
-    const totalsUrl =
-      `https://graph.facebook.com/${META_API_VERSION}/${actId}/insights?` +
-      `fields=spend,impressions,action_values` +
-      `&level=account` +
-      `&date_preset=maximum` +
-      `&filtering=${encodeURIComponent(totalsFiltering)}` +
-      `&access_token=${accessToken}`;
-    const totalsData = await metaFetch(totalsUrl);
-    if (totalsData.error) {
-      console.warn(`[meta-sync] Lifetime totals call failed for ${handle}: ${totalsData.error.message}`);
-    } else {
-      const row = totalsData.data?.[0];
-      // No row = no matching ad spend for this handle → genuine zeros (not a failure).
-      totals = {
-        spend: parseFloat(row?.spend || "0"),
-        impressions: parseInt(row?.impressions || "0"),
-        purchase_value: Math.round(sumActionValue(row?.action_values, "purchase") * 100) / 100,
-      };
+  // ── 4. Creative expansion — new ad ids only, under a time budget ──────────
+  // Partnership ads first: the creator dashboard depends on their thumbnails,
+  // whereas brand-ad thumbnails only feed the (not yet shipped) performance
+  // page. If the time budget cuts this short, the important ones are already in.
+  const needCreative = Array.from(rowsById.values())
+    .filter((r) => !r.creative_synced_at)
+    .sort((a, b) => Number(b.partnership) - Number(a.partnership));
+  if (needCreative.length > 0) {
+    const p = needCreative.filter((r) => r.partnership).length;
+    console.log(
+      `[meta-sync] ${needCreative.length} ad(s) need creative enrichment ` +
+      `(${p} partnership, ${needCreative.length - p} brand)`,
+    );
+  }
+  if (needCreative.length > 0 && !dry) {
+    const creatives = await fetchAdCreatives(accessToken, needCreative.map((r) => r.ad_id));
+
+    let enriched = 0;
+    for (const row of needCreative) {
+      // The first run after this refactor faces every brand ad at once. Mirroring
+      // is slow (CDN download + R2 put per ad), so stop cleanly at the deadline
+      // and let the next run continue — rows without creative_synced_at are
+      // simply picked up again.
+      if (Date.now() > opts.creativeDeadline) {
+        console.warn(
+          `[meta-sync] Creative budget reached: enriched ${enriched}/${needCreative.length}, rest deferred to next run`,
+        );
+        break;
+      }
+      const c = creatives.get(row.ad_id);
+      if (!c) continue;
+      row.hook_line = c.hook_line;
+      row.format = c.format;
+      await enrichCreative(
+        row,
+        { thumbnail_url: c.thumbnail_url, video_id: c.video_id, ig_media_id: c.ig_media_id },
+        accessToken,
+        row.instagram_handle || "brand",
+      );
+      row.creative_synced_at = new Date().toISOString();
+      enriched++;
     }
-  } catch (err) {
-    console.warn(`[meta-sync] Lifetime totals call threw for ${handle}:`, err);
+  }
+
+  // ── 5. Mux uploads + preview fallback — PARTNERSHIP ADS ONLY ──────────────
+  // Both of these exist to make video playable on the CREATOR dashboard, which
+  // only ever shows a creator their own partnership ads. Running them across the
+  // whole account would mean Mux-encoding several hundred brand ads (real money,
+  // per asset and per minute stored) and spending hundreds of /previews calls a
+  // run — to serve a page that, by design, shows a thumbnail and only resolves a
+  // player when someone actually clicks one ad.
+  //
+  // The Ad Performance page gets brand-ad playback lazily, on click, instead.
+  const playable = Array.from(rowsById.values()).filter((r) => r.partnership);
+
+  // processVideoUploads skips anything that already has a playback id, so this
+  // is a no-op in steady state.
+  const asAdResults = playable.map((r) => ({
+    id: r.ad_id,
+    effective_status: r.effective_status,
+    video_id: r.video_id,
+    ig_media_id: r.ig_media_id,
+    // Required by the still/carousel guard in processVideoUploads — without it
+    // every static IG ad gets re-probed against Meta on every run.
+    ig_media_type: r.ig_media_type,
+    mux_playback_id: r.mux_playback_id,
+  })) as unknown as AdResult[];
+  const needMux = asAdResults.filter(
+    (a: any) =>
+      !a.mux_playback_id &&
+      a.effective_status === "ACTIVE" &&
+      (a.video_id || (a.ig_media_id && a.ig_media_type !== "IMAGE" && a.ig_media_type !== "CAROUSEL_ALBUM")),
+  ).length;
+  console.log(`[meta-sync] partnership ads needing a Mux upload: ${needMux}`);
+  if (!dry) await processVideoUploads(asAdResults, null, accessToken);
+  for (const a of asAdResults) {
+    const row = rowsById.get(String(a.id));
+    if (row) row.mux_playback_id = a.mux_playback_id ?? row.mux_playback_id;
+  }
+
+  // Ads Mux can't serve (whitelisted IG videos deny the `source` download, and
+  // carousels have no video) get Meta's own ad-preview iframe so they stay
+  // playable on the creator dashboard. Preview URLs expire (~24h) so this
+  // refreshes each run — measured at ~1 ad account-wide, since almost everything
+  // already has Mux or is a static image.
+  for (const row of dry ? [] : playable) {
+    if (row.mux_playback_id || (row.carousel_urls && row.carousel_urls.length > 0)) continue;
+    if (row.effective_status !== "ACTIVE") continue;
+    // Single-image posts aren't playable — the hi-res thumbnail already IS the
+    // creative; an embed would just put a misleading play button on it.
+    if (row.ig_media_type === "IMAGE") continue;
+    try {
+      const pData = await metaFetch(
+        `https://graph.facebook.com/${META_API_VERSION}/${row.ad_id}/previews?ad_format=INSTAGRAM_REELS&width=340&height=700&access_token=${accessToken}`,
+      );
+      const body = pData?.data?.[0]?.body || null;
+      if (body) row.preview_html = body;
+    } catch (err) {
+      console.warn(`[meta-sync] preview fetch failed for ad ${row.ad_id}:`, err);
+    }
+  }
+
+  // ── 6. Persist the dimension table ────────────────────────────────────────
+  const dimRows = Array.from(rowsById.values());
+  const seededCount = dimRows.filter((r) => r.creative_synced_at && !r.hook_line).length;
+  console.log(
+    `[meta-sync] meta_ads rows to write: ${dimRows.length} ` +
+    `(${dimRows.filter((r) => r.partnership).length} partnership, ` +
+    `${seededCount} carried forward from existing galleries)`,
+  );
+  if (dry) {
+    console.log("[meta-sync] DRY RUN — nothing written");
+    return;
+  }
+  const CHUNK = 200;
+  let written = 0;
+  let writeError: string | null = null;
+  for (let i = 0; i < dimRows.length; i += CHUNK) {
+    const slice = dimRows.slice(i, i + CHUNK);
+    const { error } = await db.from("meta_ads").upsert(slice, { onConflict: "ad_id" });
+    if (error) {
+      writeError = error.message;
+      console.error(`[meta-sync] meta_ads upsert FAILED after ${written} rows:`, error.message);
+      break;
+    }
+    written += slice.length;
+  }
+  // Report what actually landed. An earlier version logged the full row count
+  // unconditionally after this loop, so a failed upsert was immediately followed
+  // by "651 rows upserted" — the gallery would silently be empty while the logs
+  // claimed success.
+  if (writeError) {
+    console.error(`[meta-sync] meta_ads INCOMPLETE: ${written}/${dimRows.length} rows written`);
+  } else {
+    console.log(`[meta-sync] meta_ads: ${written} rows upserted`);
+  }
+}
+
+/**
+ * Build the per-handle gallery + daily rows from already-fetched account data.
+ *
+ * This is the direct replacement for fetchAdsForHandle: same output shape, zero
+ * Meta calls. The gallery now comes from meta_ads (durable) rather than from a
+ * fresh per-creator /ads sweep.
+ */
+async function buildHandleResult(
+  db: any,
+  handle: string,
+  sweep: AccountSweep,
+): Promise<SyncResult> {
+  // Gallery: every ad whose name contains this handle. Read from meta_ads so an
+  // ad keeps its creative even in a run where it had no spend.
+  // Match on EITHER the raw Meta ad name (normal attribution) or the stored
+  // handle. The second arm covers ads seeded from the old per-creator blobs,
+  // whose stored name is a display name with the handle prefix already removed.
+  const { data: adRows } = await db
+    .from("meta_ads")
+    .select(
+      "ad_id, ad_name, status, effective_status, adset_name, thumbnail_url, video_id, mux_playback_id, ig_media_id, ig_media_type, carousel_urls, preview_html",
+    )
+    .or(`ad_name.ilike.%${handle}%,instagram_handle.eq.${handle}`);
+
+  const ads: AdResult[] = ((adRows as any[]) || []).map((r) => ({
+    id: String(r.ad_id),
+    name: displayNameFor(r.ad_name, handle),
+    status: r.status,
+    effective_status: r.effective_status || r.status,
+    adset_name: r.adset_name || null,
+    // Metrics are placeholders here — enriched from the daily table in syncCreator.
+    spend: "0.00",
+    impressions: "0",
+    outbound_clicks: 0,
+    outbound_clicks_ctr: 0,
+    purchase_value: 0,
+    purchase_roas: null,
+    video_3s_views: 0,
+    video_thruplays: 0,
+    thumbnailUrl: r.thumbnail_url || null,
+    video_id: r.video_id || null,
+    ig_media_id: r.ig_media_id || null,
+    ig_media_type: r.ig_media_type || null,
+    mux_playback_id: r.mux_playback_id || null,
+    previewHtml: r.preview_html || null,
+    carousel_urls: Array.isArray(r.carousel_urls) && r.carousel_urls.length > 0 ? r.carousel_urls : null,
+  }));
+
+  // Daily rows for this handle, sliced from the account sweep.
+  const lower = handle.toLowerCase();
+  const daily: DailyAdRow[] = sweep.daily
+    .filter((d) => (d.ad_name || "").toLowerCase().includes(lower))
+    .map((d) => ({
+      ad_id: d.ad_id,
+      date: d.date,
+      spend: d.spend,
+      impressions: d.impressions,
+      outbound_clicks: d.outbound_clicks,
+      purchase_value: d.purchase_value,
+      purchase_roas: d.purchase_roas,
+      video_3s_views: d.video_3s_views,
+      video_thruplays: d.video_thruplays,
+    }));
+
+  // Lifetime totals: sum the per-ad lifetime sweep over this handle's ads. The
+  // old code got this from a `level=account` call filtered to the handle; summing
+  // per-ad rows over the same ad set yields the same figure, for one sweep
+  // instead of one call per creator.
+  const galleryIds = new Set(ads.map((a) => a.id));
+  let totals: SyncResult["totals"] = null;
+  if (sweep.lifetime.size > 0) {
+    totals = { spend: 0, impressions: 0, purchase_value: 0 };
+    for (const [adId, t] of sweep.lifetime) {
+      if (!galleryIds.has(adId)) continue;
+      totals.spend += t.spend;
+      totals.impressions += t.impressions;
+      totals.purchase_value += t.purchase_value;
+    }
+    totals.spend = Math.round(totals.spend * 100) / 100;
+    totals.purchase_value = Math.round(totals.purchase_value * 100) / 100;
   }
 
   return {
     ads,
     totals,
-    daily: Array.from(dailyMap.values()),
-    adsLiveCount,
-    adsListError,
+    daily,
+    adsLiveCount: ads.filter((a) => a.effective_status === "ACTIVE").length,
+    // Preserve the old contract: a failed list sweep means "keep the stored
+    // gallery", not "the creator has no ads".
+    adsListError: sweep.listError,
   };
 }
+
 
 /**
  * For each ad with a video_id but no mux_playback_id, fetch the video
@@ -501,6 +658,22 @@ async function processVideoUploads(
 
   for (const ad of ads) {
     if (!ad.video_id && !ad.ig_media_id) continue;
+
+    // Already uploaded — nothing to do. This guard is what makes the function
+    // safe to call with records that carry their own stored playback id (as the
+    // account-wide path does) rather than relying solely on the `existingAds`
+    // lookup below. Without it, every ACTIVE video would be re-uploaded to Mux
+    // on every run: ~115 duplicate assets a night, at real cost.
+    if (ad.mux_playback_id) continue;
+
+    // Nothing to upload: no video_id, and Instagram already told us the media is
+    // a still or a carousel. Measured on live data, 41 ACTIVE partnership ads sit
+    // in exactly this state (37 IMAGE, 4 CAROUSEL_ALBUM) — and without this the
+    // loop re-asks Meta about every one of them on every run, only to discover
+    // again that media_type !== VIDEO. Pure wasted calls against the rate limit.
+    if (!ad.video_id && (ad.ig_media_type === "IMAGE" || ad.ig_media_type === "CAROUSEL_ALBUM")) {
+      continue;
+    }
 
     // Check if we already have a playback ID for this video
     const existing =
@@ -666,7 +839,12 @@ async function deriveMonthlyFromDaily(
 export async function syncCreator(
   handle: string,
   influencerId: string | null,
-  supabase?: any
+  supabase?: any,
+  // Pre-fetched account-wide data. syncAllCreators fetches this ONCE and passes
+  // it to every creator, so a full run costs one set of sweeps instead of three
+  // Meta calls per creator. Omitted for a single-creator manual re-sync, which
+  // falls back to a handle-filtered sweep (same cost as the old targeted path).
+  sweep?: AccountSweep,
 ): Promise<{ success: boolean; error?: string }> {
   const db = supabase || getServiceClient();
   const accessToken = process.env.META_ACCESS_TOKEN;
@@ -679,52 +857,32 @@ export async function syncCreator(
   const actId = adAccountId.startsWith("act_") ? adAccountId : `act_${adAccountId}`;
 
   try {
-    // Fetch existing row first: it preserves mux_playback_ids, historical monthly
-    // data, R2 thumbnails (passed into fetchAdsForHandle so an expired Meta CDN URL
-    // never replaces a mirrored one), and (on a partial sync) the previous gallery.
+    // Fetch existing row first: it preserves historical monthly data and (on a
+    // partial sync) the previous gallery. Creative preservation now lives in
+    // meta_ads rather than being threaded through the fetch.
     const { data: existingRow } = await (db.from("creator_ad_performance") as any)
       .select("ads, monthly, totals")
       .eq("instagram_handle", handle)
       .single();
 
-    const existingThumbs = new Map<string, string>();
-    const existingCarousels = new Map<string, string[]>();
-    for (const ad of (existingRow?.ads || []) as AdResult[]) {
-      if (!ad?.id) continue;
-      if (ad.thumbnailUrl) existingThumbs.set(String(ad.id), ad.thumbnailUrl);
-      if (Array.isArray((ad as any).carousel_urls) && (ad as any).carousel_urls.length > 0) {
-        existingCarousels.set(String(ad.id), (ad as any).carousel_urls);
-      }
+    // Standalone re-sync: sweep just this handle, then persist it the same way a
+    // full run would, so meta_ads/meta_ad_daily stay current either way.
+    let activeSweep = sweep;
+    if (!activeSweep) {
+      activeSweep = await fetchAccountSweep(accessToken, actId, {
+        sinceDaysAgo: 35,
+        handleFilter: handle,
+      });
+      await persistAccountSweep(
+        db,
+        activeSweep,
+        [{ handle, influencerId }],
+        accessToken,
+        { creativeDeadline: Date.now() + 120_000 },
+      );
     }
 
-    const result = await fetchAdsForHandle(handle, accessToken, actId, influencerId, existingThumbs, existingCarousels);
-
-    // Process video uploads to Mux (skips ads that already have playback IDs).
-    // No-op when the gallery call failed (result.ads is empty).
-    await processVideoUploads(result.ads, existingRow?.ads || null, accessToken);
-
-    // Ads Mux can't serve — whitelisted IG videos deny the `source` download
-    // (Meta error #10) and carousels have no video at all. Embed Meta's own ad
-    // preview iframe so they're still playable. Preview URLs expire (~24h);
-    // the daily sync refreshes them.
-    for (const ad of result.ads) {
-      if (ad.mux_playback_id || (ad.carousel_urls && ad.carousel_urls.length > 0) || ad.effective_status !== "ACTIVE") continue;
-      // Single-image posts aren't playable — the hi-res thumbnail already IS
-      // the creative; an embed would just put a misleading play button on it.
-      if (ad.ig_media_type === "IMAGE") continue;
-      try {
-        // Explicit width/height: without them Meta returns a tiny 274×213
-        // scrolling iframe whose inner reels mock doesn't fit (white gutters +
-        // scrollbars). 340×700 matches the reels preview's natural size.
-        const pData = await metaFetch(
-          `https://graph.facebook.com/${META_API_VERSION}/${ad.id}/previews?ad_format=INSTAGRAM_REELS&width=340&height=700&access_token=${accessToken}`
-        );
-        const body = pData?.data?.[0]?.body || null;
-        if (body) ad.previewHtml = body;
-      } catch (err) {
-        console.warn(`[meta-sync] preview fetch failed for ad ${ad.id}:`, err);
-      }
-    }
+    const result = await buildHandleResult(db, handle, activeSweep);
 
     // Persist the freshly-fetched per-day, per-ad rows FIRST, so the monthly/MTD
     // derivation below reads them back as part of the full daily history. Upsert is
@@ -874,7 +1032,20 @@ export async function syncAllCreators(
   // cleanly (status written, stoppedEarly recorded) instead of being killed by
   // the platform's function timeout (maxDuration 300s on the calling routes).
   // Headroom below 300s absorbs the in-flight creator finishing.
-  timeBudgetMs = 240_000
+  timeBudgetMs = 240_000,
+  // Days back from today to START the daily window.
+  //
+  // Default is 7, not 35. At ~14s per 500-row page this account needs ~20 pages
+  // for 35 days (~280s) — over the route's budget — while 7 days is ~4 pages
+  // (~60s) and always completes. Meta restates for ~28 days, but the vast
+  // majority of movement is in the last few, so the routine run covers 7 and a
+  // chunked reconcile pass (see untilDaysAgo) walks the older slices.
+  windowDays = 7,
+  // Days back from today to END the window (0 = today). Lets a reconcile run
+  // fetch an OLDER slice — e.g. {windowDays: 35, untilDaysAgo: 21} covers days
+  // 21-35 in ~4 pages — so the full restatement horizon gets refreshed across
+  // several bounded runs instead of one that cannot finish.
+  untilDaysAgo = 0,
 ): Promise<{
   synced: number;
   failed: number;
@@ -882,7 +1053,6 @@ export async function syncAllCreators(
   errors: string[];
 }> {
   const db = supabase || getServiceClient();
-  const deadline = Date.now() + timeBudgetMs;
 
   // Track two groups: partners with ad-spend deals (invites) AND influencers
   // whitelisted directly in the directory (whitelisting_enabled) who never went
@@ -934,13 +1104,67 @@ export async function syncAllCreators(
 
   console.log(`[meta-sync] Starting sync for ${creators.length} creators`);
 
+  // ── ONE account-wide fetch for the whole run ──────────────────────────────
+  // This is the refactor's whole point. Previously each creator cost three
+  // filtered Meta round-trips (ads list at limit=5, daily insights, lifetime
+  // totals), so a run scaled linearly with creator count and reliably tripped
+  // "User request limit reached". Now the account is swept once and every
+  // creator is served from it locally — adding creators costs zero Meta calls.
+  const accessToken = process.env.META_ACCESS_TOKEN;
+  const adAccountId = process.env.META_AD_ACCOUNT_ID;
+  if (!accessToken || !adAccountId) {
+    return { synced: 0, failed: 0, stoppedEarly: false, errors: ["Meta API not configured"] };
+  }
+  const actId = adAccountId.startsWith("act_") ? adAccountId : `act_${adAccountId}`;
+
+  // Budget the run as a chain against ONE deadline, reserving the tail for the
+  // per-creator pass.
+  //
+  // This was previously two independent budgets (sweep = 55% of the total,
+  // creative = up to 120s from its own start) which could together exceed the
+  // whole allowance. A real run did exactly that: sweep + creative took 262s of
+  // a 240s budget, so the creator loop hit its deadline immediately and reported
+  // "0 synced, 0 failed, stoppedEarly=true" — meta_ads refreshed while
+  // creator_ad_performance, which payments read, silently went stale.
+  //
+  // The creator pass makes NO Meta calls now (it reads meta_ads and the daily
+  // table), so it needs far less than the sweep — but it must never be the part
+  // that gets squeezed out.
+  const runDeadline = Date.now() + timeBudgetMs;
+  const CREATOR_PASS_RESERVE_MS = 45_000;
+  const CREATIVE_RESERVE_MS = 60_000;
+  const sweepDeadline = runDeadline - CREATOR_PASS_RESERVE_MS - CREATIVE_RESERVE_MS;
+
+  const sweep = await fetchAccountSweep(accessToken, actId, {
+    sinceDaysAgo: windowDays,
+    untilDaysAgo,
+    deadline: sweepDeadline,
+  });
+
+  if (sweep.dailyError) {
+    // Daily rows are payment-critical. Without them there is nothing to derive
+    // monthly/MTD from, and continuing would write zeros over good data.
+    console.error(`[meta-sync] Daily sweep failed, aborting run: ${sweep.dailyError}`);
+    return { synced: 0, failed: 0, stoppedEarly: true, errors: [sweep.dailyError] };
+  }
+
+  // Reserve most of the budget for per-creator work; creative enrichment yields
+  // first since it is the only part that can be safely deferred to a later run.
+  await persistAccountSweep(db, sweep, creators, accessToken, {
+    // Whatever is left after the sweep, minus the creator-pass reserve. Creative
+    // enrichment is the only genuinely deferrable step — unenriched ads simply
+    // get picked up next run — so it yields first.
+    creativeDeadline: runDeadline - CREATOR_PASS_RESERVE_MS,
+  });
+
+
   let synced = 0;
   let failed = 0;
   let stoppedEarly = false;
   const errors: string[] = [];
 
   for (const creator of creators) {
-    if (Date.now() > deadline) {
+    if (Date.now() > runDeadline) {
       stoppedEarly = true;
       console.warn(
         `[meta-sync] Stopped early: time budget reached after ${synced} synced, ${failed} failed (${creators.length - synced - failed} not attempted; they go first next run)`
@@ -948,7 +1172,7 @@ export async function syncAllCreators(
       break;
     }
     try {
-      const result = await syncCreator(creator.handle, creator.influencerId, db);
+      const result = await syncCreator(creator.handle, creator.influencerId, db, sweep);
       if (result.success) {
         synced++;
       } else {
@@ -973,6 +1197,11 @@ export async function syncAllCreators(
     creators_failed: failed,
     stopped_early: stoppedEarly,
     total_creators: creators.length,
+    // Surfaced so rate-limit regressions are visible in app_settings rather than
+    // only as stale rows weeks later.
+    meta_calls: metaCallCount(),
+    window_days: windowDays,
+    until_days_ago: untilDaysAgo,
   };
 
   await (db.from("app_settings") as any).upsert(
@@ -984,7 +1213,26 @@ export async function syncAllCreators(
     { onConflict: "key" }
   );
 
-  console.log(`[meta-sync] Complete: ${synced} synced, ${failed} failed, stoppedEarly=${stoppedEarly}`);
+  // A run that swept Meta but updated nobody is a silent-staleness failure, not
+  // a success: the account tables refresh while creator_ad_performance (which
+  // payments read) stands still. Log it as an error so it is visible.
+  if (synced === 0 && creators.length > 0) {
+    console.error(
+      `[meta-sync] NO CREATORS SYNCED (${creators.length} eligible, stoppedEarly=${stoppedEarly}). ` +
+      `Account tables refreshed but creator_ad_performance is now STALE.`,
+    );
+  }
+  console.log(
+    `[meta-sync] Complete: ${synced} synced, ${failed} failed, stoppedEarly=${stoppedEarly}, ` +
+    `${metaCallCount()} Meta calls`,
+  );
 
   return { synced, failed, stoppedEarly, errors };
 }
+
+/**
+ * Internal exports for verification harnesses only. Not used by app code —
+ * persistAccountSweep is deliberately not part of the module's public surface,
+ * but the first production run needs to be dry-run inspected before it writes.
+ */
+export const __testing = { persistAccountSweep, buildHandleResult, handlesMatching };
