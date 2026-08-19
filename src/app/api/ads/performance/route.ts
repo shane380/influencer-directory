@@ -23,11 +23,18 @@ type Totals = {
   impressions: number;
   clicks: number;
   purchases: number;
+  /**
+   * False once any contributing ad-day had an unknown purchase count. Rows
+   * backfilled from creator_ad_performance_daily carry NULL because that table
+   * only ever stored purchase VALUE, never a count — so summing them would
+   * understate the total and make CPA and AOV quietly wrong.
+   */
+  purchasesKnown: boolean;
   revenue: number;
 };
 
 function emptyTotals(): Totals {
-  return { spend: 0, impressions: 0, clicks: 0, purchases: 0, revenue: 0 };
+  return { spend: 0, impressions: 0, clicks: 0, purchases: 0, purchasesKnown: true, revenue: 0 };
 }
 
 /**
@@ -40,12 +47,15 @@ function metrics(t: Totals) {
     spend: Math.round(t.spend * 100) / 100,
     impressions: t.impressions,
     clicks: t.clicks,
-    purchases: t.purchases,
+    // Null rather than a partial sum when any contributing day is unknown.
+    purchases: t.purchasesKnown ? t.purchases : null,
     revenue: Math.round(t.revenue * 100) / 100,
+    // Spend, impressions, clicks and revenue ARE complete in backfilled rows, so
+    // ROAS and CTR stay trustworthy even where purchase counts are missing.
     roas: t.spend > 0 ? Math.round((t.revenue / t.spend) * 100) / 100 : null,
     ctr: t.impressions > 0 ? Math.round((t.clicks / t.impressions) * 10000) / 100 : null,
-    cpa: t.purchases > 0 ? Math.round((t.spend / t.purchases) * 100) / 100 : null,
-    aov: t.purchases > 0 ? Math.round((t.revenue / t.purchases) * 100) / 100 : null,
+    cpa: t.purchasesKnown && t.purchases > 0 ? Math.round((t.spend / t.purchases) * 100) / 100 : null,
+    aov: t.purchasesKnown && t.purchases > 0 ? Math.round((t.revenue / t.purchases) * 100) / 100 : null,
   };
 }
 
@@ -87,6 +97,13 @@ export async function GET(request: NextRequest) {
 
   const current = new Map<string, Totals>();
   const previous = new Map<string, Totals>();
+  // Purchase-count coverage for the selected range, measured by SPEND rather
+  // than row count. All-or-nothing suppression is too brittle: a single stray
+  // unknown ad-day would blank Purchases, CPA and AOV for a window that is
+  // otherwise 99.9% covered, which is far less useful than a total understated
+  // by a rounding error.
+  let spendWithKnownPurchases = 0;
+  let spendWithUnknownPurchases = 0;
 
   for (const r of (rows as any[]) || []) {
     const day = String(r.date).slice(0, 10);
@@ -95,12 +112,22 @@ export async function GET(request: NextRequest) {
     const bucket = day >= start && day <= end ? current : day >= prevStart && day <= prevEnd ? previous : null;
     if (!bucket) continue;
 
+    if (bucket === current) {
+      const spend = Number(r.spend || 0);
+      if (r.purchases === null || r.purchases === undefined) spendWithUnknownPurchases += spend;
+      else spendWithKnownPurchases += spend;
+    }
+
     const adId = String(r.ad_id);
     const t = bucket.get(adId) || emptyTotals();
     t.spend += Number(r.spend || 0);
     t.impressions += Number(r.impressions || 0);
     t.clicks += Number(r.outbound_clicks || 0);
-    t.purchases += Number(r.purchases || 0);
+    if (r.purchases === null || r.purchases === undefined) {
+      t.purchasesKnown = false;
+    } else {
+      t.purchases += Number(r.purchases);
+    }
     t.revenue += Number(r.purchase_value || 0);
     bucket.set(adId, t);
   }
@@ -114,6 +141,8 @@ export async function GET(request: NextRequest) {
       previous: { start: prevStart, end: prevEnd },
       data_since: dataSince,
       comparison_complete: comparisonComplete,
+      purchases_complete: true,
+      purchases_unknown_share: 0,
       ads: [],
       campaigns: [],
       creators: [],
@@ -133,6 +162,12 @@ export async function GET(request: NextRequest) {
       .in("ad_id", adIds.slice(i, i + CHUNK));
     for (const d of (data as any[]) || []) dims.set(String(d.ad_id), d);
   }
+
+  const rangeSpend = spendWithKnownPurchases + spendWithUnknownPurchases;
+  const unknownShare = rangeSpend > 0 ? spendWithUnknownPurchases / rangeSpend : 0;
+  // Below 1% the totals are materially right and worth showing; above it the
+  // shortfall is big enough to mislead.
+  const purchasesComplete = unknownShare < 0.01;
 
   const endMs = new Date(`${end}T00:00:00Z`).getTime();
 
@@ -186,6 +221,9 @@ export async function GET(request: NextRequest) {
     previous: { start: prevStart, end: prevEnd },
     data_since: dataSince,
     comparison_complete: comparisonComplete,
+    purchases_complete: purchasesComplete,
+    // Exact share so the page can distinguish "complete" from "close enough".
+    purchases_unknown_share: Math.round(unknownShare * 10000) / 10000,
     ads,
     campaigns,
     creators,
