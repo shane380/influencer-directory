@@ -48,6 +48,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
   const [campaignsExpanded, setCampaignsExpanded] = useState(false);
   const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
   const [partnersExpanded, setPartnersExpanded] = useState(false);
+  const [adsExpanded, setAdsExpanded] = useState(false);
   const [groupedCampaigns, setGroupedCampaigns] = useState<GroupedCampaigns[]>([]);
   const [loadingCampaigns, setLoadingCampaigns] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -236,6 +237,12 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
   }, [isHovered]);
 
   // Close on escape key
+  // Reflect the current route in the nav: landing on an Ads page directly should
+  // show its section already expanded, not collapsed.
+  useEffect(() => {
+    if (pathname?.startsWith("/ads")) setAdsExpanded(true);
+  }, [pathname]);
+
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -252,7 +259,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
     { id: "gifting", label: "Gifting/PR", icon: Gift, expandable: true },
     { id: "paid_collabs", label: "Paid Collabs", icon: DollarSign },
     { id: "whitelisting", label: "Whitelisting", icon: Share2 },
-    { id: "ads", label: "Ads", icon: Megaphone },
+    { id: "ads", label: "Ads", icon: Megaphone, expandable: true },
     { id: "partners", label: "Partners", icon: Heart, expandable: true },
     { id: "payments", label: "Payments", icon: CreditCard },
     { id: "payments_v2", label: "Payments ✨", icon: CreditCard },
@@ -264,7 +271,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
     } else if (id === "partners") {
       setPartnersExpanded(!partnersExpanded);
     } else if (id === "ads") {
-      router.push("/ads");
+      setAdsExpanded(!adsExpanded);
     } else if (id === "payments") {
       router.push("/partnerships/payments");
     } else if (id === "payments_v2") {
@@ -347,13 +354,46 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                     )}
                   </span>
                   {isHovered && item.expandable && (
-                    (item.id === "gifting" ? giftingExpanded : item.id === "partners" ? partnersExpanded : false) ? (
+                    (item.id === "gifting" ? giftingExpanded : item.id === "partners" ? partnersExpanded : item.id === "ads" ? adsExpanded : false) ? (
                       <ChevronDown className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
                     ) : (
                       <ChevronRight className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
                     )
                   )}
                 </button>
+
+                {/* Ads submenu */}
+                {isHovered && item.id === "ads" && adsExpanded && (
+                  <ul className="mt-1 space-y-1" onClick={(e) => e.stopPropagation()}>
+                    <li>
+                      {/* Stays at /ads: notification deep links use /ads?review=1&draft=… */}
+                      <Link
+                        href="/ads"
+                        onClick={(e) => e.stopPropagation()}
+                        className={`block px-2 py-1.5 text-sm rounded-md transition-colors ${
+                          pathname === "/ads"
+                            ? "text-gray-900 bg-gray-100 font-medium"
+                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                        }`}
+                      >
+                        Ad Creator
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        href="/ads/performance"
+                        onClick={(e) => e.stopPropagation()}
+                        className={`block px-2 py-1.5 text-sm rounded-md transition-colors ${
+                          pathname?.startsWith("/ads/performance")
+                            ? "text-gray-900 bg-gray-100 font-medium"
+                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                        }`}
+                      >
+                        Ad Performance
+                      </Link>
+                    </li>
+                  </ul>
+                )}
 
                 {/* Partners submenu */}
                 {isHovered && item.id === "partners" && partnersExpanded && (
