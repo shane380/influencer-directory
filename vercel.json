@@ -9,6 +9,14 @@
       "schedule": "0 6,18 * * *"
     },
     {
+      "path": "/api/cron/meta-sync?window=21&until=7",
+      "schedule": "10 22 * * *"
+    },
+    {
+      "path": "/api/cron/meta-sync?window=35&until=21",
+      "schedule": "40 22 * * *"
+    },
+    {
       "path": "/api/cron/sync-code-revenue",
       "schedule": "30 6 * * *"
     },
