@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { preserveHistory, rescaleToTotal } from "@/lib/milestones";
 import {
   Influencer,
   Campaign,
@@ -53,6 +54,7 @@ export function DealDialog({
 }: DealDialogProps) {
   const [deliverables, setDeliverables] = useState<DeliverableRow[]>([]);
   const [paymentTermsType, setPaymentTermsType] = useState<string>("50_50");
+  const prevTermsTypeRef = useRef<string | null>(null);
   const [paymentMilestones, setPaymentMilestones] = useState<PaymentMilestone[]>([]);
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
@@ -284,45 +286,20 @@ export function DealDialog({
     }
   };
 
-  // A paid milestone is a historical record of money that actually moved, so its
-  // amount and who/when paid it must survive any regeneration. Without this,
-  // reopening a preset deal reset every milestone to unpaid and Save wrote that
-  // back, erasing the payment history.
-  const preservePaid = (
-    fresh: PaymentMilestone[],
-    prev: PaymentMilestone[]
-  ): PaymentMilestone[] =>
-    fresh.map((m) => {
-      const existing = prev.find((p) => p.id === m.id);
-      if (!existing?.is_paid) return m;
-      return {
-        ...m,
-        amount: existing.amount,
-        is_paid: true,
-        paid_date: existing.paid_date,
-        paid_by: existing.paid_by,
-      };
-    });
-
-  // Update milestones when total or type changes
+  // Rebuild the schedule only when the preset is actually switched (or when
+  // there is nothing to show yet). A change to the deal total must not rebuild
+  // it — that path used to wipe recorded dates just because a rate was edited.
   useEffect(() => {
-    if (paymentTermsType !== "custom") {
-      setPaymentMilestones((prev) =>
-        preservePaid(generateMilestones(paymentTermsType, totalDealValue), prev)
-      );
-    } else if (paymentMilestones.length > 0) {
-      setPaymentMilestones((prev) => {
-        // Amounts that already reconcile to the deal total are left alone —
-        // re-deriving them from percentages drifts on splits like 3 x 33.33%.
-        const sum = prev.reduce((t, m) => t + (m.amount || 0), 0);
-        if (Math.abs(sum - totalDealValue) < 0.01) return prev;
-        return prev.map((m) =>
-          m.is_paid
-            ? m
-            : { ...m, amount: Math.round(totalDealValue * (m.percentage / 100) * 100) / 100 }
-        );
-      });
-    }
+    const typeChanged = prevTermsTypeRef.current !== null && prevTermsTypeRef.current !== paymentTermsType;
+    prevTermsTypeRef.current = paymentTermsType;
+
+    setPaymentMilestones((prev) => {
+      if (paymentTermsType !== "custom" && (typeChanged || prev.length === 0)) {
+        return preserveHistory(generateMilestones(paymentTermsType, totalDealValue), prev);
+      }
+      // Only the total moved.
+      return rescaleToTotal(prev, totalDealValue);
+    });
   }, [totalDealValue, paymentTermsType]);
 
   const addCustomMilestone = () => {

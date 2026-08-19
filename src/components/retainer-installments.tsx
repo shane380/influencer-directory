@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { CampaignDeal, PaymentMilestone } from "@/types/database";
-import { inferGate, earnedOn, endDate, endDateIsEstimate } from "@/lib/retainers";
+import { inferGate, earnedOn, scheduledEnd, actualEnd, retainerState } from "@/lib/retainers";
 import { formatCurrencyDetailed } from "@/lib/constants";
 import { Check, Loader2, X } from "lucide-react";
 
@@ -155,19 +155,41 @@ export function RetainerInstallments({ deal, onSaved }: RetainerInstallmentsProp
 }
 
 export function RetainerTerm({ deal }: { deal: CampaignDeal }) {
-  const end = endDate(deal);
-  if (!deal.term_months && !end) {
+  const state = retainerState(deal);
+  const scheduled = scheduledEnd(deal);
+  const closed = actualEnd(deal);
+
+  if (state === "undated") {
     return <span className="text-amber-600 text-xs">Not set</span>;
   }
-  const estimate = endDateIsEstimate(deal);
+
   return (
-    <div className="text-xs text-gray-600 leading-tight">
-      {deal.term_months ? <div>{deal.term_months} months</div> : null}
-      {end ? (
-        <div className="text-gray-400" title={estimate ? "Projected from the term. The real end is set when the final content is marked delivered." : "Recorded end date"}>
-          ends {end}{estimate ? " (est.)" : ""}
+    <div className="text-xs leading-tight">
+      {deal.term_months ? <div className="text-gray-600">{deal.term_months} months</div> : null}
+
+      {state === "complete" && closed && (
+        <div className="text-gray-400" title="Every installment delivered. Ends after the usage tail on the final post.">
+          ends {closed}
         </div>
-      ) : (
+      )}
+
+      {state === "awaiting_delivery" && (
+        <div
+          className="text-amber-600 font-medium"
+          title={`Scheduled term ended ${scheduled}. Content is still owed, so the contract stays open until it is delivered or cancelled.`}
+        >
+          Awaiting delivery
+          {scheduled && <span className="block font-normal text-amber-500">term ended {scheduled}</span>}
+        </div>
+      )}
+
+      {state === "in_term" && scheduled && (
+        <div className="text-gray-400" title="Scheduled end of the term. Late delivery does not close the contract.">
+          term ends {scheduled}
+        </div>
+      )}
+
+      {state === "in_term" && !scheduled && (
         <div className="text-gray-400">ends 30d after final content</div>
       )}
     </div>

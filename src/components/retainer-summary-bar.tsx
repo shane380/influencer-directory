@@ -33,6 +33,12 @@ export function RetainerSummaryBar({ deals }: RetainerSummaryBarProps) {
           value={String(s.endingSoon)}
           tone={s.endingSoon > 0 ? "warn" : "default"}
         />
+        <Stat
+          label="Awaiting delivery"
+          value={String(s.awaitingDelivery)}
+          hint="past term, content still owed"
+          tone={s.awaitingDelivery > 0 ? "warn" : "default"}
+        />
       </div>
 
       {s.undated > 0 && (
