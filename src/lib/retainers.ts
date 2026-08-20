@@ -1,4 +1,5 @@
 import { CampaignDeal, PaymentMilestone, MilestoneGate } from "@/types/database";
+import { addMonthsClamped } from "./milestones";
 
 // Retainer earning rules, shared by the summary strip and the row control so the
 // two can never disagree about what a creator is owed.
@@ -20,16 +21,25 @@ export function inferGate(m: PaymentMilestone): MilestoneGate {
 
 // The date a milestone earned, or null if it has not earned yet.
 // An explicit earned_on always wins — it is what a human recorded.
-export function earnedOn(m: PaymentMilestone, deal: Pick<CampaignDeal, "starts_on">): string | null {
+export function earnedOn(
+  m: PaymentMilestone,
+  deal: Pick<CampaignDeal, "starts_on">,
+  today = new Date()
+): string | null {
   if (m.earned_on) return m.earned_on;
+  const gate = inferGate(m);
   // An on-execution milestone earns the day the term starts. With no start date
   // recorded we cannot claim it earned, so it stays pending rather than guessing.
-  if (inferGate(m) === "on_execution" && deal.starts_on) return deal.starts_on;
+  if (gate === "on_execution" && deal.starts_on) return deal.starts_on;
+  // A date-gated installment earns by the calendar once its date passes. This is
+  // how whitelisting fees work: the usage right is granted over time, so the
+  // month accrues whether or not any content changed hands.
+  if (gate === "on_date" && m.due_on && new Date(m.due_on + "T00:00:00") <= today) return m.due_on;
   return null;
 }
 
-export function isEarned(m: PaymentMilestone, deal: Pick<CampaignDeal, "starts_on">): boolean {
-  return earnedOn(m, deal) !== null;
+export function isEarned(m: PaymentMilestone, deal: Pick<CampaignDeal, "starts_on">, today = new Date()): boolean {
+  return earnedOn(m, deal, today) !== null;
 }
 
 export interface DealTotals {
@@ -73,9 +83,7 @@ export function accrualPeriod(m: PaymentMilestone, deal: Pick<CampaignDeal, "sta
 // stays open until they deliver or it is cancelled.
 export function scheduledEnd(deal: Pick<CampaignDeal, "starts_on" | "term_months">): string | null {
   if (!deal.starts_on || !deal.term_months) return null;
-  const d = new Date(deal.starts_on + "T00:00:00");
-  d.setMonth(d.getMonth() + deal.term_months);
-  return d.toISOString().slice(0, 10);
+  return addMonthsClamped(deal.starts_on, deal.term_months);
 }
 
 // The real end, recorded once every installment has been delivered (the last

@@ -19,6 +19,8 @@ import Image from "next/image";
 import { useState, useMemo, useCallback } from "react";
 import { OrderDialog } from "@/components/order-dialog";
 import { WhitelistingCardView } from "@/components/whitelisting-card-view";
+import { WhitelistingTermCell } from "@/components/whitelisting-term-cell";
+import { isPaidWhitelisting, termState } from "@/lib/whitelisting";
 import { StatusBadgeDropdown } from "@/components/status-badge-dropdown";
 
 interface WhitelistingTabProps {
@@ -217,6 +219,12 @@ export function WhitelistingTab({
         const infDeals = dealsByInfluencer.get(influencer.id) || [];
         if (dealStatusFilter === "no_deal") {
           if (infDeals.some((d) => d.whitelisting_status !== "not_applicable")) return false;
+        } else if (dealStatusFilter === "paid_live") {
+          // Whitelisting Nama paid a fee for, still inside its usage term.
+          // Excludes the % ad-spend arrangements, which carry no term to honour.
+          if (!infDeals.some((d) => isPaidWhitelisting(d) && ["live", "expiring"].includes(termState(d)))) return false;
+        } else if (dealStatusFilter === "term_ending") {
+          if (!infDeals.some((d) => isPaidWhitelisting(d) && ["expiring", "expired"].includes(termState(d)))) return false;
         } else {
           if (!infDeals.some((d) => d.whitelisting_status === dealStatusFilter)) return false;
         }
@@ -272,6 +280,8 @@ export function WhitelistingTab({
           className="w-auto sm:w-[180px] flex-shrink-0"
         >
           <option value="all">All Deal Statuses</option>
+          <option value="paid_live">Paid &amp; term running</option>
+          <option value="term_ending">Term ending or ended</option>
           <option value="live">Live</option>
           <option value="ended">Ended</option>
           <option value="pending">Pending</option>
@@ -330,6 +340,7 @@ export function WhitelistingTab({
                     <TableHead>Handle</TableHead>
                     <TableHead>Followers</TableHead>
                     <TableHead>Whitelisting Type</TableHead>
+                    <TableHead>Usage Term</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Order</TableHead>
                     <TableHead className="w-10"></TableHead>
@@ -373,6 +384,9 @@ export function WhitelistingTab({
                         ) : (
                           <span className="text-gray-400">-</span>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <WhitelistingTermCell deals={dealsByInfluencer.get(influencer.id) || []} />
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <StatusBadgeDropdown

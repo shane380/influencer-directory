@@ -55,7 +55,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
   const [pendingCodeRequests, setPendingCodeRequests] = useState(0);
   const [notifications, setNotifications] = useState<Array<{
     id: string;
-    type?: "content_submission" | "outfit_request" | "ad_approval" | "ad_feedback" | "gift_selects";
+    type?: "content_submission" | "outfit_request" | "ad_approval" | "ad_feedback" | "gift_selects" | "whitelisting_expiring" | "whitelisting_expired";
     creator_name: string;
     creator_id?: string;
     influencer_id?: string | null;
@@ -65,6 +65,9 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
     campaign_title?: string;
     product_count?: number;
     ad_name?: string;
+    days_remaining?: number;
+    expiry_date?: string | null;
+    creator_handle?: string | null;
     created_at: string;
   }>>([]);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -605,6 +608,12 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                     description = `Changes requested on "${n.ad_name}" · ${timeAgo}`;
                   } else if (n.type === "outfit_request") {
                     description = `Requested ${n.product_count} item${n.product_count !== 1 ? "s" : ""} · ${timeAgo}`;
+                  } else if (n.type === "whitelisting_expiring") {
+                    const d = n.days_remaining ?? 0;
+                    description = `Whitelisting term ends ${d === 0 ? "today" : d === 1 ? "tomorrow" : `in ${d} days`} · ${n.expiry_date}`;
+                  } else if (n.type === "whitelisting_expired") {
+                    const d = Math.abs(n.days_remaining ?? 0);
+                    description = `Whitelisting term ended ${d === 0 ? "today" : `${d} day${d !== 1 ? "s" : ""} ago`} · pause the ads or renew`;
                   } else if (n.type === "gift_selects") {
                     description = `Selected ${n.product_count} piece${n.product_count !== 1 ? "s" : ""} · ${n.campaign_title} · ${timeAgo}`;
                   } else {
@@ -624,6 +633,8 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                           setNotifOpen(false);
                           if (n.type === "ad_approval" || n.type === "ad_feedback") {
                             router.push(`/ads?review=1&draft=${n.id}`);
+                          } else if (n.type === "whitelisting_expiring" || n.type === "whitelisting_expired") {
+                            router.push("/?tab=whitelisting");
                           } else if (n.type === "gift_selects" && n.campaign_id) {
                             router.push(`/campaigns/${n.campaign_id}`);
                           } else if (n.creator_id) {

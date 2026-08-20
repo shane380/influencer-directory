@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { isPaidWhitelisting, termState, daysRemaining, termExpiry } from "@/lib/whitelisting";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -125,7 +126,39 @@ export async function GET() {
       };
     });
 
-  const notifications = [...contentNotifications, ...outfitNotifications, ...adNotifications, ...adFeedbackNotifications, ...giftNotifications]
+  // Whitelisting usage terms running out. Derived live from the deals, like
+  // everything else here — no sent-log to keep in sync, and the item simply
+  // stops appearing once the term is marked ended or the dates are corrected.
+  // Only paid whitelisting carries a term to honour; the % ad-spend
+  // arrangements have no window to chase.
+  const { data: wlDeals } = await (supabase
+    .from("campaign_deals") as any)
+    .select("id, total_deal_value, whitelisting_status, whitelisting_live_date, whitelisting_expiry_date, influencer:influencers(name, instagram_handle)")
+    .in("whitelisting_status", ["live", "pending"])
+    .not("whitelisting_live_date", "is", null);
+
+  const whitelistingNotifications = (wlDeals || [])
+    .filter((d: any) => isPaidWhitelisting(d))
+    .map((d: any) => {
+      const state = termState(d);
+      if (state !== "expiring" && state !== "expired") return null;
+      const left = daysRemaining(d) ?? 0;
+      const expiry = termExpiry(d);
+      return {
+        id: `wl-${state}-${d.id}`,
+        type: state === "expired" ? ("whitelisting_expired" as const) : ("whitelisting_expiring" as const),
+        creator_name: d.influencer?.name || "Unknown",
+        creator_handle: d.influencer?.instagram_handle || null,
+        deal_id: d.id,
+        days_remaining: left,
+        expiry_date: expiry ? expiry.toISOString().slice(0, 10) : null,
+        // Sorted with everything else by recency: the day the term turns.
+        created_at: expiry ? expiry.toISOString() : new Date().toISOString(),
+      };
+    })
+    .filter(Boolean);
+
+  const notifications = [...contentNotifications, ...outfitNotifications, ...adNotifications, ...adFeedbackNotifications, ...giftNotifications, ...whitelistingNotifications]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 20);
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { preserveHistory, rescaleToTotal } from "@/lib/milestones";
+import { preserveHistory, rescaleToTotal, generateMonthlyMilestones } from "@/lib/milestones";
 import {
   Influencer,
   Campaign,
@@ -55,6 +55,9 @@ export function DealDialog({
   const [deliverables, setDeliverables] = useState<DeliverableRow[]>([]);
   const [paymentTermsType, setPaymentTermsType] = useState<string>("50_50");
   const prevTermsTypeRef = useRef<string | null>(null);
+  // Monthly-retainer schedule (whitelisting usage fees and the like).
+  const [retainerMonths, setRetainerMonths] = useState<number>(4);
+  const [retainerStart, setRetainerStart] = useState<string>("");
   const [paymentMilestones, setPaymentMilestones] = useState<PaymentMilestone[]>([]);
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
@@ -160,8 +163,12 @@ export function DealDialog({
       // Load payment terms if they exist
       if (deal.payment_terms && deal.payment_terms.length > 0) {
         setPaymentMilestones(deal.payment_terms);
-        // Determine type based on milestones
-        if (deal.payment_terms.length === 1 && deal.payment_terms[0].percentage === 100) {
+        // Determine type based on milestones. A date-gated schedule is a monthly
+        // retainer and must resolve as one, or reopening the deal would show it
+        // as "Custom" and the term inputs would be hidden.
+        if (deal.payment_terms.every((m) => m.gate === "on_date") && deal.payment_terms.length > 1) {
+          setPaymentTermsType("monthly");
+        } else if (deal.payment_terms.length === 1 && deal.payment_terms[0].percentage === 100) {
           setPaymentTermsType("100_upfront");
         } else if (deal.payment_terms.length === 2 &&
           deal.payment_terms[0].percentage === 50 &&
@@ -190,6 +197,10 @@ export function DealDialog({
       setWhitelistingStatus(deal.whitelisting_status || "not_applicable");
       setWhitelistingLiveDate(deal.whitelisting_live_date || null);
       setWhitelistingExpiryDate(deal.whitelisting_expiry_date || null);
+      if (deal.deal_kind === "retainer") {
+        setRetainerMonths(deal.term_months || 4);
+        setRetainerStart((deal.starts_on || "").slice(0, 10));
+      }
       // Detect duration from existing dates
       if (deal.whitelisting_live_date && deal.whitelisting_expiry_date) {
         const live = new Date(deal.whitelisting_live_date);
@@ -279,6 +290,8 @@ export function DealDialog({
         return [
           { id: "m1", description: "Upon execution", percentage: 100, amount: total, is_paid: false, paid_date: null, paid_by: null },
         ];
+      case "monthly":
+        return generateMonthlyMilestones(total, retainerMonths, retainerStart || null);
       case "custom":
         return paymentMilestones.length > 0 ? paymentMilestones : [];
       default:
@@ -290,8 +303,9 @@ export function DealDialog({
   // there is nothing to show yet). A change to the deal total must not rebuild
   // it — that path used to wipe recorded dates just because a rate was edited.
   useEffect(() => {
-    const typeChanged = prevTermsTypeRef.current !== null && prevTermsTypeRef.current !== paymentTermsType;
-    prevTermsTypeRef.current = paymentTermsType;
+    const key = `${paymentTermsType}:${retainerMonths}:${retainerStart}`;
+    const typeChanged = prevTermsTypeRef.current !== null && prevTermsTypeRef.current !== key;
+    prevTermsTypeRef.current = key;
 
     setPaymentMilestones((prev) => {
       if (paymentTermsType !== "custom" && (typeChanged || prev.length === 0)) {
@@ -300,7 +314,7 @@ export function DealDialog({
       // Only the total moved.
       return rescaleToTotal(prev, totalDealValue);
     });
-  }, [totalDealValue, paymentTermsType]);
+  }, [totalDealValue, paymentTermsType, retainerMonths, retainerStart]);
 
   const addCustomMilestone = () => {
     const newMilestone: PaymentMilestone = {
@@ -377,6 +391,9 @@ export function DealDialog({
           quantity,
         })),
         total_deal_value: totalDealValue,
+        deal_kind: paymentTermsType === "monthly" ? "retainer" : (deal?.deal_kind || "one_off"),
+        starts_on: paymentTermsType === "monthly" ? (retainerStart || null) : (deal?.starts_on ?? null),
+        term_months: paymentTermsType === "monthly" ? retainerMonths : (deal?.term_months ?? null),
         deal_status: dealStatus,
         payment_status: calculatePaymentStatus(),
         payment_terms: paymentMilestones,
@@ -622,6 +639,22 @@ export function DealDialog({
               <button
                 type="button"
                 onClick={() => {
+                  setPaymentTermsType("monthly");
+                  if (!retainerStart) {
+                    setRetainerStart((whitelistingLiveDate || new Date().toISOString()).slice(0, 10));
+                  }
+                }}
+                className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
+                  paymentTermsType === "monthly"
+                    ? "bg-purple-100 border-purple-300 text-purple-800"
+                    : "bg-white border-gray-300 text-gray-600 hover:border-gray-400"
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                type="button"
+                onClick={() => {
                   setPaymentTermsType("custom");
                   if (paymentMilestones.length === 0) {
                     addCustomMilestone();
@@ -639,7 +672,41 @@ export function DealDialog({
 
             {/* Payment Milestones */}
             <div className="space-y-2">
-              {paymentMilestones.map((milestone) => (
+              {paymentTermsType === "monthly" && (
+              <div className="flex flex-wrap items-end gap-3 mb-3 p-3 bg-purple-50/60 border border-purple-100 rounded-lg">
+                <div>
+                  <Label className="text-xs text-gray-500 mb-1 block">Term starts</Label>
+                  <input
+                    type="date"
+                    value={retainerStart}
+                    onChange={(e) => setRetainerStart(e.target.value)}
+                    className="h-9 px-2 border rounded-md text-sm bg-white"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500 mb-1 block">Months</Label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="36"
+                    value={retainerMonths}
+                    onChange={(e) => setRetainerMonths(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="h-9 w-20 px-2 border rounded-md text-sm bg-white"
+                  />
+                </div>
+                <div className="text-xs text-gray-600 pb-2">
+                  {formatCurrency(totalDealValue)} total ={" "}
+                  <span className="font-medium">
+                    {formatCurrency(retainerMonths ? totalDealValue / retainerMonths : 0)}/month
+                  </span>{" "}
+                  &times; {retainerMonths}
+                  <div className="text-[11px] text-gray-400">
+                    Each month earns on its date, not on content delivery.
+                  </div>
+                </div>
+              </div>
+            )}
+            {paymentMilestones.map((milestone) => (
                 <div
                   key={milestone.id}
                   className={`flex items-center gap-2 p-3 rounded-lg ${

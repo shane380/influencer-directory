@@ -1,5 +1,18 @@
 import { PaymentMilestone } from "@/types/database";
 
+// Adding months to a month-end date must not roll into the following month:
+// naive date arithmetic turns 31 Jan + 1 month into 3 March, skipping February
+// entirely and putting an installment in the wrong period. Clamp to the last
+// day of the target month instead.
+export function addMonthsClamped(date: string, months: number): string {
+  const src = new Date(`${date.slice(0, 10)}T00:00:00Z`);
+  const day = src.getUTCDate();
+  const target = new Date(Date.UTC(src.getUTCFullYear(), src.getUTCMonth() + months, 1));
+  const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+  target.setUTCDate(Math.min(day, lastDay));
+  return target.toISOString().slice(0, 10);
+}
+
 // Shared by the create and edit deal dialogs, which previously carried identical
 // copies of this and drifted apart.
 //
@@ -47,4 +60,37 @@ export function rescaleToTotal(
       ? m
       : { ...m, amount: Math.round(totalDealValue * (m.percentage / 100) * 100) / 100 }
   );
+}
+
+// A monthly schedule: one installment per month of the term. Used for retainers
+// billed by the calendar — whitelisting usage fees are the clearest case, since
+// the right is granted over time and accrues whether or not content changes
+// hands, so each installment is date-gated rather than content-gated.
+export function generateMonthlyMilestones(
+  total: number,
+  months: number,
+  startDate: string | null
+): PaymentMilestone[] {
+  if (!months || months < 1) return [];
+  const per = Math.round((total / months) * 100) / 100;
+  return Array.from({ length: months }, (_, i) => {
+    // The final installment absorbs the rounding remainder so the schedule
+    // always sums back to the deal total (3 x 33.33 would lose a cent).
+    const amount = i === months - 1
+      ? Math.round((total - per * (months - 1)) * 100) / 100
+      : per;
+    const due = startDate ? addMonthsClamped(startDate, i) : null;
+    return {
+      id: `m${i + 1}`,
+      description: `Month ${i + 1}`,
+      percentage: Math.round((amount / (total || 1)) * 10000) / 100,
+      amount,
+      is_paid: false,
+      paid_date: null,
+      paid_by: null,
+      gate: "on_date" as const,
+      due_on: due,
+      earned_on: null,
+    };
+  });
 }
