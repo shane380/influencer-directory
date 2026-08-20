@@ -68,6 +68,29 @@ export function termProgress(
   return Math.min(1, Math.max(0, (today.getTime() - start) / (end - start)));
 }
 
+// Usage rights run for a tail past the creator's final post. Terms are quoted
+// as "3 months", but a late post pushes the whole window back — the right can
+// only start being used once the content exists.
+export const USAGE_TAIL_DAYS = 30;
+
+// The end of the usage term derived from the posts themselves: the last
+// delivered post plus the tail. `provisional` means posts are still outstanding,
+// so the date will move when they land. Returns null for deals with no posts to
+// wait on (a pure whitelisting buy has a fixed window from day one).
+export function termEndFromPosts(
+  deal: Pick<CampaignDeal, "payment_terms">
+): { date: string; provisional: boolean } | null {
+  const ms = (deal.payment_terms || []).filter(
+    (m) => m.gate === "on_content_live" || /content|post/i.test(m.description || "")
+  );
+  if (ms.length === 0) return null;
+  const delivered = ms.map((m) => m.earned_on).filter((d): d is string => !!d).sort();
+  if (delivered.length === 0) return null;
+  const last = new Date(`${delivered[delivered.length - 1]}T00:00:00Z`);
+  last.setUTCDate(last.getUTCDate() + USAGE_TAIL_DAYS);
+  return { date: last.toISOString().slice(0, 10), provisional: delivered.length < ms.length };
+}
+
 // A deal Nama paid a fee for, as opposed to one compensated by a share of ad
 // spend. Only these carry a usage term that has to be honoured and chased.
 export function isPaidWhitelisting(deal: Pick<CampaignDeal, "total_deal_value" | "whitelisting_status">): boolean {

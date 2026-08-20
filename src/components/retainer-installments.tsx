@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { CampaignDeal, PaymentMilestone } from "@/types/database";
 import { inferGate, earnedOn, scheduledEnd, actualEnd, retainerState } from "@/lib/retainers";
+import { termEndFromPosts } from "@/lib/whitelisting";
 import { formatCurrencyDetailed } from "@/lib/constants";
 import { Check, Loader2, X } from "lucide-react";
 
@@ -38,17 +39,15 @@ export function RetainerInstallments({ deal, onSaved }: RetainerInstallmentsProp
     // A term that ends on content ("30 days after the final post") only gets a
     // real end date once the last installment lands, so recompute it here.
     const patch: Record<string, unknown> = { payment_terms: updated };
-    if (deal.term_months && !deal.ends_on) {
-      const allDelivered = updated.every((m) => earnedOn(m, deal) !== null);
-      const last = updated
-        .map((m) => earnedOn(m, deal))
-        .filter((d): d is string => d !== null)
-        .sort()
-        .pop();
-      if (allDelivered && last) {
-        const tail = new Date(last + "T00:00:00");
-        tail.setDate(tail.getDate() + 30);
-        patch.ends_on = tail.toISOString().slice(0, 10);
+    // The usage term runs a tail past the final post, so a late post moves both
+    // the deal's end and the whitelisting window Daisy is tracking. Recomputed
+    // on every change rather than only once, since a corrected date must be
+    // able to pull the term back in as well as push it out.
+    const term = termEndFromPosts({ payment_terms: updated });
+    if (term && !term.provisional) {
+      patch.ends_on = term.date;
+      if (deal.whitelisting_status && deal.whitelisting_status !== "not_applicable") {
+        patch.whitelisting_expiry_date = term.date;
       }
     }
 
