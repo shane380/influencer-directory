@@ -7,7 +7,7 @@ import {
   termProgress,
   termState,
   primaryTermDeal,
-  termEndFromPosts,
+  hasOutstandingPosts,
 } from "@/lib/whitelisting";
 
 // The term at a glance, for the list view. Daisy works in the list rather than
@@ -22,9 +22,8 @@ export function WhitelistingTermCell({ deals }: { deals: CampaignDeal[] }) {
   const progress = termProgress(deal) ?? 0;
   const expiryLabel = expiry ? expiry.toISOString().slice(0, 10) : "—";
   // Combination deals end a tail after the final post, so while posts are
-  // outstanding the date on file is a placeholder that will move.
-  const fromPosts = termEndFromPosts(deal);
-  const provisional = fromPosts?.provisional ?? false;
+  // outstanding the date on file is a forecast that will move.
+  const provisional = hasOutstandingPosts(deal);
 
   const tone =
     state === "expired" ? { text: "text-red-600", bar: "bg-red-500" }

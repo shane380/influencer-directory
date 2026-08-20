@@ -77,12 +77,25 @@ export const USAGE_TAIL_DAYS = 30;
 // delivered post plus the tail. `provisional` means posts are still outstanding,
 // so the date will move when they land. Returns null for deals with no posts to
 // wait on (a pure whitelisting buy has a fixed window from day one).
+function postMilestones(deal: Pick<CampaignDeal, "payment_terms">) {
+  return (deal.payment_terms || []).filter(
+    (m) => m.gate === "on_content_live" || /content|post/i.test(m.description || "")
+  );
+}
+
+// True when the deal is waiting on posts, so any end date on file is a forecast
+// that will move. Separate from termEndFromPosts because a deal with NO posts
+// delivered yet has nothing to derive a date from, but is the least settled of
+// all — treating that as "no information" showed a forecast as if it were fixed.
+export function hasOutstandingPosts(deal: Pick<CampaignDeal, "payment_terms">): boolean {
+  const ms = postMilestones(deal);
+  return ms.length > 0 && ms.some((m) => !m.earned_on);
+}
+
 export function termEndFromPosts(
   deal: Pick<CampaignDeal, "payment_terms">
 ): { date: string; provisional: boolean } | null {
-  const ms = (deal.payment_terms || []).filter(
-    (m) => m.gate === "on_content_live" || /content|post/i.test(m.description || "")
-  );
+  const ms = postMilestones(deal);
   if (ms.length === 0) return null;
   const delivered = ms.map((m) => m.earned_on).filter((d): d is string => !!d).sort();
   if (delivered.length === 0) return null;
