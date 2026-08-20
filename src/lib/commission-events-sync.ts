@@ -169,7 +169,12 @@ async function buildPaidCollabEvents(db: any, months: string[]): Promise<Commiss
     .select("id, influencer_id, total_deal_value, campaign:campaigns!campaign_deals_campaign_id_fkey(start_date)")
     // Committed deals: active AND closed. A closed deal was still delivered and
     // still earned — filtering it out would silently drop its earnings.
-    .in("deal_status", ["active", "closed"]);
+    .in("deal_status", ["active", "closed"])
+    // Retainers are excluded on purpose: they accrue per delivered installment
+    // from their milestones, not as one lump at the campaign's start month.
+    // Emitting both would double-count them. Today they happen to be spared
+    // because their campaign has no start date, which is luck, not design.
+    .neq("deal_kind", "retainer");
   const monthSet = new Set(months);
   const events: CommissionEvent[] = [];
   for (const d of deals || []) {
