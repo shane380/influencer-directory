@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { commissionRateForMonth } from "@/lib/affiliate-program";
 
 export const maxDuration = 60;
 
@@ -147,7 +148,14 @@ export async function POST(request: NextRequest) {
     // Affiliate commission — auto-calculate from Shopify orders
     if (invite.has_affiliate && !existingTypes.has("affiliate_commission")) {
       const affiliateCode = creator.affiliate_code;
-      const affCommissionRate = creator.commission_rate || invite.ad_spend_percentage || 10;
+      // Rate in force for the month being generated, not today's rate — so a
+      // late run of an earlier month can't reprice it at a newer rate.
+      const affCommissionRate = await commissionRateForMonth(
+        supabase,
+        { creatorId: creator.id },
+        month,
+        creator.commission_rate || invite.ad_spend_percentage || 10
+      );
       let affAmount = 0;
       let affNotes = "No affiliate code";
       let calcDetails: any = null;
@@ -318,7 +326,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch Shopify orders
-    const rate = la.commission_rate || 25;
+    const rate = await commissionRateForMonth(
+      supabase,
+      { legacyAffiliateId: la.id },
+      month,
+      la.commission_rate || 25
+    );
     let amount = 0;
     let notes = "No orders this month";
     let calculationDetails = null;

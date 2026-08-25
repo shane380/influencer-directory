@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { CREATOR_TERMS_CURRENT, CREATOR_TERMS_VERSIONS } from '@/lib/terms/versions'
 
 const CSS = `
 .nama-invite { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #111; margin: 0; padding: 0; }
@@ -544,7 +545,7 @@ export default function InvitePage() {
       return {
         eyebrow: 'Last Step',
         headline: <>How should<br /><em>we pay you?</em></>,
-        intro: "You'll receive your first payment by the 5th of next month.",
+        intro: "You'll receive your first payment by the end of the following calendar month.",
       }
     }
     // done — content is hardcoded in the done layout
@@ -556,7 +557,10 @@ export default function InvitePage() {
   const hasAffiliateAddon = (invite?.has_affiliate || commissionRate > 0) && (selectedDeal === 'retainer' || selectedDeal === 'ad_spend')
 
   const termsUrl = `/invite/${slug}/terms${selectedDeal ? `?deal=${selectedDeal}` : ''}`
-  const agreeContent = <>I have read and agree to the <a href={termsUrl} target="_blank" rel="noopener noreferrer">Partnership Terms</a> and <a href="/terms/creator" target="_blank" rel="noopener noreferrer">Creator Terms of Use</a></>
+  // Names the version so the visible label and the acceptance ledger agree on
+  // exactly what was accepted. Affiliate terms are section 13 of this same
+  // document, so affiliate deals need no extra link.
+  const agreeContent = <>I have read and agree to the <a href={termsUrl} target="_blank" rel="noopener noreferrer">Partnership Terms</a> and <a href="/terms/creator" target="_blank" rel="noopener noreferrer">Creator Terms of Use</a> ({CREATOR_TERMS_VERSIONS[CREATOR_TERMS_CURRENT].effective})</>
 
   // --- RENDER HELPERS ---
 
@@ -703,7 +707,7 @@ export default function InvitePage() {
             <div className="ni-term-sub">Compensation</div>
             <div className="ni-term-row">
               <span className="ni-term-key">Retainer</span>
-              <div className="ni-term-val"><div className="ni-term-primary">${retainerAmount?.toLocaleString()} / month</div><div className="ni-term-secondary">Paid by the 5th of the following month</div></div>
+              <div className="ni-term-val"><div className="ni-term-primary">${retainerAmount?.toLocaleString()} / month</div><div className="ni-term-secondary">Paid by the end of the following calendar month</div></div>
             </div>
             {hasAffiliateAddon && (
               <div className="ni-term-row">
@@ -742,7 +746,7 @@ export default function InvitePage() {
             <div className="ni-sec-label">FAQ&apos;s</div>
             <div className="ni-faq">
               {[
-                ['When do I get paid?', 'Payment is sent by the 5th of the following month via your selected payment method.'],
+                ['When do I get paid?', 'Payment is sent by the end of the following calendar month via your selected payment method.'],
                 ['How do content revisions work?', 'Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. If a full re-shoot or concept change is needed, we\'ll discuss it together and agree on terms before proceeding.'],
                 ['Is this month-to-month or a fixed contract?', minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'],
                 ['How do I submit my content?', 'Through your Nama Partners dashboard. You\'ll get access immediately after signing up.'],
@@ -832,7 +836,7 @@ export default function InvitePage() {
               {[
                 ['How much will Nama spend on my content?', 'Our system automatically allocates more budget to high-converting content. When your videos perform well, the algorithm picks up spend and scales it — we run flexible budgets specifically to let winning content grow without a cap.'],
                 ['How do I know what\'s being spent?', 'You\'ll see a live breakdown of ad spend and your earnings in your dashboard each month, updated in real time.'],
-                ['When do I get paid?', 'Earnings are calculated at the end of each month and paid by the 5th of the following month via your selected payment method.'],
+                ['When do I get paid?', 'Earnings are calculated at the end of each month and paid by the end of the following calendar month via your selected payment method.'],
                 ['How do content revisions work?', 'Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. If a full re-shoot or concept change is needed, we\'ll discuss it together and agree on terms before proceeding.'],
                 ['How do I submit my content?', 'Through your Nama Partners dashboard. You\'ll get access immediately after signing up.'],
                 ['Is this month-to-month or a fixed contract?', minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'],
@@ -917,7 +921,7 @@ export default function InvitePage() {
             <div className="ni-term-sub">Compensation</div>
             <div className="ni-term-row">
               <span className="ni-term-key">Flat Fee</span>
-              <div className="ni-term-val"><div className="ni-term-primary">${flatFeeAmount?.toLocaleString()}</div><div className="ni-term-secondary">Paid by the 5th of the following month</div></div>
+              <div className="ni-term-val"><div className="ni-term-primary">${flatFeeAmount?.toLocaleString()}</div><div className="ni-term-secondary">Paid by the end of the following calendar month</div></div>
             </div>
             <div className="ni-term-divider" />
             <div className="ni-term-sub">Deliverable</div>
@@ -938,7 +942,7 @@ export default function InvitePage() {
             <div className="ni-sec-label">How It Works</div>
             <div className="ni-faq">
               {[
-                ['When do I get paid?', 'The flat fee is paid by the 5th of the month following content delivery, via your selected payment method.'],
+                ['When do I get paid?', 'The flat fee is paid by the end of the calendar month following content delivery, via your selected payment method.'],
                 [isExistingContent ? 'What link do I share?' : 'How do I deliver the content?', isExistingContent ? 'On the next step you\u2019ll paste the link to your existing post.' : 'Create your content and share it through your Nama Partners dashboard.'],
                 ['What does whitelisting mean?', `You grant Nama permission to run paid ads through your account using this piece of content for ${days} days from go-live.`],
                 ['Is this recurring?', 'No. This is a one-off partnership. Nothing further is committed beyond this single piece of content.'],
@@ -972,7 +976,7 @@ export default function InvitePage() {
           </div>
           <div className="ni-term-row">
             <span className="ni-term-key">Payment</span>
-            <div className="ni-term-val"><div className="ni-term-primary">By the 5th of the following month</div><div className="ni-term-secondary">Via your selected payment method</div></div>
+            <div className="ni-term-val"><div className="ni-term-primary">By the end of the following calendar month</div><div className="ni-term-secondary">Via your selected payment method</div></div>
           </div>
           {invite.has_ad_spend && adSpendPct > 0 && (
             <div className="ni-term-row">
@@ -1006,7 +1010,7 @@ export default function InvitePage() {
           <div className="ni-faq">
             {[
               ['How does the tracking work?', 'Every sale made using your unique link or discount code is tracked automatically. You can see your orders and earnings in your Nama Partners dashboard.'],
-              ['When do I get paid?', 'Commission is calculated at the end of each month and paid by the 5th of the following month via your selected payment method.'],
+              ['When do I get paid?', 'Commission is calculated at the end of each month and paid by the end of the following calendar month via your selected payment method.'],
               ['What counts as a sale?', 'Any completed order placed using your discount code or affiliate link. Returned or refunded orders are excluded from your commission.'],
               ['Is there a minimum to get paid?', 'No minimum — any commission earned that month gets paid out.'],
               ['Will I receive monthly product packages?', 'Yes — as a Nama Partner you\'re officially on our early access PR list. You\'ll receive notifications when a new collection or campaign is available to make selects, and you can request additional pieces anytime through your dashboard.'],
@@ -1193,7 +1197,7 @@ export default function InvitePage() {
             )}
             <div className="ni-m-sec-label">Partnership Terms</div>
             <div className="ni-m-term-sub">Compensation</div>
-            <div className="ni-m-term-row"><span className="ni-m-term-key">Retainer</span><div className="ni-term-val"><div className="ni-m-term-primary">${retainerAmount?.toLocaleString()} / month</div><div className="ni-m-term-secondary">Paid by the 5th of the following month</div></div></div>
+            <div className="ni-m-term-row"><span className="ni-m-term-key">Retainer</span><div className="ni-term-val"><div className="ni-m-term-primary">${retainerAmount?.toLocaleString()} / month</div><div className="ni-m-term-secondary">Paid by the end of the following calendar month</div></div></div>
             {hasAffiliateAddon && (
               <div className="ni-m-term-row"><span className="ni-m-term-key">Affiliate</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% commission</div><div className="ni-m-term-secondary">On your referred sales</div></div></div>
             )}
@@ -1213,7 +1217,7 @@ export default function InvitePage() {
             <div className="ni-m-sec-label">FAQ&apos;s</div>
             <div className="ni-m-faq">
               {[
-                ['When do I get paid?', 'Payment is sent by the 5th of the following month via your selected payment method.'],
+                ['When do I get paid?', 'Payment is sent by the end of the following calendar month via your selected payment method.'],
                 ['How do content revisions work?', 'Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. If a full re-shoot or concept change is needed, we\'ll discuss it together and agree on terms before proceeding.'],
                 ['Is this month-to-month or a fixed contract?', minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'],
                 ['How do I submit my content?', 'Through your Nama Partners dashboard. You\'ll get access immediately after signing up.'],
@@ -1286,7 +1290,7 @@ export default function InvitePage() {
               {[
                 ['How much will Nama spend on my content?', 'Our system automatically allocates more budget to high-converting content. When your videos perform well, the algorithm picks up spend and scales it — we run flexible budgets specifically to let winning content grow without a cap.'],
                 ['How do I know what\'s being spent?', 'You\'ll see a live breakdown of ad spend and your earnings in your dashboard each month, updated in real time.'],
-                ['When do I get paid?', 'Earnings are calculated at the end of each month and paid by the 5th of the following month via your selected payment method.'],
+                ['When do I get paid?', 'Earnings are calculated at the end of each month and paid by the end of the following calendar month via your selected payment method.'],
                 ['How do content revisions work?', 'Each video includes one round of minor edits — things like text changes, music swaps, or colour correction. If a full re-shoot or concept change is needed, we\'ll discuss it together and agree on terms before proceeding.'],
                 ['How do I submit my content?', 'Through your Nama Partners dashboard. You\'ll get access immediately after signing up.'],
                 ['Is this month-to-month or a fixed contract?', minimumCommitment ? `This partnership has a ${minimumCommitment}-month minimum commitment. After that, it's month-to-month with 2 weeks notice to end — no lock-in.` : 'Month-to-month. Either party can end the partnership with 2 weeks notice — no lock-in.'],
@@ -1360,7 +1364,7 @@ export default function InvitePage() {
             {renderOneOffChoiceCards(true)}
             <div className="ni-m-sec-label">Partnership Terms</div>
             <div className="ni-m-term-sub">Compensation</div>
-            <div className="ni-m-term-row"><span className="ni-m-term-key">Flat Fee</span><div className="ni-term-val"><div className="ni-m-term-primary">${flatFeeAmount?.toLocaleString()}</div><div className="ni-m-term-secondary">Paid by the 5th of the following month</div></div></div>
+            <div className="ni-m-term-row"><span className="ni-m-term-key">Flat Fee</span><div className="ni-term-val"><div className="ni-m-term-primary">${flatFeeAmount?.toLocaleString()}</div><div className="ni-m-term-secondary">Paid by the end of the following calendar month</div></div></div>
             <div className="ni-m-term-divider" />
             <div className="ni-m-term-sub">Deliverable</div>
             <div className="ni-m-term-row"><span className="ni-m-term-key">Content</span><div className="ni-term-val"><div className="ni-m-term-primary">1 piece of content</div><div className="ni-m-term-secondary">{isExistingContent ? 'Existing piece' : 'New piece for Nama'}</div></div></div>
@@ -1371,7 +1375,7 @@ export default function InvitePage() {
             <div className="ni-m-sec-label">How It Works</div>
             <div className="ni-m-faq">
               {[
-                ['When do I get paid?', 'The flat fee is paid by the 5th of the month following content delivery.'],
+                ['When do I get paid?', 'The flat fee is paid by the end of the calendar month following content delivery.'],
                 [isExistingContent ? 'What link do I share?' : 'How do I deliver the content?', isExistingContent ? 'On the next step you\u2019ll paste the link to your existing post.' : 'Create your content and share it through your Nama Partners dashboard.'],
                 ['What does whitelisting mean?', `You grant Nama permission to run paid ads through your account using this piece of content for ${days} days from go-live.`],
                 ['Is this recurring?', 'No. One-off partnership.'],
@@ -1400,7 +1404,7 @@ export default function InvitePage() {
           <div className="ni-m-sec-label">Partnership Terms</div>
           <div className="ni-m-term-sub">Compensation</div>
           <div className="ni-m-term-row"><span className="ni-m-term-key">Commission</span><div className="ni-term-val"><div className="ni-m-term-primary">{commissionRate}% per sale</div><div className="ni-m-term-secondary">Via your unique link &amp; discount code</div></div></div>
-          <div className="ni-m-term-row"><span className="ni-m-term-key">Payment</span><div className="ni-term-val"><div className="ni-m-term-primary">By the 5th of the following month</div><div className="ni-m-term-secondary">Via your selected payment method</div></div></div>
+          <div className="ni-m-term-row"><span className="ni-m-term-key">Payment</span><div className="ni-term-val"><div className="ni-m-term-primary">By the end of the following calendar month</div><div className="ni-m-term-secondary">Via your selected payment method</div></div></div>
           {invite.has_ad_spend && adSpendPct > 0 && (
             <div className="ni-m-term-row"><span className="ni-m-term-key">Ad Spend</span><div className="ni-term-val"><div className="ni-m-term-primary">{adSpendPct}% of spend</div><div className="ni-m-term-secondary">On monthly spend attributed to your content</div></div></div>
           )}
@@ -1418,7 +1422,7 @@ export default function InvitePage() {
           <div className="ni-m-faq">
             {[
               ['How does the tracking work?', 'Every sale made using your unique link or discount code is tracked automatically. You can see your orders and earnings in your Nama Partners dashboard.'],
-              ['When do I get paid?', 'Commission is calculated at the end of each month and paid by the 5th of the following month via your selected payment method.'],
+              ['When do I get paid?', 'Commission is calculated at the end of each month and paid by the end of the following calendar month via your selected payment method.'],
               ['What counts as a sale?', 'Any completed order placed using your discount code or affiliate link. Returned or refunded orders are excluded from your commission.'],
               ['Is there a minimum to get paid?', 'No minimum — any commission earned that month gets paid out.'],
               ['Will I receive monthly product packages?', 'Yes — as a Nama Partner you\'re officially on our early access PR list. You\'ll receive notifications when a new collection or campaign is available to make selects, and you can request additional pieces anytime through your dashboard.'],
@@ -1606,7 +1610,7 @@ export default function InvitePage() {
         <>
           <div className="ni-m-eyebrow">Last Step</div>
           <div className="ni-m-headline">How should<br /><em>we pay you?</em></div>
-          <p className="ni-m-intro">You&apos;ll receive your first payment by the 5th of next month.</p>
+          <p className="ni-m-intro">You&apos;ll receive your first payment by the end of the following calendar month.</p>
         </>
       )
     }

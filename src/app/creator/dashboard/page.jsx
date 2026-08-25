@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { uploadToR2 } from '@/lib/r2-upload'
+import TermsGate from '@/components/creator/terms-gate'
+import { CREATOR_TERMS_CURRENT, CREATOR_TERMS_KEY } from '@/lib/terms/versions'
 
 const CSS = `
 .cd-wrap { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #111; margin: 0; padding: 0; }
@@ -1044,6 +1046,7 @@ export default function CreatorDashboard() {
   const [paymentSaved, setPaymentSaved] = useState(false)
   const [wardrobeExpanded, setWardrobeExpanded] = useState(false)
   const [wardrobeSubTab, setWardrobeSubTab] = useState('wardrobe')
+  const [termsGateVersion, setTermsGateVersion] = useState(null)
 
   useEffect(() => {
     async function load() {
@@ -1093,6 +1096,22 @@ export default function CreatorDashboard() {
 
       const { data: inviteData } = await supabase.from('creator_invites').select('*').eq('id', creatorData.invite_id).single()
       setInvite(inviteData)
+
+      // Every creator must accept the current Creator Terms of Use before the
+      // dashboard is usable — v2 changed payment timing for all deal types, not
+      // just affiliates. Skipped for admins previewing someone else's dashboard;
+      // they must never see the gate or write an acceptance.
+      if (!isAdmin) {
+        const { data: acceptance, error: acceptanceError } = await supabase
+          .from('creator_terms_acceptances')
+          .select('id')
+          .eq('creator_id', creatorData.id)
+          .eq('document_key', CREATOR_TERMS_KEY)
+          .eq('document_version', CREATOR_TERMS_CURRENT)
+          .maybeSingle()
+        // Fail closed: if acceptance can't be proven, ask for it.
+        if (acceptanceError || !acceptance) setTermsGateVersion(CREATOR_TERMS_CURRENT)
+      }
 
       // Find linked influencer — by invite's influencer_id, or fallback to name match
       let infData = null
@@ -6218,6 +6237,11 @@ export default function CreatorDashboard() {
             <video controls autoPlay src={lightboxFile.r2_url || lightboxFile.media_url || lightboxFile.url} onClick={e => e.stopPropagation()} />
           )}
         </div>
+      )}
+
+      {/* Blocking terms re-acceptance gate */}
+      {termsGateVersion && (
+        <TermsGate version={termsGateVersion} onAccepted={() => setTermsGateVersion(null)} />
       )}
     </div>
   )

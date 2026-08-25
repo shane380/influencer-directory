@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/partnerships/paginate";
+import { CREATOR_TERMS_CURRENT, CREATOR_TERMS_KEY } from "@/lib/terms/versions";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -73,7 +74,7 @@ export async function GET(_request: NextRequest) {
   const inviteIds = creatorList.map((c) => c.invite_id).filter(Boolean);
   const creatorIds = creatorList.map((c) => c.id);
 
-  const [invitesRes, pendingReqsRes, submissionsRes] = await Promise.all([
+  const [invitesRes, pendingReqsRes, submissionsRes, termsRes] = await Promise.all([
     inviteIds.length > 0
       ? (db.from("creator_invites") as any)
           .select("id, influencer_id, shopify_code_status, has_affiliate, has_retainer")
@@ -91,7 +92,19 @@ export async function GET(_request: NextRequest) {
           .in("creator_id", creatorIds)
           .gte("created_at", yearAgoIso)
       : Promise.resolve({ data: [] as any[] }),
+    creatorIds.length > 0
+      ? (db.from("creator_terms_acceptances") as any)
+          .select("creator_id")
+          .in("creator_id", creatorIds)
+          .eq("document_key", CREATOR_TERMS_KEY)
+          .eq("document_version", CREATOR_TERMS_CURRENT)
+      : Promise.resolve({ data: [] as any[] }),
   ]);
+
+  // Who has accepted the terms version currently in force.
+  const termsAcceptedBy = new Set<string>(
+    ((termsRes.data || []) as any[]).map((t) => String(t.creator_id)),
+  );
 
   const invitesById = new Map<string, { influencer_id: string | null; shopify_code_status: string | null; has_affiliate: boolean; has_retainer: boolean }>();
   for (const inv of (invitesRes.data || []) as any[]) {
@@ -230,6 +243,7 @@ export async function GET(_request: NextRequest) {
     shopify_code_status: string | null;
     has_affiliate: boolean;
     has_retainer: boolean;
+    terms_accepted: boolean;
     commission_rate: number | null;
     revenue_mtd: number;
     orders_mtd: number;
@@ -261,6 +275,7 @@ export async function GET(_request: NextRequest) {
     shopify_code_status: null,
     has_affiliate: false,
     has_retainer: false,
+    terms_accepted: false,
     commission_rate: null,
     revenue_mtd: 0,
     orders_mtd: 0,
@@ -303,6 +318,7 @@ export async function GET(_request: NextRequest) {
       row.shopify_code_status = invite?.shopify_code_status ?? null;
       row.has_affiliate = invite?.has_affiliate ?? false;
       row.has_retainer = invite?.has_retainer ?? false;
+      row.terms_accepted = termsAcceptedBy.has(String(c.id));
       row.commission_rate = c.commission_rate;
       row.pending_requests_count = pendingByCreator.get(c.id) || 0;
       if (rev?.lastOrderDay) mergeActivity(row, `${rev.lastOrderDay}T00:00:00.000Z`);
@@ -327,6 +343,7 @@ export async function GET(_request: NextRequest) {
     row.shopify_code_status = invite?.shopify_code_status ?? null;
     row.has_affiliate = invite?.has_affiliate ?? false;
     row.has_retainer = invite?.has_retainer ?? false;
+    row.terms_accepted = termsAcceptedBy.has(String(c.id));
     row.commission_rate = c.commission_rate;
     row.pending_requests_count = pendingByCreator.get(c.id) || 0;
 

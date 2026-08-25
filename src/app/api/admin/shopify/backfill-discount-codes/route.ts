@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getShopifyAccessToken, getShopifyStoreUrl } from '@/lib/shopify';
+import { AFFILIATE_DISCOUNT_PERCENT } from '@/lib/affiliate-program';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -48,7 +49,6 @@ export async function POST() {
     }
 
     const code = creator.affiliate_code;
-    const commissionRate = creator.commission_rate || 10;
 
     try {
       // Step 1: Create price rule
@@ -67,7 +67,7 @@ export async function POST() {
               target_selection: 'all',
               allocation_method: 'across',
               value_type: 'percentage',
-              value: `-${commissionRate}.0`,
+              value: `-${AFFILIATE_DISCOUNT_PERCENT}.0`,
               customer_selection: 'all',
               starts_at: new Date().toISOString(),
               once_per_customer: false,
