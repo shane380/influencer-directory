@@ -54,17 +54,26 @@ export async function GET(request: NextRequest) {
   });
 }
 
-// PATCH: change a finding's status (acknowledge / resolve / ignore / reopen).
+// PATCH: change the status of one or more findings (acknowledge / resolve /
+// ignore / reopen).
+//
+// Takes `ids` because the UI groups findings by code: a code that tripped both
+// the coupon-referrer and referrer-mix detectors is one problem with one fix,
+// so rotating it has to close both at once. Leaving half the findings open
+// would make a handled code look unhandled. `id` is still accepted for a
+// single finding.
 export async function PATCH(request: NextRequest) {
   const user = await verifyAdmin();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json().catch(() => ({}));
-  const { id, status, notes } = body || {};
+  const { id, ids, status, notes } = body || {};
 
-  if (!id || !VALID_STATUSES.includes(status)) {
+  const targetIds: string[] = Array.isArray(ids) ? ids.filter(Boolean) : id ? [id] : [];
+
+  if (targetIds.length === 0 || !VALID_STATUSES.includes(status)) {
     return NextResponse.json(
-      { error: `id and a status of ${VALID_STATUSES.join(" | ")} are required` },
+      { error: `id or ids, plus a status of ${VALID_STATUSES.join(" | ")}, are required` },
       { status: 400 },
     );
   }
@@ -79,14 +88,13 @@ export async function PATCH(request: NextRequest) {
   const db = getAdminClient();
   const { data, error } = await (db.from("affiliate_code_leak_signals") as any)
     .update(update)
-    .eq("id", id)
-    .select()
-    .maybeSingle();
+    .in("id", targetIds)
+    .select();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!data || data.length === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  return NextResponse.json({ signal: data });
+  return NextResponse.json({ signals: data, updated: data.length });
 }
 
 // POST: run a scan now from the admin page. Calls the same function the cron
