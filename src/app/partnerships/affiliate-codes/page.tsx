@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Sidebar } from "@/components/sidebar";
 import { ArrowLeft, RefreshCw, ShieldAlert } from "lucide-react";
+import { groupByCode, type CodeGroup } from "@/lib/code-leak-grouping";
 
 type Signal = {
   id: string;
@@ -133,22 +134,28 @@ export default function AffiliateCodeLeaksPage() {
     load();
   }, [load]);
 
-  async function setStatus(id: string, status: Signal["status"]) {
-    // Optimistic: drop the row straight away unless we're showing everything.
+  // Acts on every finding for one code: rotating a code fixes all of its
+  // findings at once, so closing only the one you clicked would leave the card
+  // half-handled.
+  async function setGroupStatus(group: CodeGroup, status: Signal["status"]) {
+    const ids = group.signals.map((s) => s.id);
+    const idSet = new Set(ids);
     const previous = signals;
+
     setSignals((rows) =>
       showAll
-        ? rows.map((r) => (r.id === id ? { ...r, status } : r))
-        : rows.filter((r) => r.id !== id || status === "acknowledged"),
+        ? rows.map((r) => (idSet.has(r.id) ? { ...r, status } : r))
+        : rows.filter((r) => !idSet.has(r.id) || status === "acknowledged"),
     );
+
     const res = await fetch("/api/admin/code-leaks", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, status }),
+      body: JSON.stringify({ ids, status }),
     });
     if (!res.ok) {
       setSignals(previous);
-      setError("Could not update that finding");
+      setError(`Could not update ${group.code}`);
       return;
     }
     load();
@@ -248,109 +255,131 @@ export default function AffiliateCodeLeaksPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {signals.map((s) => {
-              const samples = (s.evidence?.samples || []) as Array<{
-                order_id: number;
-                created_at: string;
-                referring_site: string | null;
-              }>;
-              return (
-                <div
-                  key={s.id}
-                  className="bg-white border border-gray-200 rounded-lg px-5 py-4"
-                >
-                  <div className="flex items-start justify-between gap-4 flex-wrap">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span
-                          className={`text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded border ${SEVERITY_STYLE[s.severity]}`}
-                        >
-                          {SEVERITY_LABEL[s.severity]}
+            {groupByCode(signals).map((group) => (
+              <div
+                key={group.code}
+                className="bg-white border border-gray-200 rounded-lg px-5 py-4"
+              >
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span
+                        className={`text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded border ${SEVERITY_STYLE[group.severity]}`}
+                      >
+                        {SEVERITY_LABEL[group.severity]}
+                      </span>
+                      {group.status !== "open" && (
+                        <span className="text-[11px] text-gray-500 capitalize">
+                          {group.status}
                         </span>
-                        <span className="text-[11px] text-gray-500">
-                          {TYPE_LABEL[s.signal_type]}
-                        </span>
-                        {s.status !== "open" && (
-                          <span className="text-[11px] text-gray-500 capitalize">
-                            · {s.status}
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-1.5 text-base font-semibold text-gray-900">
-                        {s.affiliate_code}
-                        {s.owner_name && (
-                          <span className="font-normal text-gray-500"> · {s.owner_name}</span>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-700 mt-0.5 max-w-2xl">
-                        {s.evidence?.summary || "—"}
-                      </p>
-                      <div className="mt-2">
-                        <MixBar mix={s.evidence?.mix} />
-                      </div>
-                      {samples.length > 0 && (
-                        <table className="mt-2 text-[11px] text-gray-500">
-                          <tbody>
-                            {samples.map((o) => (
-                              <tr key={o.order_id}>
-                                <td className="pr-3 py-0.5 whitespace-nowrap">
-                                  {(o.created_at || "").slice(0, 10)}
-                                </td>
-                                <td className="pr-3 py-0.5">
-                                  {storeUrl ? (
-                                    <a
-                                      href={`https://${storeUrl}/admin/orders/${o.order_id}`}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="text-blue-600 hover:underline"
-                                    >
-                                      #{o.order_id}
-                                    </a>
-                                  ) : (
-                                    `#${o.order_id}`
-                                  )}
-                                </td>
-                                <td className="py-0.5 break-all">
-                                  {o.referring_site || "(direct)"}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
                       )}
-                      <p className="text-[11px] text-gray-400 mt-2">
-                        First seen {formatDate(s.first_detected_at)} · last seen{" "}
-                        {formatDate(s.last_detected_at)} · window {s.window_start} to{" "}
-                        {s.window_end}
-                      </p>
                     </div>
 
-                    <div className="flex flex-col gap-1.5 shrink-0">
-                      {s.status === "open" && (
-                        <button
-                          onClick={() => setStatus(s.id, "acknowledged")}
-                          className="text-xs px-3 py-1.5 rounded-md border border-gray-200 hover:bg-gray-50"
-                        >
-                          Acknowledge
-                        </button>
+                    <div className="mt-1.5 text-base font-semibold text-gray-900">
+                      {group.ownerName || group.code}
+                      {group.ownerName && (
+                        <span className="font-normal text-gray-500"> · {group.code}</span>
                       )}
-                      <button
-                        onClick={() => setStatus(s.id, "resolved")}
-                        className="text-xs px-3 py-1.5 rounded-md bg-gray-900 text-white hover:bg-gray-800"
-                      >
-                        Code rotated
-                      </button>
-                      <button
-                        onClick={() => setStatus(s.id, "ignored")}
-                        className="text-xs px-3 py-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-gray-50"
-                      >
-                        Not a leak
-                      </button>
                     </div>
+
+                    <div className="mt-2 max-w-md">
+                      <MixBar mix={group.signals[0]?.evidence?.mix} />
+                    </div>
+
+                    {/* Each detector that fired, with its own evidence. */}
+                    <div className="mt-3 space-y-2.5">
+                      {group.signals.map((s) => {
+                        const samples = (s.evidence?.samples || []) as Array<{
+                          order_id: number;
+                          created_at: string;
+                          referring_site: string | null;
+                        }>;
+                        return (
+                          <div
+                            key={s.id}
+                            className={`pl-3 border-l-2 ${
+                              s.severity === "confirmed"
+                                ? "border-red-400"
+                                : s.severity === "high"
+                                  ? "border-amber-400"
+                                  : "border-gray-300"
+                            }`}
+                          >
+                            <div className="text-[11px] text-gray-500">
+                              {TYPE_LABEL[s.signal_type]}
+                            </div>
+                            <p className="text-sm text-gray-700 max-w-2xl">
+                              {s.evidence?.summary || "—"}
+                            </p>
+                            {samples.length > 0 && (
+                              <table className="mt-1 text-[11px] text-gray-500">
+                                <tbody>
+                                  {samples.map((o) => (
+                                    <tr key={o.order_id}>
+                                      <td className="pr-3 py-0.5 whitespace-nowrap">
+                                        {(o.created_at || "").slice(0, 10)}
+                                      </td>
+                                      <td className="pr-3 py-0.5">
+                                        {storeUrl ? (
+                                          <a
+                                            href={`https://${storeUrl}/admin/orders/${o.order_id}`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="text-blue-600 hover:underline"
+                                          >
+                                            #{o.order_id}
+                                          </a>
+                                        ) : (
+                                          `#${o.order_id}`
+                                        )}
+                                      </td>
+                                      <td className="py-0.5 break-all">
+                                        {o.referring_site || "(direct)"}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <p className="text-[11px] text-gray-400 mt-2.5">
+                      {group.signals.length} finding
+                      {group.signals.length === 1 ? "" : "s"} · first seen{" "}
+                      {formatDate(group.firstDetected)} · last seen{" "}
+                      {formatDate(group.lastDetected)}
+                    </p>
+                  </div>
+
+                  {/* Actions apply to the whole code — one rotation fixes it all. */}
+                  <div className="flex flex-col gap-1.5 shrink-0">
+                    {group.status === "open" && (
+                      <button
+                        onClick={() => setGroupStatus(group, "acknowledged")}
+                        className="text-xs px-3 py-1.5 rounded-md border border-gray-200 hover:bg-gray-50"
+                      >
+                        Acknowledge
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setGroupStatus(group, "resolved")}
+                      className="text-xs px-3 py-1.5 rounded-md bg-gray-900 text-white hover:bg-gray-800"
+                    >
+                      Code rotated
+                    </button>
+                    <button
+                      onClick={() => setGroupStatus(group, "ignored")}
+                      className="text-xs px-3 py-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-gray-50"
+                    >
+                      Not a leak
+                    </button>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         )}
       </main>
