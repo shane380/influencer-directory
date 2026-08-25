@@ -304,3 +304,87 @@ export function groupByCreator(ads: PerfAd[]) {
     index: top > 0 ? Math.round((r.current.revenue / top) * 100) : 0,
   }));
 }
+
+// ── New ad tests ────────────────────────────────────────────────────────────
+
+export type LaunchWindow = 7 | 14 | 30;
+
+export interface NewCreatorRow {
+  handle: string;
+  /** Days since this creator's FIRST ad launched. */
+  daysSinceFirst: number;
+  ads: PerfAd[];
+  metrics: PerfMetrics;
+}
+
+export interface NewTests {
+  ads: PerfAd[];
+  metrics: PerfMetrics;
+  /** Blended figures for everything NOT new, as the benchmark to judge against. */
+  benchmark: PerfMetrics;
+  /** Creators whose first-ever ad launched inside the window. */
+  newCreators: NewCreatorRow[];
+  /** Distinct creators with at least one new ad, new or established. */
+  creatorCount: number;
+  /**
+   * Ads excluded because no launch date is stored. Surfaced rather than hidden:
+   * silently dropping 40% of the set makes the section quietly wrong, and the
+   * reader has no way to know.
+   */
+  undated: number;
+}
+
+/**
+ * Split a scope into "launched inside the window" and everything else, and
+ * work out which creators are genuinely new rather than established creators
+ * shipping new creative. Those are different questions and the page answers both.
+ *
+ * `allScopeAds` should be every ad known for the scope — including ones with no
+ * delivery in range — so "first ad ever" is judged against a creator's real
+ * history rather than only what the current window happens to contain.
+ */
+export function newTests(
+  inRange: PerfAd[],
+  allScopeAds: PerfAd[],
+  windowDays: LaunchWindow,
+): NewTests {
+  const isNew = (a: PerfAd) => a.days_live != null && a.days_live <= windowDays;
+
+  const fresh = inRange.filter(isNew);
+  const established = inRange.filter((a) => a.days_live != null && a.days_live > windowDays);
+  const undated = inRange.filter((a) => a.days_live == null).length;
+
+  // Earliest launch per creator, across everything we know about them.
+  const oldestByCreator = new Map<string, number>();
+  for (const a of allScopeAds) {
+    if (!a.handle || a.days_live == null) continue;
+    const seen = oldestByCreator.get(a.handle);
+    if (seen === undefined || a.days_live > seen) oldestByCreator.set(a.handle, a.days_live);
+  }
+
+  const byCreator = new Map<string, PerfAd[]>();
+  for (const a of fresh) {
+    if (!a.handle) continue;
+    const list = byCreator.get(a.handle) || [];
+    list.push(a);
+    byCreator.set(a.handle, list);
+  }
+
+  const newCreators: NewCreatorRow[] = [];
+  for (const [handle, ads] of byCreator) {
+    const first = oldestByCreator.get(handle);
+    // Their oldest known ad is itself inside the window → nothing predates it.
+    if (first === undefined || first > windowDays) continue;
+    newCreators.push({ handle, daysSinceFirst: first, ads, metrics: aggregate(ads) });
+  }
+  newCreators.sort((a, b) => b.metrics.spend - a.metrics.spend);
+
+  return {
+    ads: fresh,
+    metrics: aggregate(fresh),
+    benchmark: aggregate(established),
+    newCreators,
+    creatorCount: byCreator.size,
+    undated,
+  };
+}

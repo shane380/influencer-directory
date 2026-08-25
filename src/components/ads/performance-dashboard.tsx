@@ -13,6 +13,8 @@ import {
   formatMetric,
   groupByCreator,
   launchStatus,
+  newTests,
+  type LaunchWindow,
   rankBy,
   MIN_IMPRESSIONS_FOR_RATE,
   MIN_SPEND_FOR_RETURN,
@@ -120,7 +122,11 @@ export function PerformanceDashboard() {
 
   const [tab, setTab] = useState<Tab>("all");
   const [sort, setSort] = useState<SortKey>("spend");
-  const [launchWindow, setLaunchWindow] = useState(7);
+  // 30 rather than 7: on this account no partnership ad launched in the last
+  // week, so a 7-day default opens straight onto an empty section — which is
+  // what made this feature look broken in the first place. 30 always has
+  // content and narrows in one click.
+  const [launchWindow, setLaunchWindow] = useState<LaunchWindow>(30);
   const [scope, setScope] = useState<Scope>("All");
   const [query, setQuery] = useState("");
   const [campaign, setCampaign] = useState("All campaigns");
@@ -222,16 +228,28 @@ export function PerformanceDashboard() {
 
   const creatorRows = useMemo(() => groupByCreator(scoped), [scoped]);
 
-  const recent = useMemo(() => {
-    const blended = summary.cur.roas;
-    return scoped
-      .filter((a) => a.days_live != null && a.days_live <= launchWindow)
-      // Sorted by SPEND, not newest-first: newest-first fills this with same-day
-      // ads that have no signal yet.
+  // Every ad known for the active scope, including ones with no delivery in the
+  // selected range. "First ad ever" has to be judged against a creator's real
+  // history, not just what this window happens to contain — otherwise a creator
+  // who paused for a month reads as brand new.
+  const scopeAll = useMemo(
+    () => allAds.filter((a) => tab === "all" || a.partnership),
+    [allAds, tab],
+  );
+
+  const tests = useMemo(
+    () => newTests(scoped, scopeAll, launchWindow),
+    [scoped, scopeAll, launchWindow],
+  );
+
+  const testAds = useMemo(() => {
+    const blended = tests.benchmark.roas ?? summary.cur.roas;
+    return [...tests.ads]
+      // Spend-first, not newest-first: newest-first fills the grid with same-day
+      // ads carrying no signal yet.
       .sort((a, b) => b.spend - a.spend)
-      .slice(0, 4)
       .map((a) => ({ ad: a, status: launchStatus(a, blended) }));
-  }, [scoped, launchWindow, summary.cur.roas]);
+  }, [tests, summary.cur.roas]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -566,55 +584,182 @@ export function PerformanceDashboard() {
             </section>
           )}
 
-          {/* ── Recently launched ─────────────────────────────────────── */}
-          {recent.length > 0 && (
-            <section className="mb-8">
-              <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
-                <div>
-                  <h2 className="text-base font-semibold text-gray-900">Recently launched</h2>
-                  <p className="text-xs text-gray-500 mt-0.5">Highest spend among ads live in the window.</p>
-                </div>
-                <SegmentedControl
-                  value={String(launchWindow)}
-                  onChange={(v) => setLaunchWindow(Number(v))}
-                  options={[
-                    { value: "3", label: "3 days" },
-                    { value: "7", label: "7 days" },
-                    { value: "14", label: "14 days" },
-                  ]}
-                />
+          {/* ── New ad tests ──────────────────────────────────────────── */}
+          <section className="mb-8">
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">
+                  {tab === "wl" ? "New creator ads" : "New ad tests"}
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Launched in the last {launchWindow} days, against everything older.
+                </p>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                {recent.map(({ ad, status }) => (
-                  <div key={ad.ad_id} className="bg-white border border-gray-200 rounded-lg p-4 flex gap-4">
-                    <Thumb ad={ad} className="w-[88px] h-[110px] rounded-md" />
-                    <div className="flex-1 min-w-0 flex flex-col">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-[13px] font-semibold text-gray-900 truncate">{ad.name || "Untitled ad"}</p>
-                        <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 whitespace-nowrap ${status.className}`}>
-                          {status.label}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-gray-400 truncate mt-0.5">
-                        {ad.days_live} day{ad.days_live === 1 ? "" : "s"} live
-                        {ad.handle ? ` · @${ad.handle}` : ""}
-                      </p>
-                      <div className="grid grid-cols-4 gap-2 mt-auto pt-3">
-                        {(["spend", "roas", "ctr", "purchases"] as MetricKey[]).map((k) => (
-                          <div key={k}>
-                            <Label>{k === "purchases" ? "Purch." : METRIC_LABEL[k]}</Label>
-                            <div className="text-sm font-semibold text-gray-900 tabular-nums">
-                              {formatMetric(k, ad[k])}
-                            </div>
+              <SegmentedControl
+                value={String(launchWindow)}
+                onChange={(v) => setLaunchWindow(Number(v) as LaunchWindow)}
+                options={[
+                  { value: "7", label: "7 days" },
+                  { value: "14", label: "14 days" },
+                  { value: "30", label: "30 days" },
+                ]}
+              />
+            </div>
+
+            {tests.ads.length === 0 ? (
+              // Never render nothing. An empty window is a real answer — "no new
+              // ads launched" — and silently hiding the section reads as a bug.
+              <div className="bg-white border border-gray-200 rounded-lg py-10 text-center">
+                <p className="text-sm text-gray-600">
+                  No {tab === "wl" ? "creator " : ""}ads launched in the last {launchWindow} days.
+                </p>
+                {launchWindow < 30 && (
+                  <button
+                    onClick={() => setLaunchWindow(launchWindow === 7 ? 14 : 30)}
+                    className="text-[13px] text-gray-900 underline underline-offset-2 mt-1.5"
+                  >
+                    Try {launchWindow === 7 ? 14 : 30} days
+                  </button>
+                )}
+                {tests.undated > 0 && (
+                  <p className="text-[11px] text-gray-400 mt-2">
+                    {tests.undated} ad{tests.undated === 1 ? " has" : "s have"} no launch date stored and
+                    can&apos;t be aged.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <>
+                {/* How the new cohort is doing versus the established one. */}
+                <div className="bg-white border border-gray-200 rounded-lg px-5 py-4 mb-4">
+                  <div className="flex items-baseline justify-between gap-3 flex-wrap">
+                    <p className="text-[13px] text-gray-900">
+                      <span className="font-semibold">{tests.ads.length}</span> new ad
+                      {tests.ads.length === 1 ? "" : "s"} from{" "}
+                      <span className="font-semibold">{tests.creatorCount}</span> creator
+                      {tests.creatorCount === 1 ? "" : "s"}
+                      {tests.newCreators.length > 0 && (
+                        <>
+                          {" · "}
+                          <span className="text-indigo-700 font-semibold">
+                            {tests.newCreators.length} brand new
+                          </span>
+                        </>
+                      )}
+                    </p>
+                    <p className="text-[11px] text-gray-400">
+                      compared against {formatMetric("spend", tests.benchmark.spend)} on established ads
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                    {(["spend", "roas", "ctr", "cpa"] as MetricKey[]).map((k) => {
+                      const mine = tests.metrics[k];
+                      const base = tests.benchmark[k];
+                      // Rates and costs compare meaningfully against the
+                      // established cohort; spend does not (new ads have simply
+                      // had less time to spend), so it stays informational.
+                      const comparable = k !== "spend" && mine != null && base != null;
+                      return (
+                        <div key={k}>
+                          <Label>{METRIC_LABEL[k]}</Label>
+                          <div className="text-lg font-semibold text-gray-900 mt-0.5 tabular-nums">
+                            {formatMetric(k, mine)}
                           </div>
-                        ))}
-                      </div>
+                          {comparable ? (
+                            <div className="flex items-baseline gap-1.5">
+                              <Delta metric={k} current={mine} prev={base} />
+                              <span className="text-[11px] text-gray-400">
+                                vs {formatMetric(k, base)}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-gray-400">
+                              {k === "spend" ? "in this range" : "—"}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {tests.undated > 0 && (
+                    <p className="text-[11px] text-gray-400 mt-3">
+                      {tests.undated} ad{tests.undated === 1 ? "" : "s"} in range {tests.undated === 1 ? "has" : "have"} no
+                      stored launch date and {tests.undated === 1 ? "is" : "are"} excluded here.
+                    </p>
+                  )}
+                </div>
+
+                {/* Creators whose FIRST ad landed in this window. */}
+                {tests.newCreators.length > 0 && (
+                  <div className="bg-white border border-gray-200 rounded-lg px-5 py-4 mb-4">
+                    <h3 className="text-[13px] font-semibold text-gray-900">
+                      First ads from new creators
+                    </h3>
+                    <p className="text-[11px] text-gray-500 mt-0.5 mb-3">
+                      Nothing of theirs ran before this window.
+                    </p>
+                    <div className="space-y-3">
+                      {tests.newCreators.map((c) => (
+                        <div key={c.handle} className="flex items-center gap-4 flex-wrap">
+                          <div className="w-[190px] min-w-0">
+                            <p className="text-[13px] font-semibold text-indigo-700 truncate">@{c.handle}</p>
+                            <p className="text-[11px] text-gray-500">
+                              {c.ads.length} ad{c.ads.length === 1 ? "" : "s"} · first {c.daysSinceFirst}d ago
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-4 gap-4 flex-1 min-w-[300px]">
+                            {(["spend", "roas", "ctr", "purchases"] as MetricKey[]).map((k) => (
+                              <div key={k}>
+                                <Label>{METRIC_LABEL[k]}</Label>
+                                <div className="text-sm font-semibold text-gray-900 tabular-nums">
+                                  {formatMetric(k, c.metrics[k])}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
-            </section>
-          )}
+                )}
+
+                {/* Every new ad, not just a top handful — this is the test board. */}
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                  {testAds.map(({ ad, status }) => (
+                    <div key={ad.ad_id} className="bg-white border border-gray-200 rounded-lg p-4 flex gap-4">
+                      <Thumb ad={ad} className="w-[88px] h-[110px] rounded-md" />
+                      <div className="flex-1 min-w-0 flex flex-col">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-[13px] font-semibold text-gray-900 truncate">
+                            {ad.name || "Untitled ad"}
+                          </p>
+                          <span
+                            className={`text-[10px] font-semibold rounded-full px-2 py-0.5 whitespace-nowrap ${status.className}`}
+                          >
+                            {status.label}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-gray-400 truncate mt-0.5">
+                          {ad.days_live}d live
+                          {ad.handle ? ` · @${ad.handle}` : ""}
+                        </p>
+                        <div className="grid grid-cols-4 gap-2 mt-auto pt-3">
+                          {(["spend", "roas", "ctr", "purchases"] as MetricKey[]).map((k) => (
+                            <div key={k}>
+                              <Label>{k === "purchases" ? "Purch." : METRIC_LABEL[k]}</Label>
+                              <div className="text-sm font-semibold text-gray-900 tabular-nums">
+                                {formatMetric(k, ad[k])}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </section>
 
           {/* ── Table ─────────────────────────────────────────────────── */}
           <section>
