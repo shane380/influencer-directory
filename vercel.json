@@ -31,6 +31,10 @@
     {
       "path": "/api/cron/generate-payments",
       "schedule": "0 0 28-31 * *"
+    },
+    {
+      "path": "/api/cron/scan-code-leaks",
+      "schedule": "0 7 1,15 * *"
     }
   ]
 }

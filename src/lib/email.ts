@@ -39,6 +39,40 @@ export async function sendEmail({
   return data;
 }
 
+/**
+ * Internal ops mail — alerts to staff, not creator marketing.
+ *
+ * Deliberately does NOT go through sendEmail: that attaches List-Unsubscribe
+ * headers and an unsubscribe link, and /api/unsubscribe blanks
+ * notification_preferences on whichever `creators` row matches that address.
+ * Staff who are also creators (several are) would silently lose their campaign,
+ * content and invite emails by unsubscribing from an ops alert — and any
+ * recipient could switch off the alerting itself with one click.
+ */
+export async function sendInternalEmail({
+  to,
+  subject,
+  html,
+}: {
+  to: string;
+  subject: string;
+  html: string;
+}) {
+  const { data, error } = await getResend().emails.send({
+    from: "Nama Ops <partners@partners.namaclo.com>",
+    to,
+    subject,
+    html,
+  });
+
+  if (error) {
+    console.error("Resend internal email error:", error);
+    throw new Error(error.message || "Failed to send internal email");
+  }
+
+  return data;
+}
+
 export function replacePlaceholders(
   text: string,
   vars: Record<string, string>
