@@ -42,10 +42,10 @@ export async function GET(request: NextRequest) {
     const result = await scanCodeLeaks({ days, windowDays, dryRun, supabase: db });
 
     let emailed: string[] = [];
-    if (!dryRun && result.newSignals.length > 0) {
+    if (!dryRun && result.alertSignals.length > 0) {
       emailed = await sendLeakDigest({
         db,
-        signals: result.newSignals,
+        signals: result.alertSignals,
         windowStart: result.windowStart,
         windowEnd: result.windowEnd,
         storeUrl: getShopifyStoreUrl(),
@@ -55,7 +55,8 @@ export async function GET(request: NextRequest) {
     console.log(
       `[cron/scan-code-leaks] ${result.codesTracked} codes, ${result.ordersScanned} orders ` +
       `(${result.affiliateOrders} affiliate), ${result.signals.length} signals ` +
-      `(${result.newSignals.length} new), emailed ${emailed.length} in ${result.durationMs}ms` +
+      `(${result.newSignals.length} new, ${result.alertSignals.length} alertable), ` +
+      `emailed ${emailed.length} in ${result.durationMs}ms` +
       (dryRun ? " [dry run]" : ""),
     );
 

@@ -103,10 +103,10 @@ export async function POST(request: NextRequest) {
     const result = await scanCodeLeaks({ dryRun, supabase: db });
 
     let emailed: string[] = [];
-    if (!dryRun && result.newSignals.length > 0) {
+    if (!dryRun && result.alertSignals.length > 0) {
       emailed = await sendLeakDigest({
         db,
-        signals: result.newSignals,
+        signals: result.alertSignals,
         windowStart: result.windowStart,
         windowEnd: result.windowEnd,
         storeUrl: getShopifyStoreUrl(),

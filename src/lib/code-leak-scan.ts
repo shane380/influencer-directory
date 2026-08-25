@@ -120,6 +120,15 @@ export interface LeakSignal {
   window_end: string;
 }
 
+/**
+ * Findings at or above this severity are worth an email. `usage_spike` sits
+ * below it on purpose: a 3x jump in a code's order count is also what a
+ * creator going viral looks like, and an alert you have to dismiss as
+ * "not a leak" trains you to stop reading the digest. Spikes still get
+ * recorded and still show on the admin page — they just don't interrupt.
+ */
+const EMAIL_SEVERITIES: Severity[] = ["confirmed", "high"];
+
 export interface ScanResult {
   windowStart: string;
   windowEnd: string;
@@ -128,8 +137,10 @@ export interface ScanResult {
   ordersScanned: number;
   affiliateOrders: number;
   signals: LeakSignal[];
-  /** Findings not already tracked as open — the only ones worth emailing about. */
+  /** Findings not already tracked. Includes every severity. */
   newSignals: LeakSignal[];
+  /** The subset of newSignals worth interrupting someone for — what gets emailed. */
+  alertSignals: LeakSignal[];
   durationMs: number;
   dryRun: boolean;
 }
@@ -499,6 +510,7 @@ export async function scanCodeLeaks(opts: {
           affiliate_orders: orders.length,
           signals_found: signals.length,
           new_signals: newSignals.length,
+          alert_signals: newSignals.filter((s) => EMAIL_SEVERITIES.includes(s.severity)).length,
           duration_ms: Date.now() - t0,
         }),
         updated_at: new Date().toISOString(),
@@ -506,6 +518,8 @@ export async function scanCodeLeaks(opts: {
       { onConflict: "key" },
     );
   }
+
+  const alertSignals = newSignals.filter((s) => EMAIL_SEVERITIES.includes(s.severity));
 
   return {
     windowStart: windowStart.toISOString().slice(0, 10),
@@ -516,6 +530,7 @@ export async function scanCodeLeaks(opts: {
     affiliateOrders: orders.length,
     signals,
     newSignals,
+    alertSignals,
     durationMs: Date.now() - t0,
     dryRun,
   };
