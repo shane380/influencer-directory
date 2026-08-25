@@ -8,7 +8,12 @@ const CSS = `
 .tg-overlay { position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; padding: 32px 20px; overflow-y: auto; }
 @media (max-width: 768px) { .tg-overlay { padding: 0; align-items: stretch; } }
 .tg-panel { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #111; background: #fff; width: 100%; max-width: 640px; max-height: 100%; display: flex; flex-direction: column; animation: tg-up 0.22s ease; }
-@media (max-width: 768px) { .tg-panel { max-width: none; max-height: none; min-height: 100%; } }
+/* 100% of the fixed, inset:0 overlay — not 100dvh, which resolves taller than
+   the overlay on mobile and pushed the panel below the fold. */
+/* No slide-up on mobile: the panel is the full screen, so a transform that
+   stalls leaves it offset and pushes the button toward the edge. */
+@media (max-width: 768px) { .tg-panel { max-width: none; height: 100%; max-height: 100%; animation: none; } }
+.tg-scroll { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 @keyframes tg-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 .tg-head { padding: 32px 32px 20px; border-bottom: 1px solid #ebebeb; flex-shrink: 0; }
 @media (max-width: 768px) { .tg-head { padding: 28px 22px 18px; } }
@@ -27,6 +32,15 @@ const CSS = `
 .tg-doc .ct-body { font-size: 13.5px; }
 .tg-foot { padding: 22px 32px 28px; flex-shrink: 0; background: #fff; }
 @media (max-width: 768px) { .tg-foot { padding: 20px 22px calc(24px + env(safe-area-inset-bottom)); } }
+/* Mobile: the intro scrolls away with the document instead of staying pinned.
+   A fixed header held a third of the screen for a lede already read, leaving
+   ~390px to read 10,000px of terms through. The checkbox and button stay put. */
+@media (max-width: 768px) {
+  .tg-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .tg-head { border-bottom: none; padding-bottom: 4px; }
+  .tg-doc { flex: none; overflow: visible; border-bottom: none; }
+  .tg-foot { border-top: 1px solid #ebebeb; }
+}
 .tg-openlink { display: inline-block; font-size: 11.5px; color: #888; text-decoration: underline; text-underline-offset: 2px; margin-bottom: 18px; }
 .tg-openlink:hover { color: #111; }
 .tg-agree-row { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 20px; }
@@ -88,6 +102,7 @@ export default function TermsGate({ version, onAccepted }) {
       <style>{CSS}</style>
 
       <div className="tg-panel">
+        <div className="tg-scroll">
         <div className="tg-head">
           <div className="tg-eyebrow">Updated Terms</div>
           <div className="tg-title" id="tg-title">We&apos;ve updated our Creator Terms</div>
@@ -101,6 +116,7 @@ export default function TermsGate({ version, onAccepted }) {
 
         <div className="tg-doc">
           <Doc />
+        </div>
         </div>
 
         <div className="tg-foot">
