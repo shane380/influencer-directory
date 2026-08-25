@@ -6,6 +6,7 @@ import { metaFetch, META_API_VERSION, sumActionValue, pickActionValue, metaCallC
 import {
   fetchAccountSweep,
   fetchAdCreatives,
+  fetchAdDetails,
   type AccountSweep,
 } from "./meta-account-sync";
 
@@ -401,6 +402,38 @@ async function persistAccountSweep(
       creative_synced_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
+  }
+
+  // ── 3b. Repair rows with no launch date ───────────────────────────────────
+  // Ads seeded from the old per-creator blobs have no created_time — that table
+  // never stored one. Measured: 94 of 229 partnership ads, 41%. Without a launch
+  // date an ad can never appear in "new ad tests" or be aged, so it is invisible
+  // to the whole feature regardless of the window chosen.
+  //
+  // created_time is immutable, so this repairs each ad once and then never again.
+  // Bounded per run so a large first pass cannot eat the sweep's budget.
+  const missingLaunchDate = Array.from(rowsById.values())
+    .filter((r) => !r.created_time)
+    .map((r) => r.ad_id);
+  if (missingLaunchDate.length > 0) {
+    const REPAIR_CAP = 300;
+    const batch = missingLaunchDate.slice(0, REPAIR_CAP);
+    console.log(
+      `[meta-sync] repairing launch date for ${batch.length}/${missingLaunchDate.length} ad(s)`,
+    );
+    const { list: repaired } = await fetchAdDetails(accessToken, batch);
+    let fixed = 0;
+    for (const [adId, rec] of repaired) {
+      const row = rowsById.get(adId);
+      if (!row || !rec.created_time) continue;
+      row.created_time = rec.created_time;
+      // Status and name ride along free in the same response.
+      row.status = rec.status ?? row.status;
+      row.effective_status = rec.effective_status ?? row.effective_status;
+      row.ad_name = row.ad_name ?? rec.ad_name;
+      fixed++;
+    }
+    console.log(`[meta-sync] launch date recovered for ${fixed} ad(s)`);
   }
 
   // ── 4. Creative expansion — new ad ids only, under a time budget ──────────
