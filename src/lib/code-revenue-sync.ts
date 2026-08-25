@@ -11,25 +11,14 @@ export function getServiceClient() {
 }
 
 /**
- * Refresh the creator_code_revenue_daily cache for all active affiliate codes
- * over [startDate, endDate]. Existing rows in that window get overwritten via
- * upsert on (affiliate_code, date). Rows outside the window are untouched.
+ * Every distinct affiliate code we track, upper-cased and de-duplicated:
+ * partner codes on `creators` plus GoAffPro codes on `legacy_affiliates`.
+ * Anything that can land in an order's `discount_codes` counts.
+ *
+ * Shared by the code-revenue sync and the leak scan so the two never disagree
+ * about which codes exist.
  */
-export async function syncCodeRevenue(
-  startDate: Date,
-  endDate: Date,
-  supabase?: any,
-): Promise<{
-  codesProcessed: number;
-  rowsUpserted: number;
-  durationMs: number;
-}> {
-  const t0 = Date.now();
-  const db = supabase || getServiceClient();
-
-  // Collect every distinct affiliate_code on the creators table, plus any
-  // legacy_affiliates if that table exists. We only need codes — anything that
-  // gets recorded against an order's discount_codes counts.
+export async function listAllAffiliateCodes(db: any): Promise<string[]> {
   const { data: creators } = await (db.from("creators") as any)
     .select("affiliate_code")
     .not("affiliate_code", "is", null);
@@ -47,7 +36,27 @@ export async function syncCodeRevenue(
     // legacy_affiliates table may not exist in all envs
   }
 
-  const codes = Array.from(new Set([...creatorCodes, ...legacyCodes].map((c) => c.toUpperCase())));
+  return Array.from(new Set([...creatorCodes, ...legacyCodes].map((c) => c.toUpperCase())));
+}
+
+/**
+ * Refresh the creator_code_revenue_daily cache for all active affiliate codes
+ * over [startDate, endDate]. Existing rows in that window get overwritten via
+ * upsert on (affiliate_code, date). Rows outside the window are untouched.
+ */
+export async function syncCodeRevenue(
+  startDate: Date,
+  endDate: Date,
+  supabase?: any,
+): Promise<{
+  codesProcessed: number;
+  rowsUpserted: number;
+  durationMs: number;
+}> {
+  const t0 = Date.now();
+  const db = supabase || getServiceClient();
+
+  const codes = await listAllAffiliateCodes(db);
   if (codes.length === 0) {
     return { codesProcessed: 0, rowsUpserted: 0, durationMs: Date.now() - t0 };
   }

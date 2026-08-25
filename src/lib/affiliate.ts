@@ -6,7 +6,7 @@ import { getShopifyAccessToken, getShopifyStoreUrl } from "./shopify";
 // (the May-2026 March underpayment was caused by exactly this). Retry on
 // 429/5xx with backoff (honouring Retry-After); the caller throws if a page
 // still can't be fetched, so a partial scan is never treated as complete.
-async function shopifyFetch(url: string, accessToken: string, tries = 6): Promise<Response> {
+export async function shopifyFetch(url: string, accessToken: string, tries = 6): Promise<Response> {
   let lastErr: unknown;
   for (let attempt = 0; attempt < tries; attempt++) {
     try {

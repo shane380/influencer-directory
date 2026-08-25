@@ -104,7 +104,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
 
   // Auto-expand submenus when on a matching page
   useEffect(() => {
-    if (pathname?.startsWith('/partnerships/creators') || pathname?.startsWith('/partnerships/campaigns')) {
+    if (pathname?.startsWith('/partnerships/creators') || pathname?.startsWith('/partnerships/campaigns') || pathname?.startsWith('/partnerships/affiliate-codes')) {
       setPartnersExpanded(true);
     }
     if (pathname?.startsWith('/gifting') || pathname?.startsWith('/campaigns')) {
@@ -322,7 +322,7 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
             const Icon = item.icon;
             const isActive = activeTab === item.id ||
               (item.id === "gifting" && (pathname?.startsWith("/gifting") || pathname?.startsWith("/campaigns"))) ||
-              (item.id === "partners" && (pathname?.startsWith("/partnerships/creators") || pathname?.startsWith("/partnerships/campaigns"))) ||
+              (item.id === "partners" && (pathname?.startsWith("/partnerships/creators") || pathname?.startsWith("/partnerships/campaigns") || pathname?.startsWith("/partnerships/affiliate-codes"))) ||
               (item.id === "ads" && pathname?.startsWith("/ads")) ||
               (item.id === "payments" && pathname?.startsWith("/partnerships/payments") && !pathname.startsWith("/partnerships/payments-v2")) ||
               (item.id === "payments_v2" && pathname?.startsWith("/partnerships/payments-v2"));
@@ -428,6 +428,19 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
                         }`}
                       >
                         Partner Campaigns
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        href="/partnerships/affiliate-codes"
+                        onClick={(e) => e.stopPropagation()}
+                        className={`block px-2 py-1.5 text-sm rounded-md transition-colors ${
+                          pathname === "/partnerships/affiliate-codes"
+                            ? "text-gray-900 bg-gray-100 font-medium"
+                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                        }`}
+                      >
+                        Code Leaks
                       </Link>
                     </li>
                   </ul>
