@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { calculateAffiliateCommission, calculateBulkAffiliateCommissions, checkRefundAdjustments } from "@/lib/affiliate";
+import { loadCodeAliases, codesForOwner } from "@/lib/affiliate-code-aliases";
 import { verifyAdmin, getAdminClient } from "@/lib/admin-auth";
 import { decryptField } from "@/lib/encryption";
 
@@ -122,6 +123,10 @@ export async function GET(request: NextRequest) {
   // 7. Calculate affiliate commissions
   // Past months: use stored calculation_details; only call Shopify if no existing row
   // Current month: always call Shopify live
+  // Codes rotated away from, so a creator who had a leaked code replaced is
+  // still paid for the orders placed on the old one earlier in the month.
+  const aliases = await loadCodeAliases(supabase);
+
   const affiliateResults = new Map<string, { amount: number; notes: string; details: any }>();
   const rowsToAutoInsert: any[] = []; // For persisting first-view past-month calculations
 
@@ -158,7 +163,8 @@ export async function GET(request: NextRequest) {
     // Past month with NO existing row, or current month: calculate live
     const excluded = excludedByInfluencer.get(influencerId) || [];
     try {
-      const result = await calculateAffiliateCommission(c.affiliate_code, month, rate / 100, excluded);
+      const ownerCodes = codesForOwner(c.affiliate_code, aliases.byCreator.get(c.id));
+      const result = await calculateAffiliateCommission(ownerCodes, month, rate / 100, excluded);
       const detailsWithOrders = { ...result.summary, orders: result.orders };
       affiliateResults.set(influencerId, {
         amount: result.summary.commission_owed,
@@ -244,6 +250,7 @@ export async function GET(request: NextRequest) {
         legacyToCalc.map((la: any) => ({
           code: la.discount_code,
           commissionRate: (la.commission_rate || 25) / 100,
+          aliases: aliases.byLegacyAffiliate.get(la.id) || [],
         })),
         month
       );

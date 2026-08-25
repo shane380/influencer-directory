@@ -54,7 +54,10 @@ interface Owner {
 // rate-limit, so a partial scan never silently truncates).
 export async function buildAffiliateEvents(
   owner: Owner,
-  code: string,
+  // A single code, or the owner's current code plus everything they have
+  // rotated away from — otherwise a rotation silently drops pre-rotation
+  // orders out of the ledger.
+  code: string | string[],
   rate: number, // decimal, e.g. 0.25
   period: string,
   excludedOrderIds: number[] = [],
