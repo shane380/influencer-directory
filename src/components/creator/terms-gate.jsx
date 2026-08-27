@@ -21,6 +21,8 @@ const CSS = `
 .tg-title { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 300; line-height: 1.15; margin-bottom: 10px; }
 @media (max-width: 768px) { .tg-title { font-size: 22px; } }
 .tg-lede { font-size: 13.5px; color: #666; font-weight: 300; line-height: 1.75; }
+.tg-ratechange { margin-top: 16px; border: 1px solid #e8d9b0; background: #fdfaf1; padding: 14px 16px; font-size: 13px; color: #6b5b32; font-weight: 300; line-height: 1.7; }
+.tg-ratechange strong { font-weight: 500; color: #57492a; }
 .tg-doc { flex: 1; overflow-y: auto; padding: 28px 32px; border-bottom: 1px solid #ebebeb; -webkit-overflow-scrolling: touch; }
 @media (max-width: 768px) { .tg-doc { padding: 24px 22px; } }
 /* The document component ships the full-page terms styling; scale the
@@ -54,6 +56,11 @@ const CSS = `
 .tg-error { font-size: 12px; color: #b23c3c; margin-top: 12px; font-weight: 300; line-height: 1.6; }
 `
 
+function formatDate(iso) {
+  const d = new Date(`${iso}T00:00:00`)
+  return isNaN(d) ? iso : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
 /**
  * Blocking re-acceptance gate. Shown when an affiliate has not accepted the
  * current Creator Terms of Use. Deliberately has no close
@@ -64,6 +71,18 @@ export default function TermsGate({ version, onAccepted }) {
   const [agreed, setAgreed] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [rateChange, setRateChange] = useState(null)
+
+  // Tell people their rate is moving rather than letting them find out after
+  // accepting. Silent on failure — a missing notice must never block the gate.
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/creators/rate-change')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (!cancelled && d?.pending) setRateChange(d.pending) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   const Doc = CREATOR_TERMS_COMPONENTS[version]
 
@@ -109,9 +128,18 @@ export default function TermsGate({ version, onAccepted }) {
           <p className="tg-lede">
             Please read and accept the updated Creator Terms of Use to continue to your dashboard.
             The main change is payment timing: partner payments now land by the end of the
-            following calendar month. Section 13 covers the Affiliate Program. Your partnership
-            and rates are otherwise unchanged.
+            following calendar month. Section 13 covers the Affiliate Program, including the
+            current program rates.
           </p>
+
+          {rateChange && (
+            <div className="tg-ratechange">
+              <strong>Your commission rate is changing.</strong> From {formatDate(rateChange.effectiveFrom)},
+              your affiliate commission moves from {rateChange.currentRate}% to {rateChange.newRate}% —
+              the program standard, alongside 15% off for your audience. Earnings before that date are
+              unaffected. See section 13.2.
+            </div>
+          )}
         </div>
 
         <div className="tg-doc">
