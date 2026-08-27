@@ -10,6 +10,21 @@
 //   node scripts/backfill-commission-events.mjs 2026-01,2026-02 (dry run, specific months)
 //   node scripts/backfill-commission-events.mjs 2026-03 --apply (write events)
 
+// ============================================================================
+// WARNING — DO NOT RE-RUN WITHOUT PORTING THE RATE LOOKUP FIRST.
+//
+// Lines below read commission_rate straight off legacy_affiliates / creators.
+// That scalar is no longer "the rate" — it is only the rate until a scheduled
+// one in affiliate_commission_rates supersedes it (see src/lib/affiliate-
+// program.ts). src/lib/commission-events-sync.ts was moved onto the schedule;
+// this script was not.
+//
+// Because the upsert is keyed on (creator_key, event_type, source_id), running
+// this as-is would rewrite the rate and amount on every event it re-sees,
+// repricing months that were earned at a different rate. Port it to
+// loadCommissionRateSchedule before running it again.
+// ============================================================================
+
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "fs";
 
