@@ -404,6 +404,10 @@ const CSS = `
 
 /* EARNINGS CARD */
 .cd-earnings { background: #fff; border: 1px solid #e8e8e8; }
+.cd-rate-note { border: 1px solid #e8d9b0; background: #fdfaf1; padding: 10px 13px; font-size: 11.5px; color: #6b5b32; line-height: 1.65; margin: 12px 36px 0; }
+.cd-rate-note strong { font-weight: 500; color: #57492a; }
+.cd-m-rate-note { border: 1px solid #e8d9b0; background: #fdfaf1; padding: 10px 12px; font-size: 11px; color: #6b5b32; line-height: 1.6; margin: 10px 20px 0; }
+.cd-m-rate-note strong { font-weight: 500; color: #57492a; }
 .cd-earnings-head { padding: 32px 36px 0; margin-bottom: 24px; display: flex; align-items: flex-start; justify-content: space-between; }
 .cd-earnings-title { font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 300; color: #111; line-height: 1; }
 .cd-earnings-eyebrow { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: #aaa; display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
@@ -1047,6 +1051,7 @@ export default function CreatorDashboard() {
   const [wardrobeExpanded, setWardrobeExpanded] = useState(false)
   const [wardrobeSubTab, setWardrobeSubTab] = useState('wardrobe')
   const [termsGateVersion, setTermsGateVersion] = useState(null)
+  const [rateChange, setRateChange] = useState(null)
 
   useEffect(() => {
     async function load() {
@@ -1096,6 +1101,15 @@ export default function CreatorDashboard() {
 
       const { data: inviteData } = await supabase.from('creator_invites').select('*').eq('id', creatorData.invite_id).single()
       setInvite(inviteData)
+
+      // Upcoming commission change, so the rate on screen isn't quietly
+      // superseded. Fire-and-forget: never block the dashboard on it.
+      if (!isAdmin) {
+        fetch('/api/creators/rate-change')
+          .then(r => (r.ok ? r.json() : null))
+          .then(d => { if (d?.pending) setRateChange(d.pending) })
+          .catch(() => {})
+      }
 
       // Every creator must accept the current Creator Terms of Use before the
       // dashboard is usable — v2 changed payment timing for all deal types, not
@@ -1646,6 +1660,18 @@ export default function CreatorDashboard() {
     const n = parseFloat(val)
     if (n >= 1000) return `$${(n / 1000).toFixed(1)}K`
     return `$${n.toLocaleString('en-US', { minimumFractionDigits: 0 })}`
+  }
+
+  function rateChangeNote(mobile) {
+    if (!rateChange) return null
+    const d = new Date(`${rateChange.effectiveFrom}T00:00:00`)
+    const when = isNaN(d) ? rateChange.effectiveFrom : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+    return (
+      <div className={mobile ? 'cd-m-rate-note' : 'cd-rate-note'}>
+        <strong>Your commission rate changes on {when}.</strong> It moves from {rateChange.currentRate}% to {rateChange.newRate}%.
+        Earnings before that date are unaffected.
+      </div>
+    )
   }
 
   function formatImpressions(val) {
@@ -2357,7 +2383,7 @@ export default function CreatorDashboard() {
           <div className="cd-m-earnings">
             <div className="cd-m-earnings-head">
               <div className="cd-m-earnings-eyebrow">Combined · All Sources</div>
-              <div className="cd-m-earnings-title">{monthOnly} Earnings</div>
+              <div className="cd-m-earnings-title">{monthOnly} Estimated Earnings</div>
             </div>
             <div className="cd-m-earnings-hero">
               <div className="cd-skel cd-skel-stat-lg" style={{ marginBottom: 8 }} />
@@ -2371,7 +2397,7 @@ export default function CreatorDashboard() {
           <div className="cd-earnings-head">
             <div>
               <div className="cd-earnings-eyebrow">Combined · All Sources</div>
-              <div className="cd-earnings-title">{monthOnly} Earnings</div>
+              <div className="cd-earnings-title">{monthOnly} Estimated Earnings</div>
             </div>
           </div>
           <div className="cd-earnings-hero">
@@ -2397,7 +2423,7 @@ export default function CreatorDashboard() {
         <div className="cd-m-earnings">
           <div className="cd-m-earnings-head">
             <div className="cd-m-earnings-eyebrow">Combined · All Sources</div>
-            <div className="cd-m-earnings-title">{monthOnly} Earnings</div>
+            <div className="cd-m-earnings-title">{monthOnly} Estimated Earnings</div>
           </div>
           <div className="cd-m-earnings-hero">
             <div className="cd-m-earnings-sublabel">{monthName} — In Progress</div>
@@ -2441,7 +2467,7 @@ export default function CreatorDashboard() {
         <div className="cd-earnings-head">
           <div>
             <div className="cd-earnings-eyebrow">Combined · All Sources</div>
-            <div className="cd-earnings-title">{monthOnly} Earnings</div>
+            <div className="cd-earnings-title">{monthOnly} Estimated Earnings</div>
           </div>
         </div>
         <div className="cd-earnings-hero">
@@ -2497,7 +2523,7 @@ export default function CreatorDashboard() {
           <div className="cd-m-earnings">
             <div className="cd-m-earnings-head">
               <div className="cd-m-earnings-eyebrow">Ad Spend Commission</div>
-              <div className="cd-m-earnings-title">Ad Spend Earnings</div>
+              <div className="cd-m-earnings-title">Estimated Ad Spend Earnings</div>
             </div>
             <div className="cd-m-earnings-hero">
               <div className="cd-skel cd-skel-stat-lg" style={{ marginBottom: 8 }} />
@@ -2514,7 +2540,7 @@ export default function CreatorDashboard() {
           <div className="cd-earnings-head">
             <div>
               <div className="cd-earnings-eyebrow">Ad Spend Commission</div>
-              <div className="cd-earnings-title">Ad Spend Earnings</div>
+              <div className="cd-earnings-title">Estimated Ad Spend Earnings</div>
             </div>
           </div>
           <div className="cd-earnings-hero">
@@ -2549,8 +2575,9 @@ export default function CreatorDashboard() {
     const progress = milestone > 0 ? Math.min((currentEarned / milestone) * 100, 100) : 0
     const remaining = milestone - currentEarned
 
-    // Next payment date
-    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    // Next payment date — the END of the following calendar month, per Creator
+    // Terms s6. Day 0 of month+2 is the last day of month+1.
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 2, 0)
     const nextPayDate = nextMonth.toLocaleString('en', { month: 'long', day: 'numeric' })
 
     const monthName = now.toLocaleString('en', { month: 'long', year: 'numeric' })
@@ -2562,7 +2589,7 @@ export default function CreatorDashboard() {
         <div className="cd-m-earnings">
           <div className="cd-m-earnings-head">
             <div className="cd-m-earnings-eyebrow">Ad Spend Commission</div>
-            <div className="cd-m-earnings-title">Ad Spend Earnings</div>
+            <div className="cd-m-earnings-title">Estimated Ad Spend Earnings</div>
           </div>
           <div className="cd-m-earnings-hero">
             <div className="cd-m-earnings-sublabel">{monthName} — In Progress</div>
@@ -2580,7 +2607,7 @@ export default function CreatorDashboard() {
             <div className="cd-m-progress-track"><div className="cd-m-progress-fill" style={{ width: `${progress}%` }} /></div>
           </div>
           <div className="cd-m-payment">
-            <div className="cd-m-payment-left">Next payment — {nextPayDate}</div>
+            <div className="cd-m-payment-left">Next payment — due by {nextPayDate}</div>
             <div className="cd-m-payment-amount">~${currentEarned.toLocaleString()}</div>
           </div>
         </div>
@@ -2592,7 +2619,7 @@ export default function CreatorDashboard() {
         <div className="cd-earnings-head">
           <div>
             <div className="cd-earnings-eyebrow">Ad Spend Commission</div>
-            <div className="cd-earnings-title">Ad Spend Earnings</div>
+            <div className="cd-earnings-title">Estimated Ad Spend Earnings</div>
           </div>
           {getScorePill(currentSpend, false)}
         </div>
@@ -2646,7 +2673,7 @@ export default function CreatorDashboard() {
         <div className="cd-payment-strip">
           <div>
             <div className="cd-payment-left">Next payment</div>
-            <div className="cd-payment-date">Paid {nextPayDate} via e-transfer</div>
+            <div className="cd-payment-date">Due by {nextPayDate} via e-transfer</div>
           </div>
           <div className="cd-payment-amount">~${currentEarned.toLocaleString()}</div>
         </div>
@@ -2720,7 +2747,7 @@ export default function CreatorDashboard() {
           <div className="cd-m-aff-sales">
             <div className="cd-m-aff-sales-head">
               <div className="cd-m-aff-sales-eyebrow">Affiliate Sales</div>
-              <div className="cd-m-aff-sales-title">Affiliate Earnings</div>
+              <div className="cd-m-aff-sales-title">Estimated Affiliate Earnings</div>
             </div>
             <div className="cd-m-earnings-hero">
               <div className="cd-skel cd-skel-stat-lg" style={{ marginBottom: 8 }} />
@@ -2737,7 +2764,7 @@ export default function CreatorDashboard() {
         <div className="cd-aff-sales">
           <div className="cd-aff-sales-head">
             <div className="cd-aff-sales-eyebrow">Affiliate Sales</div>
-            <div className="cd-aff-sales-title">Affiliate Earnings</div>
+            <div className="cd-aff-sales-title">Estimated Affiliate Earnings</div>
           </div>
           <div className="cd-earnings-hero">
             <div>
@@ -2772,7 +2799,8 @@ export default function CreatorDashboard() {
         <div className="cd-m-aff-sales">
           <div className="cd-m-aff-sales-head">
             <div className="cd-m-aff-sales-eyebrow">Affiliate Sales{affiliateCode ? ` · ${affiliateCode}` : ''}</div>
-            <div className="cd-m-aff-sales-title">Affiliate Earnings</div>
+            <div className="cd-m-aff-sales-title">Estimated Affiliate Earnings</div>
+            {rateChangeNote(true)}
           </div>
           <div className="cd-m-earnings-hero">
             <div className="cd-m-earnings-sublabel">{monthName} — In Progress</div>
@@ -2811,7 +2839,8 @@ export default function CreatorDashboard() {
       <div className="cd-aff-sales">
         <div className="cd-aff-sales-head">
           <div className="cd-aff-sales-eyebrow">Affiliate Sales{affiliateCode ? ` · Code ${affiliateCode}` : ''}</div>
-          <div className="cd-aff-sales-title">Affiliate Earnings</div>
+          <div className="cd-aff-sales-title">Estimated Affiliate Earnings</div>
+          {rateChangeNote(false)}
         </div>
         <div className="cd-earnings-hero">
           <div>

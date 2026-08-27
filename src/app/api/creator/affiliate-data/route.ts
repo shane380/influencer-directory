@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { getAdminClient } from "@/lib/admin-auth";
 import { resolveAffiliateContext } from "@/lib/affiliate-context";
+import { loadCommissionRateSchedule } from "@/lib/affiliate-program";
 import { calculateAffiliateCommission } from "@/lib/affiliate";
 
 export const maxDuration = 60;
@@ -28,6 +29,20 @@ export async function GET(request: NextRequest) {
   }
 
   const rateDec = (ctx.rate || 10) / 100;
+
+  // Historical months must price at the rate that was in force then, not the
+  // one in force now — otherwise a rate change silently relabels every past
+  // month on the creator's own dashboard.
+  let scheduleFor: (month: string) => number = () => ctx.rate || 10;
+  try {
+    const schedule = await loadCommissionRateSchedule(getAdminClient());
+    if (ctx.subject) {
+      const subject = ctx.subject;
+      scheduleFor = (month: string) => schedule.rateForMonth(subject, month, ctx.scalarRate);
+    }
+  } catch {
+    // Keep the current rate as the fallback for every month.
+  }
   const now = new Date();
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
@@ -123,6 +138,7 @@ export async function GET(request: NextRequest) {
     // Fallback: gross-based estimate from the daily aggregate.
     const acc = grossByMonth.get(m) || { gross: 0, orders: 0 };
     const gross = Math.round(acc.gross * 100) / 100;
+    const monthRate = scheduleFor(m) / 100;
     return {
       month: m,
       net_exact: false,
@@ -130,8 +146,8 @@ export async function GET(request: NextRequest) {
         order_count: acc.orders,
         total_gross: gross,
         total_net: gross,
-        commission_rate: rateDec,
-        commission_owed: Math.round(gross * rateDec * 100) / 100,
+        commission_rate: monthRate,
+        commission_owed: Math.round(gross * monthRate * 100) / 100,
       },
     };
   });
