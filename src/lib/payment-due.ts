@@ -7,15 +7,28 @@
 // keeps every historical period correct without a backfill, and means changing
 // the rule later is a one-line change here rather than a data migration.
 
-/** Last day of the month after `period` ('YYYY-MM'), as 'YYYY-MM-DD'. */
+// The end-of-month rule arrived with v2 of the Creator Terms, effective August
+// 2026. Earlier months were earned under the old promise — the 5th of the
+// following month — and are judged against that. Applying the new rule
+// backwards would relabel settled history against terms nobody agreed to at
+// the time, and would show months as "due soon" that were actually paid weeks
+// before their supposed deadline.
+export const END_OF_MONTH_RULE_FROM = "2026-08";
+
+/** When `period`'s payments were due, as 'YYYY-MM-DD', under the terms in force then. */
 export function dueDateForPeriod(period: string): string | null {
   const m = /^(\d{4})-(\d{2})$/.exec(period);
   if (!m) return null;
   const year = Number(m[1]);
   const month = Number(m[2]); // 1-12
-  // Day 0 of month+1 (0-indexed month+2 is really month+1 here) is its last day.
-  const d = new Date(Date.UTC(year, month + 1, 0));
-  return d.toISOString().slice(0, 10);
+
+  if (period < END_OF_MONTH_RULE_FROM) {
+    // Old terms: the 5th of the following month.
+    return new Date(Date.UTC(year, month, 5)).toISOString().slice(0, 10);
+  }
+  // Current terms: the last day of the following month. Day 0 of the month
+  // after next is the last day of next month.
+  return new Date(Date.UTC(year, month + 1, 0)).toISOString().slice(0, 10);
 }
 
 export type DueState = "paid" | "upcoming" | "due_soon" | "overdue";
