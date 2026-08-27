@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
   // Group by consolidation key: influencer_id, else legacy:<id>.
   type Grp = {
     key: string; influencerId: string | null; legacyAffiliateId: string | null;
-    retainer: number; adSpend: number; affiliate: number;
+    retainer: number; adSpend: number; affiliate: number; oneOff: number;
     adBasis: number; affGross: number; affRefunds: number; affOrders: number;
     adRate: number; affRate: number;
     adRates: Set<number>; affRates: Set<number>;
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
     let g = groups.get(key);
     if (!g) {
       g = { key, influencerId: e.influencer_id || null, legacyAffiliateId: e.legacy_affiliate_id || null,
-        retainer: 0, adSpend: 0, affiliate: 0, adBasis: 0, affGross: 0, affRefunds: 0, affOrders: 0, adRate: 0, affRate: 0,
+        retainer: 0, adSpend: 0, affiliate: 0, oneOff: 0, adBasis: 0, affGross: 0, affRefunds: 0, affOrders: 0, adRate: 0, affRate: 0,
         adRates: new Set<number>(), affRates: new Set<number>() };
       groups.set(key, g);
     }
@@ -54,6 +54,10 @@ export async function GET(request: NextRequest) {
     if (e.legacy_affiliate_id) g.legacyAffiliateId = e.legacy_affiliate_id;
     const amt = Number(e.amount) || 0;
     if (e.event_type === "retainer") g.retainer += amt;
+    // One-off fees (paid collabs, whitelisting buyouts). Previously fell through
+    // every branch, so the money existed in the ledger but appeared nowhere on
+    // this page and was missing from Earned.
+    else if (e.event_type === "paid_collab") g.oneOff += amt;
     else if (e.event_type === "ad_spend") { g.adSpend += amt; g.adBasis += Number(e.basis) || 0; if (e.rate != null) g.adRates.add(Number(e.rate)); }
     else if (e.event_type === "affiliate") { g.affiliate += amt; g.affGross += Number(e.basis) || 0; g.affOrders += 1; if (e.rate != null) g.affRates.add(Number(e.rate)); }
     else if (e.event_type === "refund") { g.affiliate += amt; g.affRefunds += Number(e.basis) || 0; }
@@ -145,7 +149,7 @@ export async function GET(request: NextRequest) {
   const creators = [...groups.values()].map((g) => {
     const inf = g.influencerId ? infMap.get(g.influencerId) : null;
     const leg = g.legacyAffiliateId ? legMap.get(g.legacyAffiliateId) : null;
-    const earned = round2(g.retainer + g.adSpend + g.affiliate);
+    const earned = round2(g.retainer + g.adSpend + g.affiliate + g.oneOff);
     const paid = round2(paidByKey.get(g.key) || 0);
     return {
       key: g.key,
@@ -156,6 +160,7 @@ export async function GET(request: NextRequest) {
       photo: (inf as any)?.profile_photo_url || null,
       payInfo: maskPay(g),
       retainer: round2(g.retainer),
+      oneOff: round2(g.oneOff),
       adSpend: round2(g.adSpend),
       affiliate: round2(g.affiliate),
       earned,

@@ -14,7 +14,7 @@ import { dueState, formatDueDate, type DueState } from "@/lib/payment-due";
 interface Creator {
   key: string; influencerId: string | null; legacyAffiliateId: string | null;
   name: string; handle: string; photo: string | null; payInfo: string;
-  retainer: number; adSpend: number; affiliate: number;
+  retainer: number; adSpend: number; affiliate: number; oneOff: number;
   earned: number; paid: number; balance: number;
   adRate: number; adBasis: number; affRate: number; affOrders: number; affGross: number; affRefunds: number;
   adRateMixed?: boolean; affRateMixed?: boolean;
@@ -236,6 +236,7 @@ export default function PaymentsV2() {
               <tr className="text-gray-500">
                 <th className="text-left font-medium px-5 py-3">Creator</th>
                 <th className="text-right font-medium px-3 py-3">Retainer</th>
+                <th className="text-right font-medium px-3 py-3">One-off</th>
                 <th className="text-right font-medium px-3 py-3">Ad Spend</th>
                 <th className="text-right font-medium px-3 py-3">Affiliate</th>
                 <th className="text-right font-medium px-3 py-3">Earned</th>
@@ -246,9 +247,9 @@ export default function PaymentsV2() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} className="text-center py-12 text-gray-400">Loading…</td></tr>
+                <tr><td colSpan={9} className="text-center py-12 text-gray-400">Loading…</td></tr>
               ) : creators.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-12 text-gray-400">No earnings for {periodLabel(period)}.</td></tr>
+                <tr><td colSpan={9} className="text-center py-12 text-gray-400">No earnings for {periodLabel(period)}.</td></tr>
               ) : creators.map((r) => {
                 const due: DueState = dueState(period, r.balance);
                 const status = r.balance <= 0.01 ? "paid" : r.paid > 0 ? "partial" : "unpaid";
@@ -271,6 +272,7 @@ export default function PaymentsV2() {
                       </div>
                     </td>
                     <td className="px-3 py-3 text-right text-gray-700">{cell(r.retainer)}</td>
+                    <td className="px-3 py-3 text-right text-gray-700">{cell(r.oneOff)}</td>
                     <td className="px-3 py-3 text-right">{r.adSpend > 0 ? <button onClick={() => setBreakdown({ row: r, type: "ad" })} className="text-gray-700 hover:text-gray-900" title="Breakdown">${money(r.adSpend)}</button> : <span className="text-gray-400">—</span>}</td>
                     <td className="px-3 py-3 text-right">{Math.abs(r.affiliate) > 0.005 ? <button onClick={() => setBreakdown({ row: r, type: "aff" })} className="text-gray-700 hover:text-gray-900" title="Breakdown">${money(r.affiliate)}</button> : <span className="text-gray-400">—</span>}</td>
                     <td className="px-3 py-3 text-right font-medium text-gray-900">${money(r.earned)}</td>
