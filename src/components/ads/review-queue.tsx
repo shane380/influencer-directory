@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import type { AdDraft, AssetRole, CampaignSummary, DraftAsset } from "@/types/meta-ads";
+import type { AdDraft, AssetKind, AssetRole, CampaignSummary, DraftAsset } from "@/types/meta-ads";
 import { IgFeedPreview } from "./ig-feed-preview";
 import { IgReelsPreview } from "./ig-reels-preview";
 import { IgCarouselPreview } from "./ig-carousel-preview";
@@ -13,7 +13,7 @@ import {
   matchesAspect,
   uploadAdAsset,
 } from "@/lib/ad-media";
-import { CheckCircle2, Clock, Loader2, MessageSquare, Pencil, Trash2, Upload, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, Download, Loader2, MessageSquare, Pencil, Trash2, Upload, XCircle } from "lucide-react";
 
 const CTA_LABELS: Record<string, string> = {
   SHOP_NOW: "Shop now",
@@ -41,6 +41,56 @@ function timeAgo(dateStr: string): string {
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
+}
+
+/**
+ * Every uploaded media file on a draft, with the filename to save it under.
+ * Existing-post ads are skipped: their fileUrl is an expiring IG CDN link, not
+ * an R2 object, so /api/r2/download can't serve it.
+ */
+function draftDownloads(draft: AdDraft): { url: string; name: string; kind: AssetKind }[] {
+  const base = (draft.adName || "ad").replace(/[^\w.\- ()]+/g, "-").slice(0, 60);
+  const ext = (url: string) => {
+    const m = url.split("?")[0].match(/\.([a-z0-9]{2,5})$/i);
+    return m ? `.${m[1].toLowerCase()}` : "";
+  };
+  const files: { url: string; name: string; kind: AssetKind }[] = [];
+  const push = (url: string | null | undefined, label: string, kind: AssetKind) => {
+    if (!url) return;
+    if (files.some((f) => f.url === url)) return;
+    files.push({ url, name: `${base}-${label}${ext(url)}`, kind });
+  };
+
+  for (const a of draft.assets) {
+    if (a.sourceInstagramMediaId) continue;
+    if (a.role === "card") {
+      const n = (a.order ?? 0) + 1;
+      push(a.fileUrl, `card${n}`, a.kind);
+      push(a.verticalFileUrl, `card${n}-9x16`, a.kind);
+    } else {
+      push(a.fileUrl, a.role === "vertical" ? "9x16" : a.role, a.kind);
+    }
+  }
+  return files;
+}
+
+/**
+ * R2 files are cross-origin, so a.download is ignored and window.open gets
+ * popup-blocked. Route through /api/r2/download, which redirects to a
+ * presigned URL with attachment disposition; stagger clicks so the browser
+ * doesn't drop rapid successive downloads.
+ */
+function downloadFiles(files: { url: string; name: string }[]) {
+  files.forEach((f, i) => {
+    setTimeout(() => {
+      const a = document.createElement("a");
+      a.href = `/api/r2/download?url=${encodeURIComponent(f.url)}&name=${encodeURIComponent(f.name)}`;
+      a.download = f.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }, i * 350);
+  });
 }
 
 export function ReviewQueue({
@@ -714,6 +764,13 @@ export function ReviewQueue({
     const feed = draft.assets.find((a) => a.role === "feed") || cards[0];
     const vertical = draft.assets.find((a) => a.role === "vertical") || feed;
     const expanded = expandedId === draft.id;
+    const downloads = draftDownloads(draft);
+    const downloadLabel =
+      downloads.length > 1
+        ? `Download media (${downloads.length})`
+        : downloads[0]?.kind === "video"
+          ? "Download video"
+          : "Download image";
     const identityName = draft.partnershipSponsorLabel || "namaclo";
     const identitySub = draft.partnershipSponsorId ? "Paid partnership" : "Sponsored";
 
@@ -833,6 +890,14 @@ export function ReviewQueue({
                   <Trash2 className="h-3.5 w-3.5" /> Withdraw draft
                 </button>
               )}
+            {downloads.length > 0 && (
+              <button
+                onClick={() => downloadFiles(downloads)}
+                className="border border-gray-300 rounded-md py-1.5 text-[12.5px] text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-1.5"
+              >
+                <Download className="h-3.5 w-3.5" /> {downloadLabel}
+              </button>
+            )}
             <button
               onClick={() => setExpandedId(expanded ? null : draft.id)}
               className="text-[12px] text-gray-400 hover:text-gray-700"
