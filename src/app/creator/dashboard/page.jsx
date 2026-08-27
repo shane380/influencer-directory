@@ -2383,7 +2383,7 @@ export default function CreatorDashboard() {
           <div className="cd-m-earnings">
             <div className="cd-m-earnings-head">
               <div className="cd-m-earnings-eyebrow">Combined · All Sources</div>
-              <div className="cd-m-earnings-title">{monthOnly} Estimated Earnings</div>
+              <div className="cd-m-earnings-title">{monthOnly} Earnings</div>
             </div>
             <div className="cd-m-earnings-hero">
               <div className="cd-skel cd-skel-stat-lg" style={{ marginBottom: 8 }} />
@@ -2397,7 +2397,7 @@ export default function CreatorDashboard() {
           <div className="cd-earnings-head">
             <div>
               <div className="cd-earnings-eyebrow">Combined · All Sources</div>
-              <div className="cd-earnings-title">{monthOnly} Estimated Earnings</div>
+              <div className="cd-earnings-title">{monthOnly} Earnings</div>
             </div>
           </div>
           <div className="cd-earnings-hero">
@@ -2423,10 +2423,10 @@ export default function CreatorDashboard() {
         <div className="cd-m-earnings">
           <div className="cd-m-earnings-head">
             <div className="cd-m-earnings-eyebrow">Combined · All Sources</div>
-            <div className="cd-m-earnings-title">{monthOnly} Estimated Earnings</div>
+            <div className="cd-m-earnings-title">{monthOnly} Earnings</div>
           </div>
           <div className="cd-m-earnings-hero">
-            <div className="cd-m-earnings-sublabel">{monthName} — In Progress</div>
+            <div className="cd-m-earnings-sublabel">Estimated · {monthName} MTD</div>
             <div className="cd-m-earnings-amount">
               <span className="cd-m-earnings-currency">$</span>
               <span className="cd-m-earnings-val">{combined.toLocaleString()}</span>
@@ -2467,12 +2467,12 @@ export default function CreatorDashboard() {
         <div className="cd-earnings-head">
           <div>
             <div className="cd-earnings-eyebrow">Combined · All Sources</div>
-            <div className="cd-earnings-title">{monthOnly} Estimated Earnings</div>
+            <div className="cd-earnings-title">{monthOnly} Earnings</div>
           </div>
         </div>
         <div className="cd-earnings-hero">
           <div>
-            <div className="cd-earnings-sublabel">{monthName} — In Progress</div>
+            <div className="cd-earnings-sublabel">Estimated · {monthName} MTD</div>
             <div className="cd-earnings-amount">
               <span className="cd-earnings-currency">$</span>
               <span className="cd-earnings-val">{combined.toLocaleString()}</span>
@@ -2523,7 +2523,7 @@ export default function CreatorDashboard() {
           <div className="cd-m-earnings">
             <div className="cd-m-earnings-head">
               <div className="cd-m-earnings-eyebrow">Ad Spend Commission</div>
-              <div className="cd-m-earnings-title">Estimated Ad Spend Earnings</div>
+              <div className="cd-m-earnings-title">Ad Spend Earnings</div>
             </div>
             <div className="cd-m-earnings-hero">
               <div className="cd-skel cd-skel-stat-lg" style={{ marginBottom: 8 }} />
@@ -2540,7 +2540,7 @@ export default function CreatorDashboard() {
           <div className="cd-earnings-head">
             <div>
               <div className="cd-earnings-eyebrow">Ad Spend Commission</div>
-              <div className="cd-earnings-title">Estimated Ad Spend Earnings</div>
+              <div className="cd-earnings-title">Ad Spend Earnings</div>
             </div>
           </div>
           <div className="cd-earnings-hero">
@@ -2589,10 +2589,10 @@ export default function CreatorDashboard() {
         <div className="cd-m-earnings">
           <div className="cd-m-earnings-head">
             <div className="cd-m-earnings-eyebrow">Ad Spend Commission</div>
-            <div className="cd-m-earnings-title">Estimated Ad Spend Earnings</div>
+            <div className="cd-m-earnings-title">Ad Spend Earnings</div>
           </div>
           <div className="cd-m-earnings-hero">
-            <div className="cd-m-earnings-sublabel">{monthName} — In Progress</div>
+            <div className="cd-m-earnings-sublabel">Estimated · {monthName} MTD</div>
             <div className="cd-m-earnings-amount">
               <span className="cd-m-earnings-currency">$</span>
               <span className="cd-m-earnings-val">{currentEarned.toLocaleString()}</span>
@@ -2619,13 +2619,13 @@ export default function CreatorDashboard() {
         <div className="cd-earnings-head">
           <div>
             <div className="cd-earnings-eyebrow">Ad Spend Commission</div>
-            <div className="cd-earnings-title">Estimated Ad Spend Earnings</div>
+            <div className="cd-earnings-title">Ad Spend Earnings</div>
           </div>
           {getScorePill(currentSpend, false)}
         </div>
         <div className="cd-earnings-hero">
           <div>
-            <div className="cd-earnings-sublabel">{monthName} — In Progress</div>
+            <div className="cd-earnings-sublabel">Estimated · {monthName} MTD</div>
             <div className="cd-earnings-amount">
               <span className="cd-earnings-currency">$</span>
               <span className="cd-earnings-val">{currentEarned.toLocaleString()}</span>
@@ -2747,7 +2747,7 @@ export default function CreatorDashboard() {
           <div className="cd-m-aff-sales">
             <div className="cd-m-aff-sales-head">
               <div className="cd-m-aff-sales-eyebrow">Affiliate Sales</div>
-              <div className="cd-m-aff-sales-title">Estimated Affiliate Earnings</div>
+              <div className="cd-m-aff-sales-title">Affiliate Earnings</div>
             </div>
             <div className="cd-m-earnings-hero">
               <div className="cd-skel cd-skel-stat-lg" style={{ marginBottom: 8 }} />
@@ -2764,7 +2764,7 @@ export default function CreatorDashboard() {
         <div className="cd-aff-sales">
           <div className="cd-aff-sales-head">
             <div className="cd-aff-sales-eyebrow">Affiliate Sales</div>
-            <div className="cd-aff-sales-title">Estimated Affiliate Earnings</div>
+            <div className="cd-aff-sales-title">Affiliate Earnings</div>
           </div>
           <div className="cd-earnings-hero">
             <div>
@@ -2799,11 +2799,11 @@ export default function CreatorDashboard() {
         <div className="cd-m-aff-sales">
           <div className="cd-m-aff-sales-head">
             <div className="cd-m-aff-sales-eyebrow">Affiliate Sales{affiliateCode ? ` · ${affiliateCode}` : ''}</div>
-            <div className="cd-m-aff-sales-title">Estimated Affiliate Earnings</div>
+            <div className="cd-m-aff-sales-title">Affiliate Earnings</div>
             {rateChangeNote(true)}
           </div>
           <div className="cd-m-earnings-hero">
-            <div className="cd-m-earnings-sublabel">{monthName} — In Progress</div>
+            <div className="cd-m-earnings-sublabel">Estimated · {monthName} MTD</div>
             <div className="cd-m-earnings-amount">
               <span className="cd-m-earnings-currency">$</span>
               <span className="cd-m-earnings-val">{Math.round(s.commission_owed).toLocaleString()}</span>
@@ -2839,12 +2839,12 @@ export default function CreatorDashboard() {
       <div className="cd-aff-sales">
         <div className="cd-aff-sales-head">
           <div className="cd-aff-sales-eyebrow">Affiliate Sales{affiliateCode ? ` · Code ${affiliateCode}` : ''}</div>
-          <div className="cd-aff-sales-title">Estimated Affiliate Earnings</div>
+          <div className="cd-aff-sales-title">Affiliate Earnings</div>
           {rateChangeNote(false)}
         </div>
         <div className="cd-earnings-hero">
           <div>
-            <div className="cd-earnings-sublabel">{monthName} — In Progress</div>
+            <div className="cd-earnings-sublabel">Estimated · {monthName} MTD</div>
             <div className="cd-earnings-amount">
               <span className="cd-earnings-currency">$</span>
               <span className="cd-earnings-val">{Math.round(s.commission_owed).toLocaleString()}</span>
