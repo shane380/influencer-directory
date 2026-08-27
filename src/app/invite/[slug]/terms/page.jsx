@@ -119,7 +119,7 @@ export default function PartnershipTermsPage() {
         <div className="pt-section-label">Compensation</div>
         <div className="pt-body">
           {showRetainerSection && (
-            <p>Nama will pay you a fixed retainer of ${(retainerAmount || 0).toLocaleString()} per month. Payment is made by the 5th of the following month via your selected payment method.</p>
+            <p>Nama will pay you a fixed retainer of ${(retainerAmount || 0).toLocaleString()} per month. Payment is made by the end of the following calendar month via your selected payment method.</p>
           )}
           {showAdSpendSection && (
             <p>You will earn {adSpendPct || 0}% of monthly advertising spend attributed to your content.</p>
@@ -160,7 +160,7 @@ export default function PartnershipTermsPage() {
       <div className="pt-section">
         <div className="pt-section-label">Payment</div>
         <div className="pt-body">
-          <p>All payments are made by the 5th of the following month via your selected payment method (PayPal or bank transfer).</p>
+          <p>All payments are made by the end of the following calendar month via your selected payment method (PayPal or bank transfer).</p>
         </div>
       </div>
 

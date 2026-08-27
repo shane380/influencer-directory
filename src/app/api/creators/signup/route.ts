@@ -5,16 +5,21 @@ import { sendEmail } from '@/lib/email';
 import { syncCreator } from '@/lib/meta-sync';
 import { isEmailTriggerEnabled } from '@/lib/app-settings';
 import { welcomeEmail } from '@/lib/email-templates';
+import { CREATOR_TERMS_CURRENT, CREATOR_TERMS_KEY } from '@/lib/terms/versions';
+import { AFFILIATE_DISCOUNT_PERCENT } from '@/lib/affiliate-program';
+import { recordTermsAcceptance, requestClientInfo } from '@/lib/terms/record-acceptance';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// The customer-facing discount is the program standard, NOT the commission
+// rate. These were the same value until now, so a 10%-commission partner's code
+// gave 10% off instead of the 15% the terms promise.
 async function createShopifyDiscountCode(
   affiliateCode: string,
   creatorName: string,
-  commissionRate: number,
   inviteId: string
 ) {
   const storeUrl = getShopifyStoreUrl();
@@ -46,7 +51,7 @@ async function createShopifyDiscountCode(
             target_selection: 'all',
             allocation_method: 'across',
             value_type: 'percentage',
-            value: `-${commissionRate}.0`,
+            value: `-${AFFILIATE_DISCOUNT_PERCENT}.0`,
             customer_selection: 'all',
             starts_at: new Date().toISOString(),
             once_per_customer: false,
@@ -130,6 +135,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
+  // Affiliate codes are issued only when whoever built the invite selected an
+  // affiliate deal (or the affiliate add-on). Previously every partner got a
+  // code regardless, which left gift-card and retainer creators holding codes
+  // they were never meant to have.
+  const { data: signupInvite } = await supabase
+    .from('creator_invites')
+    .select('has_affiliate')
+    .eq('id', inviteId)
+    .single();
+  const isAffiliate = !!(signupInvite as any)?.has_affiliate;
+
   // Create auth user — or reuse existing one (e.g. team member also becoming a partner)
   let userId: string;
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
@@ -178,6 +194,17 @@ export async function POST(request: NextRequest) {
       .from('creators')
       .update({ email })
       .eq('id', existingCreator[0].id);
+  } else if (!isAffiliate) {
+    // Non-affiliate deal: create the partner with no code at all.
+    const { error } = await supabase.from('creators').insert({
+      invite_id: inviteId,
+      user_id: userId,
+      creator_name: creatorName,
+      email,
+      commission_rate: 0,
+      affiliate_code: null,
+    });
+    creatorError = error;
   } else {
     // Generate affiliate code — retry with random suffix on collision
     const baseCode = creatorName
@@ -220,6 +247,33 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: creatorError.message }, { status: 500 });
   }
 
+  // Record what the agree checkbox on the invite page actually agreed to. If
+  // this fails the signup still succeeds — the creator is simply asked again by
+  // the dashboard terms gate on first login, which is the safe fallback.
+  const { data: signedCreator } = await supabase
+    .from('creators')
+    .select('id, email')
+    .eq('user_id', userId)
+    .single();
+
+  if (signedCreator) {
+    const { ip, userAgent } = requestClientInfo(request);
+
+    const acceptanceError = await recordTermsAcceptance(supabase, {
+      creatorId: (signedCreator as any).id,
+      userId,
+      email: (signedCreator as any).email,
+      documentKey: CREATOR_TERMS_KEY,
+      version: CREATOR_TERMS_CURRENT,
+      source: 'invite_signup',
+      ip,
+      userAgent,
+    });
+    if (acceptanceError) {
+      console.error('Failed to record terms acceptance:', acceptanceError.message);
+    }
+  }
+
   // Mark invite as accepted
   await supabase
     .from('creator_invites')
@@ -244,7 +298,6 @@ export async function POST(request: NextRequest) {
     createShopifyDiscountCode(
       affiliateCode,
       creatorName,
-      commissionRate || 10,
       inviteId
     ).catch((err) => console.error('Background Shopify discount creation failed:', err));
   }

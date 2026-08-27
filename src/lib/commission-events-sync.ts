@@ -1,6 +1,7 @@
 import { getAdminClient } from "./admin-auth";
 import { getShopifyAccessToken, getShopifyStoreUrl } from "./shopify";
 import { CommissionEvent, upsertEvents } from "./commission-ledger";
+import { loadCommissionRateSchedule, type RateSubject } from "./affiliate-program";
 
 // Keeps the affiliate side of the commission_events ledger fresh. The ledger
 // was seeded by scripts/backfill-commission-events.mjs (one-time, Jun 2026);
@@ -23,7 +24,11 @@ interface CodeOwner {
   creatorKey: string;
   influencerId: string | null;
   legacyAffiliateId: string | null;
-  rate: number; // decimal
+  // The rate is NOT a property of the owner — it depends on the month the order
+  // fell in. `subject` identifies whose schedule to read; the scalar is only the
+  // fallback for months before any scheduled rate.
+  subject: RateSubject;
+  fallbackRatePercent: number;
 }
 
 async function fetchRetry(url: string, opts: RequestInit, tries = 6): Promise<Response> {
@@ -64,12 +69,13 @@ async function loadCodeOwners(db: any): Promise<Map<string, CodeOwner[]>> {
       creatorKey: `legacy:${la.id}`,
       influencerId: la.influencer_id || null,
       legacyAffiliateId: la.id,
-      rate: (Number(la.commission_rate) || 25) / 100,
+      subject: { legacyAffiliateId: la.id },
+      fallbackRatePercent: Number(la.commission_rate) || 25,
     });
   }
 
   const { data: creators } = await (db.from("creators") as any)
-    .select("affiliate_code, commission_rate, invite_id")
+    .select("id, affiliate_code, commission_rate, invite_id")
     .not("affiliate_code", "is", null);
   const inviteIds = (creators || []).map((c: any) => c.invite_id).filter(Boolean);
   const { data: invites } = inviteIds.length
@@ -85,7 +91,8 @@ async function loadCodeOwners(db: any): Promise<Map<string, CodeOwner[]>> {
       creatorKey: `inf:${inv.influencer_id}`,
       influencerId: inv.influencer_id,
       legacyAffiliateId: null,
-      rate: (Number(c.commission_rate) || Number(inv.ad_spend_percentage) || 10) / 100,
+      subject: { creatorId: c.id },
+      fallbackRatePercent: Number(c.commission_rate) || Number(inv.ad_spend_percentage) || 10,
     });
   }
   return owners;
@@ -139,6 +146,9 @@ async function buildAdSpendEvents(db: any, months: string[]): Promise<Commission
   }
 
   const events: CommissionEvent[] = [];
+  // Deliberately NOT on the affiliate rate schedule: ad-spend percentage is a
+  // separate commercial term, and wiring it here would make an affiliate rate
+  // change silently move someone's ad-spend earnings too.
   for (const [handle, o] of byHandle) {
     for (const period of months) {
       const s = spend.get(`${handle}|${period}`) || 0;
@@ -213,6 +223,7 @@ export async function syncCommissionEvents(days: number): Promise<{
   if (!storeUrl || !accessToken) throw new Error("Shopify credentials missing");
 
   const owners = await loadCodeOwners(db);
+  const rateSchedule = await loadCommissionRateSchedule(db);
   if (owners.size === 0) return { ordersScanned: 0, ordersMatched: 0, eventsUpserted: 0, durationMs: Date.now() - t0 };
 
   const since = new Date();
@@ -248,13 +259,18 @@ export async function syncCommissionEvents(days: number): Promise<{
       refund = round2(refund);
       for (const code of codes) {
         for (const o of owners.get(code)!) {
+          // Rate in force for the ORDER's month, not today's. This is what makes
+          // a re-sync of an old order idempotent: (subject, period) is a pure
+          // function, so the upsert rewrites an identical rate and amount
+          // instead of quietly repricing history.
+          const rate = rateSchedule.rateForMonth(o.subject, period, o.fallbackRatePercent) / 100;
           const base = {
             creator_key: o.creatorKey,
             influencer_id: o.influencerId,
             legacy_affiliate_id: o.legacyAffiliateId,
             period,
             occurred_at: order.created_at,
-            rate: o.rate,
+            rate,
           };
           if (gross > 0) {
             events.push({
@@ -262,7 +278,7 @@ export async function syncCommissionEvents(days: number): Promise<{
               event_type: "affiliate",
               source_type: "shopify_order",
               source_id: String(order.id),
-              amount: round2(gross * o.rate),
+              amount: round2(gross * rate),
               basis: gross,
               detail: { order_number: order.order_number, gross },
             });
@@ -273,7 +289,7 @@ export async function syncCommissionEvents(days: number): Promise<{
               event_type: "refund",
               source_type: "shopify_refund",
               source_id: String(order.id), // upserts to the order's latest total refund
-              amount: round2(-refund * o.rate),
+              amount: round2(-refund * rate),
               basis: refund,
               detail: { order_number: order.order_number, refund },
             });

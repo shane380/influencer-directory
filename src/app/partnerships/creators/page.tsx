@@ -171,6 +171,7 @@ interface Creator {
   shopify_code_status: "active" | "pending" | "failed" | null;
   has_affiliate: boolean;
   has_retainer: boolean;
+  terms_accepted: boolean;
   revenue_mtd: number;
   ad_spend_mtd: number;
   ads_live: number;
@@ -204,6 +205,7 @@ function mapPartnerRow(p: any): Creator {
     shopify_code_status: p.shopify_code_status,
     has_affiliate: p.has_affiliate,
     has_retainer: !!p.has_retainer,
+    terms_accepted: !!p.terms_accepted,
     revenue_mtd: p.revenue_mtd || 0,
     ad_spend_mtd: p.ad_spend_mtd || 0,
     ads_live: p.ads_live || 0,
@@ -1653,6 +1655,14 @@ export default function CreatorsListPage() {
                             >
                               {retryingSync === creator.creator_id ? "Retrying…" : "Retry Shopify sync"}
                             </button>
+                          )}
+                          {isPartner && creator.creator_id && !creator.terms_accepted && (
+                            <span
+                              className="text-xs px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200"
+                              title="Hasn't accepted the current Creator Terms of Use — they'll be asked on next login"
+                            >
+                              Terms pending
+                            </span>
                           )}
                         </div>
                       </td>
