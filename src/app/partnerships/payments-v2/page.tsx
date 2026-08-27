@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { allocatePayments } from "@/lib/payout-allocation";
 import { Sidebar } from "@/components/sidebar";
+import { dueState, formatDueDate, type DueState } from "@/lib/payment-due";
 
 interface Creator {
   key: string; influencerId: string | null; legacyAffiliateId: string | null;
@@ -16,7 +17,13 @@ interface Creator {
   retainer: number; adSpend: number; affiliate: number;
   earned: number; paid: number; balance: number;
   adRate: number; adBasis: number; affRate: number; affOrders: number; affGross: number; affRefunds: number;
+  adRateMixed?: boolean; affRateMixed?: boolean;
 }
+
+// A blended rate needs a decimal — rounding 18.3% to "18%" next to a figure it
+// does not divide into invites a "the maths is wrong" ticket.
+const rateLabel = (rate: number, mixed?: boolean) =>
+  mixed ? `× ${(rate * 100).toFixed(1)}% (blended)` : `× ${Math.round(rate * 100)}%`;
 
 const money = (n: number) => (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const cell = (n: number) => (n > 0 ? `$${money(n)}` : "—");
@@ -39,7 +46,7 @@ export default function PaymentsV2() {
   const now = new Date();
   const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const [period, setPeriod] = useState(`${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, "0")}`);
-  const [data, setData] = useState<{ creators: Creator[]; totalOwed: number; totalPaid: number; outstanding: number } | null>(null);
+  const [data, setData] = useState<{ creators: Creator[]; totalOwed: number; totalPaid: number; outstanding: number; period?: string; dueDate?: string | null; overdueCount?: number; rateChange?: { count: number; rates: number[] } | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [payFor, setPayFor] = useState<Creator | null>(null);
@@ -171,10 +178,39 @@ export default function PaymentsV2() {
             <h1 className="text-2xl font-semibold text-gray-900">Payments</h1>
             <p className="text-sm text-gray-500 mt-1">Manage creator payment runs</p>
           </div>
-          <select className="border border-gray-200 rounded px-3 py-2 text-sm bg-white" value={period} onChange={(e) => setPeriod(e.target.value)}>
-            {monthOptions().map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
+          <div className="flex items-center gap-4">
+            {/* The bookkeeper pack: what was EARNED in the month against what
+                was PAID in it, which the table below does not answer. Reads the
+                same commission_events + creator_payouts ledger this page does. */}
+            <button
+              onClick={() => { window.location.href = `/api/admin/payments/accrual?month=${period}&format=csv`; }}
+              title="Earned vs paid for this month, with opening and closing accrued liability — for the bookkeeper"
+              className="px-3 py-2 border border-gray-200 rounded text-sm bg-white text-gray-700 hover:bg-gray-50"
+            >
+              Accrual report
+            </button>
+            {data?.dueDate && (
+              <div className="text-right">
+                <div className="text-[11px] uppercase tracking-wider text-gray-400">Due</div>
+                <div className={`text-sm font-medium ${(data.overdueCount || 0) > 0 ? "text-red-600" : "text-gray-700"}`}>
+                  {formatDueDate(data.dueDate)}
+                </div>
+              </div>
+            )}
+            <select className="border border-gray-200 rounded px-3 py-2 text-sm bg-white" value={period} onChange={(e) => setPeriod(e.target.value)}>
+              {monthOptions().map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
         </div>
+
+        {data?.rateChange && (
+          <div className="mb-6 border border-amber-200 bg-amber-50 rounded-lg px-5 py-3 text-sm text-amber-900">
+            <span className="font-medium">New commission rates took effect this month.</span>{" "}
+            {data.rateChange.count} {data.rateChange.count === 1 ? "partner moved" : "partners moved"} to{" "}
+            {data.rateChange.rates.map((r) => `${r}%`).join(" / ")} from the 1st. Earlier months are unaffected —
+            lower totals here are expected, not a calculation error.
+          </div>
+        )}
 
         <div className="grid grid-cols-3 gap-4 mb-8">
           {[
@@ -185,6 +221,11 @@ export default function PaymentsV2() {
             <div key={c.label} className="bg-white border border-gray-200 rounded-lg px-5 py-4">
               <div className="text-[11px] uppercase tracking-wider text-gray-400">{c.label}</div>
               <div className={`text-2xl font-bold mt-1 ${c.color}`}>${money(c.value)}</div>
+              {c.label === "Outstanding" && (data?.overdueCount || 0) > 0 && (
+                <div className="text-[11px] text-red-600 mt-1">
+                  {data!.overdueCount} {data!.overdueCount === 1 ? "creator" : "creators"} past due
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -209,6 +250,7 @@ export default function PaymentsV2() {
               ) : creators.length === 0 ? (
                 <tr><td colSpan={8} className="text-center py-12 text-gray-400">No earnings for {periodLabel(period)}.</td></tr>
               ) : creators.map((r) => {
+                const due: DueState = dueState(period, r.balance);
                 const status = r.balance <= 0.01 ? "paid" : r.paid > 0 ? "partial" : "unpaid";
                 return (
                   <tr key={r.key} className="border-b border-gray-50 last:border-b-0 hover:bg-gray-50/40">
@@ -233,7 +275,11 @@ export default function PaymentsV2() {
                     <td className="px-3 py-3 text-right">{Math.abs(r.affiliate) > 0.005 ? <button onClick={() => setBreakdown({ row: r, type: "aff" })} className="text-gray-700 hover:text-gray-900" title="Breakdown">${money(r.affiliate)}</button> : <span className="text-gray-400">—</span>}</td>
                     <td className="px-3 py-3 text-right font-medium text-gray-900">${money(r.earned)}</td>
                     <td className="px-3 py-3 text-right text-gray-700">{r.paid > 0 ? `$${money(r.paid)}` : "—"}</td>
-                    <td className={`px-3 py-3 text-right font-semibold ${r.balance > 0.01 ? "text-amber-600" : "text-green-600"}`}>${money(r.balance)}</td>
+                    <td className={`px-3 py-3 text-right font-semibold ${due === "overdue" ? "text-red-600" : r.balance > 0.01 ? "text-amber-600" : "text-green-600"}`}>
+                      ${money(r.balance)}
+                      {due === "overdue" && <div className="text-[10px] font-normal text-red-600">Overdue</div>}
+                      {due === "due_soon" && <div className="text-[10px] font-normal text-amber-600">Due soon</div>}
+                    </td>
                     <td className="px-5 py-3 text-right">
                       {status === "paid" ? <span className="text-xs text-green-600 font-medium">✓ Paid</span> : (
                         <button onClick={() => { setPayFor(r); setPayForm({ amount: money(r.balance), sent_at: new Date().toISOString().slice(0, 10), method: "paypal", reference: "" }); }}
@@ -306,7 +352,7 @@ export default function PaymentsV2() {
                 {breakdown.type === "ad" ? (
                   <>
                     <Line label="Ad spend" value={`$${money(r.adBasis)}`} />
-                    <Line label="Commission rate" value={`× ${Math.round(r.adRate * 100)}%`} />
+                    <Line label="Commission rate" value={rateLabel(r.adRate, r.adRateMixed)} />
                     <Line label="Commission" value={`$${money(r.adSpend)}`} strong />
                   </>
                 ) : (
@@ -314,7 +360,7 @@ export default function PaymentsV2() {
                     <Line label={`${r.affOrders} orders · gross`} value={`$${money(r.affGross)}`} />
                     <Line label="Refunds" value={`−$${money(r.affRefunds)}`} />
                     <Line label="Net" value={`$${money(affNet)}`} />
-                    <Line label="Commission rate" value={`× ${Math.round(r.affRate * 100)}%`} />
+                    <Line label="Commission rate" value={rateLabel(r.affRate, r.affRateMixed)} />
                     <Line label="Commission" value={`$${money(r.affiliate)}`} strong />
                   </>
                 )}

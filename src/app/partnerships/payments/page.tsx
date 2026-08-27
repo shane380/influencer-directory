@@ -579,19 +579,6 @@ export default function PaymentsPage() {
               <Download className="h-3.5 w-3.5 mr-1.5" />
               Export CSV
             </Button>
-            {/* The bookkeeper pack: what was EARNED in the month against what
-                was PAID in it, which the payments table above does not answer. */}
-            <Button
-              size="sm"
-              variant="outline"
-              title="Earned vs paid for this month, with opening and closing accrued liability — for the bookkeeper"
-              onClick={() => {
-                window.location.href = `/api/admin/payments/accrual?month=${month}&format=csv`;
-              }}
-            >
-              <Download className="h-3.5 w-3.5 mr-1.5" />
-              Accrual report
-            </Button>
           </div>
         </div>
 
