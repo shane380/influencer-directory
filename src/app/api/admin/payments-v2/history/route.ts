@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdmin, getAdminClient } from "@/lib/admin-auth";
 import { isTestEnv } from "@/lib/payout-env";
+import { milestonePayments } from "@/lib/deal-milestones";
 
 // Per-creator history from the ledgers: earned-by-month (commission_events) +
 // payments received (creator_payouts). Matches on influencer_id OR
@@ -33,11 +34,33 @@ export async function GET(request: NextRequest) {
     .select("id, amount, sent_at, method, reference, covers_period")
     .or(filter).eq("is_test", isTestEnv()).order("sent_at", { ascending: false });
 
+  // Deal payments are recorded on the deal (the paid tick on the collabs
+  // page), not in creator_payouts. Surfaced read-only: they are edited where
+  // they live, on the deal, or the two records would drift.
+  let dealPayments: any[] = [];
+  if (influencerId) {
+    const { data: dealRows } = await (db.from("campaign_deals") as any)
+      .select("id, influencer_id, deal_kind, deal_status, whitelisting_status, total_deal_value, starts_on, payment_terms")
+      .eq("influencer_id", influencerId)
+      .in("deal_status", ["active", "closed"]);
+    dealPayments = milestonePayments(dealRows || []).map((dp) => ({
+      id: null,
+      amount: dp.amount,
+      sent_at: dp.sent_at,
+      method: "deal",
+      reference: "recorded on the deal",
+      covers_period: dp.covers_period,
+      readonly: true,
+    }));
+  }
+  const allPayments = [...(payouts || []), ...dealPayments]
+    .sort((a: any, b: any) => String(b.sent_at || "").localeCompare(String(a.sent_at || "")));
+
   const totalEarned = round2(earnedByMonth.reduce((s, m) => s + m.amount, 0));
-  const totalPaid = round2((payouts || []).reduce((s: number, p: any) => s + Number(p.amount || 0), 0));
+  const totalPaid = round2(allPayments.reduce((s: number, p: any) => s + Number(p.amount || 0), 0));
   return NextResponse.json({
     earnedByMonth,
-    payments: payouts || [],
+    payments: allPayments,
     totalEarned,
     totalPaid,
     balance: round2(totalEarned - totalPaid),
