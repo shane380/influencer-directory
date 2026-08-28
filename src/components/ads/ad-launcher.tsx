@@ -34,6 +34,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Copy,
   ExternalLink,
   Instagram,
   Loader2,
@@ -134,6 +135,80 @@ function newAd(defaults?: LauncherDefaults | null): AdState {
   };
 }
 
+/** Rebuild a SlotState around media already sitting in R2 — nothing re-uploads. */
+function slotFromUrl(
+  url: string,
+  kind: AssetKind,
+  thumbUrl: string | null | undefined,
+  fallbackName: string
+): SlotState {
+  const name = decodeURIComponent(url.split("?")[0].split("/").pop() || fallbackName)
+    // Uploads are keyed "<timestamp>-<original name>"; show the original.
+    .replace(/^\d{10,}-/, "");
+  return {
+    kind,
+    fileName: name || fallbackName,
+    previewUrl: url,
+    uploading: false,
+    progress: 100,
+    r2Url: url,
+    thumbUrl: thumbUrl || null,
+    error: null,
+  };
+}
+
+/**
+ * Turn a past draft back into an editable, unpublished ad. The creative is
+ * reused by URL rather than re-uploaded, so the copy is instant and the new ad
+ * points at the same R2 objects as the original.
+ */
+function adStateFromDraft(draft: AdDraft): AdState {
+  const cards = draft.assets
+    .filter((a) => a.role === "card")
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const post = draft.assets.find((a) => a.sourceInstagramMediaId) || null;
+  const feed = draft.assets.find((a) => a.role === "feed") || null;
+  const vertical = draft.assets.find((a) => a.role === "vertical") || null;
+
+  return {
+    ...newAd(null),
+    adName: draft.adName ? `${draft.adName} (copy)` : "",
+    partnership: !!(draft.partnershipSponsorId || draft.partnershipSponsorLabel),
+    sponsorId: draft.partnershipSponsorId || "",
+    sponsorLabel: draft.partnershipSponsorLabel || "",
+    format: cards.length > 0 ? "carousel" : post ? "post" : "single",
+    letMetaOrder: !!draft.copy.multiShareOptimized,
+    igPost: post
+      ? {
+          id: post.sourceInstagramMediaId!,
+          mediaType: post.kind === "video" ? "VIDEO" : "IMAGE",
+          mediaProductType: null,
+          mediaUrl: post.fileUrl || null,
+          thumbnailUrl: post.thumbnailUrl || null,
+          permalink: post.instagramPermalink || null,
+          caption: null,
+          timestamp: null,
+          eligibleToBoost: null,
+        }
+      : null,
+    cards: cards.map((c) => ({
+      cardId: nextId(),
+      headline: c.cardHeadline || "",
+      link: c.cardLink || "",
+      slot: slotFromUrl(c.fileUrl, c.kind, c.thumbnailUrl, "card"),
+      vertical: c.verticalFileUrl
+        ? slotFromUrl(c.verticalFileUrl, c.kind, c.verticalThumbnailUrl, "card-9x16")
+        : null,
+    })),
+    feed:
+      !post && feed ? slotFromUrl(feed.fileUrl, feed.kind, feed.thumbnailUrl, "creative") : null,
+    vertical: vertical
+      ? slotFromUrl(vertical.fileUrl, vertical.kind, vertical.thumbnailUrl, "creative-9x16")
+      : null,
+    copy: { ...emptyCopy(null), ...draft.copy },
+  };
+}
+
 export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -172,6 +247,8 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
   const [showNewAdset, setShowNewAdset] = useState(false);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
+  /** Ad name a recreated copy came from, for the one-off banner on the Create tab. */
+  const [recreatedFrom, setRecreatedFrom] = useState<string | null>(null);
   const restoredRef = useRef(false);
   const templateLib = useTemplateLibrary();
 
@@ -185,6 +262,31 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
   );
   const visibleAdsets = (campaign?.adsets || []).filter(
     (a) => showPaused || a.effective_status === "ACTIVE" || a.id === adsetId
+  );
+
+  /**
+   * "Recreate as new ad" from the review tab: clone a past draft into the
+   * builder, aim it at the same campaign/ad set when those still exist, and
+   * switch tabs so it's ready to edit.
+   */
+  const recreateDraft = useCallback(
+    (draft: AdDraft) => {
+      const ad = adStateFromDraft(draft);
+      setAds((prev) => [...prev, ad]);
+      setSelectedId(ad.localId);
+      // Only preselect a destination we can actually show in the selects —
+      // a deleted or archived campaign would leave the control blank but
+      // non-empty underneath, and publish against a stale id.
+      const campaign = targets?.campaigns.find((c) => c.id === draft.campaignId);
+      if (campaign) {
+        setCampaignId(campaign.id);
+        setAdsetId(campaign.adsets.some((a) => a.id === draft.adsetId) ? draft.adsetId : "");
+      }
+      setRecreatedFrom(draft.adName);
+      setTab("create");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    [targets]
   );
 
   const fetchTargets = useCallback(async () => {
@@ -979,9 +1081,30 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
       )}
 
       {tab === "review" ? (
-        <ReviewQueue isAdmin={isAdmin} onQueueCount={setPendingCount} focusDraftId={focusDraftId} />
+        <ReviewQueue
+          isAdmin={isAdmin}
+          onQueueCount={setPendingCount}
+          focusDraftId={focusDraftId}
+          onRecreate={recreateDraft}
+        />
       ) : (
         <div className="space-y-4">
+          {recreatedFrom && (
+            <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 text-[13px] text-blue-900">
+              <Copy className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <span className="flex-1">
+                Copied <span className="font-medium">{recreatedFrom}</span> into a new ad — same
+                creative and copy. Change what you need (the link, usually), then publish.
+              </span>
+              <button
+                onClick={() => setRecreatedFrom(null)}
+                className="text-blue-400 hover:text-blue-700 flex-shrink-0"
+                aria-label="Dismiss"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
           {/* Top bar — destination + batch */}
           <div className="bg-white border border-gray-200 rounded-lg px-4 py-2.5 flex items-end gap-3 flex-wrap">
             <div>

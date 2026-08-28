@@ -13,7 +13,7 @@ import {
   matchesAspect,
   uploadAdAsset,
 } from "@/lib/ad-media";
-import { CheckCircle2, Clock, Download, Loader2, MessageSquare, Pencil, Trash2, Upload, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, Copy, Download, Loader2, MessageSquare, Pencil, Trash2, Upload, XCircle } from "lucide-react";
 
 const CTA_LABELS: Record<string, string> = {
   SHOP_NOW: "Shop now",
@@ -97,11 +97,18 @@ export function ReviewQueue({
   isAdmin,
   onQueueCount,
   focusDraftId,
+  onRecreate,
 }: {
   isAdmin: boolean;
   onQueueCount?: (n: number) => void;
   /** Draft to scroll to and highlight (from a bell-notification deep link) */
   focusDraftId?: string | null;
+  /**
+   * Load a past draft back into the Create tab as a fresh, unpublished ad —
+   * same creative and copy, ready to tweak (a new link, usually) and publish
+   * again. Omitted when the queue is rendered outside the launcher.
+   */
+  onRecreate?: (draft: AdDraft) => void;
 }) {
   const [queue, setQueue] = useState<AdDraft[]>([]);
   const [reviewed, setReviewed] = useState<AdDraft[]>([]);
@@ -890,6 +897,14 @@ export function ReviewQueue({
                   <Trash2 className="h-3.5 w-3.5" /> Withdraw draft
                 </button>
               )}
+            {onRecreate && mode !== "queue" && (
+              <button
+                onClick={() => onRecreate(draft)}
+                className="border border-gray-300 rounded-md py-1.5 text-[12.5px] text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-1.5"
+              >
+                <Copy className="h-3.5 w-3.5" /> Recreate as new ad
+              </button>
+            )}
             {downloads.length > 0 && (
               <button
                 onClick={() => downloadFiles(downloads)}
