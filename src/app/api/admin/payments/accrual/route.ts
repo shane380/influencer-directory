@@ -6,6 +6,7 @@ import {
   retainerLines, eventLines, payoutLines, openingLiability, summarize, toCsv, undatedPayments,
   toBookkeeperCsv,
 } from "@/lib/accrual";
+import { buildAccrualWorkbook } from "@/lib/accrual-xlsx";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
     undatedPayments(deals),
   );
 
-  if (format === "csv" || format === "detail") {
+  if (format === "xlsx" || format === "csv" || format === "detail") {
     // Payment method per creator: the most recent real transfer's method wins
     // (it is what actually happened); the profile's stored method fills gaps.
     const methodByHandle: Record<string, string> = {};
@@ -73,6 +74,15 @@ export async function GET(request: NextRequest) {
       if (i?.instagram_handle && po.method) methodByHandle[`@${i.instagram_handle}`] = po.method;
     }
 
+    if (format === "xlsx") {
+      const buf = await buildAccrualWorkbook(lines, summary, methodByHandle);
+      return new NextResponse(new Uint8Array(buf), {
+        headers: {
+          "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Disposition": `attachment; filename="accrual-${month}.xlsx"`,
+        },
+      });
+    }
     const body = format === "detail" ? toCsv(lines, summary) : toBookkeeperCsv(lines, summary, methodByHandle);
     return new NextResponse(body, {
       headers: {

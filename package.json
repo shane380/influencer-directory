@@ -19,6 +19,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "dotenv": "^17.2.3",
+    "exceljs": "^4.4.0",
     "googleapis": "^171.4.0",
     "html2pdf.js": "^0.14.0",
     "lucide-react": "^0.441.0",

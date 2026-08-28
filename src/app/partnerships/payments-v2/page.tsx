@@ -183,7 +183,7 @@ export default function PaymentsV2() {
                 was PAID in it, which the table below does not answer. Reads the
                 same commission_events + creator_payouts ledger this page does. */}
             <button
-              onClick={() => { window.location.href = `/api/admin/payments/accrual?month=${period}&format=csv`; }}
+              onClick={() => { window.location.href = `/api/admin/payments/accrual?month=${period}&format=xlsx`; }}
               title="Earned vs paid for this month, with opening and closing accrued liability — for the bookkeeper"
               className="px-3 py-2 border border-gray-200 rounded text-sm bg-white text-gray-700 hover:bg-gray-50"
             >
