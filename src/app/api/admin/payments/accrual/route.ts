@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { fetchAllRows } from "@/lib/partnerships/paginate";
+import { isTestEnv } from "@/lib/payout-env";
 import { createClient } from "@supabase/supabase-js";
 import {
   retainerLines, eventLines, payoutLines, openingLiability, summarize, toCsv, undatedPayments,
@@ -18,19 +20,28 @@ export async function GET(request: NextRequest) {
   const format = request.nextUrl.searchParams.get("format");
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-  const [dealsRes, eventsRes, payoutsRes] = await Promise.all([
+  // Paginate everything. A plain select stops silently at 1,000 rows, and the
+  // ledger crossed that in August 2026 — the report undercounted by every row
+  // past the cap, with no error to show for it. A financial report must read
+  // the whole table or fail loudly, never quietly truncate.
+  const [dealsRes, events, payouts] = await Promise.all([
     supabase.from("campaign_deals")
       .select("id, deal_kind, starts_on, payment_terms, total_deal_value, deal_status, whitelisting_status, influencer:influencers(name, instagram_handle)")
       .in("deal_status", ["active", "closed"]),
-    supabase.from("commission_events")
-      .select("event_type, period, amount, source_id, influencer_id, detail, influencer:influencers(name, instagram_handle)"),
-    supabase.from("creator_payouts")
-      .select("amount, sent_at, method, reference, influencer:influencers(name, instagram_handle)"),
+    fetchAllRows<any>((from, to) =>
+      (supabase.from("commission_events") as any)
+        .select("event_type, period, amount, source_id, influencer_id, detail, influencer:influencers(name, instagram_handle)")
+        .order("id").range(from, to)),
+    fetchAllRows<any>((from, to) =>
+      (supabase.from("creator_payouts") as any)
+        .select("amount, sent_at, method, reference, influencer:influencers(name, instagram_handle)")
+        // Same env split as the payments page: the bookkeeper sees real
+        // transfers only, never payments recorded on a preview deploy.
+        .eq("is_test", isTestEnv())
+        .order("id").range(from, to)),
   ]);
 
   const deals = (dealsRes.data || []) as any[];
-  const events = (eventsRes.data || []) as any[];
-  const payouts = (payoutsRes.data || []) as any[];
 
   const lines = [
     ...retainerLines(deals, month),
