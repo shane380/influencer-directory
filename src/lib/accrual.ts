@@ -242,3 +242,81 @@ export function toCsv(lines: AccrualLine[], summary: AccrualSummary): string {
   }
   return [head.join(","), ...rows, ...tail].join("\n");
 }
+
+// ---------------------------------------------------------------------------
+// Bookkeeper format: totals first, one row per creator, no transaction rows.
+// Mirrors the payments page grid so the two read the same. The old per-event
+// detail stays available behind format=detail for tracing a specific figure.
+// ---------------------------------------------------------------------------
+
+const bucketOf = (category: string): "affiliate" | "whitelisting" | "retainer" | "paid_collab" | "payout" => {
+  if (category === "refund") return "affiliate"; // refunds net against the commission they adjust
+  if (category === "whitelisting" || category === "retainer" || category === "paid_collab" || category === "payout") return category;
+  return "affiliate";
+};
+
+export function toBookkeeperCsv(
+  lines: AccrualLine[],
+  summary: AccrualSummary,
+  methodByHandle: Record<string, string> = {}
+): string {
+  type Row = { name: string; handle: string; affiliate: number; whitelisting: number; retainer: number; paidCollab: number; paid: number };
+  const byCreator = new Map<string, Row>();
+  const totals = { affiliate: 0, whitelisting: 0, retainer: 0, paidCollab: 0, paid: 0 };
+
+  for (const l of lines) {
+    const key = l.handle || l.creator_name;
+    let r = byCreator.get(key);
+    if (!r) { r = { name: l.creator_name, handle: l.handle, affiliate: 0, whitelisting: 0, retainer: 0, paidCollab: 0, paid: 0 }; byCreator.set(key, r); }
+    const b = bucketOf(l.category);
+    if (b === "affiliate") { r.affiliate += l.accrued; totals.affiliate += l.accrued; }
+    else if (b === "whitelisting") { r.whitelisting += l.accrued; totals.whitelisting += l.accrued; }
+    else if (b === "retainer") { r.retainer += l.accrued; totals.retainer += l.accrued; }
+    else if (b === "paid_collab") { r.paidCollab += l.accrued; totals.paidCollab += l.accrued; }
+    r.paid += l.paid;
+    totals.paid += l.paid;
+  }
+
+  const money = (n: number) => (Math.abs(n) < 0.005 ? "" : round2(n).toFixed(2));
+  const out: string[] = [];
+  const row = (...cells: unknown[]) => out.push(cells.map(csvCell).join(","));
+
+  row("Accrual report", summary.period);
+  row("Currency", summary.currency);
+  out.push("");
+
+  // The figures the bookkeeper posts, first thing on the sheet.
+  row("PARTNERSHIP TYPE", "EARNED THIS PERIOD");
+  row("Affiliate commission (net of refunds)", round2(totals.affiliate).toFixed(2));
+  row("Whitelisting (ad-spend share + usage fees)", round2(totals.whitelisting).toFixed(2));
+  row("Paid collabs (one-offs + retainers)", round2(totals.paidCollab + totals.retainer).toFixed(2));
+  row("TOTAL EARNED", summary.accrued.toFixed(2));
+  out.push("");
+
+  row("LIABILITY RECONCILIATION", "");
+  row("Opening accrued liability", summary.opening_liability.toFixed(2));
+  row("Earned this period", summary.accrued.toFixed(2));
+  row("Paid this period", summary.paid.toFixed(2));
+  row("Closing accrued liability", summary.closing_liability.toFixed(2));
+  out.push("");
+
+  row("BY CREATOR", "", "", "", "", "", "", "", "");
+  row("Creator", "Handle", "Payment method", "Affiliate", "Whitelisting", "Retainer", "One-off", "Earned", "Paid this period");
+  const rows = [...byCreator.values()].sort((a, b) => (b.affiliate + b.whitelisting + b.retainer + b.paidCollab) - (a.affiliate + a.whitelisting + a.retainer + a.paidCollab));
+  for (const r of rows) {
+    const earned = r.affiliate + r.whitelisting + r.retainer + r.paidCollab;
+    row(r.name, r.handle, methodByHandle[r.handle] || methodByHandle[r.name] || "",
+      money(r.affiliate), money(r.whitelisting), money(r.retainer), money(r.paidCollab),
+      round2(earned).toFixed(2), money(r.paid));
+  }
+  row("TOTAL", "", "",
+    round2(totals.affiliate).toFixed(2), round2(totals.whitelisting).toFixed(2),
+    round2(totals.retainer).toFixed(2), round2(totals.paidCollab).toFixed(2),
+    summary.accrued.toFixed(2), summary.paid.toFixed(2));
+
+  if (summary.unplaced_count > 0) {
+    out.push("");
+    row("NOTE", `${summary.unplaced_count} payment(s) totalling ${summary.unplaced_paid.toFixed(2)} are recorded as paid with no date and appear in no period. Closing liability is overstated by that amount until dates are added.`);
+  }
+  return out.join("\n") + "\n";
+}

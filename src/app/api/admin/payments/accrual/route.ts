@@ -4,6 +4,7 @@ import { isTestEnv } from "@/lib/payout-env";
 import { createClient } from "@supabase/supabase-js";
 import {
   retainerLines, eventLines, payoutLines, openingLiability, summarize, toCsv, undatedPayments,
+  toBookkeeperCsv,
 } from "@/lib/accrual";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -55,8 +56,25 @@ export async function GET(request: NextRequest) {
     undatedPayments(deals),
   );
 
-  if (format === "csv") {
-    return new NextResponse(toCsv(lines, summary), {
+  if (format === "csv" || format === "detail") {
+    // Payment method per creator: the most recent real transfer's method wins
+    // (it is what actually happened); the profile's stored method fills gaps.
+    const methodByHandle: Record<string, string> = {};
+    const { data: creatorRows } = await supabase
+      .from("creators")
+      .select("payment_method, invite:creator_invites!creators_invite_id_fkey(influencer:influencers(name, instagram_handle))");
+    for (const c of (creatorRows || []) as any[]) {
+      const inf = (Array.isArray(c.invite) ? c.invite[0] : c.invite)?.influencer;
+      const i = Array.isArray(inf) ? inf[0] : inf;
+      if (i?.instagram_handle && c.payment_method) methodByHandle[`@${i.instagram_handle}`] = c.payment_method;
+    }
+    for (const po of [...payouts].sort((a: any, b: any) => String(a.sent_at).localeCompare(String(b.sent_at)))) {
+      const i = Array.isArray(po.influencer) ? po.influencer[0] : po.influencer;
+      if (i?.instagram_handle && po.method) methodByHandle[`@${i.instagram_handle}`] = po.method;
+    }
+
+    const body = format === "detail" ? toCsv(lines, summary) : toBookkeeperCsv(lines, summary, methodByHandle);
+    return new NextResponse(body, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
         "Content-Disposition": `attachment; filename="accrual-${month}.csv"`,
