@@ -1,5 +1,5 @@
 import { CampaignDeal } from "@/types/database";
-import { earnedOn } from "./retainers";
+import { milestoneEarnedOn, milestoneAmount, dealCategory, isCommittedDeal } from "./deal-milestones";
 
 // The monthly accrual report: what was EARNED in a period versus what was PAID
 // in it, per creator, so a bookkeeper can reconcile the two. Every figure is
@@ -65,24 +65,29 @@ const who = (x: { influencer?: { name?: string | null; instagram_handle?: string
   handle: x.influencer?.instagram_handle ? `@${x.influencer.instagram_handle}` : "",
 });
 
-// A retainer earns per installment, on the date its gate was met. This is the
-// whole reason the report exists: a $2,400 four-month deal paid upfront is not a
-// $2,400 expense in the month the cash left.
+// Every deal earns per installment, on the date its gate was met — a $2,400
+// four-month deal paid upfront is not a $2,400 expense in the month the cash
+// left. One-off collabs work the same way: a 50/50 deal is two expenses in two
+// months, not one lump at the campaign start. This pass covers BOTH kinds, and
+// is also where deal cash appears — one-off milestone payments used to be
+// counted nowhere, overstating the closing liability by every dollar of them.
 export function retainerLines(deals: DealLike[], period: string, today = new Date()): AccrualLine[] {
   const lines: AccrualLine[] = [];
   for (const d of deals) {
-    if (d.deal_kind !== "retainer") continue;
-    if (d.deal_status === "cancelled" || d.deal_status === "negotiating") continue;
-    const isWhitelisting = d.whitelisting_status && d.whitelisting_status !== "not_applicable";
+    if (!isCommittedDeal(d as any)) continue;
+    const category = dealCategory(d as any);
     for (const m of d.payment_terms || []) {
-      const earned = earnedOn(m, d, today);
-      const accruedHere = monthOf(earned) === period ? Number(m.amount) || 0 : 0;
-      const paidHere = m.is_paid && monthOf(m.paid_date) === period ? Number(m.amount) || 0 : 0;
+      const earned = milestoneEarnedOn(m as any, d as any, today);
+      const amount = milestoneAmount(m as any, d as any);
+      const accruedHere = monthOf(earned) === period ? amount : 0;
+      const paidHere = m.is_paid && monthOf(m.paid_date) === period ? amount : 0;
       if (accruedHere === 0 && paidHere === 0) continue;
       lines.push({
         period, ...who(d),
-        category: isWhitelisting ? "whitelisting" : "retainer",
-        description: m.description || "Installment",
+        category,
+        // Flat usage-rights fees share the whitelisting heading with the
+        // ad-spend commission; the note is what tells the bookkeeper which is which.
+        description: (m.description || "Installment") + (category === "whitelisting" ? " · usage fee" : ""),
         accrued: round2(accruedHere),
         paid: round2(paidHere),
         paid_date: m.is_paid ? m.paid_date ?? null : null,
@@ -99,9 +104,15 @@ export function retainerLines(deals: DealLike[], period: string, today = new Dat
 export function eventLines(events: EventLike[], period: string): AccrualLine[] {
   return events
     .filter((e) => e.period === period)
+    // Deal money (retainer + paid_collab events) is read from the deals
+    // themselves above, at milestone level with its paid side. Counting the
+    // ledger copies too would double every deal.
+    .filter((e) => e.event_type !== "retainer" && e.event_type !== "paid_collab")
     .map((e) => ({
       period, ...who(e),
-      category: e.event_type,
+      // Ad-spend commission books under whitelisting, per the bookkeeper's
+      // categories: one heading for everything whitelisting-related.
+      category: e.event_type === "ad_spend" ? "whitelisting" : e.event_type,
       description:
         e.event_type === "refund" ? "Refund adjustment"
         : e.event_type === "affiliate" ? "Affiliate commission"
@@ -144,17 +155,22 @@ export function openingLiability(
 ): number {
   let earned = 0;
   let paid = 0;
+  // Must mirror retainerLines / eventLines exactly, or the opening balance
+  // stops tying to the prior month's close.
   for (const d of deals) {
-    if (d.deal_kind !== "retainer") continue;
-    if (d.deal_status === "cancelled" || d.deal_status === "negotiating") continue;
+    if (!isCommittedDeal(d as any)) continue;
     for (const m of d.payment_terms || []) {
-      const on = monthOf(earnedOn(m, d, today));
-      if (on && on < period) earned += Number(m.amount) || 0;
+      const amount = milestoneAmount(m as any, d as any);
+      const on = monthOf(milestoneEarnedOn(m as any, d as any, today));
+      if (on && on < period) earned += amount;
       const pd = monthOf(m.paid_date);
-      if (m.is_paid && pd && pd < period) paid += Number(m.amount) || 0;
+      if (m.is_paid && pd && pd < period) paid += amount;
     }
   }
-  for (const e of events) if (e.period < period) earned += Number(e.amount) || 0;
+  for (const e of events) {
+    if (e.event_type === "retainer" || e.event_type === "paid_collab") continue; // deal money counted above
+    if (e.period < period) earned += Number(e.amount) || 0;
+  }
   for (const p of payouts) {
     const pd = monthOf(p.sent_at);
     if (pd && pd < period) paid += Number(p.amount) || 0;

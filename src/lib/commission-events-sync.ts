@@ -2,6 +2,7 @@ import { getAdminClient } from "./admin-auth";
 import { getShopifyAccessToken, getShopifyStoreUrl } from "./shopify";
 import { CommissionEvent, upsertEvents } from "./commission-ledger";
 import { loadCommissionRateSchedule, type RateSubject } from "./affiliate-program";
+import { buildDealMilestoneEvents, DEAL_MILESTONE_SOURCE } from "./deal-milestones";
 
 // Keeps the affiliate side of the commission_events ledger fresh. The ledger
 // was seeded by scripts/backfill-commission-events.mjs (one-time, Jun 2026);
@@ -172,42 +173,18 @@ async function buildAdSpendEvents(db: any, months: string[]): Promise<Commission
   return events;
 }
 
-// Paid collabs: one event per confirmed deal, keyed to the campaign's start
-// month — only for the window's months, same shape as the backfill.
-async function buildPaidCollabEvents(db: any, months: string[]): Promise<CommissionEvent[]> {
+// Deal milestones: one event per earned installment, in the month it earned.
+// Replaces the old one-lump-per-deal shape, which could not represent a 50/50
+// split and pinned the whole amount to the campaign's start month. Covers both
+// one-off collabs and retainers — the old retainer exclusion existed only to
+// avoid double-counting against the lump, which no longer exists.
+async function buildDealEvents(db: any): Promise<CommissionEvent[]> {
   const { data: deals } = await (db.from("campaign_deals") as any)
-    .select("id, influencer_id, total_deal_value, campaign:campaigns!campaign_deals_campaign_id_fkey(start_date)")
+    .select("id, influencer_id, deal_kind, deal_status, whitelisting_status, total_deal_value, starts_on, payment_terms")
     // Committed deals: active AND closed. A closed deal was still delivered and
     // still earned — filtering it out would silently drop its earnings.
-    .in("deal_status", ["active", "closed"])
-    // Retainers are excluded on purpose: they accrue per delivered installment
-    // from their milestones, not as one lump at the campaign's start month.
-    // Emitting both would double-count them. Today they happen to be spared
-    // because their campaign has no start date, which is luck, not design.
-    .neq("deal_kind", "retainer");
-  const monthSet = new Set(months);
-  const events: CommissionEvent[] = [];
-  for (const d of deals || []) {
-    const sd = (Array.isArray(d.campaign) ? d.campaign[0] : d.campaign)?.start_date;
-    const period = sd ? String(sd).slice(0, 7) : null;
-    if (!period || !monthSet.has(period)) continue;
-    if (!d.influencer_id || !(Number(d.total_deal_value) > 0)) continue;
-    events.push({
-      creator_key: `inf:${d.influencer_id}`,
-      influencer_id: d.influencer_id,
-      legacy_affiliate_id: null,
-      event_type: "paid_collab",
-      source_type: "campaign_deal",
-      source_id: String(d.id),
-      period,
-      occurred_at: null,
-      amount: round2(Number(d.total_deal_value)),
-      rate: null,
-      basis: null,
-      detail: null,
-    });
-  }
-  return events;
+    .in("deal_status", ["active", "closed"]);
+  return buildDealMilestoneEvents(deals || []);
 }
 
 export async function syncCommissionEvents(days: number): Promise<{
@@ -304,7 +281,12 @@ export async function syncCommissionEvents(days: number): Promise<{
 
   const months = monthsInWindow(since);
   events.push(...(await buildAdSpendEvents(db, months)));
-  events.push(...(await buildPaidCollabEvents(db, months)));
+  // Deal-milestone pass is delete-then-insert rather than upsert: a cleared
+  // delivery tick must REMOVE its event, which an upsert can never do. Also
+  // sweeps the retired campaign_deal lumps the milestone events replace. Build
+  // BEFORE deleting so a failed read leaves the existing events untouched.
+  events.push(...(await buildDealEvents(db)));
+  await (db.from("commission_events") as any).delete().in("source_type", ["campaign_deal", DEAL_MILESTONE_SOURCE]);
 
   const eventsUpserted = await upsertEvents(events);
   return { ordersScanned: scanned, ordersMatched: matched, eventsUpserted, durationMs: Date.now() - t0 };

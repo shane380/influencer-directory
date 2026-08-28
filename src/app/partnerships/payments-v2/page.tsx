@@ -14,7 +14,7 @@ import { dueState, formatDueDate, type DueState } from "@/lib/payment-due";
 interface Creator {
   key: string; influencerId: string | null; legacyAffiliateId: string | null;
   name: string; handle: string; photo: string | null; payInfo: string;
-  retainer: number; adSpend: number; affiliate: number; oneOff: number;
+  retainer: number; adSpend: number; affiliate: number; oneOff: number; usageFees: number;
   earned: number; paid: number; balance: number;
   adRate: number; adBasis: number; affRate: number; affOrders: number; affGross: number; affRefunds: number;
   adRateMixed?: boolean; affRateMixed?: boolean;
@@ -237,7 +237,7 @@ export default function PaymentsV2() {
                 <th className="text-left font-medium px-5 py-3">Creator</th>
                 <th className="text-right font-medium px-3 py-3">Retainer</th>
                 <th className="text-right font-medium px-3 py-3">One-off</th>
-                <th className="text-right font-medium px-3 py-3">Ad Spend</th>
+                <th className="text-right font-medium px-3 py-3">Whitelisting</th>
                 <th className="text-right font-medium px-3 py-3">Affiliate</th>
                 <th className="text-right font-medium px-3 py-3">Earned</th>
                 <th className="text-right font-medium px-3 py-3">Paid</th>
@@ -273,7 +273,7 @@ export default function PaymentsV2() {
                     </td>
                     <td className="px-3 py-3 text-right text-gray-700">{cell(r.retainer)}</td>
                     <td className="px-3 py-3 text-right text-gray-700">{cell(r.oneOff)}</td>
-                    <td className="px-3 py-3 text-right">{r.adSpend > 0 ? <button onClick={() => setBreakdown({ row: r, type: "ad" })} className="text-gray-700 hover:text-gray-900" title="Breakdown">${money(r.adSpend)}</button> : <span className="text-gray-400">—</span>}</td>
+                    <td className="px-3 py-3 text-right">{(r.adSpend + r.usageFees) > 0 ? <button onClick={() => setBreakdown({ row: r, type: "ad" })} className="text-gray-700 hover:text-gray-900" title="Breakdown">${money(r.adSpend + r.usageFees)}</button> : <span className="text-gray-400">—</span>}</td>
                     <td className="px-3 py-3 text-right">{Math.abs(r.affiliate) > 0.005 ? <button onClick={() => setBreakdown({ row: r, type: "aff" })} className="text-gray-700 hover:text-gray-900" title="Breakdown">${money(r.affiliate)}</button> : <span className="text-gray-400">—</span>}</td>
                     <td className="px-3 py-3 text-right font-medium text-gray-900">${money(r.earned)}</td>
                     <td className="px-3 py-3 text-right text-gray-700">{r.paid > 0 ? `$${money(r.paid)}` : "—"}</td>
@@ -347,15 +347,20 @@ export default function PaymentsV2() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setBreakdown(null)}>
             <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
               <div className="px-6 py-4 border-b">
-                <div className="text-sm font-semibold text-gray-900">{breakdown.type === "ad" ? "Ad Spend commission" : "Affiliate commission"} — {r.name}</div>
+                <div className="text-sm font-semibold text-gray-900">{breakdown.type === "ad" ? "Whitelisting" : "Affiliate commission"} — {r.name}</div>
                 <div className="text-xs text-gray-500 mt-0.5">{periodLabel(period)}</div>
               </div>
               <div className="px-6 py-4 text-sm">
                 {breakdown.type === "ad" ? (
                   <>
-                    <Line label="Ad spend" value={`$${money(r.adBasis)}`} />
-                    <Line label="Commission rate" value={rateLabel(r.adRate, r.adRateMixed)} />
-                    <Line label="Commission" value={`$${money(r.adSpend)}`} strong />
+                    {r.adSpend > 0 && (
+                      <>
+                        <Line label="Ad spend" value={`$${money(r.adBasis)}`} />
+                        <Line label="Commission rate" value={rateLabel(r.adRate, r.adRateMixed)} />
+                        <Line label="Commission" value={`$${money(r.adSpend)}`} strong />
+                      </>
+                    )}
+                    {r.usageFees > 0 && <Line label="Usage-rights fees (flat, from deals)" value={`$${money(r.usageFees)}`} strong />}
                   </>
                 ) : (
                   <>
