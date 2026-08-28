@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { loadCodeAliases, codesForOwner } from "@/lib/affiliate-code-aliases";
 import { createClient } from "@supabase/supabase-js";
 import { calculateAffiliateCommission } from "@/lib/affiliate";
 
@@ -93,6 +94,10 @@ export async function GET(request: NextRequest) {
   let created = 0;
   const rowsToInsert: any[] = [];
 
+  // One lookup for the whole run: codes rotated away from, so a creator whose
+  // leaked code was replaced is still paid for orders on the old one.
+  const codeAliases = await loadCodeAliases(supabase);
+
   for (const creator of creators) {
     if (!creator.invite_id) continue;
     const invite = inviteMap.get(creator.invite_id);
@@ -137,7 +142,10 @@ export async function GET(request: NextRequest) {
       if (!existingKeys.has(key)) {
         const rate = creator.commission_rate || invite.ad_spend_percentage || 10;
         try {
-          const result = await calculateAffiliateCommission(creator.affiliate_code, month, rate / 100);
+          const result = await calculateAffiliateCommission(
+            codesForOwner(creator.affiliate_code, codeAliases.byCreator.get(creator.id)),
+            month, rate / 100,
+          );
           rowsToInsert.push({
             influencer_id: influencerId, month, payment_type: "affiliate_commission",
             amount_owed: result.summary.commission_owed, payment_method: paymentMethod, payment_detail: paymentDetail,

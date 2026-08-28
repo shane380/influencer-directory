@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { loadCodeAliases, codesForOwner } from "@/lib/affiliate-code-aliases";
 import { calculateAffiliateCommission } from "@/lib/affiliate";
 import { verifyAdmin, getAdminClient } from "@/lib/admin-auth";
 
@@ -19,6 +20,7 @@ export async function GET(request: NextRequest) {
 
   let affiliateCode: string;
   let rate: number;
+  let creatorRowId: string | null = null;
 
   if (legacyAffiliateId) {
     // Legacy affiliate: look up code/rate directly
@@ -46,7 +48,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { data: creator } = await (supabase.from as any)("creators")
-      .select("affiliate_code, commission_rate")
+      .select("id, affiliate_code, commission_rate")
       .eq("invite_id", invite.id)
       .single();
 
@@ -55,6 +57,7 @@ export async function GET(request: NextRequest) {
     }
 
     affiliateCode = creator.affiliate_code;
+    creatorRowId = creator.id;
     rate = creator.commission_rate || invite.commission_rate || 10;
   }
 
@@ -74,7 +77,15 @@ export async function GET(request: NextRequest) {
   }
 
   // Calculate with exclusions
-  const result = await calculateAffiliateCommission(affiliateCode, month, rate / 100, excludedOrderIds);
+  const aliases = await loadCodeAliases(supabase);
+  const retired = legacyAffiliateId
+    ? aliases.byLegacyAffiliate.get(legacyAffiliateId)
+    : creatorRowId
+      ? aliases.byCreator.get(creatorRowId)
+      : [];
+  const result = await calculateAffiliateCommission(
+    codesForOwner(affiliateCode, retired), month, rate / 100, excludedOrderIds,
+  );
 
   // Add exclusion reasons to orders
   const orders = result.orders.map((o) => ({

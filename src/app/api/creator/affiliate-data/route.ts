@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { loadCodeAliases, codesForOwner } from "@/lib/affiliate-code-aliases";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { getAdminClient } from "@/lib/admin-auth";
 import { resolveAffiliateContext } from "@/lib/affiliate-context";
@@ -57,7 +58,18 @@ export async function GET(request: NextRequest) {
   };
   let orders: any[] = [];
   try {
-    const res = await calculateAffiliateCommission(ctx.code, currentMonth, rateDec);
+    // Include codes rotated away from, or a creator whose leaked code was
+    // replaced mid-month would see this month's earlier earnings vanish from
+    // their own dashboard.
+    const aliases = await loadCodeAliases(getAdminClient());
+    const retired = ctx.legacyAffiliateId
+      ? aliases.byLegacyAffiliate.get(ctx.legacyAffiliateId)
+      : ctx.creatorId
+        ? aliases.byCreator.get(ctx.creatorId)
+        : [];
+    const res = await calculateAffiliateCommission(
+      codesForOwner(ctx.code, retired), currentMonth, rateDec,
+    );
     summary = res.summary;
     orders = res.orders;
   } catch {

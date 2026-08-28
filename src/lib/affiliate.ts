@@ -28,6 +28,29 @@ export async function shopifyFetch(url: string, accessToken: string, tries = 6):
   throw new Error(`Shopify request failed after ${tries} attempts: ${url.split("?")[0]}${lastErr ? ` (${lastErr})` : ""}`);
 }
 
+/**
+ * Normalise a code or list of codes to an upper-cased set.
+ *
+ * Commission matching takes a set rather than a string so a creator who has
+ * rotated a leaked code is still paid for orders placed on the old one. With a
+ * single code the set has one member and matching is identical to what it was
+ * before aliases existed.
+ */
+function codeSet(code: string | string[]): Set<string> {
+  const list = Array.isArray(code) ? code : [code];
+  return new Set(
+    list.filter(Boolean).map((c) => String(c).trim().toUpperCase()).filter(Boolean),
+  );
+}
+
+function orderMatchesCode(order: any, wanted: Set<string>): boolean {
+  for (const dc of order.discount_codes || []) {
+    const c = (dc?.code || "").toUpperCase();
+    if (c && wanted.has(c)) return true;
+  }
+  return false;
+}
+
 export interface RefundAdjustment {
   order_id: number;
   order_number: number | string;
@@ -51,7 +74,7 @@ export interface RefundAdjustmentResult {
  */
 export async function checkRefundAdjustments(
   storedOrders: AffiliateOrder[],
-  discountCode: string,
+  discountCode: string | string[],
   commissionRate: number,
   // Per-order refund level already clawed back by earlier adjustment rows, so a
   // refund is never deducted twice when a widened lookback re-scans a month.
@@ -90,7 +113,7 @@ export async function checkRefundAdjustments(
   const startDate = new Date(minTime);
   startDate.setHours(0, 0, 0, 0);
   const endDate = new Date(maxTime + 2 * 24 * 60 * 60 * 1000); // pad to include the last day
-  const codeUpper = discountCode.toUpperCase();
+  const wanted = codeSet(discountCode);
 
   const refundedOrders: any[] = [];
   let pageUrl: string | null =
@@ -103,8 +126,7 @@ export async function checkRefundAdjustments(
 
       const data = await res.json();
       for (const order of data.orders || []) {
-        const codes = (order.discount_codes || []).map((dc: any) => dc.code?.toUpperCase());
-        if (codes.includes(codeUpper) && storedOrderMap.has(order.id)) {
+        if (orderMatchesCode(order, wanted) && storedOrderMap.has(order.id)) {
           refundedOrders.push(order);
         }
       }
@@ -203,7 +225,7 @@ export interface AffiliateResult {
 }
 
 export async function calculateAffiliateCommission(
-  discountCode: string,
+  discountCode: string | string[],
   month: string | null,
   commissionRate: number, // as decimal, e.g. 0.1 for 10%
   excludedOrderIds: number[] = []
@@ -216,6 +238,7 @@ export async function calculateAffiliateCommission(
     return { orders: [], summary: { order_count: 0, total_gross: 0, total_refunds: 0, total_net: 0, commission_rate: commissionRate, commission_owed: 0 } };
   }
 
+  const wantedCodes = codeSet(discountCode);
   let allOrders: any[] = [];
   let pageUrl: string | null = `https://${storeUrl}/admin/api/2024-01/orders.json?status=any&limit=250`;
 
@@ -231,13 +254,15 @@ export async function calculateAffiliateCommission(
 
     // Throw rather than break: a non-OK response mid-pagination means we'd
     // otherwise count only a partial order set and undercount the commission.
-    if (!res.ok) throw new Error(`Shopify orders page returned ${res.status} for ${discountCode} ${month ?? "all"}`);
+    if (!res.ok) {
+      throw new Error(
+        `Shopify orders page returned ${res.status} for ${Array.from(wantedCodes).join("/")} ${month ?? "all"}`,
+      );
+    }
 
     const data = await res.json();
-    const codeUpper = discountCode.toUpperCase();
     for (const order of data.orders || []) {
-      const codes = (order.discount_codes || []).map((dc: any) => dc.code?.toUpperCase());
-      if (codes.includes(codeUpper)) {
+      if (orderMatchesCode(order, wantedCodes)) {
         allOrders.push(order);
       }
     }
@@ -430,7 +455,7 @@ export async function listBulkAffiliateOrdersGrossByDay(
  * Pages through all orders for the month once, matching against all codes simultaneously.
  */
 export async function calculateBulkAffiliateCommissions(
-  codes: { code: string; commissionRate: number; excludedOrderIds?: number[] }[],
+  codes: { code: string; commissionRate: number; excludedOrderIds?: number[]; aliases?: string[] }[],
   month: string
 ): Promise<Map<string, AffiliateResult>> {
   const storeUrl = getShopifyStoreUrl();
@@ -447,8 +472,21 @@ export async function calculateBulkAffiliateCommissions(
 
   if (!storeUrl || !accessToken || codes.length === 0) return results;
 
-  const codeSet = new Map(codes.map((c) => [c.code.toUpperCase(), c]));
+  const codeSetByCode = new Map(codes.map((c) => [c.code.toUpperCase(), c]));
   const excludedSets = new Map(codes.map((c) => [c.code.toUpperCase(), new Set(c.excludedOrderIds || [])]));
+
+  // Every code that resolves to an entry, including retired ones, mapped back to
+  // that entry's current code. Results stay keyed by the current code, so a
+  // rotation is invisible to callers.
+  const resolveToPrimary = new Map<string, string>();
+  for (const c of codes) {
+    const primary = c.code.toUpperCase();
+    resolveToPrimary.set(primary, primary);
+    for (const a of c.aliases || []) {
+      const alias = String(a).trim().toUpperCase();
+      if (alias) resolveToPrimary.set(alias, primary);
+    }
+  }
 
   // Single pass: page through all orders for the month
   const [year, mon] = month.split("-").map(Number);
@@ -467,11 +505,16 @@ export async function calculateBulkAffiliateCommissions(
 
     const data = await res.json();
     for (const order of data.orders || []) {
-      const orderCodes = (order.discount_codes || []).map((dc: any) => dc.code?.toUpperCase());
+      const orderCodes = (order.discount_codes || []).map((dc: any) => dc?.code?.toUpperCase());
+      // An order can only be attributed once per owner, even if it somehow
+      // carries both a current and a retired code for the same person.
+      const primaries = new Set<string>();
       for (const oc of orderCodes) {
-        if (codeSet.has(oc)) {
-          matchedOrders.push({ order, codeUpper: oc });
-        }
+        const primary = oc && resolveToPrimary.get(oc);
+        if (primary) primaries.add(primary);
+      }
+      for (const primary of primaries) {
+        matchedOrders.push({ order, codeUpper: primary });
       }
     }
 
@@ -513,7 +556,7 @@ export async function calculateBulkAffiliateCommissions(
   // Group results by code
   for (const { codeUpper, order, grossAmount, refundAmount } of processedOrders) {
     const result = results.get(codeUpper)!;
-    const config = codeSet.get(codeUpper)!;
+    const config = codeSetByCode.get(codeUpper)!;
     const excluded = excludedSets.get(codeUpper)!;
     const netAmount = Math.round((grossAmount - refundAmount) * 100) / 100;
 
