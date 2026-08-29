@@ -72,6 +72,14 @@ export async function POST(request: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // Money moved — the promise is kept; retire any active schedule chip.
+  try {
+    const subj = influencer_id ? { col: "influencer_id", val: influencer_id } : { col: "legacy_affiliate_id", val: legacy_affiliate_id };
+    await (supabase.from("payment_schedules") as any)
+      .update({ cleared_at: new Date().toISOString() })
+      .eq(subj.col, subj.val).is("cleared_at", null);
+  } catch { /* schedules table optional */ }
+
   await (supabase.from("payment_audit_log") as any).insert({
     user_id: admin.id,
     user_email: admin.email,

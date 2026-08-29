@@ -103,6 +103,19 @@ export async function GET(request: NextRequest) {
     .in("deal_status", ["active", "closed"]);
   const dealPays = milestonePayments(dealRows || []);
 
+  // Promised payments (invoice received, pay date agreed). Intentions, never
+  // counted as paid — shown so a planned row doesn't read as bare overdue.
+  let schedulesByKey = new Map<string, any>();
+  try {
+    const { data: scheds } = await (db.from("payment_schedules") as any)
+      .select("id, influencer_id, legacy_affiliate_id, amount, scheduled_for, note")
+      .is("cleared_at", null);
+    for (const sc of scheds || []) {
+      const key = sc.influencer_id ? `inf:${sc.influencer_id}` : `legacy:${sc.legacy_affiliate_id}`;
+      schedulesByKey.set(key, sc);
+    }
+  } catch { /* table not migrated yet — feature no-ops */ }
+
   const keyOf = (r: any) => (r.influencer_id ? `inf:${r.influencer_id}` : `legacy:${r.legacy_affiliate_id}`);
   const payoutsByKeyExtra = new Map<string, any[]>();
   for (const dp of dealPays) {
@@ -207,6 +220,7 @@ export async function GET(request: NextRequest) {
       oneOff: round2(g.oneOff),
       usageFees: round2(g.usageFees),
       adjustments: g.adjustments,
+      schedule: schedulesByKey.get(g.key) || null,
       adSpend: round2(g.adSpend),
       affiliate: round2(g.affiliate),
       earned,
