@@ -52,6 +52,9 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/api/admin/payments/generate') ||
     pathname.startsWith('/api/shopify/affiliate-orders') ||
     pathname.startsWith('/api/shopify/auth') ||
+    // Machine-to-machine feed for the inventory app's cash planner; the route
+    // enforces its own CASH_FORECAST_TOKEN bearer auth (503s when unset).
+    pathname.startsWith('/api/integrations/cash-forecast') ||
     pathname.startsWith('/invite') ||
     // Trailing slashes are load-bearing: /gifting and /api/gifting/* are
     // auth-protected admin surfaces and must NOT match these prefixes.

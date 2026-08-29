@@ -19,6 +19,7 @@ interface Creator {
   adRate: number; adBasis: number; affRate: number; affOrders: number; affGross: number; affRefunds: number;
   adRateMixed?: boolean; affRateMixed?: boolean;
   adjustments?: { amount: number; description: string }[];
+  schedule?: { id: string; amount: number | null; scheduled_for: string; note: string | null } | null;
 }
 
 // A blended rate needs a decimal — rounding 18.3% to "18%" next to a figure it
@@ -56,6 +57,34 @@ export default function PaymentsV2() {
   const [breakdown, setBreakdown] = useState<{ row: Creator; type: "ad" | "aff" } | null>(null);
   const [audit, setAudit] = useState<{ orders: any[] } | null>(null);
   const [payEditFor, setPayEditFor] = useState<Creator | null>(null);
+  const [schedFor, setSchedFor] = useState<Creator | null>(null);
+  const [schedForm, setSchedForm] = useState({ scheduled_for: "", amount: "", note: "" });
+  const [schedBusy, setSchedBusy] = useState(false);
+
+  async function saveSchedule() {
+    if (!schedFor || !schedForm.scheduled_for) return;
+    setSchedBusy(true);
+    const res = await fetch("/api/admin/payment-schedule", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        influencer_id: schedFor.influencerId,
+        legacy_affiliate_id: schedFor.influencerId ? null : schedFor.legacyAffiliateId,
+        amount: schedForm.amount ? Number(schedForm.amount) : null,
+        scheduled_for: schedForm.scheduled_for,
+        note: schedForm.note || null,
+      }),
+    });
+    setSchedBusy(false);
+    if (res.ok) { setSchedFor(null); load(); }
+    else alert((await res.json().catch(() => ({}))).error || "Save failed");
+  }
+
+  async function clearSchedule(r: Creator) {
+    if (!r.schedule) return;
+    await fetch(`/api/admin/payment-schedule?id=${r.schedule.id}`, { method: "DELETE" });
+    load();
+  }
   const [payEditForm, setPayEditForm] = useState<any>({});
   const [payEditBusy, setPayEditBusy] = useState(false);
 
@@ -354,8 +383,13 @@ export default function PaymentsV2() {
                     <td className="px-3 py-3 text-right text-gray-700">{r.paid > 0 ? `$${money(r.paid)}` : "—"}</td>
                     <td className={`px-3 py-3 text-right font-semibold ${due === "overdue" ? "text-red-600" : r.balance > 0.01 ? "text-amber-600" : "text-green-600"}`}>
                       ${money(r.balance)}
-                      {due === "overdue" && <div className="text-[10px] font-normal text-red-600">Overdue</div>}
-                      {due === "due_soon" && <div className="text-[10px] font-normal text-amber-600">Due soon</div>}
+                      {r.schedule ? (
+                        <div className="text-[10px] font-normal text-blue-600" title={r.schedule.note || ""}>
+                          Scheduled {r.schedule.scheduled_for}
+                          <button onClick={(e) => { e.stopPropagation(); clearSchedule(r); }} className="ml-1 text-blue-300 hover:text-blue-600" title="Clear schedule">×</button>
+                        </div>
+                      ) : due === "overdue" ? <div className="text-[10px] font-normal text-red-600">Overdue</div>
+                        : due === "due_soon" ? <div className="text-[10px] font-normal text-amber-600">Due soon</div> : null}
                     </td>
                     <td className="px-5 py-3 text-right">
                       {status === "paid" ? <span className="text-xs text-green-600 font-medium">✓ Paid</span> : (
@@ -363,6 +397,10 @@ export default function PaymentsV2() {
                           className="px-3 py-1.5 bg-gray-900 text-white rounded text-xs font-medium hover:bg-gray-700">
                           {status === "partial" ? "Pay balance" : "Record Payment"}
                         </button>
+                      )}
+                      {status !== "paid" && !r.schedule && (
+                        <button onClick={() => { setSchedFor(r); setSchedForm({ scheduled_for: "", amount: String(r.balance), note: "" }); }}
+                          className="block ml-auto mt-1 text-[10px] text-gray-400 hover:text-blue-600">Schedule…</button>
                       )}
                     </td>
                   </tr>
@@ -491,6 +529,28 @@ export default function PaymentsV2() {
           </div>
         );
       })()}
+
+      {/* Schedule a payment (invoice received / pay date agreed) */}
+      {schedFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setSchedFor(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="text-sm font-semibold text-gray-900 mb-1">Schedule payment — {schedFor.name}</div>
+            <div className="text-[11px] text-gray-400 mb-4">A plan, not a payment — the chip clears itself when the payout is recorded.</div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <label className="text-xs text-gray-500">Pay on
+                <input type="date" value={schedForm.scheduled_for} onChange={(e) => setSchedForm({ ...schedForm, scheduled_for: e.target.value })} className="mt-1 w-full border border-gray-200 rounded px-2.5 py-2" /></label>
+              <label className="text-xs text-gray-500">Amount (optional)
+                <input type="number" step="0.01" value={schedForm.amount} onChange={(e) => setSchedForm({ ...schedForm, amount: e.target.value })} className="mt-1 w-full border border-gray-200 rounded px-2.5 py-2" /></label>
+              <label className="col-span-2 text-xs text-gray-500">Note
+                <input value={schedForm.note} onChange={(e) => setSchedForm({ ...schedForm, note: e.target.value })} placeholder="e.g. invoice received 28 Aug" className="mt-1 w-full border border-gray-200 rounded px-2.5 py-2" /></label>
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setSchedFor(null)} className="text-sm px-3 py-2 text-gray-500">Cancel</button>
+              <button onClick={saveSchedule} disabled={schedBusy || !schedForm.scheduled_for} className="text-sm px-4 py-2 rounded-md bg-gray-900 text-white disabled:opacity-40">{schedBusy ? "Saving…" : "Save"}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Payout details editor */}
       {payEditFor && (
