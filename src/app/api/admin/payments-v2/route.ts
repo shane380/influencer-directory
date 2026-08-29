@@ -146,8 +146,22 @@ export async function GET(request: NextRequest) {
   const payByInf = new Map<string, any>();
   for (const inv of invites || []) {
     const c = Array.isArray(inv.creators) ? inv.creators[0] : inv.creators;
-    if (c) payByInf.set(inv.influencer_id, c);
+    if (!c) continue;
+    // Multi-invite influencers: keep the record the creator maintains, not
+    // whichever invite iterated last.
+    const prev = payByInf.get(inv.influencer_id);
+    const better = !prev
+      || (!prev.payment_method && c.payment_method)
+      || (c.payment_method && String(c.payment_updated_at || "") > String(prev.payment_updated_at || ""));
+    if (better) payByInf.set(inv.influencer_id, c);
   }
+
+  // Every method value the creator portal can save, not just the first two.
+  // e_transfer rendering as "Bank" was a lie to whoever runs the payment.
+  const METHOD_LABEL: Record<string, string> = {
+    paypal: "PayPal", e_transfer: "E-Transfer", bank: "Bank",
+    us_ach: "Bank (US ACH)", ca_eft: "Bank (CA EFT)", intl_wire: "Wire",
+  };
 
   const round2 = (n: number) => Math.round(n * 100) / 100;
   const maskPay = (g: Grp): string => {
@@ -155,7 +169,9 @@ export async function GET(request: NextRequest) {
     if (g.influencerId) {
       const c = payByInf.get(g.influencerId);
       if (c?.payment_method) {
-        return c.payment_method === "paypal" ? `PayPal · ${c.paypal_email || "—"}` : `Bank${c.bank_institution ? " · " + c.bank_institution : ""}`;
+        const label = METHOD_LABEL[c.payment_method] || c.payment_method;
+        const detail = (c.payment_method === "paypal" || c.payment_method === "e_transfer") ? c.paypal_email : c.bank_institution;
+        return detail ? `${label} · ${detail}` : label;
       }
     }
     // …else fall back to the legacy affiliate's payment info.

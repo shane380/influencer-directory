@@ -92,6 +92,42 @@ export default function AffiliateCodeLeaksPage() {
   const [scanning, setScanning] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [legacy, setLegacy] = useState<any[]>([]);
+  const [legacyOpen, setLegacyOpen] = useState(false);
+  const [legacyEdit, setLegacyEdit] = useState<any | null>(null); // null=closed, {}=new
+  const [legacyForm, setLegacyForm] = useState<any>({});
+  const [legacyBusy, setLegacyBusy] = useState(false);
+
+  // Legacy affiliates live here now: code-only partners with no portal login.
+  // This is the only UI for them — the roster the leak scanner, the payments
+  // page and the rate schedule all key off.
+  const loadLegacy = useCallback(async () => {
+    const res = await fetch("/api/admin/legacy-affiliates");
+    if (res.ok) setLegacy((await res.json()).legacyAffiliates || []);
+  }, []);
+  useEffect(() => { loadLegacy(); }, [loadLegacy]);
+
+  async function saveLegacy() {
+    setLegacyBusy(true);
+    const isNew = !legacyEdit?.id;
+    const res = await fetch("/api/admin/legacy-affiliates", {
+      method: isNew ? "POST" : "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(isNew ? legacyForm : { id: legacyEdit.id, ...legacyForm }),
+    });
+    setLegacyBusy(false);
+    if (res.ok) { setLegacyEdit(null); loadLegacy(); }
+    else alert((await res.json().catch(() => ({}))).error || "Save failed");
+  }
+
+  async function toggleLegacyStatus(la: any) {
+    await fetch("/api/admin/legacy-affiliates", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: la.id, status: la.status === "active" ? "inactive" : "active" }),
+    });
+    loadLegacy();
+  }
 
   useEffect(() => {
     (async () => {
@@ -382,6 +418,95 @@ export default function AffiliateCodeLeaksPage() {
             ))}
           </div>
         )}
+
+        {/* ---- Legacy affiliates: the code-only roster ---- */}
+        <div className="mt-10">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Legacy affiliates</h2>
+              <p className="text-sm text-gray-500">Code-only partners with no portal login. Their code, rate and payout details are managed here.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setLegacyOpen((v) => !v)} className="text-sm px-3 py-2 rounded-md border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">
+                {legacyOpen ? "Hide" : `Show (${legacy.length})`}
+              </button>
+              <button onClick={() => { setLegacyEdit({}); setLegacyForm({ commission_rate: 10, status: "active" }); setLegacyOpen(true); }}
+                className="text-sm px-3 py-2 rounded-md bg-gray-900 text-white hover:bg-gray-700">+ New</button>
+            </div>
+          </div>
+
+          {legacyOpen && (
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200 text-gray-500">
+                  <tr>
+                    <th className="text-left font-medium px-4 py-2.5">Name</th>
+                    <th className="text-left font-medium px-4 py-2.5">Code</th>
+                    <th className="text-right font-medium px-4 py-2.5">Rate</th>
+                    <th className="text-left font-medium px-4 py-2.5">Payment</th>
+                    <th className="text-left font-medium px-4 py-2.5">Status</th>
+                    <th className="px-4 py-2.5 w-32"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {legacy.map((la) => (
+                    <tr key={la.id} className="border-b border-gray-50 last:border-b-0">
+                      <td className="px-4 py-2.5 text-gray-800">{la.name}</td>
+                      <td className="px-4 py-2.5 font-mono text-xs text-gray-500">{la.discount_code}</td>
+                      <td className="px-4 py-2.5 text-right text-gray-700">{la.commission_rate}%</td>
+                      <td className="px-4 py-2.5 text-gray-500 text-xs">
+                        {la.payment_method ? `${la.payment_method}${la.payment_detail ? " · " + la.payment_detail : ""}` : "—"}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${la.status === "active" ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-400"}`}>{la.status}</span>
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-xs whitespace-nowrap">
+                        <button onClick={() => { setLegacyEdit(la); setLegacyForm({ name: la.name, discount_code: la.discount_code, commission_rate: la.commission_rate, payment_method: la.payment_method || "", payment_detail: la.payment_detail || "", notes: la.notes || "", status: la.status }); }}
+                          className="text-gray-400 hover:text-blue-600 mr-3">Edit</button>
+                        <button onClick={() => toggleLegacyStatus(la)} className="text-gray-400 hover:text-gray-700">
+                          {la.status === "active" ? "Deactivate" : "Reactivate"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="px-4 py-2 text-[11px] text-gray-400 border-t border-gray-100">
+                Rate changes here affect months before any scheduled rate only — scheduled rates (e.g. the Sept 2026 move to 10%) are rows in the rate schedule, not edits to this number.
+              </div>
+            </div>
+          )}
+        </div>
+
+        {legacyEdit !== null && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setLegacyEdit(null)}>
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+              <div className="text-sm font-semibold text-gray-900 mb-4">{legacyEdit.id ? `Edit — ${legacyEdit.name}` : "New legacy affiliate"}</div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <label className="col-span-2 text-xs text-gray-500">Name
+                  <input value={legacyForm.name || ""} onChange={(e) => setLegacyForm({ ...legacyForm, name: e.target.value })} className="mt-1 w-full border border-gray-200 rounded px-2.5 py-2" /></label>
+                <label className="text-xs text-gray-500">Discount code
+                  <input value={legacyForm.discount_code || ""} onChange={(e) => setLegacyForm({ ...legacyForm, discount_code: e.target.value.toUpperCase() })} className="mt-1 w-full border border-gray-200 rounded px-2.5 py-2 font-mono" /></label>
+                <label className="text-xs text-gray-500">Commission %
+                  <input type="number" value={legacyForm.commission_rate ?? ""} onChange={(e) => setLegacyForm({ ...legacyForm, commission_rate: Number(e.target.value) })} className="mt-1 w-full border border-gray-200 rounded px-2.5 py-2" /></label>
+                <label className="text-xs text-gray-500">Payment method
+                  <select value={legacyForm.payment_method || ""} onChange={(e) => setLegacyForm({ ...legacyForm, payment_method: e.target.value })} className="mt-1 w-full border border-gray-200 rounded px-2.5 py-2 bg-white">
+                    <option value="">—</option><option value="paypal">PayPal</option><option value="e_transfer">E-Transfer</option><option value="bank">Bank</option>
+                  </select></label>
+                <label className="text-xs text-gray-500">Payment detail
+                  <input value={legacyForm.payment_detail || ""} onChange={(e) => setLegacyForm({ ...legacyForm, payment_detail: e.target.value })} placeholder="email / account" className="mt-1 w-full border border-gray-200 rounded px-2.5 py-2" /></label>
+                <label className="col-span-2 text-xs text-gray-500">Notes
+                  <input value={legacyForm.notes || ""} onChange={(e) => setLegacyForm({ ...legacyForm, notes: e.target.value })} className="mt-1 w-full border border-gray-200 rounded px-2.5 py-2" /></label>
+              </div>
+              <div className="flex justify-end gap-2 mt-5">
+                <button onClick={() => setLegacyEdit(null)} className="text-sm px-3 py-2 text-gray-500">Cancel</button>
+                <button onClick={saveLegacy} disabled={legacyBusy || !legacyForm.name || !legacyForm.discount_code}
+                  className="text-sm px-4 py-2 rounded-md bg-gray-900 text-white disabled:opacity-40">{legacyBusy ? "Saving…" : "Save"}</button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </main>
     </div>
   );
