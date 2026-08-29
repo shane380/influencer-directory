@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { preserveHistory, rescaleToTotal } from "@/lib/milestones";
+import { preserveHistory, rescaleToTotal, snapMilestonesToTotal } from "@/lib/milestones";
 import {
   Influencer,
   InfluencerInsert,
@@ -398,7 +398,7 @@ export function PaidCollabDialog({
         if (m.id !== id) return m;
         if (field === "percentage") {
           const percentage = Number(value);
-          return { ...m, percentage, amount: totalDealValue * (percentage / 100) };
+          return { ...m, percentage, amount: Math.round(totalDealValue * percentage) / 100 };
         }
         return { ...m, [field]: value };
       })
@@ -516,7 +516,7 @@ export function PaidCollabDialog({
         total_deal_value: totalDealValue,
         deal_status: "negotiating",
         payment_status: calculatePaymentStatus(),
-        payment_terms: paymentMilestones,
+        payment_terms: snapMilestonesToTotal(paymentMilestones, totalDealValue),
         notes: notes || null,
         content_status: "not_started",
         whitelisting_status: initialWhitelistingStatus,

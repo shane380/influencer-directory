@@ -32,6 +32,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { AlertTriangle, Pencil, Plus, DollarSign, MessageCircle } from "lucide-react";
+import { inferGate, earnedOn } from "@/lib/retainers";
 
 interface InfluencerDialogProps {
   open: boolean;
@@ -608,6 +609,26 @@ export function InfluencerDialog({
     }
   };
 
+  // Marks the month's content delivered (sets the earned date). This is
+  // Daisy's tick — separate from payment, and what unlocks the pay checkbox.
+  const handleMarkDelivered = async (deal: CampaignDeal & { campaign: Campaign }, milestoneId: string, delivered: boolean) => {
+    if (!deal.payment_terms) return;
+    const updatedMilestones = deal.payment_terms.map((m) =>
+      m.id === milestoneId
+        ? { ...m, gate: inferGate(m), earned_on: delivered ? new Date().toISOString().split("T")[0] : null }
+        : m
+    );
+    const { error } = await supabase
+      .from("campaign_deals")
+      .update({ payment_terms: updatedMilestones, updated_by: currentUserId } as never)
+      .eq("id", deal.id);
+    if (!error) {
+      setDeals((prev) =>
+        prev.map((d) => (d.id === deal.id ? { ...d, payment_terms: updatedMilestones } : d))
+      );
+    }
+  };
+
   const handleToggleMilestonePaid = async (deal: CampaignDeal & { campaign: Campaign }, milestoneId: string) => {
     if (!deal.payment_terms) return;
 
@@ -1003,25 +1024,57 @@ export function InfluencerDialog({
                                       {getPaymentStatusLabel()}
                                     </span>
                                   </div>
+                                  {/* Delivery first: Daisy's tick. Content-gated installments
+                                      must be marked delivered here before they can be paid. */}
+                                  {(deal.payment_terms as any[]).some((m) => inferGate(m) === "on_content_live" || inferGate(m) === "manual") && (
+                                    <div className="mb-3 rounded-md border border-blue-100 bg-blue-50/50 px-3 py-2">
+                                      <p className="text-[11px] font-medium text-blue-700 uppercase tracking-wide mb-1.5">Content delivered</p>
+                                      <ul className="space-y-1.5">
+                                        {(deal.payment_terms as any[]).filter((m) => inferGate(m) === "on_content_live" || inferGate(m) === "manual").map((m) => {
+                                          const on = earnedOn(m, deal);
+                                          return (
+                                            <li key={m.id} className="flex items-center justify-between">
+                                              <label className="flex items-center gap-2 cursor-pointer">
+                                                <input type="checkbox" checked={!!on}
+                                                  onChange={() => handleMarkDelivered(deal, m.id, !on)}
+                                                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                                                <span className="text-sm text-gray-700">{m.description}</span>
+                                              </label>
+                                              <span className="text-xs text-gray-500">{on ? `delivered ${on}` : "not delivered"}</span>
+                                            </li>
+                                          );
+                                        })}
+                                      </ul>
+                                    </div>
+                                  )}
                                   <ul className="space-y-2">
-                                    {deal.payment_terms.map((milestone: { id: string; description: string; percentage: number; amount: number; is_paid: boolean; paid_date: string | null; paid_by?: string | null }) => (
-                                      <li key={milestone.id} className="flex items-center justify-between">
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                          <input
-                                            type="checkbox"
-                                            checked={milestone.is_paid}
-                                            onChange={() => handleToggleMilestonePaid(deal, milestone.id)}
-                                            className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                                          />
-                                          <span className={milestone.is_paid ? 'text-gray-400 line-through text-sm' : 'text-gray-700 text-sm'}>
-                                            {milestone.description} ({milestone.percentage}%)
+                                    {(deal.payment_terms as any[]).map((milestone) => {
+                                      const gate = inferGate(milestone);
+                                      const contentGated = gate === "on_content_live" || gate === "manual";
+                                      // Payment unlocks once the installment has earned; date-gated
+                                      // fees stay freely payable (paying whitelisting upfront is normal).
+                                      const locked = contentGated && !milestone.is_paid && !earnedOn(milestone, deal);
+                                      return (
+                                        <li key={milestone.id} className="flex items-center justify-between">
+                                          <label className={`flex items-center gap-2 ${locked ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+                                            title={locked ? "Mark this month's content delivered above to unlock payment" : "Mark PAID (records money sent today)"}>
+                                            <input
+                                              type="checkbox"
+                                              checked={milestone.is_paid}
+                                              disabled={locked}
+                                              onChange={() => handleToggleMilestonePaid(deal, milestone.id)}
+                                              className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500 disabled:cursor-not-allowed"
+                                            />
+                                            <span className={milestone.is_paid ? 'text-gray-400 line-through text-sm' : 'text-gray-700 text-sm'}>
+                                              {milestone.description} · pay {formatCurrency(milestone.amount)}
+                                            </span>
+                                          </label>
+                                          <span className={milestone.is_paid ? 'text-green-600 text-sm font-medium' : locked ? 'text-gray-400 text-xs' : 'text-gray-600 text-sm'}>
+                                            {milestone.is_paid ? `Paid ${milestone.paid_date || ""}` : locked ? "awaiting delivery" : formatCurrency(milestone.amount)}
                                           </span>
-                                        </label>
-                                        <span className={milestone.is_paid ? 'text-green-600 text-sm font-medium' : 'text-gray-600 text-sm'}>
-                                          {milestone.is_paid ? 'Paid' : formatCurrency(milestone.amount)}
-                                        </span>
-                                      </li>
-                                    ))}
+                                        </li>
+                                      );
+                                    })}
                                   </ul>
                                 </div>
                               )}

@@ -94,3 +94,28 @@ export function generateMonthlyMilestones(
     };
   });
 }
+
+/**
+ * Round every amount to cents and absorb any percentage-rounding drift into
+ * the LAST unpaid milestone, so the schedule always sums to the deal total.
+ * Typing thirds as 33.33/33.33/33.34 used to store $799.92 monthly against an
+ * "$800 a month" agreement — the pennies belong to the schedule, not lost.
+ * Paid milestones are never altered: their amount is a record of money moved.
+ */
+export function snapMilestonesToTotal(
+  milestones: PaymentMilestone[],
+  total: number
+): PaymentMilestone[] {
+  if (!milestones.length || !(total > 0)) return milestones;
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const out = milestones.map((m) => ({ ...m, amount: r2(Number(m.amount) || 0) }));
+  const sum = r2(out.reduce((s, m) => s + m.amount, 0));
+  const drift = r2(total - sum);
+  // Only correct rounding residue, never a genuinely different schedule
+  // (e.g. a deliberate partial schedule while a deal is being negotiated).
+  if (drift === 0 || Math.abs(drift) > 0.05 * milestones.length) return out;
+  for (let i = out.length - 1; i >= 0; i--) {
+    if (!out[i].is_paid) { out[i] = { ...out[i], amount: r2(out[i].amount + drift) }; break; }
+  }
+  return out;
+}
