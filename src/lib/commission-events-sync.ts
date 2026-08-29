@@ -118,7 +118,11 @@ function monthsInWindow(since: Date): string[] {
 async function buildAdSpendEvents(db: any, months: string[]): Promise<CommissionEvent[]> {
   const { data: invites } = await (db.from("creator_invites") as any)
     .select("influencer_id, has_ad_spend, ad_spend_percentage, influencer:influencers(id, instagram_handle)")
-    .eq("has_ad_spend", true);
+    .eq("has_ad_spend", true)
+    // Only ACCEPTED invites earn. A pending invite is a draft nobody agreed
+    // to, and three of them were quietly paying an ad-spend share to people
+    // whose actual deals were flat-rate whitelisting.
+    .eq("status", "accepted");
   const byHandle = new Map<string, { influencerId: string; rate: number }>();
   for (const inv of invites || []) {
     const handle = (Array.isArray(inv.influencer) ? inv.influencer[0] : inv.influencer)?.instagram_handle;
