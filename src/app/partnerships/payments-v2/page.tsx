@@ -53,6 +53,74 @@ export default function PaymentsV2() {
   const [payForm, setPayForm] = useState({ amount: "", sent_at: "", method: "paypal", reference: "" });
   const [saving, setSaving] = useState(false);
   const [breakdown, setBreakdown] = useState<{ row: Creator; type: "ad" | "aff" } | null>(null);
+  const [audit, setAudit] = useState<{ orders: any[] } | null>(null);
+  const [payEditFor, setPayEditFor] = useState<Creator | null>(null);
+  const [payEditForm, setPayEditForm] = useState<any>({});
+  const [payEditBusy, setPayEditBusy] = useState(false);
+
+  // Admin edit of a partner's payout details, previously only on the old
+  // payments page. Posts to the same endpoint the reveal reads, which resolves
+  // the creator record across all their invites.
+  async function openPayEdit(r: Creator) {
+    if (!r.influencerId) return;
+    const res = await fetch(`/api/admin/payment-info?influencer_id=${r.influencerId}`);
+    const d = res.ok ? await res.json() : {};
+    setPayEditForm({
+      payment_method: d.payment_method || "paypal",
+      paypal_email: d.paypal_email || "",
+      bank_account_name: d.bank_account_name || "",
+      bank_institution: d.bank_institution || "",
+      bank_account_number: d.bank_account_number || "",
+      bank_routing_number: d.bank_routing_number || "",
+      payout_country: d.payout_country || "",
+    });
+    setPayEditFor(r);
+  }
+
+  async function savePayEdit() {
+    if (!payEditFor?.influencerId) return;
+    setPayEditBusy(true);
+    const res = await fetch("/api/admin/payment-info", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ influencer_id: payEditFor.influencerId, ...payEditForm }),
+    });
+    setPayEditBusy(false);
+    if (res.ok) { setPayEditFor(null); setRevealed({}); load(); }
+    else alert((await res.json().catch(() => ({}))).error || "Save failed");
+  }
+  const [auditBusy, setAuditBusy] = useState(false);
+
+  // Order-level audit for the affiliate breakdown: every order behind the
+  // number, with exclude/include per order (Creator Terms s13.5/s13.8 — coupon
+  // sites, self-referrals, fraud). Exclusions are keyed by influencer, so rows
+  // without one are view-only.
+  async function fetchAudit(r: Creator) {
+    setAudit(null);
+    const params = new URLSearchParams({ month: period });
+    if (r.influencerId) params.set("influencer_id", r.influencerId);
+    else if (r.legacyAffiliateId) params.set("legacy_affiliate_id", r.legacyAffiliateId);
+    else return;
+    if (r.influencerId && r.legacyAffiliateId) params.set("legacy_affiliate_id", r.legacyAffiliateId);
+    const res = await fetch(`/api/admin/affiliate-audit?${params}`);
+    if (res.ok) setAudit(await res.json());
+  }
+
+  async function toggleExclude(r: Creator, order: any) {
+    if (!r.influencerId) return;
+    const excluding = !order.exclusion_reason && !order.excluded;
+    const reason = excluding ? window.prompt("Reason for excluding this order (e.g. coupon-site redemption):", "") : null;
+    if (excluding && reason === null) return; // cancelled
+    setAuditBusy(true);
+    await fetch("/api/admin/affiliate-audit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ influencer_id: r.influencerId, order_id: order.order_id, action: excluding ? "exclude" : "include", reason, month: period, legacy_affiliate_id: r.legacyAffiliateId }),
+    });
+    await fetchAudit(r);
+    setAuditBusy(false);
+    load(); // totals changed
+  }
   const [revealed, setRevealed] = useState<Record<string, string>>({});
   const [historyFor, setHistoryFor] = useState<Creator | null>(null);
   const [historyData, setHistoryData] = useState<any>(null);
@@ -265,6 +333,7 @@ export default function PaymentsV2() {
                           <div className="text-xs text-gray-400">@{r.handle}</div>
                           <div className="flex items-center gap-2 mt-0.5 text-[11px]">
                             <button onClick={() => reveal(r)} className="text-gray-500 hover:text-gray-800" title={r.influencerId ? "Click to reveal full details (logged)" : ""}>{revealed[r.key] || r.payInfo}</button>
+                          {r.influencerId && <button onClick={() => openPayEdit(r)} className="ml-2 text-[11px] text-blue-500 hover:text-blue-700">Edit</button>}
                             <span className="text-gray-300">·</span>
                             <button onClick={() => openHistory(r)} className="text-blue-500 hover:underline">History</button>
                           </div>
@@ -274,7 +343,7 @@ export default function PaymentsV2() {
                     <td className="px-3 py-3 text-right text-gray-700">{cell(r.retainer)}</td>
                     <td className="px-3 py-3 text-right text-gray-700">{cell(r.oneOff)}</td>
                     <td className="px-3 py-3 text-right">{(r.adSpend + r.usageFees) > 0 ? <button onClick={() => setBreakdown({ row: r, type: "ad" })} className="text-gray-700 hover:text-gray-900" title="Breakdown">${money(r.adSpend + r.usageFees)}</button> : <span className="text-gray-400">—</span>}</td>
-                    <td className="px-3 py-3 text-right">{Math.abs(r.affiliate) > 0.005 ? <button onClick={() => setBreakdown({ row: r, type: "aff" })} className="text-gray-700 hover:text-gray-900" title="Breakdown">${money(r.affiliate)}</button> : <span className="text-gray-400">—</span>}</td>
+                    <td className="px-3 py-3 text-right">{Math.abs(r.affiliate) > 0.005 ? <button onClick={() => { setBreakdown({ row: r, type: "aff" }); fetchAudit(r); }} className="text-gray-700 hover:text-gray-900" title="Breakdown & order audit">${money(r.affiliate)}</button> : <span className="text-gray-400">—</span>}</td>
                     <td className="px-3 py-3 text-right font-medium text-gray-900">${money(r.earned)}</td>
                     <td className="px-3 py-3 text-right text-gray-700">{r.paid > 0 ? `$${money(r.paid)}` : "—"}</td>
                     <td className={`px-3 py-3 text-right font-semibold ${due === "overdue" ? "text-red-600" : r.balance > 0.01 ? "text-amber-600" : "text-green-600"}`}>
@@ -345,7 +414,7 @@ export default function PaymentsV2() {
         );
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setBreakdown(null)}>
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className={`bg-white rounded-xl shadow-xl w-full ${breakdown.type === "aff" ? "max-w-2xl" : "max-w-sm"} mx-4`} onClick={(e) => e.stopPropagation()}>
               <div className="px-6 py-4 border-b">
                 <div className="text-sm font-semibold text-gray-900">{breakdown.type === "ad" ? "Whitelisting" : "Affiliate commission"} — {r.name}</div>
                 <div className="text-xs text-gray-500 mt-0.5">{periodLabel(period)}</div>
@@ -369,6 +438,40 @@ export default function PaymentsV2() {
                     <Line label="Net" value={`$${money(affNet)}`} />
                     <Line label="Commission rate" value={rateLabel(r.affRate, r.affRateMixed)} />
                     <Line label="Commission" value={`$${money(r.affiliate)}`} strong />
+
+                    <div className="mt-4 border-t pt-3">
+                      <div className="text-[11px] uppercase tracking-wider text-gray-400 mb-2">Orders behind this number</div>
+                      {!audit ? (
+                        <div className="text-xs text-gray-400 py-3">Loading orders…</div>
+                      ) : !audit.orders?.length ? (
+                        <div className="text-xs text-gray-400 py-3">No orders returned for this month.</div>
+                      ) : (
+                        <div className="max-h-72 overflow-y-auto -mx-2">
+                          {audit.orders.map((o: any) => {
+                            const isExcluded = !!o.exclusion_reason || !!o.excluded;
+                            return (
+                              <div key={o.order_id} className={`flex items-center justify-between gap-3 px-2 py-1.5 text-xs border-b border-gray-50 ${isExcluded ? "opacity-50" : ""}`}>
+                                <div className="min-w-0">
+                                  <span className="text-gray-700">#{o.order_number}</span>
+                                  <span className="text-gray-400"> · {String(o.created_at || "").slice(0, 10)}</span>
+                                  {isExcluded && <span className="text-red-600"> · excluded{o.exclusion_reason ? `: ${o.exclusion_reason}` : ""}</span>}
+                                </div>
+                                <div className="flex items-center gap-3 flex-shrink-0">
+                                  <span className={`tabular-nums ${isExcluded ? "line-through text-gray-400" : "text-gray-900"}`}>${money(o.net_amount)}</span>
+                                  {r.influencerId && (
+                                    <button onClick={() => toggleExclude(r, o)} disabled={auditBusy}
+                                      className={`disabled:opacity-40 ${isExcluded ? "text-gray-400 hover:text-green-600" : "text-gray-400 hover:text-red-600"}`}>
+                                      {isExcluded ? "Include" : "Exclude"}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <div className="text-[10px] text-gray-400 mt-2">Excluding an order removes its commission immediately; including it back restores it.</div>
+                    </div>
                   </>
                 )}
               </div>
@@ -379,6 +482,44 @@ export default function PaymentsV2() {
           </div>
         );
       })()}
+
+      {/* Payout details editor */}
+      {payEditFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setPayEditFor(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="text-sm font-semibold text-gray-900 mb-1">Payout details — {payEditFor.name}</div>
+            <div className="text-[11px] text-gray-400 mb-4">Changes are logged. The creator can also edit these from their own dashboard.</div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <label className="text-xs text-gray-500">Method
+                <select value={payEditForm.payment_method} onChange={(e) => setPayEditForm({ ...payEditForm, payment_method: e.target.value })} className="mt-1 w-full border border-gray-200 rounded px-2.5 py-2 bg-white">
+                  <option value="paypal">PayPal</option><option value="e_transfer">E-Transfer</option>
+                  <option value="us_ach">Bank (US ACH)</option><option value="ca_eft">Bank (CA EFT)</option><option value="intl_wire">Wire</option>
+                </select></label>
+              <label className="text-xs text-gray-500">Payout country
+                <input value={payEditForm.payout_country} onChange={(e) => setPayEditForm({ ...payEditForm, payout_country: e.target.value })} className="mt-1 w-full border border-gray-200 rounded px-2.5 py-2" /></label>
+              {(payEditForm.payment_method === "paypal" || payEditForm.payment_method === "e_transfer") ? (
+                <label className="col-span-2 text-xs text-gray-500">Email
+                  <input value={payEditForm.paypal_email} onChange={(e) => setPayEditForm({ ...payEditForm, paypal_email: e.target.value })} className="mt-1 w-full border border-gray-200 rounded px-2.5 py-2" /></label>
+              ) : (
+                <>
+                  <label className="text-xs text-gray-500">Account name
+                    <input value={payEditForm.bank_account_name} onChange={(e) => setPayEditForm({ ...payEditForm, bank_account_name: e.target.value })} className="mt-1 w-full border border-gray-200 rounded px-2.5 py-2" /></label>
+                  <label className="text-xs text-gray-500">Institution
+                    <input value={payEditForm.bank_institution} onChange={(e) => setPayEditForm({ ...payEditForm, bank_institution: e.target.value })} className="mt-1 w-full border border-gray-200 rounded px-2.5 py-2" /></label>
+                  <label className="text-xs text-gray-500">Account number
+                    <input value={payEditForm.bank_account_number} onChange={(e) => setPayEditForm({ ...payEditForm, bank_account_number: e.target.value })} className="mt-1 w-full border border-gray-200 rounded px-2.5 py-2" /></label>
+                  <label className="text-xs text-gray-500">Routing / transit
+                    <input value={payEditForm.bank_routing_number} onChange={(e) => setPayEditForm({ ...payEditForm, bank_routing_number: e.target.value })} className="mt-1 w-full border border-gray-200 rounded px-2.5 py-2" /></label>
+                </>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setPayEditFor(null)} className="text-sm px-3 py-2 text-gray-500">Cancel</button>
+              <button onClick={savePayEdit} disabled={payEditBusy} className="text-sm px-4 py-2 rounded-md bg-gray-900 text-white disabled:opacity-40">{payEditBusy ? "Saving…" : "Save"}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* History — earned by month + payments received */}
       {historyFor && (

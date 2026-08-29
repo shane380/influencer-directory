@@ -14,21 +14,27 @@ export async function GET(request: NextRequest) {
 
   const supabase = getAdminClient();
 
-  // Find creator via invite linked to this influencer
-  const { data: invite } = await (supabase.from("creator_invites") as any)
+  // An influencer can hold several invites (re-issued links, second deals) and
+  // only some carry a creators row. Picking one invite arbitrarily resolved to
+  // the wrong record — a 404, stale details, or an edit landing on a different
+  // creators row. Search ALL their invites and take the record the creator
+  // actually maintains.
+  const { data: inviteRows } = await (supabase.from("creator_invites") as any)
     .select("id")
-    .eq("influencer_id", influencerId)
-    .limit(1)
-    .single();
-
-  if (!invite) {
+    .eq("influencer_id", influencerId);
+  const inviteIds = (inviteRows || []).map((i: any) => i.id);
+  if (!inviteIds.length) {
     return NextResponse.json({ error: "No invite found" }, { status: 404 });
   }
 
-  const { data: creator } = await (supabase.from("creators") as any)
-    .select("payment_method, payout_country, paypal_email, bank_account_name, bank_account_number, bank_routing_number, bank_institution, bank_account_number_enc, bank_routing_number_enc")
-    .eq("invite_id", invite.id)
-    .single();
+  const { data: creatorRows } = await (supabase.from("creators") as any)
+    .select("id, payment_method, payout_country, paypal_email, bank_account_name, bank_account_number, bank_routing_number, bank_institution, bank_account_number_enc, bank_routing_number_enc, payment_updated_at")
+    .in("invite_id", inviteIds);
+  const creator = (creatorRows || []).sort((a: any, b: any) =>
+    // a row with payment details beats one without; latest update wins after that
+    (b.payment_method ? 1 : 0) - (a.payment_method ? 1 : 0) ||
+    String(b.payment_updated_at || "").localeCompare(String(a.payment_updated_at || ""))
+  )[0];
 
   if (!creator) {
     return NextResponse.json({ error: "No creator found" }, { status: 404 });
@@ -51,7 +57,7 @@ export async function GET(request: NextRequest) {
     user_email: admin.email,
     action: "view_payment_info",
     target_influencer_id: influencerId,
-    metadata: { invite_id: invite.id },
+    metadata: { creator_id: creator.id },
   });
 
   return NextResponse.json({
@@ -84,20 +90,23 @@ export async function PATCH(request: NextRequest) {
   const supabase = getAdminClient();
 
   // Find creator via invite linked to this influencer
-  const { data: invite } = await (supabase.from("creator_invites") as any)
+  // Same multi-invite resolution as GET: an edit must land on the record the
+  // creator maintains, never on whichever invite the database returned first.
+  const { data: inviteRows } = await (supabase.from("creator_invites") as any)
     .select("id")
-    .eq("influencer_id", influencer_id)
-    .limit(1)
-    .single();
-
-  if (!invite) {
+    .eq("influencer_id", influencer_id);
+  const inviteIds = (inviteRows || []).map((i: any) => i.id);
+  if (!inviteIds.length) {
     return NextResponse.json({ error: "No invite found" }, { status: 404 });
   }
 
-  const { data: creator } = await (supabase.from("creators") as any)
-    .select("id")
-    .eq("invite_id", invite.id)
-    .single();
+  const { data: creatorRows } = await (supabase.from("creators") as any)
+    .select("id, payment_method, payment_updated_at")
+    .in("invite_id", inviteIds);
+  const creator = (creatorRows || []).sort((a: any, b: any) =>
+    (b.payment_method ? 1 : 0) - (a.payment_method ? 1 : 0) ||
+    String(b.payment_updated_at || "").localeCompare(String(a.payment_updated_at || ""))
+  )[0];
 
   if (!creator) {
     return NextResponse.json({ error: "No creator found" }, { status: 404 });
@@ -157,7 +166,7 @@ export async function PATCH(request: NextRequest) {
     user_email: admin.email,
     action: "update_payment_info",
     target_influencer_id: influencer_id,
-    metadata: { invite_id: invite.id, payment_method, payout_country },
+    metadata: { creator_id: creator.id, payment_method, payout_country },
   });
 
   // Return the updated payment info (decrypted for display)

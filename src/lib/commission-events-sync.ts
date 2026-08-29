@@ -201,6 +201,15 @@ export async function syncCommissionEvents(days: number): Promise<{
 
   const owners = await loadCodeOwners(db);
   const rateSchedule = await loadCommissionRateSchedule(db);
+
+  // Orders an admin has excluded from commission — coupon-site redemptions,
+  // self-referrals, fraud (Creator Terms s13.5/s13.8). The audit tool wrote
+  // these but the ledger never read them, so an excluded order kept paying on
+  // the surface payments actually run from. Keyed by influencer, matching how
+  // the audit records them.
+  const { data: exclRows } = await (db.from("excluded_affiliate_orders") as any)
+    .select("influencer_id, order_id");
+  const excluded = new Set<string>((exclRows || []).map((r: any) => `${r.influencer_id}:${r.order_id}`));
   if (owners.size === 0) return { ordersScanned: 0, ordersMatched: 0, eventsUpserted: 0, durationMs: Date.now() - t0 };
 
   const since = new Date();
@@ -236,6 +245,7 @@ export async function syncCommissionEvents(days: number): Promise<{
       refund = round2(refund);
       for (const code of codes) {
         for (const o of owners.get(code)!) {
+          if (o.influencerId && excluded.has(`${o.influencerId}:${order.id}`)) continue;
           // Rate in force for the ORDER's month, not today's. This is what makes
           // a re-sync of an old order idempotent: (subject, period) is a pure
           // function, so the upsert rewrites an identical rate and amount
@@ -287,6 +297,18 @@ export async function syncCommissionEvents(days: number): Promise<{
   // BEFORE deleting so a failed read leaves the existing events untouched.
   events.push(...(await buildDealEvents(db)));
   await (db.from("commission_events") as any).delete().in("source_type", ["campaign_deal", DEAL_MILESTONE_SOURCE]);
+
+  // Retract ledger events for orders excluded since they were written. The
+  // upsert cannot remove a row, and an old order outside the scan window would
+  // never be revisited at all.
+  for (const r of exclRows || []) {
+    if (!r.influencer_id || !r.order_id) continue;
+    await (db.from("commission_events") as any)
+      .delete()
+      .eq("influencer_id", r.influencer_id)
+      .in("event_type", ["affiliate", "refund"])
+      .eq("source_id", String(r.order_id));
+  }
 
   const eventsUpserted = await upsertEvents(events);
   return { ordersScanned: scanned, ordersMatched: matched, eventsUpserted, durationMs: Date.now() - t0 };
