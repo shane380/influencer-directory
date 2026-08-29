@@ -222,7 +222,7 @@ export async function syncCommissionEvents(days: number): Promise<{
   let pageUrl: string | null =
     `https://${storeUrl}/admin/api/2024-01/orders.json?status=any&limit=250` +
     `&updated_at_min=${since.toISOString()}` +
-    `&fields=id,order_number,created_at,subtotal_price,discount_codes,refunds`;
+    `&fields=id,order_number,created_at,cancelled_at,taxes_included,total_tax,subtotal_price,discount_codes,refunds`;
   while (pageUrl) {
     const res = await fetchRetry(pageUrl, {
       headers: { "X-Shopify-Access-Token": accessToken, "Content-Type": "application/json" },
@@ -238,7 +238,38 @@ export async function syncCommissionEvents(days: number): Promise<{
       matched++;
       const period = (order.created_at || "").slice(0, 7);
       if (!period) continue;
-      const gross = round2(parseFloat(order.subtotal_price || "0"));
+      // The ledger starts 2026-01; earlier months were settled in the GoAffPro
+      // era with no payouts recorded here, so importing them (e.g. via a
+      // wide-window manual run) would show long-paid money as outstanding.
+      if (period < "2026-01") continue;
+
+      // A cancelled order earns nothing (Creator Terms s13.8). Refunded
+      // cancellations already claw back through the refund event, but a
+      // voided-payment cancellation has no refund object and would keep its
+      // commission forever. Retract whatever this order already wrote and move
+      // on — cancelling bumps updated_at, so the order is guaranteed to pass
+      // through this scan.
+      if (order.cancelled_at) {
+        await (db.from("commission_events") as any)
+          .delete()
+          .in("event_type", ["affiliate", "refund"])
+          .eq("source_type", "shopify_order")
+          .eq("source_id", String(order.id));
+        await (db.from("commission_events") as any)
+          .delete()
+          .eq("event_type", "refund")
+          .eq("source_type", "shopify_refund")
+          .eq("source_id", String(order.id));
+        continue;
+      }
+
+      // subtotal_price excludes shipping always, and excludes tax only while
+      // the store prices tax-exclusive. Guard the basis so a change to that
+      // Shopify setting cannot silently put sales tax into commissions.
+      let gross = round2(parseFloat(order.subtotal_price || "0"));
+      if (order.taxes_included) {
+        gross = round2(Math.max(0, gross - parseFloat(order.total_tax || "0")));
+      }
       let refund = 0;
       for (const r of order.refunds || [])
         for (const li of r.refund_line_items || []) refund += parseFloat(li.subtotal || "0");
