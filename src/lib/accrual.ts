@@ -1,5 +1,5 @@
 import { CampaignDeal } from "@/types/database";
-import { milestoneEarnedOn, milestoneAmount, dealCategory, isCommittedDeal } from "./deal-milestones";
+import { milestoneEarnedOn, milestoneAmount, milestoneCategory, isCommittedDeal } from "./deal-milestones";
 
 // The monthly accrual report: what was EARNED in a period versus what was PAID
 // in it, per creator, so a bookkeeper can reconcile the two. Every figure is
@@ -75,8 +75,8 @@ export function retainerLines(deals: DealLike[], period: string, today = new Dat
   const lines: AccrualLine[] = [];
   for (const d of deals) {
     if (!isCommittedDeal(d as any)) continue;
-    const category = dealCategory(d as any);
     for (const m of d.payment_terms || []) {
+      const category = milestoneCategory(m as any, d as any);
       const earned = milestoneEarnedOn(m as any, d as any, today);
       const amount = milestoneAmount(m as any, d as any);
       const accruedHere = monthOf(earned) === period ? amount : 0;

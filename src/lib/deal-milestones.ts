@@ -1,4 +1,4 @@
-import { earnedOn } from "./retainers";
+import { earnedOn, inferGate } from "./retainers";
 import type { CommissionEvent } from "./commission-ledger";
 
 // One definition of how a campaign-deal milestone becomes money on the books.
@@ -64,15 +64,22 @@ export function milestoneEarnedOn(m: DealMilestoneLike, deal: DealLike, today = 
 }
 
 /**
- * Bookkeeping category. Whitelisting covers both usage-rights fees (like a
- * 4-month whitelisting retainer) and — elsewhere — the ad-spend share; the
- * bookkeeper wants them under one heading. Content retainers stay 'retainer';
- * one-off collabs stay 'paid_collab'.
+ * Bookkeeping category, decided per MILESTONE, not per deal. A deal that
+ * includes whitelisting can still pay for delivered content — Mariana's
+ * "Month 2 content delivered" is content work that happens to come with
+ * whitelisting rights, not a usage fee. The milestone's own gate is the honest
+ * signal: a fee that earns by the calendar is a usage fee; a fee that earns on
+ * content delivery is retainer work. One-off collabs stay paid_collab.
  */
-export function dealCategory(deal: DealLike): "whitelisting" | "retainer" | "paid_collab" {
+export function milestoneCategory(
+  m: DealMilestoneLike,
+  deal: DealLike
+): "whitelisting" | "retainer" | "paid_collab" {
   if (deal.deal_kind !== "retainer") return "paid_collab";
   const wl = deal.whitelisting_status;
-  return wl && wl !== "not_applicable" ? "whitelisting" : "retainer";
+  const hasWhitelisting = !!wl && wl !== "not_applicable";
+  if (!hasWhitelisting) return "retainer";
+  return inferGate(m as any) === "on_date" ? "whitelisting" : "retainer";
 }
 
 export const DEAL_MILESTONE_SOURCE = "deal_milestone";
@@ -87,8 +94,8 @@ export function buildDealMilestoneEvents(deals: DealLike[], today = new Date()):
   const events: CommissionEvent[] = [];
   for (const d of deals) {
     if (!isCommittedDeal(d) || !d.influencer_id) continue;
-    const category = dealCategory(d);
     for (const m of d.payment_terms || []) {
+      const category = milestoneCategory(m, d);
       const earned = milestoneEarnedOn(m, d, today);
       if (!earned) continue;
       const amount = milestoneAmount(m, d);
