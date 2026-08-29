@@ -114,7 +114,9 @@ export function eventLines(events: EventLike[], period: string): AccrualLine[] {
       // categories: one heading for everything whitelisting-related.
       category: e.event_type === "ad_spend" ? "whitelisting" : e.event_type,
       description:
-        e.event_type === "refund" ? "Refund adjustment"
+        // A manual adjustment carries its own story (e.g. an agreed settlement)
+        (e as any).detail?.description ? String((e as any).detail.description)
+        : e.event_type === "refund" ? "Refund adjustment"
         : e.event_type === "affiliate" ? "Affiliate commission"
         : e.event_type === "ad_spend" ? "Ad spend commission"
         : "Paid collaboration",

@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
   const events = await fetchAllRows<any>((from, to) =>
     (db.from("commission_events") as any)
-      .select("influencer_id, legacy_affiliate_id, event_type, amount, basis, rate, detail")
+      .select("influencer_id, legacy_affiliate_id, event_type, source_type, amount, basis, rate, detail")
       .eq("period", period)
       .order("id")
       .range(from, to),
@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
     adBasis: number; affGross: number; affRefunds: number; affOrders: number;
     adRate: number; affRate: number;
     adRates: Set<number>; affRates: Set<number>;
+    adjustments: { amount: number; description: string }[];
   };
   const groups = new Map<string, Grp>();
   for (const e of events || []) {
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
     if (!g) {
       g = { key, influencerId: e.influencer_id || null, legacyAffiliateId: e.legacy_affiliate_id || null,
         retainer: 0, adSpend: 0, affiliate: 0, oneOff: 0, usageFees: 0, adBasis: 0, affGross: 0, affRefunds: 0, affOrders: 0, adRate: 0, affRate: 0,
-        adRates: new Set<number>(), affRates: new Set<number>() };
+        adRates: new Set<number>(), affRates: new Set<number>(), adjustments: [] };
       groups.set(key, g);
     }
     // a group may pick up legacy_affiliate_id from legacy events even when keyed by influencer
@@ -67,7 +68,14 @@ export async function GET(request: NextRequest) {
     else if (e.event_type === "paid_collab") g.oneOff += amt;
     else if (e.event_type === "ad_spend") { g.adSpend += amt; g.adBasis += Number(e.basis) || 0; if (e.rate != null) g.adRates.add(Number(e.rate)); }
     else if (e.event_type === "affiliate") { g.affiliate += amt; g.affGross += Number(e.basis) || 0; g.affOrders += 1; if (e.rate != null) g.affRates.add(Number(e.rate)); }
-    else if (e.event_type === "refund") { g.affiliate += amt; g.affRefunds += Number(e.basis) || 0; }
+    else if (e.event_type === "refund") {
+      g.affiliate += amt;
+      if (e.source_type === "manual_adjustment") {
+        g.adjustments.push({ amount: amt, description: e.detail?.description || "Manual adjustment" });
+      } else {
+        g.affRefunds += Number(e.basis) || 0;
+      }
+    }
   }
 
   // Paid for this period = FIFO allocation over each creator's FULL history
@@ -198,6 +206,7 @@ export async function GET(request: NextRequest) {
       retainer: round2(g.retainer),
       oneOff: round2(g.oneOff),
       usageFees: round2(g.usageFees),
+      adjustments: g.adjustments,
       adSpend: round2(g.adSpend),
       affiliate: round2(g.affiliate),
       earned,
