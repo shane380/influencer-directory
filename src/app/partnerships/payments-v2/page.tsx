@@ -18,6 +18,7 @@ interface Creator {
   earned: number; paid: number; balance: number;
   adRate: number; adBasis: number; affRate: number; affOrders: number; affGross: number; affRefunds: number;
   adRateMixed?: boolean; affRateMixed?: boolean;
+  adjustments?: { amount: number; description: string }[];
 }
 
 // A blended rate needs a decimal — rounding 18.3% to "18%" next to a figure it
@@ -334,6 +335,11 @@ export default function PaymentsV2() {
                           <div className="flex items-center gap-2 mt-0.5 text-[11px]">
                             <button onClick={() => reveal(r)} className="text-gray-500 hover:text-gray-800" title={r.influencerId ? "Click to reveal full details (logged)" : ""}>{revealed[r.key] || r.payInfo}</button>
                           {r.influencerId && <button onClick={() => openPayEdit(r)} className="ml-2 text-[11px] text-blue-500 hover:text-blue-700">Edit</button>}
+                          {(r.adjustments || []).map((a, i) => (
+                            <div key={i} className="mt-1 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 inline-block">
+                              {a.description}: {a.amount < 0 ? "−" : "+"}${money(Math.abs(a.amount))}
+                            </div>
+                          ))}
                             <span className="text-gray-300">·</span>
                             <button onClick={() => openHistory(r)} className="text-blue-500 hover:underline">History</button>
                           </div>
@@ -437,6 +443,9 @@ export default function PaymentsV2() {
                     <Line label="Refunds" value={`−$${money(r.affRefunds)}`} />
                     <Line label="Net" value={`$${money(affNet)}`} />
                     <Line label="Commission rate" value={rateLabel(r.affRate, r.affRateMixed)} />
+                    {(r.adjustments || []).map((a, i) => (
+                      <Line key={i} label={a.description} value={`${a.amount < 0 ? "−" : "+"}$${money(Math.abs(a.amount))}`} />
+                    ))}
                     <Line label="Commission" value={`$${money(r.affiliate)}`} strong />
 
                     <div className="mt-4 border-t pt-3">
