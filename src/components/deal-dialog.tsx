@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { preserveHistory, rescaleToTotal, generateMonthlyMilestones } from "@/lib/milestones";
+import { preserveHistory, rescaleToTotal, generateMonthlyMilestones, snapMilestonesToTotal } from "@/lib/milestones";
 import {
   Influencer,
   Campaign,
@@ -335,7 +335,7 @@ export function DealDialog({
         if (m.id !== id) return m;
         if (field === "percentage") {
           const percentage = Number(value);
-          return { ...m, percentage, amount: totalDealValue * (percentage / 100) };
+          return { ...m, percentage, amount: Math.round(totalDealValue * percentage) / 100 };
         }
         return { ...m, [field]: value };
       })
@@ -396,7 +396,7 @@ export function DealDialog({
         term_months: paymentTermsType === "monthly" ? retainerMonths : (deal?.term_months ?? null),
         deal_status: dealStatus,
         payment_status: calculatePaymentStatus(),
-        payment_terms: paymentMilestones,
+        payment_terms: snapMilestonesToTotal(paymentMilestones, totalDealValue),
         notes: notes || null,
         content_status: contentStatus,
         content_live_date: contentLiveDate,
