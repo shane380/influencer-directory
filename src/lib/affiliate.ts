@@ -202,6 +202,15 @@ export interface AffiliateResult {
   };
 }
 
+// The commission basis: line items minus discounts (subtotal_price), which
+// excludes shipping always and tax only while the store prices tax-exclusive.
+// The guard keeps sales tax out of commissions if that setting ever flips.
+export function orderGross(order: { subtotal_price?: string; taxes_included?: boolean; total_tax?: string }): number {
+  let gross = parseFloat(order.subtotal_price || "0");
+  if (order.taxes_included) gross = Math.max(0, gross - parseFloat(order.total_tax || "0"));
+  return gross;
+}
+
 export async function calculateAffiliateCommission(
   discountCode: string,
   month: string | null,
@@ -237,6 +246,9 @@ export async function calculateAffiliateCommission(
     const codeUpper = discountCode.toUpperCase();
     for (const order of data.orders || []) {
       const codes = (order.discount_codes || []).map((dc: any) => dc.code?.toUpperCase());
+      // A cancelled order earns nothing (Creator Terms s13.8) — a voided
+      // payment has no refund object, so without this it would count forever.
+      if (order.cancelled_at) continue;
       if (codes.includes(codeUpper)) {
         allOrders.push(order);
       }
@@ -260,7 +272,7 @@ export async function calculateAffiliateCommission(
   for (let i = 0; i < allOrders.length; i += BATCH_SIZE) {
     const batch = allOrders.slice(i, i + BATCH_SIZE);
     const results = await Promise.all(batch.map(async (order) => {
-      const grossAmount = parseFloat(order.subtotal_price || "0");
+      const grossAmount = orderGross(order);
       let refundAmount = 0;
       const refundRes = await shopifyFetch(
         `https://${storeUrl}/admin/api/2024-01/orders/${order.id}/refunds.json`,
@@ -334,7 +346,7 @@ export async function listAffiliateOrdersGross(
   const [year, mon] = month.split("-").map(Number);
   const startDate = new Date(year, mon - 1, 1).toISOString();
   const endDate = new Date(year, mon, 1).toISOString();
-  let pageUrl: string | null = `https://${storeUrl}/admin/api/2024-01/orders.json?status=any&limit=250&created_at_min=${startDate}&created_at_max=${endDate}&fields=id,name,order_number,created_at,subtotal_price,discount_codes`;
+  let pageUrl: string | null = `https://${storeUrl}/admin/api/2024-01/orders.json?status=any&limit=250&created_at_min=${startDate}&created_at_max=${endDate}&fields=id,name,order_number,created_at,cancelled_at,taxes_included,total_tax,subtotal_price,discount_codes`;
 
   const codeUpper = discountCode.toUpperCase();
   const out: Array<{ order_id: number; created_at: string; gross_amount: number }> = [];
@@ -347,11 +359,14 @@ export async function listAffiliateOrdersGross(
     const data = await res.json();
     for (const order of data.orders || []) {
       const codes = (order.discount_codes || []).map((dc: any) => dc.code?.toUpperCase());
+      // A cancelled order earns nothing (Creator Terms s13.8) — a voided
+      // payment has no refund object, so without this it would count forever.
+      if (order.cancelled_at) continue;
       if (codes.includes(codeUpper)) {
         out.push({
           order_id: order.id,
           created_at: order.created_at,
-          gross_amount: parseFloat(order.subtotal_price || "0"),
+          gross_amount: orderGross(order),
         });
       }
     }
@@ -390,7 +405,7 @@ export async function listBulkAffiliateOrdersGrossByDay(
     `https://${storeUrl}/admin/api/2024-01/orders.json?status=any&limit=250` +
     `&created_at_min=${startDate.toISOString()}` +
     `&created_at_max=${endDate.toISOString()}` +
-    `&fields=id,created_at,subtotal_price,discount_codes`;
+    `&fields=id,created_at,cancelled_at,taxes_included,total_tax,subtotal_price,discount_codes`;
 
   while (pageUrl) {
     const res: Response = await fetch(pageUrl, {
@@ -404,7 +419,8 @@ export async function listBulkAffiliateOrdersGrossByDay(
         .filter(Boolean);
       const day = (order.created_at || "").slice(0, 10);
       if (!day) continue;
-      const gross = parseFloat(order.subtotal_price || "0");
+      if (order.cancelled_at) continue; // cancelled orders earn nothing
+      const gross = orderGross(order);
       for (const code of orderCodes) {
         if (!codeSet.has(code)) continue;
         const byDay = out.get(code)!;
@@ -467,6 +483,7 @@ export async function calculateBulkAffiliateCommissions(
 
     const data = await res.json();
     for (const order of data.orders || []) {
+      if (order.cancelled_at) continue; // cancelled orders earn nothing (s13.8)
       const orderCodes = (order.discount_codes || []).map((dc: any) => dc.code?.toUpperCase());
       for (const oc of orderCodes) {
         if (codeSet.has(oc)) {
@@ -491,7 +508,7 @@ export async function calculateBulkAffiliateCommissions(
   for (let i = 0; i < matchedOrders.length; i += BATCH_SIZE) {
     const batch = matchedOrders.slice(i, i + BATCH_SIZE);
     const batchResults = await Promise.all(batch.map(async ({ order, codeUpper }) => {
-      const grossAmount = parseFloat(order.subtotal_price || "0");
+      const grossAmount = orderGross(order);
       let refundAmount = 0;
       const refundRes = await shopifyFetch(
         `https://${storeUrl}/admin/api/2024-01/orders/${order.id}/refunds.json`,
