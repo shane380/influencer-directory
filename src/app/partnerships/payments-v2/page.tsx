@@ -134,7 +134,7 @@ export default function PaymentsV2() {
     if (!payEditFor?.influencerId) return;
     setPayEditBusy(true);
     const res = await fetch("/api/admin/payment-info", {
-      method: "POST",
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ influencer_id: payEditFor.influencerId, ...payEditForm }),
     });

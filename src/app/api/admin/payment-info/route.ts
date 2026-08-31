@@ -93,11 +93,12 @@ export async function PATCH(request: NextRequest) {
   // Same multi-invite resolution as GET: an edit must land on the record the
   // creator maintains, never on whichever invite the database returned first.
   const { data: inviteRows } = await (supabase.from("creator_invites") as any)
-    .select("id")
-    .eq("influencer_id", influencer_id);
+    .select("id, created_at")
+    .eq("influencer_id", influencer_id)
+    .order("created_at", { ascending: false });
   const inviteIds = (inviteRows || []).map((i: any) => i.id);
   if (!inviteIds.length) {
-    return NextResponse.json({ error: "No invite found" }, { status: 404 });
+    return NextResponse.json({ error: "No invite found for this creator — send one first so there is a record to attach details to" }, { status: 404 });
   }
 
   const { data: creatorRows } = await (supabase.from("creators") as any)
@@ -107,10 +108,6 @@ export async function PATCH(request: NextRequest) {
     (b.payment_method ? 1 : 0) - (a.payment_method ? 1 : 0) ||
     String(b.payment_updated_at || "").localeCompare(String(a.payment_updated_at || ""))
   )[0];
-
-  if (!creator) {
-    return NextResponse.json({ error: "No creator found" }, { status: 404 });
-  }
 
   // Build update data (same logic as creators/payment route)
   const updateData: Record<string, unknown> = {
@@ -151,13 +148,42 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
-  const { error } = await (supabase.from("creators") as any)
-    .update(updateData)
-    .eq("id", creator.id);
-
-  if (error) {
-    console.error("Admin payment update error:", error);
-    return NextResponse.json({ error: "Failed to update payment info" }, { status: 500 });
+  let creatorId = creator?.id ?? null;
+  if (creator) {
+    const { error } = await (supabase.from("creators") as any)
+      .update(updateData)
+      .eq("id", creator.id);
+    if (error) {
+      console.error("Admin payment update error:", error);
+      return NextResponse.json({ error: `Failed to update payment info: ${error.message}` }, { status: 500 });
+    }
+  } else {
+    // No creators row yet — the invite was never accepted (e.g. an affiliate
+    // paid without a portal account). Payment details still need a home, so
+    // create a payout-only record on the newest invite. It has no user_id, so
+    // it is invisible to the portal; if the creator later signs up, their own
+    // record wins the resolution sort once they save details.
+    const { data: inf } = await (supabase.from("influencers") as any)
+      .select("name").eq("id", influencer_id).single();
+    const { data: created, error } = await (supabase.from("creators") as any)
+      .insert({
+        invite_id: inviteIds[0],
+        user_id: null,
+        creator_name: inf?.name || "Unknown",
+        // email is the portal login identity; this record has no login, but
+        // the column wants a value — a per-creator placeholder keeps it unique.
+        email: paypal_email || `payout+${influencer_id}@internal.invalid`,
+        commission_rate: 0,
+        affiliate_code: null,
+        ...updateData,
+      })
+      .select("id")
+      .single();
+    if (error) {
+      console.error("Admin payment create error:", error);
+      return NextResponse.json({ error: `Failed to save payment info: ${error.message}` }, { status: 500 });
+    }
+    creatorId = created.id;
   }
 
   // Audit log
@@ -166,7 +192,7 @@ export async function PATCH(request: NextRequest) {
     user_email: admin.email,
     action: "update_payment_info",
     target_influencer_id: influencer_id,
-    metadata: { creator_id: creator.id, payment_method, payout_country },
+    metadata: { creator_id: creatorId, payment_method, payout_country, created_payout_record: !creator },
   });
 
   // Return the updated payment info (decrypted for display)
