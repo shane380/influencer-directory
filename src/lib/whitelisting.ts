@@ -5,9 +5,10 @@ import { CampaignDeal } from "@/types/database";
 // nowhere else, which is why the list view could show a term as live months
 // after it had run out.
 
-// A live date with no explicit expiry defaults to a 90-day usage window — the
-// house standard, and what the card view has always assumed.
-const DEFAULT_USAGE_DAYS = 90;
+// A live date with no explicit expiry defaults to a 60-day usage window — the
+// house standard term (changed from 90, 31 Aug 2026: deals are signed on
+// 60-day usage and the longer default silently granted 30 extra days).
+const DEFAULT_USAGE_DAYS = 60;
 
 export type TermState =
   | "none"      // no term recorded
