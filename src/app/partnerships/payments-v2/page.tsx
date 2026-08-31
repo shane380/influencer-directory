@@ -4,7 +4,7 @@
 // ledgers. One row per creator: their retainer/ad-spend/affiliate streams summed,
 // with earned/paid/balance derived. Record Payment writes a real transfer.
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { allocatePayments } from "@/lib/payout-allocation";
@@ -22,6 +22,17 @@ interface Creator {
   schedule?: { id: string; amount: number | null; scheduled_for: string; note: string | null } | null;
 }
 
+// The Outstanding work queue: one row per creator, balance summed across all
+// unpaid months, flagged by the oldest debt.
+interface OutMonth { period: string; earned: number; paid: number; balance: number; dueDate: string | null; state: DueState }
+interface OutRow {
+  key: string; influencerId: string | null; legacyAffiliateId: string | null;
+  name: string; handle: string; photo: string | null; payInfo: string;
+  outstanding: number; credit: number; months: OutMonth[];
+  oldestDue: { period: string; dueDate: string | null; state: DueState } | null;
+  schedule?: { id: string; amount: number | null; scheduled_for: string; note: string | null } | null;
+}
+
 // A blended rate needs a decimal — rounding 18.3% to "18%" next to a figure it
 // does not divide into invites a "the maths is wrong" ticket.
 const rateLabel = (rate: number, mixed?: boolean) =>
@@ -29,6 +40,7 @@ const rateLabel = (rate: number, mixed?: boolean) =>
 
 const money = (n: number) => (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const cell = (n: number) => (n > 0 ? `$${money(n)}` : "—");
+const daysLate = (due: string) => Math.max(0, Math.floor((Date.now() - Date.parse(`${due}T00:00:00Z`)) / 86_400_000));
 
 function monthOptions() {
   const opts: { value: string; label: string }[] = [];
@@ -60,6 +72,16 @@ export default function PaymentsV2() {
   const [schedFor, setSchedFor] = useState<Creator | null>(null);
   const [schedForm, setSchedForm] = useState({ scheduled_for: "", amount: "", note: "" });
   const [schedBusy, setSchedBusy] = useState(false);
+
+  // Outstanding is the default: Cherry's work queue. Monthly stays for
+  // month-end checks against the accrual report.
+  const [view, setView] = useState<"outstanding" | "monthly">("outstanding");
+  const [outData, setOutData] = useState<{ creators: OutRow[]; totalOutstanding: number; totalOverdue: number; totalScheduled: number } | null>(null);
+  const [outLoading, setOutLoading] = useState(true);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [payAllFor, setPayAllFor] = useState<OutRow | null>(null);
+  const [payAllForm, setPayAllForm] = useState({ amount: "", sent_at: "", method: "paypal", reference: "" });
+  const [payAllSaving, setPayAllSaving] = useState(false);
 
   async function saveSchedule() {
     if (!schedFor || !schedForm.scheduled_for) return;
@@ -236,6 +258,17 @@ export default function PaymentsV2() {
     });
   }, []);
 
+  const loadOut = useCallback(async () => {
+    setOutLoading(true);
+    try {
+      const res = await fetch(`/api/admin/payments-v2?view=outstanding`);
+      if (res.ok) setOutData(await res.json());
+    } catch {}
+    setOutLoading(false);
+  }, []);
+
+  // Every mutation calls load(); refreshing both views from it keeps them in
+  // step without touching each call site.
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -243,8 +276,28 @@ export default function PaymentsV2() {
       if (res.ok) setData(await res.json());
     } catch {}
     setLoading(false);
-  }, [period]);
+    loadOut();
+  }, [period, loadOut]);
   useEffect(() => { load(); }, [load]);
+
+  async function payBalance() {
+    if (!payAllFor) return;
+    const amt = Number(payAllForm.amount);
+    if (!Number.isFinite(amt) || amt <= 0 || !payAllForm.sent_at) return;
+    setPayAllSaving(true);
+    try {
+      const res = await fetch("/api/admin/pay-balance", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          influencer_id: payAllFor.influencerId, legacy_affiliate_id: payAllFor.influencerId ? null : payAllFor.legacyAffiliateId,
+          amount: amt, sent_at: payAllForm.sent_at, method: payAllForm.method, reference: payAllForm.reference || null,
+        }),
+      });
+      if (res.ok) { setPayAllFor(null); await load(); }
+      else alert((await res.json().catch(() => ({}))).error || "Payment failed to record");
+    } catch {}
+    setPayAllSaving(false);
+  }
 
   async function recordPayment() {
     if (!payFor) return;
@@ -277,30 +330,156 @@ export default function PaymentsV2() {
             <p className="text-sm text-gray-500 mt-1">Manage creator payment runs</p>
           </div>
           <div className="flex items-center gap-4">
-            {/* The bookkeeper pack: what was EARNED in the month against what
-                was PAID in it, which the table below does not answer. Reads the
-                same commission_events + creator_payouts ledger this page does. */}
-            <button
-              onClick={() => { window.location.href = `/api/admin/payments/accrual?month=${period}&format=xlsx`; }}
-              title="Earned vs paid for this month, with opening and closing accrued liability — for the bookkeeper"
-              className="px-3 py-2 border border-gray-200 rounded text-sm bg-white text-gray-700 hover:bg-gray-50"
-            >
-              Accrual report
-            </button>
-            {data?.dueDate && (
-              <div className="text-right">
-                <div className="text-[11px] uppercase tracking-wider text-gray-400">Due</div>
-                <div className={`text-sm font-medium ${(data.overdueCount || 0) > 0 ? "text-red-600" : "text-gray-700"}`}>
-                  {formatDueDate(data.dueDate)}
-                </div>
-              </div>
+            <div className="flex border border-gray-200 rounded-lg overflow-hidden text-sm">
+              {(["outstanding", "monthly"] as const).map((v) => (
+                <button key={v} onClick={() => setView(v)}
+                  className={`px-4 py-2 capitalize ${view === v ? "bg-gray-900 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}>
+                  {v}
+                </button>
+              ))}
+            </div>
+            {view === "monthly" && (
+              <>
+                {/* The bookkeeper pack: what was EARNED in the month against what
+                    was PAID in it, which the table below does not answer. Reads the
+                    same commission_events + creator_payouts ledger this page does. */}
+                <button
+                  onClick={() => { window.location.href = `/api/admin/payments/accrual?month=${period}&format=xlsx`; }}
+                  title="Earned vs paid for this month, with opening and closing accrued liability — for the bookkeeper"
+                  className="px-3 py-2 border border-gray-200 rounded text-sm bg-white text-gray-700 hover:bg-gray-50"
+                >
+                  Accrual report
+                </button>
+                {data?.dueDate && (
+                  <div className="text-right">
+                    <div className="text-[11px] uppercase tracking-wider text-gray-400">Due</div>
+                    <div className={`text-sm font-medium ${(data.overdueCount || 0) > 0 ? "text-red-600" : "text-gray-700"}`}>
+                      {formatDueDate(data.dueDate)}
+                    </div>
+                  </div>
+                )}
+                <select className="border border-gray-200 rounded px-3 py-2 text-sm bg-white" value={period} onChange={(e) => setPeriod(e.target.value)}>
+                  {monthOptions().map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </>
             )}
-            <select className="border border-gray-200 rounded px-3 py-2 text-sm bg-white" value={period} onChange={(e) => setPeriod(e.target.value)}>
-              {monthOptions().map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
           </div>
         </div>
 
+        {view === "outstanding" && (
+          <>
+            <div className="grid grid-cols-3 gap-4 mb-8">
+              <div className="bg-white border border-gray-200 rounded-lg px-5 py-4">
+                <div className="text-[11px] uppercase tracking-wider text-gray-400">Total outstanding</div>
+                <div className="text-2xl font-bold mt-1 text-gray-900">${money(outData?.totalOutstanding || 0)}</div>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-lg px-5 py-4">
+                <div className="text-[11px] uppercase tracking-wider text-gray-400">Overdue</div>
+                <div className="text-2xl font-bold mt-1 text-red-600">${money(outData?.totalOverdue || 0)}</div>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-lg px-5 py-4">
+                <div className="text-[11px] uppercase tracking-wider text-gray-400">Scheduled</div>
+                <div className="text-2xl font-bold mt-1 text-blue-600">${money(outData?.totalScheduled || 0)}</div>
+              </div>
+            </div>
+
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr className="text-gray-500">
+                    <th className="text-left font-medium px-5 py-3">Creator</th>
+                    <th className="text-right font-medium px-3 py-3">Outstanding</th>
+                    <th className="text-left font-medium px-4 py-3">Oldest due</th>
+                    <th className="text-left font-medium px-3 py-3">Status</th>
+                    <th className="px-5 py-3 w-44"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {outLoading && !outData ? (
+                    <tr><td colSpan={5} className="text-center py-12 text-gray-400">Loading…</td></tr>
+                  ) : !(outData?.creators || []).length ? (
+                    <tr><td colSpan={5} className="text-center py-12 text-gray-400">Nobody is owed anything. 🎉</td></tr>
+                  ) : (outData?.creators || []).map((r) => {
+                    const st = r.oldestDue?.state;
+                    const isOpen = !!expanded[r.key];
+                    return (
+                      <Fragment key={r.key}>
+                        <tr className="border-b border-gray-50 last:border-b-0 hover:bg-gray-50/40 cursor-pointer"
+                          onClick={() => setExpanded((p) => ({ ...p, [r.key]: !p[r.key] }))}>
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center text-xs text-gray-400">
+                                {r.photo ? <img src={r.photo} alt="" className="w-full h-full object-cover" /> : r.name[0]}
+                              </div>
+                              <div>
+                                <div className="font-medium text-gray-900">{r.name} <span className="text-gray-300 text-xs">{isOpen ? "▾" : "▸"}</span></div>
+                                <div className="text-xs text-gray-400">@{r.handle}</div>
+                                <div className="flex items-center gap-2 mt-0.5 text-[11px]">
+                                  <span className={r.payInfo === "No payment method" ? "text-red-500" : "text-gray-500"}>{revealed[r.key] || r.payInfo}</span>
+                                  {r.influencerId && <button onClick={(e) => { e.stopPropagation(); openPayEdit(r as unknown as Creator); }} className="text-[11px] text-blue-500 hover:text-blue-700">Edit</button>}
+                                  <span className="text-gray-300">·</span>
+                                  <button onClick={(e) => { e.stopPropagation(); openHistory(r as unknown as Creator); }} className="text-blue-500 hover:underline">History</button>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 text-right font-semibold text-gray-900">${money(r.outstanding)}</td>
+                          <td className="px-4 py-3 text-gray-600">{r.oldestDue?.dueDate ? formatDueDate(r.oldestDue.dueDate) : "—"}</td>
+                          <td className="px-3 py-3">
+                            {r.schedule ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-0.5" title={r.schedule.note || ""}>
+                                Scheduled {r.schedule.scheduled_for}
+                                <button onClick={(e) => { e.stopPropagation(); clearSchedule(r as unknown as Creator); }} className="text-blue-300 hover:text-blue-600" title="Clear schedule">×</button>
+                              </span>
+                            ) : st === "overdue" && r.oldestDue?.dueDate ? (
+                              <span className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded px-2 py-0.5">Overdue {daysLate(r.oldestDue.dueDate)}d</span>
+                            ) : st === "due_soon" ? (
+                              <span className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5">Due soon</span>
+                            ) : (
+                              <span className="text-[11px] text-gray-500">Upcoming</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3 text-right">
+                            <button onClick={(e) => { e.stopPropagation(); setPayAllFor(r); setPayAllForm({ amount: money(r.outstanding).replace(/,/g, ""), sent_at: new Date().toISOString().slice(0, 10), method: guessMethod(r.payInfo), reference: "" }); }}
+                              className="px-3 py-1.5 bg-gray-900 text-white rounded text-xs font-medium hover:bg-gray-700">
+                              Pay ${money(r.outstanding)}
+                            </button>
+                            {!r.schedule && (
+                              <button onClick={(e) => { e.stopPropagation(); setSchedFor(r as unknown as Creator); setSchedForm({ scheduled_for: "", amount: String(r.outstanding), note: "" }); }}
+                                className="block ml-auto mt-1 text-[10px] text-gray-400 hover:text-blue-600">Schedule…</button>
+                            )}
+                          </td>
+                        </tr>
+                        {isOpen && (
+                          <tr className="border-b border-gray-50 bg-gray-50/60">
+                            <td colSpan={5} className="px-5 py-2">
+                              <div className="ml-11 border-l-2 border-gray-200 pl-4 py-1 text-xs text-gray-600 space-y-1">
+                                {r.months.map((m) => (
+                                  <div key={m.period} className="flex items-center gap-4">
+                                    <span className="w-32">{periodLabel(m.period)}</span>
+                                    <span className="tabular-nums w-24 text-right">${money(m.balance)}</span>
+                                    <span className={m.state === "overdue" ? "text-red-600" : m.state === "due_soon" ? "text-amber-600" : "text-gray-400"}>
+                                      {m.state === "overdue" ? "overdue" : m.dueDate ? `due ${formatDueDate(m.dueDate)}` : ""}
+                                    </span>
+                                    {m.paid > 0 && <span className="text-gray-400">(${money(m.paid)} of ${money(m.earned)} already paid)</span>}
+                                  </div>
+                                ))}
+                                <div className="text-gray-400 pt-1">One payment settles the oldest months first, automatically.</div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-gray-400 mt-3">Creators with nothing owed don’t appear here — settled history lives in the Monthly view and each creator’s History drawer.</p>
+          </>
+        )}
+
+        {view === "monthly" && (<>
         {data?.rateChange && (
           <div className="mb-6 border border-amber-200 bg-amber-50 rounded-lg px-5 py-3 text-sm text-amber-900">
             <span className="font-medium">New commission rates took effect this month.</span>{" "}
@@ -409,7 +588,55 @@ export default function PaymentsV2() {
             </tbody>
           </table>
         </div>
+        </>)}
       </main>
+
+      {/* Pay full balance — the single recording step: covered deal milestones
+          are ticked on their deals, any commission remainder becomes a payout
+          row, and the schedule chip clears. One transfer, recorded once. */}
+      {payAllFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setPayAllFor(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b">
+              <div className="text-sm font-semibold text-gray-900">Pay balance — {payAllFor.name}</div>
+              <div className="text-xs text-gray-500 mt-0.5">{payAllFor.payInfo} · owed ${money(payAllFor.outstanding)} across {payAllFor.months.length} {payAllFor.months.length === 1 ? "month" : "months"}</div>
+            </div>
+            <div className="p-6 space-y-3">
+              <div className="text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded px-3 py-2">
+                {payAllFor.months.map((m) => `${periodLabel(m.period)} $${money(m.balance)}`).join(" · ")}
+              </div>
+              <div>
+                <label className="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Amount sent</label>
+                <input type="number" step="0.01" value={payAllForm.amount} onChange={(e) => setPayAllForm({ ...payAllForm, amount: e.target.value })} className="w-full border border-gray-200 rounded px-3 py-2 text-sm" />
+                {Number(payAllForm.amount) > 0 && Math.abs(Number(payAllForm.amount) - payAllFor.outstanding) > 0.01 && (
+                  <div className="text-[11px] text-amber-600 mt-1">Not the full balance — oldest months are settled first; a partly-covered deal installment stays owed until fully paid.</div>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Date sent</label>
+                  <input type="date" value={payAllForm.sent_at} onChange={(e) => setPayAllForm({ ...payAllForm, sent_at: e.target.value })} className="w-full border border-gray-200 rounded px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Method</label>
+                  <select value={payAllForm.method} onChange={(e) => setPayAllForm({ ...payAllForm, method: e.target.value })} className="w-full border border-gray-200 rounded px-3 py-2 text-sm">
+                    <option value="paypal">PayPal</option><option value="bank">Bank</option><option value="e_transfer">E-Transfer</option><option value="wire">Wire</option><option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Reference (optional)</label>
+                <input value={payAllForm.reference} onChange={(e) => setPayAllForm({ ...payAllForm, reference: e.target.value })} className="w-full border border-gray-200 rounded px-3 py-2 text-sm" placeholder="Mercury / PayPal transaction id" />
+              </div>
+              <div className="text-[11px] text-gray-400">Record this on the day the money actually leaves the bank — the date is what the bookkeeper reconciles against the statement.</div>
+            </div>
+            <div className="px-6 py-4 border-t flex justify-end gap-2">
+              <button onClick={() => setPayAllFor(null)} className="px-4 py-2 text-sm text-gray-600">Cancel</button>
+              <button onClick={payBalance} disabled={payAllSaving || !payAllForm.amount || !payAllForm.sent_at} className="px-4 py-2 bg-gray-900 text-white rounded text-sm font-medium disabled:opacity-40">{payAllSaving ? "…" : "Record payment"}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Record Payment */}
       {payFor && (

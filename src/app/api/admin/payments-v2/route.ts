@@ -19,6 +19,13 @@ export async function GET(request: NextRequest) {
   const admin = await verifyAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
+  // The work-queue view: one row per creator, balance summed across ALL unpaid
+  // months. The monthly grid answers "what did this month earn"; this answers
+  // "who needs paying right now".
+  if (request.nextUrl.searchParams.get("view") === "outstanding") {
+    return outstandingView(getAdminClient());
+  }
+
   const period = request.nextUrl.searchParams.get("period");
   if (!period || !/^\d{4}-\d{2}$/.test(period)) {
     return NextResponse.json({ error: "period required (YYYY-MM)" }, { status: 400 });
@@ -272,4 +279,173 @@ export async function GET(request: NextRequest) {
     overdueCount,
     rateChange,
   });
+}
+
+// Per-creator balances across every period, FIFO-settled — the same
+// allocation the monthly grid and History drawer use, so the three views can
+// never disagree. Only creators still owed money appear: settled people are
+// noise when the job is processing payments.
+async function outstandingView(db: any) {
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+
+  const allEvents = await fetchAllRows<any>((from, to) =>
+    (db.from("commission_events") as any)
+      .select("influencer_id, legacy_affiliate_id, period, amount")
+      .order("id")
+      .range(from, to),
+  );
+  const allPayouts = await fetchAllRows<any>((from, to) =>
+    (db.from("creator_payouts") as any)
+      .select("influencer_id, legacy_affiliate_id, amount, covers_period")
+      .eq("is_test", isTestEnv())
+      .order("id")
+      .range(from, to),
+  );
+  const { data: dealRows } = await (db.from("campaign_deals") as any)
+    .select("id, influencer_id, deal_kind, deal_status, whitelisting_status, total_deal_value, starts_on, payment_terms")
+    .in("deal_status", ["active", "closed"]);
+  const dealPays = milestonePayments(dealRows || []);
+
+  // A person holding both a partner code and a legacy code is one creditor:
+  // any event carrying both ids links the two streams under the influencer.
+  const legToInf = new Map<string, string>();
+  for (const e of allEvents) {
+    if (e.influencer_id && e.legacy_affiliate_id) legToInf.set(e.legacy_affiliate_id, e.influencer_id);
+  }
+  const keyOf = (r: any) => {
+    if (r.influencer_id) return `inf:${r.influencer_id}`;
+    const linked = legToInf.get(r.legacy_affiliate_id);
+    return linked ? `inf:${linked}` : `legacy:${r.legacy_affiliate_id}`;
+  };
+
+  type Grp = { influencerId: string | null; legacyAffiliateId: string | null; earnedByMonth: Map<string, number>; payments: any[] };
+  const groups = new Map<string, Grp>();
+  const grp = (key: string): Grp => {
+    let g = groups.get(key);
+    if (!g) {
+      g = {
+        influencerId: key.startsWith("inf:") ? key.slice(4) : null,
+        legacyAffiliateId: key.startsWith("legacy:") ? key.slice(7) : null,
+        earnedByMonth: new Map(),
+        payments: [],
+      };
+      groups.set(key, g);
+    }
+    return g;
+  };
+  for (const e of allEvents) {
+    const g = grp(keyOf(e));
+    if (e.legacy_affiliate_id) g.legacyAffiliateId = e.legacy_affiliate_id;
+    g.earnedByMonth.set(e.period, round2((g.earnedByMonth.get(e.period) || 0) + (Number(e.amount) || 0)));
+  }
+  for (const p of allPayouts) grp(keyOf(p)).payments.push(p);
+  for (const dp of dealPays) grp(`inf:${dp.influencer_id}`).payments.push({ amount: dp.amount, covers_period: dp.covers_period });
+
+  let schedulesByKey = new Map<string, any>();
+  try {
+    const { data: scheds } = await (db.from("payment_schedules") as any)
+      .select("id, influencer_id, legacy_affiliate_id, amount, scheduled_for, note")
+      .is("cleared_at", null);
+    for (const sc of scheds || []) {
+      const key = sc.influencer_id ? `inf:${sc.influencer_id}` : keyOf({ legacy_affiliate_id: sc.legacy_affiliate_id });
+      schedulesByKey.set(key, sc);
+    }
+  } catch { /* table not migrated yet — feature no-ops */ }
+
+  type OutMonth = { period: string; earned: number; paid: number; balance: number; dueDate: string | null; state: string };
+  const rows: any[] = [];
+  for (const [key, g] of groups) {
+    const earnedByMonth = [...g.earnedByMonth.entries()]
+      .map(([p, amount]) => ({ period: p, amount }))
+      .sort((a, b) => a.period.localeCompare(b.period));
+    const { paidByMonth, credit } = allocatePayments(earnedByMonth, g.payments);
+    const months: OutMonth[] = [];
+    for (const m of earnedByMonth) {
+      const paid = paidByMonth[m.period] || 0;
+      const balance = round2(m.amount - paid);
+      if (balance <= 0.005) continue;
+      months.push({
+        period: m.period,
+        earned: round2(m.amount),
+        paid: round2(paid),
+        balance,
+        dueDate: dueDateForPeriod(m.period),
+        state: dueState(m.period, balance),
+      });
+    }
+    const outstanding = round2(months.reduce((s, m) => s + m.balance, 0));
+    if (outstanding <= 0.005) continue;
+    rows.push({
+      key,
+      influencerId: g.influencerId,
+      legacyAffiliateId: g.legacyAffiliateId,
+      outstanding,
+      credit,
+      months,
+      oldestDue: months[0] ? { period: months[0].period, dueDate: months[0].dueDate, state: months[0].state } : null,
+      schedule: schedulesByKey.get(key) || null,
+    });
+  }
+
+  // Identity + payment info, only for the creators actually owed.
+  const infIds = [...new Set(rows.map((r) => r.influencerId).filter(Boolean))] as string[];
+  const legIds = [...new Set(rows.map((r) => r.legacyAffiliateId).filter(Boolean))] as string[];
+  const { data: infs } = await (db.from("influencers") as any)
+    .select("id, name, instagram_handle, profile_photo_url").in("id", infIds.length ? infIds : ["x"]);
+  const infMap = new Map<string, any>((infs || []).map((i: any) => [i.id, i]));
+  const { data: legs } = await (db.from("legacy_affiliates") as any)
+    .select("id, name, discount_code, payment_method, payment_detail").in("id", legIds.length ? legIds : ["x"]);
+  const legMap = new Map<string, any>((legs || []).map((l: any) => [l.id, l]));
+  const { data: invites } = infIds.length
+    ? await (db.from("creator_invites") as any).select("influencer_id, creators:creators!creators_invite_id_fkey(payment_method, paypal_email, bank_institution)").in("influencer_id", infIds)
+    : { data: [] };
+  const payByInf = new Map<string, any>();
+  for (const inv of invites || []) {
+    const c = Array.isArray(inv.creators) ? inv.creators[0] : inv.creators;
+    if (!c) continue;
+    const prev = payByInf.get(inv.influencer_id);
+    if (!prev || (!prev.payment_method && c.payment_method)) payByInf.set(inv.influencer_id, c);
+  }
+  const METHOD_LABEL: Record<string, string> = {
+    paypal: "PayPal", e_transfer: "E-Transfer", bank: "Bank",
+    us_ach: "Bank (US ACH)", ca_eft: "Bank (CA EFT)", intl_wire: "Wire",
+  };
+  const maskPay = (r: any): string => {
+    if (r.influencerId) {
+      const c = payByInf.get(r.influencerId);
+      if (c?.payment_method) {
+        const label = METHOD_LABEL[c.payment_method] || c.payment_method;
+        const detail = (c.payment_method === "paypal" || c.payment_method === "e_transfer") ? c.paypal_email : c.bank_institution;
+        return detail ? `${label} · ${detail}` : label;
+      }
+    }
+    const l = r.legacyAffiliateId ? legMap.get(r.legacyAffiliateId) : null;
+    if (l?.payment_method) {
+      return l.payment_method === "paypal" ? `PayPal · ${l.payment_detail || "—"}` : `Bank · ${l.payment_detail || ""}`;
+    }
+    return "No payment method";
+  };
+
+  const creators = rows.map((r) => {
+    const inf = r.influencerId ? infMap.get(r.influencerId) : null;
+    const leg = r.legacyAffiliateId ? legMap.get(r.legacyAffiliateId) : null;
+    return {
+      ...r,
+      name: inf?.name || leg?.name || "Unknown",
+      handle: inf?.instagram_handle || leg?.discount_code || "",
+      photo: inf?.profile_photo_url || null,
+      payInfo: maskPay(r),
+    };
+  }).sort((a, b) =>
+    String(a.oldestDue?.dueDate || "9999").localeCompare(String(b.oldestDue?.dueDate || "9999"))
+    || b.outstanding - a.outstanding
+  );
+
+  const totalOutstanding = round2(creators.reduce((s, c) => s + c.outstanding, 0));
+  const totalOverdue = round2(creators.reduce(
+    (s, c) => s + c.months.filter((m: OutMonth) => m.state === "overdue").reduce((t: number, m: OutMonth) => t + m.balance, 0), 0));
+  const totalScheduled = round2(creators.filter((c) => c.schedule)
+    .reduce((s, c) => s + (Number(c.schedule.amount) || c.outstanding), 0));
+
+  return NextResponse.json({ view: "outstanding", creators, totalOutstanding, totalOverdue, totalScheduled });
 }
