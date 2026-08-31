@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdmin, getAdminClient } from "@/lib/admin-auth";
 import { isTestEnv } from "@/lib/payout-env";
+import { snapshotPayoutReceipt } from "@/lib/payout-receipt";
 
 // Actual payouts ledger — records of money really sent to a creator, separate
 // from the monthly "owed" rows. A creator's balance = total earned − sum(payouts).
@@ -71,6 +72,10 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Creator-facing receipt, snapshotted now so later history edits cannot
+  // rewrite what this transfer settled. Best-effort by design.
+  try { await snapshotPayoutReceipt(supabase, data); } catch { /* receipts optional */ }
 
   // Money moved — the promise is kept; retire any active schedule chip.
   try {

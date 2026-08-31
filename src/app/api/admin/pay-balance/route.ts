@@ -6,6 +6,7 @@ import {
   milestoneAmount,
   milestoneEarnedOn,
 } from "@/lib/deal-milestones";
+import { snapshotPayoutReceipt } from "@/lib/payout-receipt";
 
 // One transfer, recorded once. Deal money settles on the deal (milestone
 // ticks) and commission money settles in creator_payouts — recording a mixed
@@ -108,6 +109,10 @@ export async function POST(request: NextRequest) {
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     payout = data;
+    // Creator-facing receipt, snapshotted now so later history edits cannot
+    // rewrite what this transfer settled. Best-effort: the payment stands
+    // even if the receipt column is not migrated yet.
+    try { await snapshotPayoutReceipt(db, payout); } catch { /* receipts optional */ }
   }
 
   // Money moved — retire any active schedule chip.

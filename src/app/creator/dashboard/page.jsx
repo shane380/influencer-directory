@@ -1001,6 +1001,7 @@ export default function CreatorDashboard() {
   // plus anything owed-but-unpaid. From /api/creator/payout-history.
   const [payoutHistory, setPayoutHistory] = useState(null) // { payments, totalPaid } from creator_payouts ledger
   const [payoutLoading, setPayoutLoading] = useState(false)
+  const [expandedPayment, setExpandedPayment] = useState(null) // index of the payment whose receipt is open
   // Resolved affiliate config from /api/creator/affiliate-config. Computed
   // server-side because legacy_affiliates is RLS service-role-only and the
   // browser client cannot read it. Shape: { enabled, rate, code, source }.
@@ -5692,15 +5693,38 @@ export default function CreatorDashboard() {
           <div style={{ fontSize: 13, color: '#aaa', fontWeight: 300 }}>No payments recorded yet.</div>
         ) : (
           <div>
-            {payments.map((p, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 0', borderBottom: i < payments.length - 1 ? '1px solid #f1f1f1' : 'none' }}>
-                <div>
-                  <div style={{ fontSize: 13, color: '#111' }}>{fmtDate(p.sent_at)}</div>
-                  {p.method && <div style={{ fontSize: 11, color: '#aaa', fontWeight: 300, marginTop: 2 }}>{METHOD_LABELS[p.method] || p.method}</div>}
+            {payments.map((p, i) => {
+              const open = expandedPayment === i
+              const lines = p.receipt?.lines || []
+              return (
+                <div key={i} style={{ borderBottom: i < payments.length - 1 ? '1px solid #f1f1f1' : 'none' }}>
+                  <div onClick={() => setExpandedPayment(open ? null : i)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 0', cursor: lines.length ? 'pointer' : 'default' }}>
+                    <div>
+                      <div style={{ fontSize: 13, color: '#111' }}>
+                        {fmtDate(p.sent_at) || 'Date not recorded'}
+                        {lines.length > 0 && <span style={{ color: '#ccc', marginLeft: 8, fontSize: 11 }}>{open ? '▾' : '▸'}</span>}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#aaa', fontWeight: 300, marginTop: 2 }}>
+                        {p.kind === 'deal' ? 'Paid on deal' : (METHOD_LABELS[p.method] || p.method || '')}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 13, color: '#111', fontWeight: 500 }}>{fmtAmt(p.amount)}</div>
+                  </div>
+                  {open && lines.length > 0 && (
+                    <div style={{ padding: '0 0 12px', fontSize: 12, color: '#555', fontWeight: 300 }}>
+                      {lines.map((l, j) => (
+                        <div key={j} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '3px 0' }}>
+                          <span>{l.label}</span>
+                          <span style={{ whiteSpace: 'nowrap' }}>{fmtAmt(l.amount)}</span>
+                        </div>
+                      ))}
+                      {p.reference && <div style={{ marginTop: 6, fontSize: 11, color: '#aaa' }}>Ref {p.reference}</div>}
+                      {p.receipt?.reconstructed && <div style={{ marginTop: 4, fontSize: 10, color: '#bbb' }}>Breakdown reconstructed from current records.</div>}
+                    </div>
+                  )}
                 </div>
-                <div style={{ fontSize: 13, color: '#111', fontWeight: 500 }}>{fmtAmt(p.amount)}</div>
-              </div>
-            ))}
+              )
+            })}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 16, marginTop: 4 }}>
               <div style={{ fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#999' }}>Total Received</div>
               <div style={{ fontSize: 14, color: '#111', fontWeight: 600 }}>{fmtAmt(totalPaid)}</div>
