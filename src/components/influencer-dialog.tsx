@@ -609,6 +609,84 @@ export function InfluencerDialog({
     }
   };
 
+  // Extending a deal appends installments to the SAME record — a second deal
+  // in the same campaign gets shadowed by the one-deal-per-creator campaign
+  // view (which is how molly's collab got overwritten). The extension months
+  // may carry a revised rate; calendar-gated deals extend with calendar
+  // months, content-gated deals with delivery-locked ones.
+  const [extendFor, setExtendFor] = useState<(CampaignDeal & { campaign: Campaign }) | null>(null);
+  const [extendForm, setExtendForm] = useState({ months: "1", fee: "", start: "" });
+  const [extendBusy, setExtendBusy] = useState(false);
+
+  const addMonthsISO = (iso: string, n: number): string => {
+    const [y, m, d] = iso.split("-").map(Number);
+    const dt = new Date(Date.UTC(y, m - 1 + n, 1));
+    const lastDay = new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth() + 1, 0)).getUTCDate();
+    dt.setUTCDate(Math.min(d, lastDay));
+    return dt.toISOString().slice(0, 10);
+  };
+
+  const openExtend = (deal: CampaignDeal & { campaign: Campaign }) => {
+    const terms = (deal.payment_terms || []) as any[];
+    const last = terms[terms.length - 1];
+    const lastDate = [...terms].map((m) => m.due_on || m.earned_on).filter(Boolean).sort().pop();
+    setExtendForm({
+      months: "1",
+      fee: last?.amount ? String(last.amount) : "",
+      start: lastDate ? addMonthsISO(String(lastDate), 1) : new Date().toISOString().slice(0, 10),
+    });
+    setExtendFor(deal);
+  };
+
+  const handleExtendDeal = async () => {
+    const deal = extendFor;
+    if (!deal) return;
+    const n = parseInt(extendForm.months, 10);
+    const fee = Number(extendForm.fee);
+    if (!Number.isFinite(n) || n < 1 || !Number.isFinite(fee) || fee <= 0 || !extendForm.start) return;
+    setExtendBusy(true);
+    const terms = ((deal.payment_terms || []) as any[]).slice();
+    const isCalendar = terms.some((m) => inferGate(m) === "on_date");
+    const maxId = terms.reduce((mx, m) => Math.max(mx, Number(String(m.id).replace(/\D/g, "")) || 0), 0);
+    const prevRate = Number(terms[terms.length - 1]?.amount) || 0;
+    for (let i = 0; i < n; i++) {
+      terms.push({
+        id: `m${maxId + i + 1}`,
+        gate: isCalendar ? "on_date" : "on_content_live",
+        amount: fee,
+        due_on: isCalendar ? addMonthsISO(extendForm.start, i) : null,
+        is_paid: false,
+        paid_by: null,
+        earned_on: null,
+        paid_date: null,
+        description: isCalendar
+          ? `Extension — whitelisting fee (${addMonthsISO(extendForm.start, i).slice(0, 7)})`
+          : `Extension month ${i + 1} content delivered`,
+      });
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    const newTotal = Math.round(((Number(deal.total_deal_value) || 0) + n * fee) * 100) / 100;
+    const somePaid = terms.some((m) => m.is_paid);
+    const note = `Extended ${today}: ${n} month${n === 1 ? "" : "s"} at $${fee}/month from ${extendForm.start}${Math.abs(fee - prevRate) > 0.005 ? " (revised rate)" : ""}.`;
+    const updates = {
+      payment_terms: terms,
+      total_deal_value: newTotal,
+      payment_status: somePaid ? "deposit_paid" : "not_paid",
+      deal_status: "active", // an extended deal is live again even if it had closed
+      notes: deal.notes ? `${deal.notes} ${note}` : note,
+      updated_by: currentUserId,
+    };
+    const { error } = await supabase
+      .from("campaign_deals")
+      .update(updates as never)
+      .eq("id", deal.id);
+    setExtendBusy(false);
+    if (!error) {
+      setDeals((prev) => prev.map((d) => (d.id === deal.id ? { ...d, ...(updates as any) } : d)));
+      setExtendFor(null);
+    }
+  };
+
   // Marks the month's content delivered (sets the earned date). This is
   // Daisy's tick — separate from payment, and what unlocks the pay checkbox.
   const handleMarkDelivered = async (deal: CampaignDeal & { campaign: Campaign }, milestoneId: string, delivered: boolean) => {
@@ -984,16 +1062,29 @@ export function InfluencerDialog({
                                   <span className="text-gray-300">·</span>
                                   <span>Content: <span className="text-gray-700">{getContentStatusLabel(deal.content_status || "not_started")}</span></span>
                                 </div>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 px-2 text-xs"
-                                  onClick={() => handleOpenDealDialog(deal)}
-                                >
-                                  <Pencil className="h-3 w-3 mr-1" />
-                                  Update
-                                </Button>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs"
+                                    onClick={() => openExtend(deal)}
+                                    title="Add months to this deal (same or revised rate) — never overwrite it"
+                                  >
+                                    <Plus className="h-3 w-3 mr-1" />
+                                    Extend
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs"
+                                    onClick={() => handleOpenDealDialog(deal)}
+                                  >
+                                    <Pencil className="h-3 w-3 mr-1" />
+                                    Update
+                                  </Button>
+                                </div>
                               </div>
 
                               {/* Deliverables */}
@@ -1190,6 +1281,40 @@ export function InfluencerDialog({
         deal={isNewDeal ? null : selectedDeal}
         isNew={isNewDeal}
       />
+    )}
+
+    {/* Extend deal — append months, never overwrite */}
+    {extendFor && (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" onClick={() => setExtendFor(null)}>
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="text-sm font-semibold text-gray-900 mb-1">Extend deal</div>
+          <div className="text-[11px] text-gray-400 mb-4">
+            Adds new installments to this deal — the existing months and their payment history stay untouched.
+            {((extendFor.payment_terms || []) as any[]).some((m) => inferGate(m) === "on_date")
+              ? " Extension months earn by the calendar (whitelisting fees)."
+              : " Extension months unlock for payment when their content is marked delivered."}
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <label className="text-xs text-gray-500">Months
+              <input type="number" min="1" step="1" value={extendForm.months} onChange={(e) => setExtendForm({ ...extendForm, months: e.target.value })} className="mt-1 w-full border border-gray-200 rounded px-2.5 py-2" /></label>
+            <label className="text-xs text-gray-500">Fee per month
+              <input type="number" step="0.01" value={extendForm.fee} onChange={(e) => setExtendForm({ ...extendForm, fee: e.target.value })} className="mt-1 w-full border border-gray-200 rounded px-2.5 py-2" /></label>
+            <label className="col-span-2 text-xs text-gray-500">First month starts
+              <input type="date" value={extendForm.start} onChange={(e) => setExtendForm({ ...extendForm, start: e.target.value })} className="mt-1 w-full border border-gray-200 rounded px-2.5 py-2" /></label>
+          </div>
+          {Number(extendForm.months) >= 1 && Number(extendForm.fee) > 0 && (
+            <div className="mt-3 text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded px-3 py-2">
+              Adds {extendForm.months} × ${Number(extendForm.fee).toFixed(2)} — deal total becomes ${(((Number(extendFor.total_deal_value) || 0) + Number(extendForm.months) * Number(extendForm.fee))).toFixed(2)}
+              {Math.abs(Number(extendForm.fee) - (Number((((extendFor.payment_terms || []) as any[]).slice(-1)[0] || {}).amount) || 0)) > 0.005 ? " (revised rate)" : ""}
+            </div>
+          )}
+          <div className="flex justify-end gap-2 mt-5">
+            <button type="button" onClick={() => setExtendFor(null)} className="text-sm px-3 py-2 text-gray-500">Cancel</button>
+            <button type="button" onClick={handleExtendDeal} disabled={extendBusy || !(Number(extendForm.months) >= 1) || !(Number(extendForm.fee) > 0) || !extendForm.start}
+              className="text-sm px-4 py-2 rounded-md bg-gray-900 text-white disabled:opacity-40">{extendBusy ? "Saving…" : "Extend deal"}</button>
+          </div>
+        </div>
+      </div>
     )}
     </>
   );
