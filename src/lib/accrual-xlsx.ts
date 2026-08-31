@@ -75,10 +75,22 @@ export async function buildAccrualWorkbook(
   sec2.font = { bold: true, size: 11 };
   sec2.getCell(1).fill = HEADER_FILL;
   sec2.getCell(2).fill = HEADER_FILL;
+  // Each figure gets a one-line gloss so the reconciliation reads without a
+  // phone call: what the number is, not just its label.
+  const explain = (text: string) => {
+    const r = s.addRow([text]);
+    r.font = { size: 9, italic: true, color: { argb: "FF6B7280" } };
+    s.mergeCells(r.number, 1, r.number, 2);
+    return r;
+  };
   money("Opening accrued liability", summary.opening_liability);
+  explain("Already owed to creators entering the month, accumulated from prior periods.");
   money("Earned this period", summary.accrued);
+  explain("New amounts creators earned this month (matches TOTAL EARNED above).");
   money("Paid this period", summary.paid);
+  explain("Cash actually sent this month, whichever month's work it settled.");
   money("Closing accrued liability (still owed)", summary.closing_liability, true);
+  explain("Still owed leaving the month: opening + earned − paid. Becomes next month's opening figure.");
 
   if (summary.unplaced_count > 0) {
     s.addRow([]);
