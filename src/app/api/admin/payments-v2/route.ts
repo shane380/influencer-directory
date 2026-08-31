@@ -375,11 +375,19 @@ async function outstandingView(db: any) {
     }
     const outstanding = round2(months.reduce((s, m) => s + m.balance, 0));
     if (outstanding <= 0.005) continue;
+    // What actually needs paying in this run: months at or near their
+    // deadline. An upcoming month (e.g. current-month commission still
+    // accruing) is owed but NOT due — prompting its amount invites prepaying
+    // an unfinished number.
+    const dueNow = round2(months
+      .filter((m) => m.state === "overdue" || m.state === "due_soon")
+      .reduce((s, m) => s + m.balance, 0));
     rows.push({
       key,
       influencerId: g.influencerId,
       legacyAffiliateId: g.legacyAffiliateId,
       outstanding,
+      dueNow,
       credit,
       months,
       oldestDue: months[0] ? { period: months[0].period, dueDate: months[0].dueDate, state: months[0].state } : null,
@@ -442,10 +450,11 @@ async function outstandingView(db: any) {
   );
 
   const totalOutstanding = round2(creators.reduce((s, c) => s + c.outstanding, 0));
+  const totalDueNow = round2(creators.reduce((s, c) => s + c.dueNow, 0));
   const totalOverdue = round2(creators.reduce(
     (s, c) => s + c.months.filter((m: OutMonth) => m.state === "overdue").reduce((t: number, m: OutMonth) => t + m.balance, 0), 0));
   const totalScheduled = round2(creators.filter((c) => c.schedule)
     .reduce((s, c) => s + (Number(c.schedule.amount) || c.outstanding), 0));
 
-  return NextResponse.json({ view: "outstanding", creators, totalOutstanding, totalOverdue, totalScheduled });
+  return NextResponse.json({ view: "outstanding", creators, totalOutstanding, totalDueNow, totalOverdue, totalScheduled });
 }

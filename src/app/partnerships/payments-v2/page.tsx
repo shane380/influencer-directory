@@ -28,7 +28,7 @@ interface OutMonth { period: string; earned: number; paid: number; balance: numb
 interface OutRow {
   key: string; influencerId: string | null; legacyAffiliateId: string | null;
   name: string; handle: string; photo: string | null; payInfo: string;
-  outstanding: number; credit: number; months: OutMonth[];
+  outstanding: number; dueNow: number; credit: number; months: OutMonth[];
   oldestDue: { period: string; dueDate: string | null; state: DueState } | null;
   schedule?: { id: string; amount: number | null; scheduled_for: string; note: string | null } | null;
 }
@@ -76,7 +76,7 @@ export default function PaymentsV2() {
   // Outstanding is the default: Cherry's work queue. Monthly stays for
   // month-end checks against the accrual report.
   const [view, setView] = useState<"outstanding" | "monthly">("outstanding");
-  const [outData, setOutData] = useState<{ creators: OutRow[]; totalOutstanding: number; totalOverdue: number; totalScheduled: number } | null>(null);
+  const [outData, setOutData] = useState<{ creators: OutRow[]; totalOutstanding: number; totalDueNow: number; totalOverdue: number; totalScheduled: number } | null>(null);
   const [outLoading, setOutLoading] = useState(true);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [payAllFor, setPayAllFor] = useState<OutRow | null>(null);
@@ -376,12 +376,14 @@ export default function PaymentsV2() {
           <>
             <div className="grid grid-cols-3 gap-4 mb-8">
               <div className="bg-white border border-gray-200 rounded-lg px-5 py-4">
-                <div className="text-[11px] uppercase tracking-wider text-gray-400">Total outstanding</div>
-                <div className="text-2xl font-bold mt-1 text-gray-900">${money(outData?.totalOutstanding || 0)}</div>
+                <div className="text-[11px] uppercase tracking-wider text-gray-400">Due now</div>
+                <div className="text-2xl font-bold mt-1 text-red-600">${money(outData?.totalDueNow || 0)}</div>
+                {(outData?.totalOverdue || 0) > 0 && <div className="text-[11px] text-red-600 mt-1">${money(outData!.totalOverdue)} of it overdue</div>}
               </div>
               <div className="bg-white border border-gray-200 rounded-lg px-5 py-4">
-                <div className="text-[11px] uppercase tracking-wider text-gray-400">Overdue</div>
-                <div className="text-2xl font-bold mt-1 text-red-600">${money(outData?.totalOverdue || 0)}</div>
+                <div className="text-[11px] uppercase tracking-wider text-gray-400">Total outstanding</div>
+                <div className="text-2xl font-bold mt-1 text-gray-900">${money(outData?.totalOutstanding || 0)}</div>
+                <div className="text-[11px] text-gray-400 mt-1">incl. months not yet due</div>
               </div>
               <div className="bg-white border border-gray-200 rounded-lg px-5 py-4">
                 <div className="text-[11px] uppercase tracking-wider text-gray-400">Scheduled</div>
@@ -394,7 +396,7 @@ export default function PaymentsV2() {
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr className="text-gray-500">
                     <th className="text-left font-medium px-5 py-3">Creator</th>
-                    <th className="text-right font-medium px-3 py-3">Outstanding</th>
+                    <th className="text-right font-medium px-3 py-3">Due now</th>
                     <th className="text-left font-medium px-4 py-3">Oldest due</th>
                     <th className="text-left font-medium px-3 py-3">Status</th>
                     <th className="px-5 py-3 w-44"></th>
@@ -429,7 +431,12 @@ export default function PaymentsV2() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-3 py-3 text-right font-semibold text-gray-900">${money(r.outstanding)}</td>
+                          <td className="px-3 py-3 text-right">
+                            <div className={`font-semibold ${r.dueNow > 0 ? "text-gray-900" : "text-gray-400"}`}>{r.dueNow > 0 ? `$${money(r.dueNow)}` : "—"}</div>
+                            {Math.abs(r.outstanding - r.dueNow) > 0.005 && (
+                              <div className="text-[10px] text-gray-400">${money(r.outstanding)} total owed</div>
+                            )}
+                          </td>
                           <td className="px-4 py-3 text-gray-600">{r.oldestDue?.dueDate ? formatDueDate(r.oldestDue.dueDate) : "—"}</td>
                           <td className="px-3 py-3">
                             {r.schedule ? (
@@ -446,10 +453,18 @@ export default function PaymentsV2() {
                             )}
                           </td>
                           <td className="px-5 py-3 text-right">
-                            <button onClick={(e) => { e.stopPropagation(); setPayAllFor(r); setPayAllForm({ amount: money(r.outstanding).replace(/,/g, ""), sent_at: new Date().toISOString().slice(0, 10), method: guessMethod(r.payInfo), reference: "" }); }}
-                              className="px-3 py-1.5 bg-gray-900 text-white rounded text-xs font-medium hover:bg-gray-700">
-                              Pay ${money(r.outstanding)}
-                            </button>
+                            {r.dueNow > 0 ? (
+                              <button onClick={(e) => { e.stopPropagation(); setPayAllFor(r); setPayAllForm({ amount: money(r.dueNow).replace(/,/g, ""), sent_at: new Date().toISOString().slice(0, 10), method: guessMethod(r.payInfo), reference: "" }); }}
+                                className="px-3 py-1.5 bg-gray-900 text-white rounded text-xs font-medium hover:bg-gray-700">
+                                Pay ${money(r.dueNow)}
+                              </button>
+                            ) : (
+                              <div className="text-[11px] text-gray-400">
+                                Nothing due yet
+                                <button onClick={(e) => { e.stopPropagation(); setPayAllFor(r); setPayAllForm({ amount: money(r.outstanding).replace(/,/g, ""), sent_at: new Date().toISOString().slice(0, 10), method: guessMethod(r.payInfo), reference: "" }); }}
+                                  className="block ml-auto mt-0.5 text-[10px] text-gray-400 hover:text-gray-700 underline">Pay early…</button>
+                              </div>
+                            )}
                             {!r.schedule && (
                               <button onClick={(e) => { e.stopPropagation(); setSchedFor(r as unknown as Creator); setSchedForm({ scheduled_for: "", amount: String(r.outstanding), note: "" }); }}
                                 className="block ml-auto mt-1 text-[10px] text-gray-400 hover:text-blue-600">Schedule…</button>
@@ -610,7 +625,7 @@ export default function PaymentsV2() {
               <ol className="list-decimal ml-4 space-y-2">
                 <li><span className="font-medium">Work top to bottom.</span> Red Overdue needs action; blue Scheduled means pay on that date, not before; amber Due soon means the deadline is within a week.</li>
                 <li><span className="font-medium">Check the payment method under the name first.</span> If it says <span className="text-red-600">No payment method</span>, stop — use Edit to add details before sending anything.</li>
-                <li><span className="font-medium">Send the full Outstanding amount</span> in Mercury or PayPal — one transfer per creator. Click the row to see which months it covers; the app splits it oldest-first automatically.</li>
+                <li><span className="font-medium">Send the Due now amount</span> in Mercury or PayPal — one transfer per creator, exactly what the Pay button shows. Months marked &quot;not yet due&quot; stay for a later run; don&apos;t prepay them. Click the row to see the split.</li>
                 <li><span className="font-medium">Record it the same day.</span> Click Pay, add the method and the bank transaction reference, save. That one step settles the months, marks deal installments paid, and clears any Scheduled chip.</li>
               </ol>
               <div className="border-t pt-3 space-y-1.5 text-xs text-gray-500">
@@ -636,18 +651,30 @@ export default function PaymentsV2() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b">
               <div className="text-sm font-semibold text-gray-900">Pay balance — {payAllFor.name}</div>
-              <div className="text-xs text-gray-500 mt-0.5">{payAllFor.payInfo} · owed ${money(payAllFor.outstanding)} across {payAllFor.months.length} {payAllFor.months.length === 1 ? "month" : "months"}</div>
+              <div className="text-xs text-gray-500 mt-0.5">{payAllFor.payInfo} · due now ${money(payAllFor.dueNow)}{Math.abs(payAllFor.outstanding - payAllFor.dueNow) > 0.005 ? ` · $${money(payAllFor.outstanding)} total owed` : ""}</div>
             </div>
             <div className="p-6 space-y-3">
               <div className="text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded px-3 py-2">
-                {payAllFor.months.map((m) => `${periodLabel(m.period)} $${money(m.balance)}`).join(" · ")}
+                {payAllFor.months.map((m) => `${periodLabel(m.period)} $${money(m.balance)}${m.state !== "overdue" && m.state !== "due_soon" ? " (not yet due)" : ""}`).join(" · ")}
               </div>
               <div>
                 <label className="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Amount sent</label>
                 <input type="number" step="0.01" value={payAllForm.amount} onChange={(e) => setPayAllForm({ ...payAllForm, amount: e.target.value })} className="w-full border border-gray-200 rounded px-3 py-2 text-sm" />
-                {Number(payAllForm.amount) > 0 && Math.abs(Number(payAllForm.amount) - payAllFor.outstanding) > 0.01 && (
-                  <div className="text-[11px] text-amber-600 mt-1">Not the full balance — oldest months are settled first; a partly-covered deal installment stays owed until fully paid.</div>
-                )}
+                {(() => {
+                  const amt = Number(payAllForm.amount);
+                  if (!(amt > 0)) return null;
+                  const notYetDue = payAllFor.outstanding - payAllFor.dueNow;
+                  if (Math.abs(amt - payAllFor.dueNow) <= 0.01 && notYetDue > 0.005) {
+                    return <div className="text-[11px] text-gray-500 mt-1">Covers everything currently due. The remaining ${money(notYetDue)} isn&apos;t due yet and stays on the books for a later run.</div>;
+                  }
+                  if (Math.abs(amt - payAllFor.outstanding) <= 0.01 && notYetDue > 0.005) {
+                    return <div className="text-[11px] text-amber-600 mt-1">Includes ${money(notYetDue)} that isn&apos;t due yet — current-month commission may still be growing, so paying it now can leave a fresh balance behind.</div>;
+                  }
+                  if (Math.abs(amt - payAllFor.outstanding) > 0.01 && Math.abs(amt - payAllFor.dueNow) > 0.01) {
+                    return <div className="text-[11px] text-amber-600 mt-1">Matches neither the due-now amount nor the full balance — oldest months are settled first; a partly-covered deal installment stays owed until fully paid.</div>;
+                  }
+                  return null;
+                })()}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

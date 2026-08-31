@@ -5,9 +5,11 @@ this guide is behind the ⓘ How to pay button on the payments page — keep the
 in sync when the process changes.*
 
 The page: **Partnerships → Payments** (`/partnerships/payments-v2`). It opens on
-the **Outstanding** tab — your work queue. One row per creator; the Outstanding
-column is the full amount they are owed right now, across all months. If someone
-is not listed, they are not owed anything.
+the **Outstanding** tab — your work queue. One row per creator. The **Due now**
+column is what needs paying in this run (months at or past their deadline); the
+small "total owed" line under it includes months that exist on the books but
+aren't due yet — like the current month's commission, which is still growing.
+If someone is not listed, they are not owed anything.
 
 ## The payment run
 
@@ -19,10 +21,11 @@ is not listed, they are not owed anything.
    anything.** If it says *No payment method* (shown in red), stop — use
    **Edit** to enter their details, or have them fill them in from their creator
    portal. Never guess where money goes.
-3. **Send the full Outstanding amount** in Mercury or PayPal. Click the row to
-   expand it if you want to see which months the balance covers. One transfer
-   per creator per run — the app splits it across months automatically, oldest
-   first.
+3. **Send the Due now amount** in Mercury or PayPal — exactly what the Pay
+   button shows. One transfer per creator per run; the app splits it across
+   months automatically, oldest first. Months marked *not yet due* stay on the
+   books for a later run — don't prepay them (the current month's commission is
+   still accruing, so paying it early just leaves a fresh balance behind).
 4. **Record it the same day, in the same sitting.** Click **Pay $X** on the row.
    The form is prefilled with the amount and today's date — add the method and
    paste the Mercury/PayPal transaction reference, then save. This one step
@@ -38,9 +41,9 @@ is not listed, they are not owed anything.
   Until a payment is recorded, the page still shows the creator as owed — so
   someone else (or you, tomorrow) could pay the same balance twice. Send, then
   record, before doing anything else.
-- **Pay the full balance, not a slice.** A partly-covered deal installment
-  stays owed until it is fully paid — the modal warns you if the amount doesn't
-  match the balance.
+- **Pay the full due-now amount, not a slice.** A partly-covered deal
+  installment stays owed until it is fully paid — the modal warns you if the
+  amount matches neither the due-now figure nor the full balance.
 - **Don't pay off the books.** If a creator chases payment for content that
   isn't showing in their balance, it usually means their delivery hasn't been
   ticked on the deal. Delivery ticks ("Content delivered" on the Deal tab) are
