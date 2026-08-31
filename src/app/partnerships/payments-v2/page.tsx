@@ -82,6 +82,7 @@ export default function PaymentsV2() {
   const [payAllFor, setPayAllFor] = useState<OutRow | null>(null);
   const [payAllForm, setPayAllForm] = useState({ amount: "", sent_at: "", method: "paypal", reference: "" });
   const [payAllSaving, setPayAllSaving] = useState(false);
+  const [showHowTo, setShowHowTo] = useState(false);
 
   async function saveSchedule() {
     if (!schedFor || !schedForm.scheduled_for) return;
@@ -330,6 +331,11 @@ export default function PaymentsV2() {
             <p className="text-sm text-gray-500 mt-1">Manage creator payment runs</p>
           </div>
           <div className="flex items-center gap-4">
+            <button onClick={() => setShowHowTo(true)} title="How to pay creators from this page"
+              className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-600 hover:bg-gray-50">
+              <span className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-gray-400 text-[10px] font-semibold">i</span>
+              How to pay
+            </button>
             <div className="flex border border-gray-200 rounded-lg overflow-hidden text-sm">
               {(["outstanding", "monthly"] as const).map((v) => (
                 <button key={v} onClick={() => setView(v)}
@@ -590,6 +596,37 @@ export default function PaymentsV2() {
         </div>
         </>)}
       </main>
+
+      {/* How to pay — the short version of docs/paying-creators.md. Keep the
+          two in sync when the process changes. */}
+      {showHowTo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowHowTo(false)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b">
+              <div className="text-sm font-semibold text-gray-900">How to pay creators</div>
+              <div className="text-xs text-gray-500 mt-0.5">The Outstanding tab is the work queue — one row per creator, their full unpaid balance.</div>
+            </div>
+            <div className="px-6 py-4 text-sm text-gray-700 space-y-3">
+              <ol className="list-decimal ml-4 space-y-2">
+                <li><span className="font-medium">Work top to bottom.</span> Red Overdue needs action; blue Scheduled means pay on that date, not before; amber Due soon means the deadline is within a week.</li>
+                <li><span className="font-medium">Check the payment method under the name first.</span> If it says <span className="text-red-600">No payment method</span>, stop — use Edit to add details before sending anything.</li>
+                <li><span className="font-medium">Send the full Outstanding amount</span> in Mercury or PayPal — one transfer per creator. Click the row to see which months it covers; the app splits it oldest-first automatically.</li>
+                <li><span className="font-medium">Record it the same day.</span> Click Pay, add the method and the bank transaction reference, save. That one step settles the months, marks deal installments paid, and clears any Scheduled chip.</li>
+              </ol>
+              <div className="border-t pt-3 space-y-1.5 text-xs text-gray-500">
+                <div><span className="font-medium text-gray-700">Record on the day the money actually leaves the bank</span> — the date is what the bookkeeper reconciles against the statement. Never batch recordings for later: an unrecorded payment still shows as owed, which is how double-payments happen.</div>
+                <div><span className="font-medium text-gray-700">Missing balance?</span> If a creator chases payment for content not showing here, their delivery likely isn&apos;t ticked on the deal — that&apos;s Daisy&apos;s record, not yours. Ask her or Shane; never pay off the books.</div>
+                <div><span className="font-medium text-gray-700">Invoice with a future pay date?</span> Use Schedule… on the row so it shows as planned instead of overdue.</div>
+                <div><span className="font-medium text-gray-700">Mistake?</span> Pooled payments can be edited or removed from the creator&apos;s History drawer; deal-installment payments are corrected on the deal (ask Shane).</div>
+                <div className="pt-1">Full guide: <span className="font-mono">docs/paying-creators.md</span> in the repo.</div>
+              </div>
+            </div>
+            <div className="px-6 py-3 border-t bg-gray-50 text-right">
+              <button onClick={() => setShowHowTo(false)} className="text-gray-600 text-xs">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Pay full balance — the single recording step: covered deal milestones
           are ticked on their deals, any commission remainder becomes a payout
