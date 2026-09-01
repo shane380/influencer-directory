@@ -615,7 +615,10 @@ export function InfluencerDialog({
   // may carry a revised rate; calendar-gated deals extend with calendar
   // months, content-gated deals with delivery-locked ones.
   const [extendFor, setExtendFor] = useState<(CampaignDeal & { campaign: Campaign }) | null>(null);
-  const [extendForm, setExtendForm] = useState({ months: "1", fee: "", start: "" });
+  // fee is a TOTAL for the whole extension by default — Daisy negotiates flat
+  // amounts ("3 more months for $1,300"), and a per-month default is how a
+  // $1,300 flat deal got booked as $3,900. "monthly" stays available.
+  const [extendForm, setExtendForm] = useState({ months: "1", fee: "", feeMode: "total", start: "" });
   const [extendBusy, setExtendBusy] = useState(false);
 
   const addMonthsISO = (iso: string, n: number): string => {
@@ -632,7 +635,10 @@ export function InfluencerDialog({
     const lastDate = [...terms].map((m) => m.due_on || m.earned_on).filter(Boolean).sort().pop();
     setExtendForm({
       months: "1",
+      // Prefill with the last installment's amount: at the default 1 month,
+      // total and per-month are the same number.
       fee: last?.amount ? String(last.amount) : "",
+      feeMode: "total",
       start: lastDate ? addMonthsISO(String(lastDate), 1) : new Date().toISOString().slice(0, 10),
     });
     setExtendFor(deal);
@@ -649,11 +655,16 @@ export function InfluencerDialog({
     const isCalendar = terms.some((m) => inferGate(m) === "on_date");
     const maxId = terms.reduce((mx, m) => Math.max(mx, Number(String(m.id).replace(/\D/g, "")) || 0), 0);
     const prevRate = Number(terms[terms.length - 1]?.amount) || 0;
+    // A flat total splits into even cents with the last month absorbing the
+    // remainder, so the milestones always sum to exactly what was agreed.
+    const totalAdd = Math.round((extendForm.feeMode === "total" ? fee : fee * n) * 100) / 100;
+    const baseMonthly = Math.floor((totalAdd / n) * 100) / 100;
+    const lastMonthly = Math.round((totalAdd - baseMonthly * (n - 1)) * 100) / 100;
     for (let i = 0; i < n; i++) {
       terms.push({
         id: `m${maxId + i + 1}`,
         gate: isCalendar ? "on_date" : "on_content_live",
-        amount: fee,
+        amount: i === n - 1 ? lastMonthly : baseMonthly,
         due_on: isCalendar ? addMonthsISO(extendForm.start, i) : null,
         is_paid: false,
         paid_by: null,
@@ -665,9 +676,9 @@ export function InfluencerDialog({
       });
     }
     const today = new Date().toISOString().slice(0, 10);
-    const newTotal = Math.round(((Number(deal.total_deal_value) || 0) + n * fee) * 100) / 100;
+    const newTotal = Math.round(((Number(deal.total_deal_value) || 0) + totalAdd) * 100) / 100;
     const somePaid = terms.some((m) => m.is_paid);
-    const note = `Extended ${today}: ${n} month${n === 1 ? "" : "s"} at $${fee}/month from ${extendForm.start}${Math.abs(fee - prevRate) > 0.005 ? " (revised rate)" : ""}.`;
+    const note = `Extended ${today}: ${n} month${n === 1 ? "" : "s"} for $${totalAdd} total ($${baseMonthly}/mo${lastMonthly !== baseMonthly ? `, final month $${lastMonthly}` : ""}) from ${extendForm.start}${Math.abs(baseMonthly - prevRate) > 0.005 ? " (revised rate)" : ""}.`;
     const updates = {
       payment_terms: terms,
       total_deal_value: newTotal,
@@ -1297,17 +1308,37 @@ export function InfluencerDialog({
           <div className="grid grid-cols-2 gap-3 text-sm">
             <label className="text-xs text-gray-500">Months
               <input type="number" min="1" step="1" value={extendForm.months} onChange={(e) => setExtendForm({ ...extendForm, months: e.target.value })} className="mt-1 w-full border border-gray-200 rounded px-2.5 py-2" /></label>
-            <label className="text-xs text-gray-500">Fee per month
-              <input type="number" step="0.01" value={extendForm.fee} onChange={(e) => setExtendForm({ ...extendForm, fee: e.target.value })} className="mt-1 w-full border border-gray-200 rounded px-2.5 py-2" /></label>
+            <div className="text-xs text-gray-500">
+              <div className="flex items-center gap-1.5">
+                <span>Fee</span>
+                <select
+                  value={extendForm.feeMode}
+                  onChange={(e) => setExtendForm({ ...extendForm, feeMode: e.target.value })}
+                  className="border border-gray-200 rounded px-1 py-0.5 text-[11px] bg-white text-gray-600"
+                >
+                  <option value="total">total for extension</option>
+                  <option value="monthly">per month</option>
+                </select>
+              </div>
+              <input type="number" step="0.01" value={extendForm.fee} onChange={(e) => setExtendForm({ ...extendForm, fee: e.target.value })} className="mt-1 w-full border border-gray-200 rounded px-2.5 py-2" />
+            </div>
             <label className="col-span-2 text-xs text-gray-500">First month starts
               <input type="date" value={extendForm.start} onChange={(e) => setExtendForm({ ...extendForm, start: e.target.value })} className="mt-1 w-full border border-gray-200 rounded px-2.5 py-2" /></label>
           </div>
-          {Number(extendForm.months) >= 1 && Number(extendForm.fee) > 0 && (
-            <div className="mt-3 text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded px-3 py-2">
-              Adds {extendForm.months} × ${Number(extendForm.fee).toFixed(2)} — deal total becomes ${(((Number(extendFor.total_deal_value) || 0) + Number(extendForm.months) * Number(extendForm.fee))).toFixed(2)}
-              {Math.abs(Number(extendForm.fee) - (Number((((extendFor.payment_terms || []) as any[]).slice(-1)[0] || {}).amount) || 0)) > 0.005 ? " (revised rate)" : ""}
-            </div>
-          )}
+          {Number(extendForm.months) >= 1 && Number(extendForm.fee) > 0 && (() => {
+            // Mirror of the submit math, so what the preview promises is what saves
+            const n = parseInt(extendForm.months, 10);
+            const fee = Number(extendForm.fee);
+            const totalAdd = Math.round((extendForm.feeMode === "total" ? fee : fee * n) * 100) / 100;
+            const baseMonthly = Math.floor((totalAdd / n) * 100) / 100;
+            const prevAmt = Number((((extendFor.payment_terms || []) as any[]).slice(-1)[0] || {}).amount) || 0;
+            return (
+              <div className="mt-3 text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded px-3 py-2">
+                Adds {n} month{n === 1 ? "" : "s"} totaling ${totalAdd.toFixed(2)} (${baseMonthly.toFixed(2)}/mo) — deal total becomes ${((Number(extendFor.total_deal_value) || 0) + totalAdd).toFixed(2)}
+                {Math.abs(baseMonthly - prevAmt) > 0.005 ? " (revised rate)" : ""}
+              </div>
+            );
+          })()}
           <div className="flex justify-end gap-2 mt-5">
             <button type="button" onClick={() => setExtendFor(null)} className="text-sm px-3 py-2 text-gray-500">Cancel</button>
             <button type="button" onClick={handleExtendDeal} disabled={extendBusy || !(Number(extendForm.months) >= 1) || !(Number(extendForm.fee) > 0) || !extendForm.start}
