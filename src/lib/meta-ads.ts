@@ -710,19 +710,46 @@ async function uploadVideo(fileUrl: string, name: string): Promise<string> {
   return data.id;
 }
 
-/** Poll until the video finishes processing; proceeds on timeout. */
-async function waitForVideoReady(videoId: string, timeoutMs = 120_000): Promise<void> {
+/**
+ * Poll until the video finishes processing.
+ *
+ * Two behaviours here are deliberate and were both learned from a real failure:
+ *
+ * 1. A timeout THROWS. This previously logged a warning and carried on, which
+ *    meant a slow transcode went straight into the adcreatives call with a video
+ *    Meta could not use yet — and Meta answers that with "Something went wrong.
+ *    Please try again later", which tells the person approving the ad nothing.
+ *    Failing here names the actual problem.
+ *
+ * 2. A short settle pause after `ready`. Meta flips video_status to ready a beat
+ *    before the video is usable in a creative, so creating one immediately can
+ *    fail with that same generic error. Cheap insurance against a race that
+ *    otherwise looks random.
+ *
+ * The window is generous because large source files (65MB QuickTime is normal
+ * here) genuinely take minutes to transcode.
+ */
+const VIDEO_SETTLE_MS = 5_000;
+
+async function waitForVideoReady(videoId: string, timeoutMs = 150_000): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     const data = await graphGet(videoId, { fields: "status" });
     const status = data.status?.video_status;
-    if (status === "ready") return;
+    if (status === "ready") {
+      await new Promise((r) => setTimeout(r, VIDEO_SETTLE_MS));
+      return;
+    }
     if (status === "error") {
       throw new MetaApiError("Meta could not process the video file", null);
     }
     await new Promise((r) => setTimeout(r, 4000));
   }
-  console.warn(`[meta-ads] Video ${videoId} not ready after ${timeoutMs}ms; continuing`);
+  throw new MetaApiError(
+    `Meta was still processing this video after ${Math.round(timeoutMs / 1000)}s. ` +
+      `Large files can take longer — try publishing again in a minute.`,
+    null,
+  );
 }
 
 interface UploadedAsset extends DraftAsset {
@@ -830,9 +857,15 @@ export async function pushDraftToMeta(
   try {
     creative = await graphPost(`${actId}/adcreatives`, creativeParams);
   } catch (err) {
-    // Enhancement opt-outs churn between API versions; retry without the
-    // degrees_of_freedom_spec rather than failing the whole publish.
+    // Enhancement opt-outs churn between API versions, so this stays as a
+    // backstop — but it should no longer fire in normal operation now that the
+    // deprecated standard_enhancements key is gone. Log when it does: a silent
+    // fallback here is what hid the fact that no opt-out was being applied.
     if (err instanceof MetaApiError && creativeParams.degrees_of_freedom_spec) {
+      console.warn(
+        `[meta-ads] adcreatives rejected degrees_of_freedom_spec (${err.message}); ` +
+          `retrying without it — creative enhancements will NOT be opted out`,
+      );
       const { degrees_of_freedom_spec: _dropped, ...rest } = creativeParams;
       creative = await graphPost(`${actId}/adcreatives`, rest);
     } else {
@@ -875,9 +908,17 @@ function buildCreativeParams(
     name: `${draft.adName} — creative`,
     url_tags: draft.copy.urlTags || undefined,
     // Opt out of Advantage+ creative enhancements (per-feature since v22).
+    //
+    // `standard_enhancements` is deliberately NOT here. Meta now rejects the
+    // field outright — "Including standard enhancements field in creative has
+    // been deprecated" (code 100, subcode 3858504) — for every creative type,
+    // verified against both asset_feed_spec and plain link_data creatives.
+    //
+    // This mattered more than a wasted call: the catch below dropped the WHOLE
+    // spec on failure, so none of the opt-outs below were ever applied either,
+    // while the launcher told submitters enhancements were off automatically.
     degrees_of_freedom_spec: {
       creative_features_spec: {
-        standard_enhancements: { enroll_status: "OPT_OUT" },
         adapt_to_placement: { enroll_status: "OPT_OUT" },
         description_automation: { enroll_status: "OPT_OUT" },
         inline_comment: { enroll_status: "OPT_OUT" },
