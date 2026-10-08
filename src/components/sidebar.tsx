@@ -299,19 +299,42 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
     return `${days}d ago`;
   }
 
+  // Labels, chevrons and badges are always in the DOM and fade with the rail's
+  // width; toggling them off the hover state made them vanish the instant the
+  // pointer left while the width was still easing.
+  const fade = `transition-opacity duration-200 ${isHovered ? "opacity-100" : "opacity-0"}`;
+  const fadeOut = `transition-opacity duration-200 ${isHovered ? "opacity-0" : "opacity-100"}`;
+
+  // Sub-items read like Shopify's: plain text indented under the parent's
+  // label (nav px-2 + item px-3 + 16px icon + gap-2 = 36px), no icon, no guide
+  // line; the active one is a soft grey pill.
+  const subItemClass = (active: boolean) =>
+    `flex items-center w-full text-left pl-9 pr-3 h-8 rounded-md text-[13px] transition-colors ${
+      active ? "bg-gray-100 text-gray-900 font-medium" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+    }`;
+
   return (
-    <div
-      className={`${isHovered ? "w-56" : "w-14"} h-screen bg-white border-r flex flex-col sticky top-0 self-start flex-shrink-0 transition-[width] duration-200 ease-out overflow-hidden`}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      {/* Logo / Title */}
-      <div className="px-4 py-3 border-b h-[49px] flex items-center">
-        {isHovered ? (
-          <h1 className="text-base font-semibold text-gray-900 whitespace-nowrap">Partnerships</h1>
-        ) : (
-          <span className="text-base font-semibold text-gray-900 mx-auto">P</span>
-        )}
+    <>
+      {/* The rail is fixed and overlays the page; this spacer holds its 56px in
+          the flow so expanding it never reflows the content behind it. */}
+      <div className="w-14 flex-shrink-0" aria-hidden />
+      <aside
+        className={`${isHovered ? "w-56 shadow-xl" : "w-14"} fixed inset-y-0 left-0 z-50 bg-white border-r flex flex-col transition-[width] duration-200 ease-out overflow-hidden`}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+      {/* Logo / Title — the "P" sits centred in the rail and cross-fades with
+          the full title as the rail widens. */}
+      <div className="relative pl-5 pr-4 border-b h-[49px] flex items-center flex-shrink-0">
+        <span
+          className={`absolute inset-y-0 left-0 w-14 flex items-center justify-center text-base font-semibold text-gray-900 ${fadeOut}`}
+          aria-hidden
+        >
+          P
+        </span>
+        <h1 className={`flex-1 min-w-0 text-base font-semibold text-gray-900 whitespace-nowrap overflow-hidden ${fade}`}>
+          Partnerships
+        </h1>
       </div>
 
       {/* Navigation */}
@@ -325,258 +348,224 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
               (item.id === "ads" && pathname?.startsWith("/ads")) ||
               (item.id === "payments_v2" && pathname?.startsWith("/partnerships/payments"));
 
-            const showBadgeDot = !isHovered && item.id === "influencers" && pendingCodeRequests > 0;
+            const hasBadge = item.id === "influencers" && pendingCodeRequests > 0;
+            const sectionExpanded =
+              item.id === "gifting" ? giftingExpanded : item.id === "partners" ? partnersExpanded : item.id === "ads" ? adsExpanded : false;
 
             return (
               <li key={item.id}>
+                {/* One constant padding: nav px-2 + px-3 + 16px icon centres the
+                    icon in the 56px rail, so nothing shifts as the width eases. */}
                 <button
                   onClick={() => handleNavClick(item.id)}
                   title={!isHovered ? item.label : undefined}
-                  className={`w-full flex items-center ${isHovered ? "justify-between px-2" : "justify-center px-0"} py-2 rounded-md text-sm transition-colors ${
+                  className={`w-full flex items-center justify-start gap-2 px-3 py-2 rounded-md text-sm transition-colors ${
                     isActive
                       ? "bg-gray-100 text-gray-900 font-medium"
                       : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                   }`}
                 >
-                  <span className={`flex items-center ${isHovered ? "gap-2" : ""} relative`}>
-                    <Icon className="h-4 w-4 flex-shrink-0" />
-                    {showBadgeDot && (
-                      <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500" />
-                    )}
-                    {isHovered && (
-                      <>
-                        <span className="truncate whitespace-nowrap">{item.label}</span>
-                        {item.id === "influencers" && pendingCodeRequests > 0 && (
-                          <span className="ml-auto flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-medium flex items-center justify-center px-1">
-                            {pendingCodeRequests}
-                          </span>
-                        )}
-                      </>
+                  <span className="relative flex-shrink-0 flex items-center">
+                    <Icon className="h-4 w-4" />
+                    {hasBadge && (
+                      <span className={`absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500 ${fadeOut}`} />
                     )}
                   </span>
-                  {isHovered && item.expandable && (
-                    (item.id === "gifting" ? giftingExpanded : item.id === "partners" ? partnersExpanded : item.id === "ads" ? adsExpanded : false) ? (
-                      <ChevronDown className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-                    ) : (
-                      <ChevronRight className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-                    )
+                  <span className={`flex-1 min-w-0 text-left overflow-hidden whitespace-nowrap ${fade}`}>
+                    {item.label}
+                  </span>
+                  {hasBadge && (
+                    <span className={`flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-medium flex items-center justify-center px-1 ${fade}`}>
+                      {pendingCodeRequests}
+                    </span>
+                  )}
+                  {item.expandable && (
+                    <ChevronRight
+                      className={`h-3.5 w-3.5 text-gray-400 flex-shrink-0 transition-[transform,opacity] duration-200 ${sectionExpanded ? "rotate-90" : ""} ${isHovered ? "opacity-100" : "opacity-0"}`}
+                    />
                   )}
                 </button>
 
                 {/* Ads submenu */}
-                {isHovered && item.id === "ads" && adsExpanded && (
-                  <ul className="mt-1 space-y-1" onClick={(e) => e.stopPropagation()}>
-                    <li>
-                      {/* Stays at /ads: notification deep links use /ads?review=1&draft=… */}
-                      <Link
-                        href="/ads"
-                        onClick={(e) => e.stopPropagation()}
-                        className={`block px-2 py-1.5 text-sm rounded-md transition-colors ${
-                          pathname === "/ads"
-                            ? "text-gray-900 bg-gray-100 font-medium"
-                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-                        }`}
-                      >
-                        Ad Creator
-                      </Link>
-                    </li>
-                    <li>
-                      <Link
-                        href="/ads/performance"
-                        onClick={(e) => e.stopPropagation()}
-                        className={`block px-2 py-1.5 text-sm rounded-md transition-colors ${
-                          pathname?.startsWith("/ads/performance")
-                            ? "text-gray-900 bg-gray-100 font-medium"
-                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-                        }`}
-                      >
-                        Ad Performance
-                      </Link>
-                    </li>
-                  </ul>
+                {item.id === "ads" && (
+                  <Collapsible open={isHovered && adsExpanded}>
+                    <ul className="mt-0.5 space-y-0.5" onClick={(e) => e.stopPropagation()}>
+                      <li>
+                        {/* Stays at /ads: notification deep links use /ads?review=1&draft=… */}
+                        <Link
+                          href="/ads"
+                          onClick={(e) => e.stopPropagation()}
+                          className={subItemClass(pathname === "/ads")}
+                        >
+                          <span className="whitespace-nowrap overflow-hidden">Ad Creator</span>
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          href="/ads/performance"
+                          onClick={(e) => e.stopPropagation()}
+                          className={subItemClass(!!pathname?.startsWith("/ads/performance"))}
+                        >
+                          <span className="whitespace-nowrap overflow-hidden">Ad Performance</span>
+                        </Link>
+                      </li>
+                    </ul>
+                  </Collapsible>
                 )}
 
                 {/* Partners submenu */}
-                {isHovered && item.id === "partners" && partnersExpanded && (
-                  <ul
-                    className="mt-1 space-y-1"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <li>
-                      <Link
-                        href="/partnerships/creators"
-                        onClick={(e) => e.stopPropagation()}
-                        className={`block px-2 py-1.5 text-sm rounded-md transition-colors ${
-                          pathname === "/partnerships/creators" || pathname?.startsWith("/partnerships/creators/")
-                            ? "text-gray-900 bg-gray-100 font-medium"
-                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-                        }`}
-                      >
-                        Partners
-                      </Link>
-                    </li>
-                    <li>
-                      <Link
-                        href="/partnerships/campaigns"
-                        onClick={(e) => e.stopPropagation()}
-                        className={`block px-2 py-1.5 text-sm rounded-md transition-colors ${
-                          pathname === "/partnerships/campaigns"
-                            ? "text-gray-900 bg-gray-100 font-medium"
-                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-                        }`}
-                      >
-                        Partner Campaigns
-                      </Link>
-                    </li>
-                    <li>
-                      <Link
-                        href="/partnerships/affiliate-codes"
-                        onClick={(e) => e.stopPropagation()}
-                        className={`block px-2 py-1.5 text-sm rounded-md transition-colors ${
-                          pathname === "/partnerships/affiliate-codes"
-                            ? "text-gray-900 bg-gray-100 font-medium"
-                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-                        }`}
-                      >
-                        Code Leaks
-                      </Link>
-                    </li>
-                  </ul>
+                {item.id === "partners" && (
+                  <Collapsible open={isHovered && partnersExpanded}>
+                    <ul className="mt-0.5 space-y-0.5" onClick={(e) => e.stopPropagation()}>
+                      <li>
+                        <Link
+                          href="/partnerships/creators"
+                          onClick={(e) => e.stopPropagation()}
+                          className={subItemClass(
+                            pathname === "/partnerships/creators" || !!pathname?.startsWith("/partnerships/creators/")
+                          )}
+                        >
+                          <span className="whitespace-nowrap overflow-hidden">Partners</span>
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          href="/partnerships/campaigns"
+                          onClick={(e) => e.stopPropagation()}
+                          className={subItemClass(pathname === "/partnerships/campaigns")}
+                        >
+                          <span className="whitespace-nowrap overflow-hidden">Partner Campaigns</span>
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          href="/partnerships/affiliate-codes"
+                          onClick={(e) => e.stopPropagation()}
+                          className={subItemClass(pathname === "/partnerships/affiliate-codes")}
+                        >
+                          <span className="whitespace-nowrap overflow-hidden">Code Leaks</span>
+                        </Link>
+                      </li>
+                    </ul>
+                  </Collapsible>
                 )}
 
                 {/* Gifting/PR submenu */}
-                {isHovered && item.id === "gifting" && giftingExpanded && (
-                  <ul
-                    className="mt-1 space-y-1"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <li>
-                      <Link
-                        href="/gifting"
-                        onClick={(e) => e.stopPropagation()}
-                        className={`block px-2 py-1.5 text-sm rounded-md transition-colors ${
-                          pathname === "/gifting"
-                            ? "text-gray-900 bg-gray-100 font-medium"
-                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-                        }`}
-                      >
-                        Dashboard
-                      </Link>
-                    </li>
-                    <li>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setCampaignsExpanded(!campaignsExpanded);
-                        }}
-                        className={`w-full flex items-center justify-between px-2 py-1.5 text-sm rounded-md transition-colors ${
-                          pathname?.startsWith("/campaigns")
-                            ? "text-gray-900 bg-gray-100 font-medium"
-                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-                        }`}
-                      >
-                        <span>Campaigns</span>
-                        {campaignsExpanded ? (
-                          <ChevronDown className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-                        ) : (
-                          <ChevronRight className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-                        )}
-                      </button>
-                      {campaignsExpanded && (
-                        <ul className="mt-1 space-y-1">
-                          <li>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                router.push("/?tab=campaigns");
-                              }}
-                              className="w-full text-left px-2 py-1.5 text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
-                            >
-                              View All
-                            </button>
-                          </li>
-                          {loadingCampaigns ? (
-                            <li className="px-2 py-1.5 text-sm text-gray-400">Loading...</li>
-                          ) : (
-                            groupedCampaigns.slice(0, 6).map((group) => {
-                              const isExpanded = expandedMonth === group.monthKey;
-                              const monthActive =
-                                pathname === `/campaigns/month/${group.monthKey}`;
-                              return (
-                                <li key={group.monthKey}>
-                                  <div
-                                    className={`flex items-center rounded-md transition-colors ${
-                                      monthActive
-                                        ? "bg-gray-100"
-                                        : "hover:bg-gray-50"
-                                    }`}
-                                  >
-                                    <button
-                                      onClick={(e) =>
-                                        handleMonthClick(e, group.monthKey)
-                                      }
-                                      className={`flex-1 min-w-0 text-left px-2 py-1.5 text-sm transition-colors truncate ${
+                {item.id === "gifting" && (
+                  <Collapsible open={isHovered && giftingExpanded}>
+                    <ul className="mt-0.5 space-y-0.5" onClick={(e) => e.stopPropagation()}>
+                      <li>
+                        <Link
+                          href="/gifting"
+                          onClick={(e) => e.stopPropagation()}
+                          className={subItemClass(pathname === "/gifting")}
+                        >
+                          <span className="whitespace-nowrap overflow-hidden">Dashboard</span>
+                        </Link>
+                      </li>
+                      <li>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCampaignsExpanded(!campaignsExpanded);
+                          }}
+                          className={subItemClass(!!pathname?.startsWith("/campaigns"))}
+                        >
+                          <span className="flex-1 min-w-0 whitespace-nowrap overflow-hidden">Campaigns</span>
+                          <ChevronRight
+                            className={`h-3.5 w-3.5 text-gray-400 flex-shrink-0 transition-transform duration-200 ${campaignsExpanded ? "rotate-90" : ""}`}
+                          />
+                        </button>
+                        <Collapsible open={campaignsExpanded}>
+                          <ul className="mt-0.5 space-y-0.5">
+                            <li>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  router.push("/?tab=campaigns");
+                                }}
+                                className={`${subItemClass(false)} pl-12`}
+                              >
+                                <span className="whitespace-nowrap overflow-hidden">View All</span>
+                              </button>
+                            </li>
+                            {loadingCampaigns ? (
+                              <li className="flex items-center pl-12 pr-3 h-8 text-[13px] text-gray-400">Loading...</li>
+                            ) : (
+                              groupedCampaigns.slice(0, 6).map((group) => {
+                                const isExpanded = expandedMonth === group.monthKey;
+                                const monthActive =
+                                  pathname === `/campaigns/month/${group.monthKey}`;
+                                return (
+                                  <li key={group.monthKey}>
+                                    <div
+                                      className={`flex items-center h-8 rounded-md text-[13px] transition-colors ${
                                         monthActive
-                                          ? "text-gray-900 font-medium"
-                                          : "text-gray-500 hover:text-gray-900"
+                                          ? "bg-gray-100 text-gray-900 font-medium"
+                                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                                       }`}
                                     >
-                                      {group.label}
-                                    </button>
-                                    {group.campaigns.length > 0 && (
                                       <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setExpandedMonth(
-                                            isExpanded ? null : group.monthKey
-                                          );
-                                        }}
-                                        aria-label={
-                                          isExpanded
-                                            ? `Collapse ${group.label}`
-                                            : `Expand ${group.label}`
+                                        onClick={(e) =>
+                                          handleMonthClick(e, group.monthKey)
                                         }
-                                        className="px-1.5 py-1.5 text-gray-400 hover:text-gray-700 flex-shrink-0"
+                                        className="flex-1 min-w-0 h-full text-left pl-12 whitespace-nowrap overflow-hidden"
                                       >
-                                        {isExpanded ? (
-                                          <ChevronDown className="h-3.5 w-3.5" />
-                                        ) : (
-                                          <ChevronRight className="h-3.5 w-3.5" />
-                                        )}
+                                        {group.label}
                                       </button>
+                                      {group.campaigns.length > 0 && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setExpandedMonth(
+                                              isExpanded ? null : group.monthKey
+                                            );
+                                          }}
+                                          aria-label={
+                                            isExpanded
+                                              ? `Collapse ${group.label}`
+                                              : `Expand ${group.label}`
+                                          }
+                                          className="h-full pl-1.5 pr-3 text-gray-400 hover:text-gray-700 flex-shrink-0 flex items-center"
+                                        >
+                                          <ChevronRight
+                                            className={`h-3.5 w-3.5 transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
+                                          />
+                                        </button>
+                                      )}
+                                    </div>
+                                    {group.campaigns.length > 0 && (
+                                      <Collapsible open={isExpanded}>
+                                        <ul className="mt-0.5 space-y-0.5">
+                                          {group.campaigns.map((campaign) => (
+                                            <li key={campaign.id}>
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  router.push(
+                                                    `/campaigns/${campaign.id}`
+                                                  );
+                                                }}
+                                                className={`${subItemClass(pathname === `/campaigns/${campaign.id}`)} pl-[60px]`}
+                                              >
+                                                <span className="min-w-0 whitespace-nowrap overflow-hidden text-ellipsis">
+                                                  {campaign.name}
+                                                </span>
+                                              </button>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </Collapsible>
                                     )}
-                                  </div>
-                                  {isExpanded && group.campaigns.length > 0 && (
-                                    <ul className="mt-1 space-y-1">
-                                      {group.campaigns.map((campaign) => (
-                                        <li key={campaign.id}>
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              router.push(
-                                                `/campaigns/${campaign.id}`
-                                              );
-                                            }}
-                                            className={`w-full text-left px-2 py-1.5 text-sm rounded-md transition-colors truncate ${
-                                              pathname === `/campaigns/${campaign.id}`
-                                                ? "text-gray-900 bg-gray-100 font-medium"
-                                                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-                                            }`}
-                                          >
-                                            {campaign.name}
-                                          </button>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  )}
-                                </li>
-                              );
-                            })
-                          )}
-                        </ul>
-                      )}
-                    </li>
-                  </ul>
+                                  </li>
+                                );
+                              })
+                            )}
+                          </ul>
+                        </Collapsible>
+                      </li>
+                    </ul>
+                  </Collapsible>
                 )}
               </li>
             );
@@ -584,22 +573,24 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
         </ul>
       </nav>
 
-      {/* Notifications */}
-      <div className="border-t relative" ref={notifRef}>
+      {/* Notifications — px-5 + 16px bell centres it in the rail. */}
+      <div className="border-t relative flex-shrink-0" ref={notifRef}>
         <button
           onClick={() => setNotifOpen(!notifOpen)}
           title={!isHovered ? "Notifications" : undefined}
-          className={`w-full ${isHovered ? "px-3 justify-between" : "px-0 justify-center"} py-2.5 flex items-center hover:bg-gray-50 transition-colors`}
+          className="w-full flex items-center justify-start gap-2 px-5 py-2.5 hover:bg-gray-50 transition-colors"
         >
-          <span className={`flex items-center ${isHovered ? "gap-2" : ""} text-sm text-gray-600 relative`}>
+          <span className="relative flex-shrink-0 flex items-center text-gray-600">
             <Bell className="h-4 w-4" />
-            {!isHovered && visibleNotifications.length > 0 && (
-              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500" />
+            {visibleNotifications.length > 0 && (
+              <span className={`absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500 ${fadeOut}`} />
             )}
-            {isHovered && <span className="whitespace-nowrap">Notifications</span>}
           </span>
-          {isHovered && visibleNotifications.length > 0 && (
-            <span className="min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-medium flex items-center justify-center px-1">
+          <span className={`flex-1 min-w-0 text-left text-sm text-gray-600 whitespace-nowrap overflow-hidden ${fade}`}>
+            Notifications
+          </span>
+          {visibleNotifications.length > 0 && (
+            <span className={`flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-medium flex items-center justify-center px-1 ${fade}`}>
               {visibleNotifications.length}
             </span>
           )}
@@ -682,42 +673,36 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
         )}
       </div>
 
-      {/* User section at bottom */}
+      {/* User section at bottom — px-3.5 + 28px avatar centres it in the rail. */}
       {currentUser && (
-        <div className="border-t relative" ref={userMenuRef}>
+        <div className="border-t relative flex-shrink-0" ref={userMenuRef}>
           <button
             onClick={() => setUserMenuOpen(!userMenuOpen)}
             title={!isHovered ? currentUser.displayName : undefined}
-            className={`w-full ${isHovered ? "px-3 justify-between" : "px-0 justify-center"} py-2.5 flex items-center hover:bg-gray-50 transition-colors`}
+            className="w-full flex items-center justify-start gap-2 px-3.5 py-2.5 hover:bg-gray-50 transition-colors"
           >
-            <div className={`flex items-center ${isHovered ? "gap-2" : ""} min-w-0`}>
-              {currentUser.profilePhotoUrl ? (
-                <Image
-                  src={currentUser.profilePhotoUrl}
-                  alt={currentUser.displayName}
-                  width={28}
-                  height={28}
-                  className="rounded-full flex-shrink-0"
-                  unoptimized
-                />
-              ) : (
-                <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                  <span className="text-xs font-medium text-gray-600">
-                    {currentUser.displayName.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-              )}
-              {isHovered && (
-                <div className="min-w-0 text-left">
-                  <p className="text-sm font-medium text-gray-900 truncate">
-                    {currentUser.displayName}
-                  </p>
-                </div>
-              )}
-            </div>
-            {isHovered && (
-              <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform flex-shrink-0 ${userMenuOpen ? "rotate-180" : ""}`} />
+            {currentUser.profilePhotoUrl ? (
+              <Image
+                src={currentUser.profilePhotoUrl}
+                alt={currentUser.displayName}
+                width={28}
+                height={28}
+                className="rounded-full flex-shrink-0"
+                unoptimized
+              />
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                <span className="text-xs font-medium text-gray-600">
+                  {currentUser.displayName.charAt(0).toUpperCase()}
+                </span>
+              </div>
             )}
+            <span className={`flex-1 min-w-0 text-left text-sm font-medium text-gray-900 whitespace-nowrap overflow-hidden text-ellipsis ${fade}`}>
+              {currentUser.displayName}
+            </span>
+            <ChevronDown
+              className={`h-3.5 w-3.5 text-gray-400 flex-shrink-0 transition-[transform,opacity] duration-200 ${userMenuOpen ? "rotate-180" : ""} ${isHovered ? "opacity-100" : "opacity-0"}`}
+            />
           </button>
 
           {/* Dropdown menu */}
@@ -782,6 +767,45 @@ export function Sidebar({ activeTab, onTabChange, currentUser, onLogout }: Sideb
           )}
         </div>
       )}
+      </aside>
+    </>
+  );
+}
+
+/**
+ * A section of sub-items that eases open and shut. The open height is measured
+ * and kept in a CSS variable so the list slides closed as the rail narrows
+ * (hover off) instead of dropping out the instant the pointer leaves. Nothing
+ * is unmounted on close, so nested sections and route-driven state survive.
+ */
+function Collapsible({ open, children }: { open: boolean; children: React.ReactNode }) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState(0);
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const measure = () => setHeight(el.scrollHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div
+      className={`overflow-hidden transition-[max-height] duration-200 ease-in-out ${
+        open ? "max-h-[var(--open-h)]" : "max-h-0"
+      }`}
+      style={{ "--open-h": `${height}px` } as React.CSSProperties}
+      aria-hidden={!open}
+    >
+      <div
+        ref={contentRef}
+        className={`transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0"}`}
+      >
+        {children}
+      </div>
     </div>
   );
 }
