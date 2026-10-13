@@ -211,7 +211,11 @@ export function CampaignStatsPanel({
   const approved = campaignInfluencers.filter((ci) => ci.approval_status === "approved" || ci.approval_status === null);
   const approvedCount = approved.length;
 
-  const contactedCount = approved.filter((ci) => ci.status !== "prospect").length;
+  // Submitting gift selects counts as contact + a reply, even if the status
+  // column was never moved (e.g. generic-link signups still sit at "prospect").
+  const submittedSelects = (ci: CampaignInfluencer) => !!ci.gift_submitted_at;
+
+  const contactedCount = approved.filter((ci) => ci.status !== "prospect" || submittedSelects(ci)).length;
 
   const orderStatuses: ShopifyOrderStatus[] = ["draft", "fulfilled", "shipped", "delivered"];
   const ordersPlacedCount = approved.filter(
@@ -237,7 +241,7 @@ export function CampaignStatsPanel({
   // Rates — computed per segment
   function computeRates(pool: CampaignInfluencer[]) {
     const poolApproved = pool.filter((ci) => ci.approval_status === "approved" || ci.approval_status === null);
-    const poolContacted = poolApproved.filter((ci) => ci.status !== "prospect").length;
+    const poolContacted = poolApproved.filter((ci) => ci.status !== "prospect" || submittedSelects(ci)).length;
     // Only statuses that imply the influencer actually wrote back.
     // "contacted"/"followed_up" mean outreach sent with no reply yet;
     // "lead_dead" means they never responded (or declined) and were written off.
@@ -249,9 +253,11 @@ export function CampaignStatsPanel({
       "order_follow_up_two_sent",
       "posted",
     ];
-    const poolReplied = poolApproved.filter((ci) => repliedStatuses.includes(ci.status)).length;
+    const poolReplied = poolApproved.filter((ci) => repliedStatuses.includes(ci.status) || submittedSelects(ci)).length;
     const poolOrders = poolApproved.filter(
-      (ci) => ci.shopify_order_status && (["draft", "fulfilled", "shipped", "delivered"] as string[]).includes(ci.shopify_order_status)
+      (ci) =>
+        submittedSelects(ci) ||
+        (ci.shopify_order_status && (["draft", "fulfilled", "shipped", "delivered"] as string[]).includes(ci.shopify_order_status))
     ).length;
     const poolDelivered = poolApproved.filter((ci) => ci.shopify_order_status === "delivered").length;
     // Numerator restricted to delivered so the rate answers "of those who
