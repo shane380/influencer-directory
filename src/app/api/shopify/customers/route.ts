@@ -24,9 +24,25 @@ interface ShopifyCustomersResponse {
   customers: ShopifyCustomer[];
 }
 
+// Dialling codes for countries whose local numbers carry a trunk "0"
+// (e.g. UK "07700 900123" → "+447700900123").
+const DIAL_CODES: Record<string, string> = {
+  GB: "44", IE: "353", AU: "61", NZ: "64", DE: "49", FR: "33", ES: "34",
+  NL: "31", BE: "32", SE: "46", DK: "45", NO: "47", FI: "358", CH: "41",
+  AT: "43", PT: "351", ZA: "27", AE: "971",
+};
+
 // Normalize phone to E.164 format for Shopify
-function normalizePhone(phone: string): string {
+function normalizePhone(phone: string, countryCode?: string): string {
   const digits = phone.replace(/\D/g, "");
+  if (phone.trim().startsWith("+")) return `+${digits}`;
+  if (digits.startsWith("00")) return `+${digits.slice(2)}`;
+  const dial = countryCode ? DIAL_CODES[countryCode.toUpperCase()] : undefined;
+  if (dial) {
+    if (digits.startsWith("0")) return `+${dial}${digits.replace(/^0+/, "")}`;
+    if (digits.startsWith(dial)) return `+${digits}`;
+    return `+${dial}${digits}`;
+  }
   if (digits.length === 10) {
     return `+1${digits}`;
   } else if (digits.length === 11 && digits.startsWith("1")) {
@@ -193,7 +209,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Customer ID is required" }, { status: 400 });
     }
 
-    const normalizedPhone = phone ? normalizePhone(phone) : undefined;
+    const normalizedPhone = phone ? normalizePhone(phone, country_code) : undefined;
 
     const customerData: {
       customer: {
@@ -344,7 +360,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
-    const normalizedPhone = phone ? normalizePhone(phone) : undefined;
+    const normalizedPhone = phone ? normalizePhone(phone, country_code) : undefined;
 
     const customerData: {
       customer: {
@@ -379,7 +395,7 @@ export async function POST(request: NextRequest) {
       ];
     }
 
-    const response = await fetch(
+    const createCustomer = () => fetch(
       `https://${SHOPIFY_STORE_URL}/admin/api/2024-01/customers.json`,
       {
         method: "POST",
@@ -390,6 +406,19 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify(customerData),
       }
     );
+
+    let response = await createCustomer();
+
+    // A phone Shopify can't parse shouldn't block the gift — the email and
+    // address are what the order needs. Retry once without it.
+    if (!response.ok && response.status === 422 && customerData.customer.phone) {
+      const firstError = await response.clone().json();
+      const phoneErr = firstError.errors?.phone?.[0];
+      if (phoneErr && !phoneErr.includes("taken")) {
+        delete customerData.customer.phone;
+        response = await createCustomer();
+      }
+    }
 
     if (!response.ok) {
       const errorData = await response.json();
