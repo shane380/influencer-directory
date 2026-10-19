@@ -12,6 +12,8 @@ interface Props {
   mediaUrl: string | null;
   mediaKind: "image" | "video" | null;
   posterUrl?: string | null;
+  /** Burned-in text, drawn over the media so the preview matches what ships */
+  overlay?: React.ReactNode;
 }
 
 /**
@@ -26,6 +28,7 @@ export function IgFeedPreview({
   mediaUrl,
   mediaKind,
   posterUrl,
+  overlay,
 }: Props) {
   const caption = copy.primaryText?.trim() || "Primary text shows here…";
   const truncated = caption.length > 125 ? `${caption.slice(0, 125)}` : caption;
@@ -65,6 +68,7 @@ export function IgFeedPreview({
               loop
               autoPlay
             />
+            {overlay}
             <button
               type="button"
               onClick={toggleMute}

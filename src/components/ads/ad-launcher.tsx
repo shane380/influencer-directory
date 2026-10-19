@@ -21,12 +21,15 @@ import type {
   IgMediaItem,
   LauncherDefaults,
   TargetsResponse,
+  TextOverlay,
 } from "@/types/meta-ads";
 import { IgFeedPreview } from "./ig-feed-preview";
 import { IgReelsPreview } from "./ig-reels-preview";
 import { IgPostPicker } from "./ig-post-picker";
 import { ReviewQueue } from "./review-queue";
 import { CropDialog } from "./crop-dialog";
+import { TextOverlayLayer, VideoTextEditor, newOverlayId } from "./video-text-editor";
+import { canBurnInText, renderWithOverlays } from "@/lib/video-overlay-render";
 import { NewAdsetDialog } from "./new-adset-dialog";
 import { CollectionBar, TemplateActions, useTemplateLibrary } from "./copy-templates";
 import {
@@ -41,6 +44,7 @@ import {
   Plus,
   RefreshCw,
   Trash2,
+  Type,
   UploadCloud,
   X,
 } from "lucide-react";
@@ -54,7 +58,29 @@ interface SlotState {
   r2Url: string | null;
   thumbUrl: string | null;
   error: string | null;
+  /** Videos only: text to burn in. r2Url stays the clean original. */
+  overlays?: TextOverlay[];
+  /** Native size of the video, which overlay geometry is relative to */
+  frameW?: number;
+  frameH?: number;
+  /** The last burned-in render, reused while `key` still matches */
+  rendered?: { key: string; url: string; thumbUrl: string | null } | null;
 }
+
+/** Identifies one render: same clean source + same text = same output. */
+const renderKey = (slot: SlotState) =>
+  JSON.stringify({ src: slot.r2Url, overlays: slot.overlays || [] });
+
+/** Overlay fields that ride along with a feed/vertical slot. */
+const slotTextFields = (a: any): Partial<SlotState> =>
+  Array.isArray(a?.overlays) && a.overlays.length && a.frameW && a.frameH
+    ? {
+        overlays: a.overlays,
+        frameW: a.frameW,
+        frameH: a.frameH,
+        rendered: a.rendered && typeof a.rendered.url === "string" ? a.rendered : null,
+      }
+    : {};
 
 /** Sentinel value for the "+ New ad set…" entry in the ad set select. */
 const NEW_ADSET_OPTION = "__new_adset__";
@@ -158,6 +184,27 @@ function slotFromUrl(
 }
 
 /**
+ * Feed/vertical slot from a draft asset. Burned-in videos come back as their
+ * clean original plus the overlay spec, so the text stays editable and never
+ * gets burned in twice; the existing render is reused until the text changes.
+ */
+function slotFromAsset(a: DraftAsset, fallbackName: string): SlotState {
+  if (a.originalFileUrl && a.textOverlays?.length && a.frameWidth && a.frameHeight) {
+    const slot: SlotState = {
+      ...slotFromUrl(a.originalFileUrl, a.kind, a.originalThumbnailUrl, fallbackName),
+      overlays: a.textOverlays,
+      frameW: a.frameWidth,
+      frameH: a.frameHeight,
+    };
+    return {
+      ...slot,
+      rendered: { key: renderKey(slot), url: a.fileUrl, thumbUrl: a.thumbnailUrl || null },
+    };
+  }
+  return slotFromUrl(a.fileUrl, a.kind, a.thumbnailUrl, fallbackName);
+}
+
+/**
  * Turn a past draft back into an editable, unpublished ad. The creative is
  * reused by URL rather than re-uploaded, so the copy is instant and the new ad
  * points at the same R2 objects as the original.
@@ -200,11 +247,8 @@ function adStateFromDraft(draft: AdDraft): AdState {
         ? slotFromUrl(c.verticalFileUrl, c.kind, c.verticalThumbnailUrl, "card-9x16")
         : null,
     })),
-    feed:
-      !post && feed ? slotFromUrl(feed.fileUrl, feed.kind, feed.thumbnailUrl, "creative") : null,
-    vertical: vertical
-      ? slotFromUrl(vertical.fileUrl, vertical.kind, vertical.thumbnailUrl, "creative-9x16")
-      : null,
+    feed: !post && feed ? slotFromAsset(feed, "creative") : null,
+    vertical: vertical ? slotFromAsset(vertical, "creative-9x16") : null,
     copy: { ...emptyCopy(null), ...draft.copy },
   };
 }
@@ -244,6 +288,9 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
     /** Slot the cropped file goes back into */
     target: "feed" | "vertical" | "card";
   } | null>(null);
+  const [textEdit, setTextEdit] = useState<{ localId: string; role: "feed" | "vertical" } | null>(
+    null
+  );
   const [showNewAdset, setShowNewAdset] = useState(false);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
@@ -391,6 +438,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
               r2Url: a.feed.r2Url,
               thumbUrl: a.feed.thumbUrl || null,
               error: null,
+              ...slotTextFields(a.feed),
             }
           : null,
         vertical: a.vertical?.r2Url
@@ -403,6 +451,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
               r2Url: a.vertical.r2Url,
               thumbUrl: a.vertical.thumbUrl || null,
               error: null,
+              ...slotTextFields(a.vertical),
             }
           : null,
       }));
@@ -455,10 +504,22 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
               })),
             copy: a.copy,
             feed: a.feed?.r2Url
-              ? { kind: a.feed.kind, fileName: a.feed.fileName, r2Url: a.feed.r2Url, thumbUrl: a.feed.thumbUrl }
+              ? {
+                  kind: a.feed.kind,
+                  fileName: a.feed.fileName,
+                  r2Url: a.feed.r2Url,
+                  thumbUrl: a.feed.thumbUrl,
+                  ...slotTextFields(a.feed),
+                }
               : null,
             vertical: a.vertical?.r2Url
-              ? { kind: a.vertical.kind, fileName: a.vertical.fileName, r2Url: a.vertical.r2Url, thumbUrl: a.vertical.thumbUrl }
+              ? {
+                  kind: a.vertical.kind,
+                  fileName: a.vertical.fileName,
+                  r2Url: a.vertical.r2Url,
+                  thumbUrl: a.vertical.thumbUrl,
+                  ...slotTextFields(a.vertical),
+                }
               : null,
           })),
         })
@@ -542,6 +603,97 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
       }
     },
     [updateAd]
+  );
+
+  /**
+   * Save text for one slot. The first time text is added, the other slot's
+   * video (if it has none yet) gets a copy in the same relative position, so
+   * 1:1 and 9:16 start in sync and are then adjusted independently.
+   */
+  const saveText = useCallback(
+    async (
+      localId: string,
+      role: "feed" | "vertical",
+      overlays: TextOverlay[],
+      frame: { w: number; h: number }
+    ) => {
+      const otherRole = role === "feed" ? "vertical" : "feed";
+      const ad = ads.find((a) => a.localId === localId);
+      const other = ad?.[otherRole];
+      let otherFrame: { w: number; h: number } | null = null;
+      if (overlays.length && other?.kind === "video" && !other.overlays?.length) {
+        otherFrame = await videoSize(other.previewUrl);
+      }
+      setAds((prev) =>
+        prev.map((a) => {
+          if (a.localId !== localId) return a;
+          const slot = a[role];
+          if (!slot) return a;
+          const next: AdState = {
+            ...a,
+            [role]: overlays.length
+              ? { ...slot, overlays, frameW: frame.w, frameH: frame.h }
+              : { ...slot, overlays: undefined, frameW: undefined, frameH: undefined },
+          };
+          const o = a[otherRole];
+          if (otherFrame && o && o.kind === "video" && !o.overlays?.length) {
+            next[otherRole] = {
+              ...o,
+              overlays: overlays.map((x) => ({ ...x, id: newOverlayId() })),
+              frameW: otherFrame.w,
+              frameH: otherFrame.h,
+            };
+          }
+          return next;
+        })
+      );
+    },
+    [ads]
+  );
+
+  /**
+   * Burn a slot's text into its video (reusing the last render when nothing
+   * changed) and return the rendered file's URLs.
+   */
+  const burnIn = useCallback(
+    async (
+      localId: string,
+      role: "feed" | "vertical",
+      slot: SlotState,
+      onProgress: (p: number) => void
+    ): Promise<{ url: string; thumbUrl: string | null }> => {
+      const key = renderKey(slot);
+      if (slot.rendered?.key === key) return slot.rendered;
+
+      let source: Blob;
+      try {
+        source = await (await fetch(slot.previewUrl)).blob();
+      } catch {
+        source = await (await fetch(slot.r2Url!)).blob();
+      }
+      const rendered = await renderWithOverlays(source, slot.overlays || [], onProgress);
+
+      const base = `meta-ads/${Date.now()}-${sanitizeFileName(
+        slot.fileName.replace(/\.[^.]+$/, "")
+      )}-text.mp4`;
+      const { url } = await uploadToR2({ key: base, contentType: "video/mp4", body: rendered });
+      let thumbUrl: string | null = null;
+      const thumb = await makeVideoThumb(new File([rendered], "render.mp4", { type: "video/mp4" }));
+      if (thumb) {
+        thumbUrl = (
+          await uploadToR2({ key: `${base}-thumb.jpg`, contentType: "image/jpeg", body: thumb })
+        ).url;
+      }
+      const result = { key, url, thumbUrl };
+      setAds((prev) =>
+        prev.map((a) => {
+          const s = a.localId === localId ? a[role] : null;
+          return s && renderKey(s) === key ? { ...a, [role]: { ...s, rendered: result } } : a;
+        })
+      );
+      return result;
+    },
+    []
   );
 
   const handleFile = useCallback(
@@ -847,25 +999,43 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
           verticalThumbnailUrl: c.vertical?.thumbUrl || null,
         }));
       } else {
-        assets = [
-          {
-            role: "feed",
-            kind: ad.feed!.kind,
-            fileUrl: ad.feed!.r2Url!,
-            thumbnailUrl: ad.feed!.thumbUrl,
-          },
-        ];
-        if (ad.vertical?.r2Url) {
-          assets.push({
-            role: "vertical",
-            kind: ad.vertical.kind,
-            fileUrl: ad.vertical.r2Url,
-            thumbnailUrl: ad.vertical.thumbUrl,
-          });
-        }
+        assets = [];
       }
 
       try {
+        if (ad.format === "single") {
+          for (const role of ["feed", "vertical"] as const) {
+            const slot = ad[role];
+            if (!slot?.r2Url) continue;
+            const asset: DraftAsset = {
+              role,
+              kind: slot.kind,
+              fileUrl: slot.r2Url,
+              thumbnailUrl: slot.thumbUrl,
+            };
+            if (slot.kind === "video" && slot.overlays?.length && slot.frameW && slot.frameH) {
+              const label = role === "feed" ? "1:1" : "9:16";
+              updateAd(ad.localId, { phaseMsg: `Adding text to ${label}…` });
+              const out = await burnIn(ad.localId, role, slot, (p) =>
+                updateAd(ad.localId, {
+                  phaseMsg: `Adding text to ${label}… ${Math.round(p * 100)}%`,
+                })
+              );
+              Object.assign(asset, {
+                fileUrl: out.url,
+                thumbnailUrl: out.thumbUrl || slot.thumbUrl,
+                originalFileUrl: slot.r2Url,
+                originalThumbnailUrl: slot.thumbUrl,
+                textOverlays: slot.overlays,
+                frameWidth: slot.frameW,
+                frameHeight: slot.frameH,
+              });
+            }
+            assets.push(asset);
+          }
+          updateAd(ad.localId, { phaseMsg: "Saving draft…" });
+        }
+
         const submitRes = await fetch("/api/ads/submit", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -943,7 +1113,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
     }
 
     setPublishing(false);
-  }, [ads, adset, campaign, defaults, isAdmin, publishLive, publishing, updateAd, validateAd]);
+  }, [ads, adset, burnIn, campaign, defaults, isAdmin, publishLive, publishing, updateAd, validateAd]);
 
   const savePreset = useCallback(() => {
     if (!selected) return;
@@ -997,6 +1167,10 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
       : null;
   const feedMedia = postMedia || selected?.feed;
   const verticalMedia = postMedia || selected?.vertical || selected?.feed;
+  const overlayFor = (slot: SlotState | null | undefined) =>
+    !postMedia && slot?.overlays?.length && slot.frameW && slot.frameH ? (
+      <TextOverlayLayer overlays={slot.overlays} frameW={slot.frameW} frameH={slot.frameH} />
+    ) : null;
 
   return (
     <div>
@@ -1043,6 +1217,25 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
           }}
         />
       )}
+
+      {textEdit &&
+        (() => {
+          const ad = ads.find((a) => a.localId === textEdit.localId);
+          const slot = ad?.[textEdit.role];
+          if (!slot) return null;
+          return (
+            <VideoTextEditor
+              videoUrl={slot.previewUrl}
+              initial={slot.overlays || []}
+              vertical={textEdit.role === "vertical"}
+              onCancel={() => setTextEdit(null)}
+              onSave={(overlays, frame) => {
+                setTextEdit(null);
+                saveText(textEdit.localId, textEdit.role, overlays, frame);
+              }}
+            />
+          );
+        })()}
 
       {showNewAdset && campaign && (
         <NewAdsetDialog
@@ -1403,12 +1596,14 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                       wide
                       onFile={(f) => handleFile(selected.localId, "feed", f)}
                       onClear={() => updateAd(selected.localId, { feed: null })}
+                      onEditText={() => setTextEdit({ localId: selected.localId, role: "feed" })}
                     />
                     <CreativeSlot
                       label="Stories & Reels · 9:16 (optional)"
                       slot={selected.vertical}
                       onFile={(f) => handleFile(selected.localId, "vertical", f)}
                       onClear={() => updateAd(selected.localId, { vertical: null })}
+                      onEditText={() => setTextEdit({ localId: selected.localId, role: "vertical" })}
                     />
                     {selected.vertical && selected.feed && selected.vertical.kind !== selected.feed.kind && (
                       <p className="text-[11.5px] text-red-600 self-end">
@@ -1785,6 +1980,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                       mediaUrl={feedMedia?.previewUrl || null}
                       mediaKind={feedMedia?.kind || null}
                       posterUrl={feedMedia?.thumbUrl}
+                      overlay={overlayFor(selected?.feed)}
                     />
                     <IgReelsPreview
                       copy={selected?.copy || emptyCopy(defaults)}
@@ -1794,6 +1990,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                       mediaUrl={verticalMedia?.previewUrl || null}
                       mediaKind={verticalMedia?.kind || null}
                       posterUrl={verticalMedia?.thumbUrl}
+                      overlay={overlayFor(selected?.vertical || selected?.feed)}
                       isFallback={!postMedia && !selected?.vertical && !!selected?.feed}
                     />
                   </>
@@ -1941,13 +2138,17 @@ function CreativeSlot({
   wide,
   onFile,
   onClear,
+  onEditText,
 }: {
   label: string;
   slot: SlotState | null;
   wide?: boolean;
   onFile: (file: File) => void;
   onClear: () => void;
+  /** Videos only: open the text-on-video editor */
+  onEditText?: () => void;
 }) {
+  const textSupported = useMemo(() => canBurnInText(), []);
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const box = wide ? "w-[160px] h-[160px]" : "w-[106px] h-[188px]";
@@ -1991,6 +2192,24 @@ function CreativeSlot({
                 autoPlay
               />
             )}
+            {slot.overlays?.length && slot.frameW && slot.frameH ? (
+              <TextOverlayLayer overlays={slot.overlays} frameW={slot.frameW} frameH={slot.frameH} />
+            ) : null}
+            {slot.kind === "video" && onEditText && !slot.uploading && !slot.error && (
+              <button
+                onClick={onEditText}
+                disabled={!textSupported}
+                title={
+                  textSupported
+                    ? "Add or edit text on this video"
+                    : "Text on video needs a recent Chrome or Safari"
+                }
+                className="absolute bottom-1.5 left-1.5 bg-black/60 hover:bg-black/75 disabled:opacity-50 text-white rounded-full px-2 py-1 text-[10px] font-medium flex items-center gap-1"
+              >
+                <Type className="h-3 w-3" />
+                {slot.overlays?.length ? "Edit text" : "Add text"}
+              </button>
+            )}
             {slot.uploading && (
               <div className="absolute inset-x-0 bottom-0 bg-black/60 text-white text-[10px] py-0.5">
                 Uploading {slot.progress}%
@@ -2030,4 +2249,17 @@ function CreativeSlot({
       <p className="text-[11px] text-gray-500 mt-1.5">{label}</p>
     </div>
   );
+}
+
+/** Native pixel size of a video, read from its metadata. */
+function videoSize(url: string): Promise<{ w: number; h: number } | null> {
+  return new Promise((resolve) => {
+    const v = document.createElement("video");
+    v.preload = "metadata";
+    v.muted = true;
+    v.onloadedmetadata = () =>
+      resolve(v.videoWidth && v.videoHeight ? { w: v.videoWidth, h: v.videoHeight } : null);
+    v.onerror = () => resolve(null);
+    v.src = url;
+  });
 }
