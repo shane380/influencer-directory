@@ -15,6 +15,7 @@ import { IgCarouselPreview } from "./ig-carousel-preview";
 import type {
   AdCopy,
   AdDraft,
+  AdsetSummary,
   AssetKind,
   AssetRole,
   DraftAsset,
@@ -289,13 +290,22 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
     [targets]
   );
 
-  const fetchTargets = useCallback(async () => {
+  const fetchTargets = useCallback(async (keep?: { campaignId: string; adset: AdsetSummary }) => {
     setLoadingTargets(true);
     setLoadError(null);
     try {
       const res = await fetch("/api/ads/targets");
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to load campaigns");
+      // Meta lags a few seconds before a just-created ad set shows up as
+      // ACTIVE/PAUSED in the campaigns listing — keep it rather than drop it.
+      if (keep) {
+        data.campaigns = (data as TargetsResponse).campaigns.map((c) =>
+          c.id === keep.campaignId && !c.adsets.some((a) => a.id === keep.adset.id)
+            ? { ...c, adsets: [keep.adset, ...c.adsets] }
+            : c
+        );
+      }
       setTargets(data);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Failed to load campaigns");
@@ -1064,7 +1074,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                 : prev
             );
             setAdsetId(adset.id);
-            fetchTargets();
+            fetchTargets({ campaignId: campaign.id, adset });
           }}
         />
       )}
@@ -1158,7 +1168,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
             </div>
             <div className="flex items-center gap-3 pb-2">
               <button
-                onClick={fetchTargets}
+                onClick={() => fetchTargets()}
                 title="Refresh campaigns"
                 className="text-gray-400 hover:text-gray-700"
               >
