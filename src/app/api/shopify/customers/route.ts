@@ -260,9 +260,14 @@ export async function PUT(request: NextRequest) {
     // Update the address when a street line and/or country was provided. Target
     // the default address (what the shipping-name mapping reads) and keep it the
     // default so the structured country_code lands on default_address.
-    if (address || country_code) {
+    // The phone goes on the address too: draft orders copy the default address
+    // as the shipping address, and the 3PL reads the phone from there — the
+    // customer-level phone alone leaves the order with a blank shipping phone.
+    const hasExistingAddress = !!(data.customer.default_address?.id || data.customer.addresses?.[0]?.id);
+    if (address || country_code || (normalizedPhone && hasExistingAddress)) {
       const addressPayload = {
         ...(address ? { address1: address } : {}),
+        ...(normalizedPhone ? { phone: normalizedPhone } : {}),
         ...(address2 !== undefined ? { address2: address2 || "" } : {}),
         ...(city ? { city } : {}),
         ...(province ? { province } : {}),
@@ -368,7 +373,7 @@ export async function POST(request: NextRequest) {
         first_name?: string;
         last_name?: string;
         phone?: string;
-        addresses?: { address1?: string; address2?: string; city?: string; province?: string; zip?: string; country_code?: string }[];
+        addresses?: { address1?: string; address2?: string; city?: string; province?: string; zip?: string; country_code?: string; phone?: string }[];
       };
     } = {
       customer: {
@@ -386,6 +391,8 @@ export async function POST(request: NextRequest) {
       customerData.customer.addresses = [
         {
           ...(address ? { address1: address } : {}),
+          // On the address too — draft orders ship to it and the 3PL reads its phone.
+          ...(normalizedPhone ? { phone: normalizedPhone } : {}),
           ...(address2 ? { address2 } : {}),
           ...(city ? { city } : {}),
           ...(province ? { province } : {}),
@@ -416,6 +423,7 @@ export async function POST(request: NextRequest) {
       const phoneErr = firstError.errors?.phone?.[0];
       if (phoneErr && !phoneErr.includes("taken")) {
         delete customerData.customer.phone;
+        customerData.customer.addresses?.forEach((a) => delete a.phone);
         response = await createCustomer();
       }
     }
