@@ -203,7 +203,15 @@ export function GiftSettingsDialog({
               <div>
                 <div className="text-xs text-gray-500 mb-1">Mobile (5:4)</div>
                 {hero || heroMobile ? (
-                  <div className="relative">
+                  <div
+                    className="relative"
+                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleHeroFile(e.dataTransfer.files?.[0], "mobile");
+                    }}
+                  >
                     <div className="w-full overflow-hidden rounded-md border" style={{ aspectRatio: "5/4" }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={(heroMobile || hero)!.url} alt="Mobile hero" className="w-full h-full object-cover" />
@@ -217,7 +225,7 @@ export function GiftSettingsDialog({
                       </button>
                     ) : (
                       <label className="absolute bottom-2 left-2 right-2 text-center bg-white/90 border rounded px-2 py-1 text-xs cursor-pointer hover:bg-white">
-                        Use a different image
+                        {uploading ? "Uploading…" : "Use a different image"}
                         <input
                           type="file"
                           accept="image/*"
