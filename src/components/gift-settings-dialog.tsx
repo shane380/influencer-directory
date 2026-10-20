@@ -343,7 +343,17 @@ export function GiftSettingsDialog({
 
           <div>
             <div className="text-sm font-medium mb-1.5">Product pool</div>
-            <GiftProductPicker products={pool} onChange={setPool} />
+            <GiftProductPicker
+              products={pool}
+              onChange={setPool}
+              onUploadImage={async (file, productId) => {
+                const compressed = await compressImage(file);
+                const key = `campaigns/gift/product-${campaign.id}-${productId}-${Date.now()}-${file.name}`;
+                const { url, key: r2Key } = await uploadToR2({ key, contentType: file.type, body: compressed });
+                return { url, r2_key: r2Key };
+              }}
+            />
+            <div className="text-xs text-gray-400 mt-1">“Campaign image” swaps a product&rsquo;s photo on the selects page only — the live Shopify product keeps its own.</div>
           </div>
 
           {error && <div className="text-sm text-red-600">{error}</div>}

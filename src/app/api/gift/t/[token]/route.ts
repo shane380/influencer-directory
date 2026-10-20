@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchProductsByIds } from "@/lib/shopify-products";
 import { getShopifyAccessToken, getShopifyStoreUrl } from "@/lib/shopify";
-import { loadGiftAssignment, effectivePool, effectiveOutfits, effectiveMaxPieces } from "@/lib/gift-server";
+import { loadGiftAssignment, poolImageOverride, effectivePool, effectiveOutfits, effectiveMaxPieces } from "@/lib/gift-server";
 import type { GiftShipping } from "@/types/database";
 
 // Public tokenized gift endpoint (middleware-whitelisted under /api/gift/t/).
@@ -127,7 +127,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     products = resolved.map((p) => ({
       product_id: p.product_id,
       title: p.title,
-      image: p.image,
+      image: poolImageOverride(p.product_id, campaign.gift_products, pool) || p.image,
       images: p.images,
       options: p.options,
       variants: p.variants.map((v) => ({

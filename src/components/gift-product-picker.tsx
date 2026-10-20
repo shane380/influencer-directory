@@ -21,14 +21,20 @@ interface SearchProduct {
 export function GiftProductPicker({
   products,
   onChange,
+  onUploadImage,
 }: {
   products: GiftPoolProduct[];
   onChange: (next: GiftPoolProduct[]) => void;
+  // When given, each row can carry a selects-page-only image that replaces
+  // the Shopify one on the gift page without touching the live product.
+  onUploadImage?: (file: File, productId: string) => Promise<{ url: string; r2_key: string }>;
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchProduct[]>([]);
   const [searching, setSearching] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const searchSeq = useRef(0);
 
   // Auto-search: fires 350ms after typing pauses; stale responses are dropped.
@@ -68,6 +74,28 @@ export function GiftProductPicker({
 
   function remove(id: string) {
     onChange(products.filter((x) => String(x.product_id) !== String(id)));
+  }
+
+  async function setImage(id: string, file: File | undefined) {
+    if (!onUploadImage || !file) return;
+    if (!file.type.startsWith("image/")) {
+      setImageError("That drop didn't include an image file. Save the image to your computer first, then drag it from there (or click Campaign image).");
+      return;
+    }
+    setImageError(null);
+    setUploadingId(id);
+    try {
+      const uploaded = await onUploadImage(file, id);
+      onChange(products.map((x) => (String(x.product_id) === id ? { ...x, image_override: uploaded } : x)));
+    } catch (err) {
+      console.error("Product image upload failed:", err);
+      setImageError("Image upload failed — check your connection.");
+    }
+    setUploadingId(null);
+  }
+
+  function clearImage(id: string) {
+    onChange(products.map((x) => (String(x.product_id) === id ? { ...x, image_override: null } : x)));
   }
 
   // Pool order = display order on the gift page, so coordinators can merch
@@ -148,19 +176,48 @@ export function GiftProductPicker({
               setDragIdx(i);
             }}
             onDragEnd={() => setDragIdx(null)}
-            onDrop={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              // A file dropped on a row (not a row being reordered) sets its campaign image.
+              if (onUploadImage && dragIdx === null && e.dataTransfer.types.includes("Files")) {
+                setImage(String(p.product_id), e.dataTransfer.files?.[0]);
+              }
+            }}
           >
             <GripVertical className="h-4 w-4 text-gray-300 flex-shrink-0 cursor-grab" />
-            {p.image_url ? (
+            {p.image_override?.url || p.image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={p.image_url} alt="" className="w-8 h-10 object-cover rounded flex-shrink-0" />
+              <img src={p.image_override?.url || p.image_url!} alt="" className="w-8 h-10 object-cover rounded flex-shrink-0" />
             ) : (
               <div className="w-8 h-10 bg-gray-100 rounded flex-shrink-0" />
             )}
             <span className="flex-1 min-w-0">
               <span className="block text-sm truncate">{p.product_title}</span>
               {p.color && <span className="block text-xs text-gray-500 truncate">{p.color}</span>}
+              {p.image_override?.url && (
+                <span className="block text-[11px] text-gray-400">
+                  Campaign image — Shopify unchanged ·{" "}
+                  <button className="underline hover:text-gray-700" onClick={() => clearImage(String(p.product_id))}>
+                    Use Shopify image
+                  </button>
+                </span>
+              )}
             </span>
+            {onUploadImage && (
+              <label className="text-xs text-gray-500 hover:text-gray-800 border rounded px-2 py-1 cursor-pointer whitespace-nowrap">
+                {uploadingId === String(p.product_id) ? "Uploading…" : p.image_override?.url ? "Replace image" : "Campaign image"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploadingId !== null}
+                  onChange={(e) => {
+                    setImage(String(p.product_id), e.target.files?.[0]);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            )}
             <div className="flex flex-col -my-1">
               <button
                 className="text-gray-300 hover:text-gray-700 disabled:opacity-30 leading-none px-1"
@@ -184,6 +241,7 @@ export function GiftProductPicker({
             </button>
           </div>
         ))}
+        {imageError && <div className="text-xs text-red-600">{imageError}</div>}
       </div>
     </div>
   );

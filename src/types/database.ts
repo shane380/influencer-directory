@@ -119,6 +119,8 @@ export interface GiftPoolProduct {
   product_title: string;
   image_url: string | null;
   color?: string | null;
+  // Selects-page-only image (R2); Shopify's product image is left untouched.
+  image_override?: { url: string; r2_key: string } | null;
 }
 
 export interface GiftShipping {

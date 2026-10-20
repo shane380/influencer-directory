@@ -48,7 +48,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const selectionsResult = await resolveGiftSelections(
     body.selections,
     effectivePool(assignment, campaign),
-    effectiveMaxPieces(assignment, campaign)
+    effectiveMaxPieces(assignment, campaign),
+    campaign.gift_products
   );
   if (!("productSelections" in selectionsResult)) {
     if (selectionsResult.status === 503) {

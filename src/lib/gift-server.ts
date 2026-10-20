@@ -42,6 +42,20 @@ export function effectivePool(assignment: any, campaign: any): GiftPoolProduct[]
   return Array.isArray(pool) ? pool : [];
 }
 
+// Selects-page image override for a product. The campaign pool is the source
+// of truth (per-influencer override pools are snapshots that would go stale);
+// extras that only exist in the effective pool fall back to their own entry.
+export function poolImageOverride(
+  productId: string,
+  campaignPool: GiftPoolProduct[] | null | undefined,
+  pool: GiftPoolProduct[] = []
+): string | null {
+  const id = String(productId);
+  const fromCampaign = (campaignPool || []).find((p) => String(p.product_id) === id);
+  const entry = fromCampaign ?? pool.find((p) => String(p.product_id) === id);
+  return entry?.image_override?.url || null;
+}
+
 // gift_max_selects stores the OUTFIT allowance; an outfit is 2–3 pieces,
 // so the hard piece cap is outfits × 3 (soft guidance only on minimums).
 export function effectiveOutfits(assignment: any, campaign: any): number {
@@ -102,7 +116,8 @@ export function validateGiftShipping(raw: any): { shipping: GiftShipping } | { d
 export async function resolveGiftSelections(
   rawSelections: any,
   pool: GiftPoolProduct[],
-  maxPieces: number
+  maxPieces: number,
+  campaignPool?: GiftPoolProduct[] | null
 ): Promise<{ productSelections: any[] } | { detail: string; status?: number }> {
   const selections: { product_id: string; variant_id: string }[] = Array.isArray(rawSelections)
     ? rawSelections.map((x: any) => ({
@@ -142,7 +157,7 @@ export async function resolveGiftSelections(
       title: product.title,
       variant_title: variant.title || undefined,
       price: variant.price,
-      image: product.image || undefined,
+      image: poolImageOverride(sel.product_id, campaignPool ?? pool, pool) || product.image || undefined,
     });
   }
   return { productSelections };
