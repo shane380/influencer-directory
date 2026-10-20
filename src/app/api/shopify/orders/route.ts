@@ -76,6 +76,9 @@ export async function POST(request: NextRequest) {
 
     // Destination bucket for shipping-name mapping ("US" | "CA" | "XX" | null)
     let destCountryCode: string | null = null;
+    // Set when the default address lacks a phone the customer record has.
+    let shippingAddressWithPhone: Record<string, unknown> | null = null;
+    let billingAddress: Record<string, unknown> | null = null;
 
     // Check suspended shipping countries if a customer is linked
     if (customer_id) {
@@ -95,6 +98,13 @@ export async function POST(request: NextRequest) {
           const address = custData.customer?.default_address;
           const country = address?.country || address?.country_name || "";
           destCountryCode = resolveDestCountryForCustomer(custData.customer);
+          // The draft ships to the default address, and the 3PL reads the
+          // phone from there — fill it from the customer when it's missing.
+          if (address && !address.phone && custData.customer?.phone) {
+            const { first_name, last_name, company, address1, address2, city, province, zip, country_code } = address;
+            billingAddress = { first_name, last_name, company, address1, address2, city, province, zip, country_code };
+            shippingAddressWithPhone = { ...billingAddress, phone: custData.customer.phone };
+          }
 
           if (country) {
             // Fetch suspended countries from app_settings
@@ -156,6 +166,8 @@ export async function POST(request: NextRequest) {
         note?: string;
         tags?: string;
         use_customer_default_address?: boolean;
+        shipping_address?: Record<string, unknown>;
+        billing_address?: Record<string, unknown>;
         shipping_line?: { custom: boolean; title: string; price: string };
       };
     } = {
@@ -176,6 +188,13 @@ export async function POST(request: NextRequest) {
 
     if (customer_id) {
       draftOrderData.draft_order.customer = { id: Number(customer_id) };
+    }
+
+    if (shippingAddressWithPhone && billingAddress) {
+      // Explicit addresses instead of the default-address copy, so the phone sticks.
+      draftOrderData.draft_order.use_customer_default_address = false;
+      draftOrderData.draft_order.shipping_address = shippingAddressWithPhone;
+      draftOrderData.draft_order.billing_address = billingAddress;
     }
 
     if (note) {
