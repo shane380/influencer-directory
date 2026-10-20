@@ -1467,18 +1467,26 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                       ) : null;
                     })()}
                   </div>
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                      ad.phase === "error"
-                        ? "bg-red-500"
-                        : ad.phase === "done"
-                          ? "bg-emerald-500"
-                          : ad.phase === "working"
-                            ? "bg-blue-500 animate-pulse"
-                            : "bg-gray-300"
-                    }`}
-                    title={ad.phase === "idle" ? undefined : ad.phaseMsg}
-                  />
+                  {(() => {
+                    // Flag not-ready ads up front so the publish count adds up.
+                    const notReady = ad.phase === "idle" ? validateAd(ad) : null;
+                    return (
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                          ad.phase === "error"
+                            ? "bg-red-500"
+                            : ad.phase === "done"
+                              ? "bg-emerald-500"
+                              : ad.phase === "working"
+                                ? "bg-blue-500 animate-pulse"
+                                : notReady
+                                  ? "bg-amber-400"
+                                  : "bg-gray-300"
+                        }`}
+                        title={ad.phase === "idle" ? notReady ?? "Ready" : ad.phaseMsg}
+                      />
+                    );
+                  })()}
                   <span className="text-[12px] font-medium text-gray-800 truncate max-w-[130px]">
                     {ad.adName || "Untitled ad"}
                   </span>
