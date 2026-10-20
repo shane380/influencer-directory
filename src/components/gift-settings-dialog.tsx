@@ -90,6 +90,30 @@ export function GiftSettingsDialog({
     setError(null);
   }, [open, campaign]);
 
+  // Pool thumbnails are snapshotted when a product is added — often a draft
+  // with no photos yet. Refresh them from Shopify on open (saved on next Save).
+  useEffect(() => {
+    const ids = (campaign.gift_products ?? []).map((p) => String(p.product_id));
+    if (!open || ids.length === 0) return;
+    let cancelled = false;
+    fetch(`/api/gift/pool-images?ids=${ids.join(",")}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const images: Record<string, string | null> | undefined = data?.images;
+        if (cancelled || !images) return;
+        setPool((prev) =>
+          prev.map((p) => {
+            const live = images[String(p.product_id)];
+            return live && live !== p.image_url ? { ...p, image_url: live } : p;
+          })
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [open, campaign]);
+
   async function handleHeroFile(file: File | undefined, target: "desktop" | "mobile" = "desktop") {
     if (!file) return;
     setHeroDropError(null);
