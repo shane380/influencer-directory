@@ -23,14 +23,17 @@ import type {
   LauncherDefaults,
   TargetsResponse,
   TextOverlay,
+  VideoEdit,
 } from "@/types/meta-ads";
 import { IgFeedPreview } from "./ig-feed-preview";
 import { IgReelsPreview } from "./ig-reels-preview";
 import { IgPostPicker } from "./ig-post-picker";
 import { ReviewQueue } from "./review-queue";
 import { CropDialog } from "./crop-dialog";
-import { TextOverlayLayer, VideoTextEditor, newOverlayId } from "./video-text-editor";
-import { canBurnInText, renderWithOverlays } from "@/lib/video-overlay-render";
+import { TextOverlayLayer, VideoEditor, newOverlayId } from "./video-editor";
+import type { VideoEditorResult } from "./video-editor";
+import { canBurnInText, renderEditedVideo } from "@/lib/video-overlay-render";
+import { formatTime, newClipId, outputDuration } from "@/lib/video-edit";
 import { NewAdsetDialog } from "./new-adset-dialog";
 import { CollectionBar, TemplateActions, useTemplateLibrary } from "./copy-templates";
 import {
@@ -64,24 +67,37 @@ interface SlotState {
   /** Native size of the video, which overlay geometry is relative to */
   frameW?: number;
   frameH?: number;
-  /** The last burned-in render, reused while `key` still matches */
+  /** Videos only: cuts/reorder/mute. Unset = the whole video as uploaded. */
+  edit?: VideoEdit;
+  /** The last rendered result, reused while `key` still matches */
   rendered?: { key: string; url: string; thumbUrl: string | null } | null;
 }
 
-/** Identifies one render: same clean source + same text = same output. */
-const renderKey = (slot: SlotState) =>
-  JSON.stringify({ src: slot.r2Url, overlays: slot.overlays || [] });
+const hasText = (slot: SlotState) => !!(slot.overlays?.length && slot.frameW && slot.frameH);
 
-/** Overlay fields that ride along with a feed/vertical slot. */
-const slotTextFields = (a: any): Partial<SlotState> =>
-  Array.isArray(a?.overlays) && a.overlays.length && a.frameW && a.frameH
-    ? {
-        overlays: a.overlays,
-        frameW: a.frameW,
-        frameH: a.frameH,
-        rendered: a.rendered && typeof a.rendered.url === "string" ? a.rendered : null,
-      }
-    : {};
+/** True when the slot's video must be rendered before it ships. */
+const needsRender = (slot: SlotState) =>
+  slot.kind === "video" && (hasText(slot) || !!slot.edit?.clips.length);
+
+/** Identifies one render: same clean source + same text + same cut = same output. */
+const renderKey = (slot: SlotState) =>
+  JSON.stringify({
+    src: slot.r2Url,
+    overlays: hasText(slot) ? slot.overlays : [],
+    edit: slot.edit ?? null,
+  });
+
+/** Edit fields (text, cuts, last render) that ride along with a feed/vertical slot. */
+const slotTextFields = (a: any): Partial<SlotState> => {
+  const text = Array.isArray(a?.overlays) && a.overlays.length && a.frameW && a.frameH;
+  const edit = Array.isArray(a?.edit?.clips) && a.edit.clips.length > 0;
+  if (!text && !edit) return {};
+  return {
+    ...(text ? { overlays: a.overlays, frameW: a.frameW, frameH: a.frameH } : {}),
+    ...(edit ? { edit: a.edit } : {}),
+    rendered: a.rendered && typeof a.rendered.url === "string" ? a.rendered : null,
+  };
+};
 
 /** Sentinel value for the "+ New ad set…" entry in the ad set select. */
 const NEW_ADSET_OPTION = "__new_adset__";
@@ -185,17 +201,20 @@ function slotFromUrl(
 }
 
 /**
- * Feed/vertical slot from a draft asset. Burned-in videos come back as their
- * clean original plus the overlay spec, so the text stays editable and never
- * gets burned in twice; the existing render is reused until the text changes.
+ * Feed/vertical slot from a draft asset. Edited videos come back as their
+ * clean original plus the text/cut spec, so they stay editable and are never
+ * edited twice; the existing render is reused until the edit changes.
  */
 function slotFromAsset(a: DraftAsset, fallbackName: string): SlotState {
-  if (a.originalFileUrl && a.textOverlays?.length && a.frameWidth && a.frameHeight) {
+  const text = !!(a.textOverlays?.length && a.frameWidth && a.frameHeight);
+  const edit = !!a.videoEdit?.clips?.length;
+  if (a.originalFileUrl && (text || edit)) {
     const slot: SlotState = {
       ...slotFromUrl(a.originalFileUrl, a.kind, a.originalThumbnailUrl, fallbackName),
-      overlays: a.textOverlays,
-      frameW: a.frameWidth,
-      frameH: a.frameHeight,
+      ...(text
+        ? { overlays: a.textOverlays!, frameW: a.frameWidth!, frameH: a.frameHeight! }
+        : {}),
+      ...(edit ? { edit: a.videoEdit! } : {}),
     };
     return {
       ...slot,
@@ -616,24 +635,29 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
   );
 
   /**
-   * Save text for one slot. The first time text is added, the other slot's
-   * video (if it has none yet) gets a copy in the same relative position, so
-   * 1:1 and 9:16 start in sync and are then adjusted independently.
+   * Save the editor's result for one slot. The first time text or cuts are
+   * added, the other slot's video gets a copy so 1:1 and 9:16 start in sync:
+   * text always (same relative position and timing), cuts only when the other
+   * video is the same length (i.e. the same footage). After that each slot is
+   * edited independently.
    */
-  const saveText = useCallback(
-    async (
-      localId: string,
-      role: "feed" | "vertical",
-      overlays: TextOverlay[],
-      frame: { w: number; h: number }
-    ) => {
+  const saveEdit = useCallback(
+    async (localId: string, role: "feed" | "vertical", result: VideoEditorResult) => {
+      const { overlays, edit, frame, sourceDuration } = result;
       const otherRole = role === "feed" ? "vertical" : "feed";
       const ad = ads.find((a) => a.localId === localId);
       const other = ad?.[otherRole];
-      let otherFrame: { w: number; h: number } | null = null;
-      if (overlays.length && other?.kind === "video" && !other.overlays?.length) {
-        otherFrame = await videoSize(other.previewUrl);
-      }
+      const otherMeta =
+        other?.kind === "video" && (overlays.length || edit)
+          ? await videoSize(other.previewUrl)
+          : null;
+      const copyText = !!(otherMeta && overlays.length && !other?.overlays?.length);
+      const copyCut = !!(
+        otherMeta &&
+        edit &&
+        !other?.edit &&
+        Math.abs(otherMeta.duration - sourceDuration) <= 0.1
+      );
       setAds((prev) =>
         prev.map((a) => {
           if (a.localId !== localId) return a;
@@ -641,17 +665,28 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
           if (!slot) return a;
           const next: AdState = {
             ...a,
-            [role]: overlays.length
-              ? { ...slot, overlays, frameW: frame.w, frameH: frame.h }
-              : { ...slot, overlays: undefined, frameW: undefined, frameH: undefined },
+            [role]: {
+              ...slot,
+              ...(overlays.length
+                ? { overlays, frameW: frame.w, frameH: frame.h }
+                : { overlays: undefined, frameW: undefined, frameH: undefined }),
+              edit: edit ?? undefined,
+            },
           };
           const o = a[otherRole];
-          if (otherFrame && o && o.kind === "video" && !o.overlays?.length) {
+          if (otherMeta && o && o.kind === "video" && (copyText || copyCut)) {
             next[otherRole] = {
               ...o,
-              overlays: overlays.map((x) => ({ ...x, id: newOverlayId() })),
-              frameW: otherFrame.w,
-              frameH: otherFrame.h,
+              ...(copyText
+                ? {
+                    overlays: overlays.map((x) => ({ ...x, id: newOverlayId() })),
+                    frameW: otherMeta.w,
+                    frameH: otherMeta.h,
+                  }
+                : {}),
+              ...(copyCut && edit
+                ? { edit: { ...edit, clips: edit.clips.map((c) => ({ ...c, id: newClipId() })) } }
+                : {}),
             };
           }
           return next;
@@ -662,8 +697,8 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
   );
 
   /**
-   * Burn a slot's text into its video (reusing the last render when nothing
-   * changed) and return the rendered file's URLs.
+   * Render a slot's edit (text and/or cuts) into a new video, reusing the last
+   * render when nothing changed, and return the rendered file's URLs.
    */
   const burnIn = useCallback(
     async (
@@ -681,11 +716,16 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
       } catch {
         source = await (await fetch(slot.r2Url!)).blob();
       }
-      const rendered = await renderWithOverlays(source, slot.overlays || [], onProgress);
+      const rendered = await renderEditedVideo(
+        source,
+        hasText(slot) ? slot.overlays! : [],
+        slot.edit,
+        onProgress
+      );
 
       const base = `meta-ads/${Date.now()}-${sanitizeFileName(
         slot.fileName.replace(/\.[^.]+$/, "")
-      )}-text.mp4`;
+      )}-edited.mp4`;
       const { url } = await uploadToR2({ key: base, contentType: "video/mp4", body: rendered });
       let thumbUrl: string | null = null;
       const thumb = await makeVideoThumb(new File([rendered], "render.mp4", { type: "video/mp4" }));
@@ -1023,12 +1063,12 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
               fileUrl: slot.r2Url,
               thumbnailUrl: slot.thumbUrl,
             };
-            if (slot.kind === "video" && slot.overlays?.length && slot.frameW && slot.frameH) {
+            if (needsRender(slot)) {
               const label = role === "feed" ? "1:1" : "9:16";
-              updateAd(ad.localId, { phaseMsg: `Adding text to ${label}…` });
+              updateAd(ad.localId, { phaseMsg: `Rendering ${label} video…` });
               const out = await burnIn(ad.localId, role, slot, (p) =>
                 updateAd(ad.localId, {
-                  phaseMsg: `Adding text to ${label}… ${Math.round(p * 100)}%`,
+                  phaseMsg: `Rendering ${label} video… ${Math.round(p * 100)}%`,
                 })
               );
               Object.assign(asset, {
@@ -1036,9 +1076,10 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                 thumbnailUrl: out.thumbUrl || slot.thumbUrl,
                 originalFileUrl: slot.r2Url,
                 originalThumbnailUrl: slot.thumbUrl,
-                textOverlays: slot.overlays,
-                frameWidth: slot.frameW,
-                frameHeight: slot.frameH,
+                textOverlays: hasText(slot) ? slot.overlays : null,
+                frameWidth: hasText(slot) ? slot.frameW : null,
+                frameHeight: hasText(slot) ? slot.frameH : null,
+                videoEdit: slot.edit ?? null,
               });
             }
             assets.push(asset);
@@ -1177,10 +1218,24 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
       : null;
   const feedMedia = postMedia || selected?.feed;
   const verticalMedia = postMedia || selected?.vertical || selected?.feed;
-  const overlayFor = (slot: SlotState | null | undefined) =>
-    !postMedia && slot?.overlays?.length && slot.frameW && slot.frameH ? (
-      <TextOverlayLayer overlays={slot.overlays} frameW={slot.frameW} frameH={slot.frameH} />
-    ) : null;
+  /** Edited playback for the IG previews: the cut, plus text at the right moments. */
+  const editFor = (slot: SlotState | null | undefined) =>
+    !postMedia && slot?.kind === "video" && (hasText(slot) || slot.edit)
+      ? {
+          clips: slot.edit?.clips ?? null,
+          muted: !!slot.edit?.muted,
+          overlay: hasText(slot)
+            ? (time: number) => (
+                <TextOverlayLayer
+                  overlays={slot.overlays!}
+                  frameW={slot.frameW!}
+                  frameH={slot.frameH!}
+                  time={time}
+                />
+              )
+            : undefined,
+        }
+      : undefined;
 
   return (
     <div>
@@ -1234,14 +1289,15 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
           const slot = ad?.[textEdit.role];
           if (!slot) return null;
           return (
-            <VideoTextEditor
+            <VideoEditor
               videoUrl={slot.previewUrl}
-              initial={slot.overlays || []}
+              initialOverlays={slot.overlays || []}
+              initialEdit={slot.edit ?? null}
               vertical={textEdit.role === "vertical"}
               onCancel={() => setTextEdit(null)}
-              onSave={(overlays, frame) => {
+              onSave={(result) => {
                 setTextEdit(null);
-                saveText(textEdit.localId, textEdit.role, overlays, frame);
+                saveEdit(textEdit.localId, textEdit.role, result);
               }}
             />
           );
@@ -1990,7 +2046,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                       mediaUrl={feedMedia?.previewUrl || null}
                       mediaKind={feedMedia?.kind || null}
                       posterUrl={feedMedia?.thumbUrl}
-                      overlay={overlayFor(selected?.feed)}
+                      edit={editFor(selected?.feed)}
                     />
                     <IgReelsPreview
                       copy={selected?.copy || emptyCopy(defaults)}
@@ -2000,7 +2056,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                       mediaUrl={verticalMedia?.previewUrl || null}
                       mediaKind={verticalMedia?.kind || null}
                       posterUrl={verticalMedia?.thumbUrl}
-                      overlay={overlayFor(selected?.vertical || selected?.feed)}
+                      edit={editFor(selected?.vertical || selected?.feed)}
                       isFallback={!postMedia && !selected?.vertical && !!selected?.feed}
                     />
                   </>
@@ -2202,8 +2258,14 @@ function CreativeSlot({
                 autoPlay
               />
             )}
-            {slot.overlays?.length && slot.frameW && slot.frameH ? (
-              <TextOverlayLayer overlays={slot.overlays} frameW={slot.frameW} frameH={slot.frameH} />
+            {hasText(slot) ? (
+              <TextOverlayLayer overlays={slot.overlays!} frameW={slot.frameW!} frameH={slot.frameH!} />
+            ) : null}
+            {slot.edit?.clips.length ? (
+              <span className="absolute top-1.5 left-1.5 bg-black/60 text-white rounded-full px-1.5 py-0.5 text-[9.5px] font-medium">
+                Edited · {formatTime(outputDuration(slot.edit.clips)).replace(/\.\d$/, "")}
+                {slot.edit.muted ? " · muted" : ""}
+              </span>
             ) : null}
             {slot.kind === "video" && onEditText && !slot.uploading && !slot.error && (
               <button
@@ -2211,13 +2273,13 @@ function CreativeSlot({
                 disabled={!textSupported}
                 title={
                   textSupported
-                    ? "Add or edit text on this video"
-                    : "Text on video needs a recent Chrome or Safari"
+                    ? "Trim, cut and add text to this video"
+                    : "Video editing needs a recent Chrome or Safari"
                 }
                 className="absolute bottom-1.5 left-1.5 bg-black/60 hover:bg-black/75 disabled:opacity-50 text-white rounded-full px-2 py-1 text-[10px] font-medium flex items-center gap-1"
               >
                 <Type className="h-3 w-3" />
-                {slot.overlays?.length ? "Edit text" : "Add text"}
+                Edit video
               </button>
             )}
             {slot.uploading && (
@@ -2261,14 +2323,18 @@ function CreativeSlot({
   );
 }
 
-/** Native pixel size of a video, read from its metadata. */
-function videoSize(url: string): Promise<{ w: number; h: number } | null> {
+/** Native pixel size and duration of a video, read from its metadata. */
+function videoSize(url: string): Promise<{ w: number; h: number; duration: number } | null> {
   return new Promise((resolve) => {
     const v = document.createElement("video");
     v.preload = "metadata";
     v.muted = true;
     v.onloadedmetadata = () =>
-      resolve(v.videoWidth && v.videoHeight ? { w: v.videoWidth, h: v.videoHeight } : null);
+      resolve(
+        v.videoWidth && v.videoHeight
+          ? { w: v.videoWidth, h: v.videoHeight, duration: Number.isFinite(v.duration) ? v.duration : 0 }
+          : null
+      );
     v.onerror = () => resolve(null);
     v.src = url;
   });

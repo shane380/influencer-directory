@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 import type { AdCopy } from "@/types/meta-ads";
+import { useEditedPlayback } from "./video-editor/use-edited-playback";
+import type { PreviewEdit } from "./video-editor/types";
 
 interface Props {
   copy: AdCopy;
@@ -12,8 +14,8 @@ interface Props {
   mediaUrl: string | null;
   mediaKind: "image" | "video" | null;
   posterUrl?: string | null;
-  /** Burned-in text, drawn over the media so the preview matches what ships */
-  overlay?: React.ReactNode;
+  /** Unrendered edit (cuts, mute, text) — played live so the preview matches what ships */
+  edit?: PreviewEdit;
   /** True when this is the feed asset standing in for a missing 9:16 upload */
   isFallback?: boolean;
 }
@@ -30,16 +32,17 @@ export function IgReelsPreview({
   mediaUrl,
   mediaKind,
   posterUrl,
-  overlay,
+  edit,
   isFallback,
 }: Props) {
   const caption = copy.primaryText?.trim() || "Primary text shows here…";
   const truncated = caption.length > 90 ? `${caption.slice(0, 90)}…` : caption;
   const videoRef = useRef<HTMLVideoElement>(null);
+  const { time } = useEditedPlayback(videoRef, edit?.clips, { enabled: !!edit });
   const [muted, setMuted] = useState(true);
   const toggleMute = () => {
     const v = videoRef.current;
-    if (!v) return;
+    if (!v || edit?.muted) return;
     v.muted = !v.muted;
     setMuted(v.muted);
   };
@@ -59,11 +62,11 @@ export function IgReelsPreview({
             className="absolute inset-0 w-full h-full object-cover"
             muted
             playsInline
-            loop
+            loop={!edit?.clips}
             autoPlay
           />
         )}
-        {mediaUrl && mediaKind === "video" && overlay}
+        {mediaUrl && mediaKind === "video" && edit?.overlay?.(time)}
         {!mediaUrl && (
           <span className="absolute inset-0 flex items-center justify-center text-sm text-gray-500">
             9:16 creative

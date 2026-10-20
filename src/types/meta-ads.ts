@@ -121,6 +121,29 @@ export interface TextOverlay {
   y: number;
   /** Font size as a fraction of frame width */
   size: number;
+  /**
+   * When the text shows, in seconds of the edited (output) video. Undefined
+   * start/end mean the beginning/end, so untimed text covers the whole video.
+   */
+  start?: number;
+  end?: number;
+}
+
+/** A kept range of the source video, in source seconds. */
+export interface VideoClip {
+  id: string;
+  start: number;
+  end: number;
+}
+
+/**
+ * Cuts applied to a video: `clips` play in array order (ranges may overlap or
+ * repeat). A single clip spanning the whole source is the same as no edit.
+ */
+export interface VideoEdit {
+  clips: VideoClip[];
+  /** Drop the audio track entirely */
+  muted?: boolean;
 }
 
 export interface DraftAsset {
@@ -158,6 +181,8 @@ export interface DraftAsset {
   originalFileUrl?: string | null;
   originalThumbnailUrl?: string | null;
   textOverlays?: TextOverlay[] | null;
+  /** Cuts/reorder/mute applied to originalFileUrl to produce fileUrl */
+  videoEdit?: VideoEdit | null;
   /** Native size of the original video, which overlay geometry is relative to */
   frameWidth?: number | null;
   frameHeight?: number | null;
