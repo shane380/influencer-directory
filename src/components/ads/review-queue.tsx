@@ -517,11 +517,14 @@ export function ReviewQueue({
             {!targets.some((c) => c.id === editForm.campaignId) && (
               <option value={editForm.campaignId}>{draft.campaignName} (current)</option>
             )}
-            {targets.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} {c.effective_status === "PAUSED" ? "(paused)" : ""}
-              </option>
-            ))}
+            {targets
+              // Active only, like the Create tab — plus whatever's selected.
+              .filter((c) => c.effective_status === "ACTIVE" || c.id === editForm.campaignId)
+              .map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} {c.effective_status === "PAUSED" ? "(paused)" : ""}
+                </option>
+              ))}
           </select>
         ) : (
           <span className="text-gray-500 text-[12.5px]">
@@ -536,7 +539,9 @@ export function ReviewQueue({
         ) : targets && targets.length > 0 ? (
           (() => {
             const campaign = targets.find((c) => c.id === editForm.campaignId);
-            const adsets = campaign?.adsets || [];
+            const adsets = (campaign?.adsets || []).filter(
+              (a) => a.effective_status === "ACTIVE" || a.id === editForm.adsetId
+            );
             return (
               <select
                 value={editForm.adsetId}
