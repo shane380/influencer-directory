@@ -67,6 +67,7 @@ export function GiftSettingsDialog({
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [heroDropError, setHeroDropError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -85,11 +86,13 @@ export function GiftSettingsDialog({
     setGenericToken((campaign as any).gift_generic_token ?? null);
     setGenericMaxSelects((campaign as any).gift_generic_max_selects ?? 1);
     setGenericCopied(false);
+    setHeroDropError(null);
     setError(null);
   }, [open, campaign]);
 
   async function handleHeroFile(file: File | undefined, target: "desktop" | "mobile" = "desktop") {
     if (!file) return;
+    setHeroDropError(null);
     setUploading(true);
     setError(null);
     try {
@@ -103,6 +106,19 @@ export function GiftSettingsDialog({
       setError("Hero upload failed — check your connection.");
     }
     setUploading(false);
+  }
+
+  // Images dragged out of a browser tab (Drive, Slack, Gmail) usually arrive
+  // as a link, not a file — say so instead of silently doing nothing.
+  function handleHeroDrop(e: React.DragEvent, target: "desktop" | "mobile") {
+    e.preventDefault();
+    e.stopPropagation();
+    const file = e.dataTransfer.files?.[0];
+    if (!file || !file.type.startsWith("image/")) {
+      setHeroDropError("That drop didn't include an image file. Save the image to your computer first, then drag it from there (or click to upload).");
+      return;
+    }
+    handleHeroFile(file, target);
   }
 
   async function save() {
@@ -184,11 +200,7 @@ export function GiftSettingsDialog({
                   <label
                     className="flex items-center justify-center h-24 border-2 border-dashed rounded-md text-sm text-gray-400 cursor-pointer hover:border-gray-400"
                     onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleHeroFile(e.dataTransfer.files?.[0]);
-                    }}
+                    onDrop={(e) => handleHeroDrop(e, "desktop")}
                   >
                     {uploading ? "Uploading…" : "Drag an image here or click to upload"}
                     <input
@@ -206,11 +218,7 @@ export function GiftSettingsDialog({
                   <div
                     className="relative"
                     onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleHeroFile(e.dataTransfer.files?.[0], "mobile");
-                    }}
+                    onDrop={(e) => handleHeroDrop(e, "mobile")}
                   >
                     <div className="w-full overflow-hidden rounded-md border" style={{ aspectRatio: "5/4" }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -242,6 +250,7 @@ export function GiftSettingsDialog({
                 )}
               </div>
             </div>
+            {heroDropError && <div className="text-xs text-red-600 mt-1">{heroDropError}</div>}
             {heroMobile && hero && (
               <div className="text-xs text-gray-400 mt-1">Mobile uses its own image; remove it to fall back to the desktop one.</div>
             )}
