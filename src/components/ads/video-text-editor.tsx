@@ -5,7 +5,14 @@ import { Plus, Trash2 } from "lucide-react";
 import type { OverlayFont, TextOverlay } from "@/types/meta-ads";
 import { OVERLAY_FONTS, OVERLAY_LINE_HEIGHT } from "@/lib/video-overlay-render";
 
-const VIEW = 460; // max display size of the video's long edge
+/**
+ * iPhone screen width in CSS px. The editor shows the video at the size it's
+ * actually seen on a phone (a 9:16 Reel fills the screen, a 1:1 feed post spans
+ * its width), so text size reads true. Shrinks only if the window is too short.
+ */
+const PHONE_W = 390;
+/** Vertical room the dialog's header, padding and buttons need. */
+const DIALOG_CHROME_H = 190;
 const COLORS = ["#ffffff", "#000000", "#f5e6d3", "#c8a27a", "#e11d48", "#facc15"];
 /** Font size limits as a fraction of frame width */
 const MIN_SIZE = 0.025;
@@ -123,9 +130,17 @@ export function VideoTextEditor({ videoUrl, initial, vertical, onCancel, onSave 
     startDist: number;
   } | null>(null);
 
-  const wide = natural ? natural.w >= natural.h : true;
-  const dispW = natural ? (wide ? VIEW : Math.round((natural.w / natural.h) * VIEW)) : VIEW;
-  const dispH = natural ? (wide ? Math.round((natural.h / natural.w) * VIEW) : VIEW) : VIEW;
+  const [maxH, setMaxH] = useState(800);
+  useEffect(() => {
+    const update = () => setMaxH(Math.max(320, window.innerHeight - DIALOG_CHROME_H));
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  const aspect = natural ? natural.w / natural.h : 9 / 16;
+  const fitScale = Math.min(1, maxH / (PHONE_W / aspect));
+  const dispW = Math.round(PHONE_W * fitScale);
+  const dispH = Math.round((PHONE_W / aspect) * fitScale);
   const isNineSixteen = !!natural && Math.abs(natural.w / natural.h / (9 / 16) - 1) < 0.05;
 
   const selected = overlays.find((o) => o.id === selectedId) || null;
@@ -211,7 +226,7 @@ export function VideoTextEditor({ videoUrl, initial, vertical, onCancel, onSave 
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-xl p-5 max-w-[820px] w-full max-h-[95vh] overflow-auto">
+      <div className="bg-white rounded-xl shadow-xl p-5 max-w-[900px] w-full max-h-[98vh] overflow-auto">
         <p className="text-sm font-semibold text-gray-900">Text on video</p>
         <p className="text-[12px] text-gray-500 mb-4">
           Drag text to move it, drag the corner handle to resize. It&apos;s burned in at full
