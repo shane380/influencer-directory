@@ -1,5 +1,6 @@
 /**
- * Burns static text overlays into a video, entirely in the browser.
+ * Renders an edited video — burned-in text, and optionally clips cut,
+ * reordered and/or muted — entirely in the browser.
  *
  * Decoding and encoding go through WebCodecs (the browser's hardware video
  * encoder) via Mediabunny. The output keeps the source's resolution and frame
@@ -9,7 +10,8 @@
  * pixel size, never upscaled from the on-screen editor.
  */
 
-import type { OverlayFont, TextOverlay } from "@/types/meta-ads";
+import type { OverlayFont, TextOverlay, VideoEdit } from "@/types/meta-ads";
+import { clipLength, outputDuration, overlayVisible } from "@/lib/video-edit";
 
 /** CSS font shorthand pieces per overlay font — shared by the editor and the renderer. */
 export const OVERLAY_FONTS: Record<
@@ -40,16 +42,21 @@ export const OVERLAY_FONTS: Record<
 /** Line height as a multiple of font size — the CSS layer uses the same value. */
 export const OVERLAY_LINE_HEIGHT = 1.2;
 
-/** Draws overlays onto a canvas that holds a frame of the given size. */
+/**
+ * Draws overlays onto a canvas that holds a frame of the given size. With `t`
+ * (output seconds), text outside its in/out time is skipped.
+ */
 export function drawOverlays(
   ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
   overlays: TextOverlay[],
   frameW: number,
-  frameH: number
+  frameH: number,
+  t?: number
 ) {
   for (const o of overlays) {
     const lines = o.text.split("\n");
     if (!o.text.trim()) continue;
+    if (t !== undefined && !overlayVisible(o, t)) continue;
     const f = OVERLAY_FONTS[o.font] || OVERLAY_FONTS["sans-bold"];
     const px = o.size * frameW;
     const lineH = px * OVERLAY_LINE_HEIGHT;
@@ -77,26 +84,24 @@ export function canBurnInText(): boolean {
 const QUANTIZER = 20;
 /** Bitrate fallback where the encoder can't do quantizer mode: ~12 Mbps at 1080×1920×30. */
 const BITS_PER_PIXEL_FRAME = 0.2;
+/** AAC bitrate when cuts force an audio re-encode — transparent for speech and music. */
+const AUDIO_BITRATE = 256_000;
+
+type Mediabunny = typeof import("mediabunny");
 
 /**
- * Renders `source` with the overlays burned in and returns an MP4 blob.
- * `onProgress` receives 0–1.
+ * Renders `source` with its edit applied and returns an MP4 blob. Without an
+ * edit (text only) the audio is copied untouched; cuts or mute re-assemble the
+ * video clip by clip and re-encode the audio. `onProgress` receives 0–1.
  */
-export async function renderWithOverlays(
+export async function renderEditedVideo(
   source: Blob,
   overlays: TextOverlay[],
+  edit: VideoEdit | null | undefined,
   onProgress?: (p: number) => void
 ): Promise<Blob> {
-  const {
-    ALL_FORMATS,
-    BlobSource,
-    BufferTarget,
-    Conversion,
-    Input,
-    Mp4OutputFormat,
-    Output,
-    Quality,
-  } = await import("mediabunny");
+  const mb = await import("mediabunny");
+  const { ALL_FORMATS, BlobSource, BufferTarget, Input, Mp4OutputFormat, Output, Quality } = mb;
 
   // System fonts are always present, but make sure any web font has loaded
   // before the first frame is drawn.
@@ -113,6 +118,7 @@ export async function renderWithOverlays(
   const bitrate = Math.round(
     Math.min(40_000_000, Math.max(8_000_000, w * h * fps * BITS_PER_PIXEL_FRAME))
   );
+  const quality = new Quality({ quantizer: QUANTIZER, bitrate });
 
   const canvas = new OffscreenCanvas(w, h);
   const ctx = canvas.getContext("2d");
@@ -123,22 +129,47 @@ export async function renderWithOverlays(
     target: new BufferTarget(),
   });
 
+  if (edit?.clips.length) {
+    await renderClips(mb, input, track, output, canvas, ctx, overlays, edit, quality, onProgress);
+  } else {
+    await renderTextOnly(mb, input, output, canvas, ctx, overlays, quality, onProgress);
+  }
+
+  const buffer = (output.target as InstanceType<typeof BufferTarget>).buffer;
+  if (!buffer) throw new Error("Render produced no output");
+  return new Blob([buffer], { type: "video/mp4" });
+}
+
+/** Whole video, text only: transcode video through the overlay, copy audio packets. */
+async function renderTextOnly(
+  { Conversion }: Mediabunny,
+  input: InstanceType<Mediabunny["Input"]>,
+  output: InstanceType<Mediabunny["Output"]>,
+  canvas: OffscreenCanvas,
+  ctx: OffscreenCanvasRenderingContext2D,
+  overlays: TextOverlay[],
+  quality: InstanceType<Mediabunny["Quality"]>,
+  onProgress?: (p: number) => void
+) {
+  const { width: w, height: h } = canvas;
+  let firstTs: number | null = null;
   const conversion = await Conversion.init({
     input,
     output,
     tracks: "primary",
     video: {
       codec: "avc",
-      quality: new Quality({ quantizer: QUANTIZER, bitrate }),
+      quality,
       // Bake rotation into the pixels so the overlay lands where it was placed.
       allowTransformationMetadata: false,
       forceTranscode: true,
       processedWidth: w,
       processedHeight: h,
       process: (sample) => {
+        if (firstTs === null) firstTs = sample.timestamp;
         ctx.clearRect(0, 0, w, h);
         sample.draw(ctx, 0, 0, w, h);
-        drawOverlays(ctx, overlays, w, h);
+        drawOverlays(ctx, overlays, w, h, sample.timestamp - firstTs);
         return canvas;
       },
     },
@@ -152,8 +183,89 @@ export async function renderWithOverlays(
   }
   if (onProgress) conversion.onProgress = (p) => onProgress(p);
   await conversion.execute();
+}
 
-  const buffer = (output.target as InstanceType<typeof BufferTarget>).buffer;
-  if (!buffer) throw new Error("Render produced no output");
-  return new Blob([buffer], { type: "video/mp4" });
+/**
+ * Cuts: walk the clips in order, decoding each source range and laying its
+ * frames (and audio) back to back on the output timeline.
+ */
+async function renderClips(
+  { AudioSampleSink, AudioSampleSource, CanvasSource, VideoSampleSink, canEncodeAudio }: Mediabunny,
+  input: InstanceType<Mediabunny["Input"]>,
+  track: InstanceType<Mediabunny["InputVideoTrack"]>,
+  output: InstanceType<Mediabunny["Output"]>,
+  canvas: OffscreenCanvas,
+  ctx: OffscreenCanvasRenderingContext2D,
+  overlays: TextOverlay[],
+  edit: VideoEdit,
+  quality: InstanceType<Mediabunny["Quality"]>,
+  onProgress?: (p: number) => void
+) {
+  const { width: w, height: h } = canvas;
+  const clips = edit.clips.filter((c) => clipLength(c) > 0);
+  const total = outputDuration(clips);
+  if (total <= 0) throw new Error("The edit has no video left in it");
+
+  const videoSource = new CanvasSource(canvas, { codec: "avc", quality });
+  output.addVideoTrack(videoSource);
+
+  const audioTrack = edit.muted ? null : await input.getPrimaryAudioTrack();
+  let audioSource: InstanceType<Mediabunny["AudioSampleSource"]> | null = null;
+  if (audioTrack) {
+    if (!(await canEncodeAudio("aac", { bitrate: AUDIO_BITRATE }))) {
+      throw new Error("This browser can't re-encode audio — mute the video or use Chrome");
+    }
+    audioSource = new AudioSampleSource({ codec: "aac", bitrate: AUDIO_BITRATE });
+    output.addAudioTrack(audioSource);
+  }
+
+  await output.start();
+  const videoSink = new VideoSampleSink(track);
+  const audioSink = audioTrack ? new AudioSampleSink(audioTrack) : null;
+
+  let offset = 0;
+  for (const clip of clips) {
+    const len = clipLength(clip);
+
+    // Video: the first sample may start before clip.start (it's the frame on
+    // screen at that moment) — it's pinned to the clip's first instant.
+    for await (const sample of videoSink.samples(clip.start, clip.end)) {
+      const within = Math.max(0, sample.timestamp - clip.start);
+      if (within >= len) {
+        sample.close();
+        break;
+      }
+      const dur = Math.min(sample.duration || 1 / 30, len - within);
+      const t = offset + within;
+      ctx.clearRect(0, 0, w, h);
+      sample.draw(ctx, 0, 0, w, h);
+      sample.close();
+      drawOverlays(ctx, overlays, w, h, t);
+      await videoSource.add(t, dur);
+      onProgress?.(Math.min(1, (offset + within + dur) / total));
+    }
+
+    // Audio: trim the boundary samples to the exact clip edges so cuts don't
+    // overlap or leave gaps.
+    if (audioSink && audioSource) {
+      for await (const sample of audioSink.samples(clip.start, clip.end)) {
+        const sr = sample.sampleRate;
+        const from = Math.max(0, Math.round((clip.start - sample.timestamp) * sr));
+        const to = Math.min(sample.numberOfFrames, Math.round((clip.end - sample.timestamp) * sr));
+        if (to > from) {
+          const piece = sample.trim(from, to);
+          piece.setTimestamp(offset + Math.max(0, piece.timestamp - clip.start));
+          await audioSource.add(piece);
+          piece.close();
+        }
+        sample.close();
+      }
+    }
+
+    offset += len;
+  }
+
+  videoSource.close();
+  audioSource?.close();
+  await output.finalize();
 }

@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 import type { AdCopy } from "@/types/meta-ads";
+import { useEditedPlayback } from "./video-editor/use-edited-playback";
+import type { PreviewEdit } from "./video-editor/types";
 
 interface Props {
   copy: AdCopy;
@@ -12,8 +14,8 @@ interface Props {
   mediaUrl: string | null;
   mediaKind: "image" | "video" | null;
   posterUrl?: string | null;
-  /** Burned-in text, drawn over the media so the preview matches what ships */
-  overlay?: React.ReactNode;
+  /** Unrendered edit (cuts, mute, text) — played live so the preview matches what ships */
+  edit?: PreviewEdit;
 }
 
 /**
@@ -28,15 +30,16 @@ export function IgFeedPreview({
   mediaUrl,
   mediaKind,
   posterUrl,
-  overlay,
+  edit,
 }: Props) {
   const caption = copy.primaryText?.trim() || "Primary text shows here…";
   const truncated = caption.length > 125 ? `${caption.slice(0, 125)}` : caption;
   const videoRef = useRef<HTMLVideoElement>(null);
+  const { time } = useEditedPlayback(videoRef, edit?.clips, { enabled: !!edit });
   const [muted, setMuted] = useState(true);
   const toggleMute = () => {
     const v = videoRef.current;
-    if (!v) return;
+    if (!v || edit?.muted) return;
     v.muted = !v.muted;
     setMuted(v.muted);
   };
@@ -65,10 +68,10 @@ export function IgFeedPreview({
               className="w-full h-full object-cover"
               muted
               playsInline
-              loop
+              loop={!edit?.clips}
               autoPlay
             />
-            {overlay}
+            {edit?.overlay?.(time)}
             <button
               type="button"
               onClick={toggleMute}

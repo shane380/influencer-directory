@@ -83,14 +83,17 @@ export async function PATCH(
               typeof a.instagramPermalink === "string" ? a.instagramPermalink : null,
           }
         : {}),
-      // Burned-in text: keep the clean original and the overlay spec so the
-      // text stays editable after a review-queue edit.
-      ...(typeof a.originalFileUrl === "string" && a.originalFileUrl && Array.isArray(a.textOverlays)
+      // Edited videos (burned-in text and/or cuts): keep the clean original
+      // and the edit spec so they stay editable after a review-queue edit.
+      ...(typeof a.originalFileUrl === "string" &&
+      a.originalFileUrl &&
+      (Array.isArray(a.textOverlays) || Array.isArray(a.videoEdit?.clips))
         ? {
             originalFileUrl: a.originalFileUrl,
             originalThumbnailUrl:
               typeof a.originalThumbnailUrl === "string" ? a.originalThumbnailUrl : null,
-            textOverlays: a.textOverlays,
+            textOverlays: Array.isArray(a.textOverlays) ? a.textOverlays : null,
+            videoEdit: Array.isArray(a.videoEdit?.clips) ? a.videoEdit : null,
             frameWidth: typeof a.frameWidth === "number" ? a.frameWidth : null,
             frameHeight: typeof a.frameHeight === "number" ? a.frameHeight : null,
           }
