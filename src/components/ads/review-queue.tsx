@@ -6,6 +6,7 @@ import { IgFeedPreview } from "./ig-feed-preview";
 import { IgReelsPreview } from "./ig-reels-preview";
 import { IgCarouselPreview } from "./ig-carousel-preview";
 import { CropDialog } from "./crop-dialog";
+import { NewAdsetDialog } from "./new-adset-dialog";
 import {
   FEED_ASPECT,
   VERTICAL_ASPECT,
@@ -14,6 +15,9 @@ import {
   uploadAdAsset,
 } from "@/lib/ad-media";
 import { CheckCircle2, Clock, Copy, Download, Loader2, MessageSquare, Pencil, Trash2, Upload, XCircle } from "lucide-react";
+
+/** Sentinel value for the "+ New ad set…" entry in the ad set select. */
+const NEW_ADSET_OPTION = "__new_adset__";
 
 const CTA_LABELS: Record<string, string> = {
   SHOP_NOW: "Shop now",
@@ -122,6 +126,7 @@ export function ReviewQueue({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{
     adName: string;
+    campaignId: string;
     adsetId: string;
     primaryText: string;
     headline: string;
@@ -132,6 +137,7 @@ export function ReviewQueue({
   } | null>(null);
   const [targets, setTargets] = useState<CampaignSummary[] | null>(null);
   const [targetsLoading, setTargetsLoading] = useState(false);
+  const [newAdsetFor, setNewAdsetFor] = useState<CampaignSummary | null>(null);
   const [editAssets, setEditAssets] = useState<{
     feed: DraftAsset | null;
     vertical: DraftAsset | null;
@@ -290,6 +296,7 @@ export function ReviewQueue({
       setMediaError(null);
       setEditForm({
         adName: draft.adName,
+        campaignId: draft.campaignId,
         adsetId: draft.adsetId,
         primaryText: draft.copy.primaryText || "",
         headline: draft.copy.headline || "",
@@ -315,6 +322,10 @@ export function ReviewQueue({
       if (!editForm) return;
       if (Object.keys(mediaProgress).length > 0) {
         setError("Media is still uploading — wait for it to finish");
+        return;
+      }
+      if (!editForm.adsetId) {
+        setError("Pick an ad set");
         return;
       }
       if (editAssets && !editAssets.feed) {
@@ -494,28 +505,64 @@ export function ReviewQueue({
         ),
       },
       {
-        label: "Ad set",
+        label: "Campaign",
         field: targetsLoading ? (
           <span className="text-gray-400 text-[12.5px]">Loading campaigns…</span>
         ) : targets && targets.length > 0 ? (
           <select
-            value={editForm.adsetId}
-            onChange={(e) => set({ adsetId: e.target.value })}
+            value={editForm.campaignId}
+            onChange={(e) => set({ campaignId: e.target.value, adsetId: "" })}
             className={inputCls}
           >
-            {!targets.some((c) => c.adsets.some((a) => a.id === editForm.adsetId)) && (
-              <option value={editForm.adsetId}>{draft.adsetName} (current)</option>
+            {!targets.some((c) => c.id === editForm.campaignId) && (
+              <option value={editForm.campaignId}>{draft.campaignName} (current)</option>
             )}
             {targets.map((c) => (
-              <optgroup key={c.id} label={c.name}>
-                {c.adsets.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </optgroup>
+              <option key={c.id} value={c.id}>
+                {c.name} {c.effective_status === "PAUSED" ? "(paused)" : ""}
+              </option>
             ))}
           </select>
+        ) : (
+          <span className="text-gray-500 text-[12.5px]">
+            {draft.campaignName} <span className="text-gray-400">(campaign list unavailable)</span>
+          </span>
+        ),
+      },
+      {
+        label: "Ad set",
+        field: targetsLoading ? (
+          <span className="text-gray-400 text-[12.5px]">Loading ad sets…</span>
+        ) : targets && targets.length > 0 ? (
+          (() => {
+            const campaign = targets.find((c) => c.id === editForm.campaignId);
+            const adsets = campaign?.adsets || [];
+            return (
+              <select
+                value={editForm.adsetId}
+                onChange={(e) => {
+                  if (e.target.value === NEW_ADSET_OPTION) {
+                    if (campaign) setNewAdsetFor(campaign);
+                    return;
+                  }
+                  set({ adsetId: e.target.value });
+                }}
+                className={inputCls}
+              >
+                <option value="">Select ad set</option>
+                {editForm.adsetId === draft.adsetId &&
+                  !adsets.some((a) => a.id === draft.adsetId) && (
+                    <option value={draft.adsetId}>{draft.adsetName} (current)</option>
+                  )}
+                {adsets.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name} {a.effective_status === "PAUSED" ? "(paused)" : ""}
+                  </option>
+                ))}
+                {isAdmin && campaign && <option value={NEW_ADSET_OPTION}>+ New ad set…</option>}
+              </select>
+            );
+          })()
         ) : (
           <span className="text-gray-500 text-[12.5px]">
             {draft.adsetName} <span className="text-gray-400">(campaign list unavailable)</span>
@@ -1006,6 +1053,25 @@ export function ReviewQueue({
 
   return (
     <div className="max-w-4xl">
+      {newAdsetFor && (
+        <NewAdsetDialog
+          campaignId={newAdsetFor.id}
+          campaignName={newAdsetFor.name}
+          onCancel={() => setNewAdsetFor(null)}
+          onCreated={(adset) => {
+            const campaignId = newAdsetFor.id;
+            setNewAdsetFor(null);
+            // Meta's list can lag a just-created ad set, so add it locally
+            // rather than refetching.
+            setTargets((prev) =>
+              prev
+                ? prev.map((c) => (c.id === campaignId ? { ...c, adsets: [adset, ...c.adsets] } : c))
+                : prev
+            );
+            setEditForm((f) => (f ? { ...f, campaignId, adsetId: adset.id } : f));
+          }}
+        />
+      )}
       {cropRequest && (
         <CropDialog
           file={cropRequest.file}
