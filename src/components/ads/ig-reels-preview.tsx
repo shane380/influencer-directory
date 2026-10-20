@@ -12,6 +12,8 @@ interface Props {
   mediaUrl: string | null;
   mediaKind: "image" | "video" | null;
   posterUrl?: string | null;
+  /** Burned-in text, drawn over the media so the preview matches what ships */
+  overlay?: React.ReactNode;
   /** True when this is the feed asset standing in for a missing 9:16 upload */
   isFallback?: boolean;
 }
@@ -28,6 +30,7 @@ export function IgReelsPreview({
   mediaUrl,
   mediaKind,
   posterUrl,
+  overlay,
   isFallback,
 }: Props) {
   const caption = copy.primaryText?.trim() || "Primary text shows here…";
@@ -60,6 +63,7 @@ export function IgReelsPreview({
             autoPlay
           />
         )}
+        {mediaUrl && mediaKind === "video" && overlay}
         {!mediaUrl && (
           <span className="absolute inset-0 flex items-center justify-center text-sm text-gray-500">
             9:16 creative

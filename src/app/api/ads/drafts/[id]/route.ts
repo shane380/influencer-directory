@@ -83,6 +83,18 @@ export async function PATCH(
               typeof a.instagramPermalink === "string" ? a.instagramPermalink : null,
           }
         : {}),
+      // Burned-in text: keep the clean original and the overlay spec so the
+      // text stays editable after a review-queue edit.
+      ...(typeof a.originalFileUrl === "string" && a.originalFileUrl && Array.isArray(a.textOverlays)
+        ? {
+            originalFileUrl: a.originalFileUrl,
+            originalThumbnailUrl:
+              typeof a.originalThumbnailUrl === "string" ? a.originalThumbnailUrl : null,
+            textOverlays: a.textOverlays,
+            frameWidth: typeof a.frameWidth === "number" ? a.frameWidth : null,
+            frameHeight: typeof a.frameHeight === "number" ? a.frameHeight : null,
+          }
+        : {}),
       ...(a.role === "card"
         ? {
             order: typeof a.order === "number" ? a.order : 0,

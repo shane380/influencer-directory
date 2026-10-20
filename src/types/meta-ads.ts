@@ -103,6 +103,26 @@ export interface AdCopy {
 export type AssetRole = "feed" | "vertical" | "card";
 export type AssetKind = "image" | "video";
 
+export type OverlayFont = "sans-bold" | "sans" | "serif" | "serif-italic";
+
+/**
+ * A static text box burned into a video. Geometry is relative to the video
+ * frame so it maps 1:1 from the editor onto the full-resolution render.
+ */
+export interface TextOverlay {
+  id: string;
+  /** May contain newlines; each line is centred. */
+  text: string;
+  font: OverlayFont;
+  /** CSS colour, e.g. "#ffffff" */
+  color: string;
+  /** Centre of the text block, as fractions (0–1) of frame width / height */
+  x: number;
+  y: number;
+  /** Font size as a fraction of frame width */
+  size: number;
+}
+
 export interface DraftAsset {
   role: AssetRole;
   kind: AssetKind;
@@ -130,6 +150,17 @@ export interface DraftAsset {
   sourceInstagramMediaId?: string | null;
   /** Existing-post ads only: permalink to the organic post */
   instagramPermalink?: string | null;
+  /**
+   * Feed/vertical videos with burned-in text: fileUrl is the rendered file,
+   * originalFileUrl the clean upload, so the text can be edited and re-rendered
+   * without stacking on top of itself.
+   */
+  originalFileUrl?: string | null;
+  originalThumbnailUrl?: string | null;
+  textOverlays?: TextOverlay[] | null;
+  /** Native size of the original video, which overlay geometry is relative to */
+  frameWidth?: number | null;
+  frameHeight?: number | null;
 }
 
 /** One organic post from the brand's IG account (GET /api/ads/ig-media). */
