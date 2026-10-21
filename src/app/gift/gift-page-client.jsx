@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { getCountries } from '@/lib/countries'
+import { giftPreviewDraftKey } from '@/lib/gift'
 
 // Public gift selection page — opened from an Instagram DM or email, usually
 // inside the IG in-app browser. No login, no storage APIs; all state lives in
@@ -149,7 +150,10 @@ const CSS = `
 }
 `
 
-export default function GiftPageClient({ token, generic = false }) {
+// preview (/gift/preview/[campaignId], staff only): token is a campaign id.
+// Renders the dialog's unsaved settings (handed over via localStorage — the
+// one storage use, in the team's own browser) and never submits anything.
+export default function GiftPageClient({ token, generic = false, preview = false }) {
   const apiBase = generic ? '/api/gift/g' : '/api/gift/t'
 
   const [loadState, setLoadState] = useState('loading') // loading | ok | invalid | error
@@ -195,7 +199,18 @@ export default function GiftPageClient({ token, generic = false }) {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch(`${apiBase}/${encodeURIComponent(token)}`)
+      let res
+      if (preview) {
+        let draft = null
+        try { draft = JSON.parse(localStorage.getItem(giftPreviewDraftKey(token)) || 'null') } catch {}
+        res = await fetch('/api/gift/preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ campaign_id: token, draft }),
+        })
+      } else {
+        res = await fetch(`${apiBase}/${encodeURIComponent(token)}`)
+      }
       if (res.status === 404) { setLoadState('invalid'); return }
       if (!res.ok) { setLoadState('error'); return }
       const d = await res.json()
@@ -217,13 +232,13 @@ export default function GiftPageClient({ token, generic = false }) {
           instagram_handle: '',
           source: d.prefill?.source || 'none',
         })
-        if (!generic) fetch(`${apiBase}/${encodeURIComponent(token)}/view`, { method: 'POST' }).catch(() => {})
+        if (!generic && !preview) fetch(`${apiBase}/${encodeURIComponent(token)}/view`, { method: 'POST' }).catch(() => {})
       }
       setLoadState('ok')
     } catch {
       setLoadState('error')
     }
-  }, [token, apiBase, generic])
+  }, [token, apiBase, generic, preview])
 
   useEffect(() => { load() }, [load])
 
@@ -327,6 +342,19 @@ export default function GiftPageClient({ token, generic = false }) {
     if (submitting) return
     setSubmitError(null)
     const f = form
+    if (preview) {
+      // Walk through to the confirmation screens without creating anything.
+      setSubmitted({
+        selections: picks.map(p => ({ title: p.title, variant_title: p.variant_title, quantity: 1, image: p.image })),
+        submitted_at: new Date().toISOString(),
+        order_status: null,
+        tracking_url: null,
+        tracking_number: null,
+        shipping: f.address1 ? { ...f } : null,
+      })
+      setStep('done')
+      return
+    }
     if (!f.name.trim()) return setSubmitError('Please enter your full name.')
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email)) return setSubmitError('Please enter a valid email.')
     if ((f.phone.match(/\d/g) || []).length < 7) return setSubmitError('Please enter a valid phone number — the carrier needs it for delivery.')
@@ -406,8 +434,10 @@ export default function GiftPageClient({ token, generic = false }) {
       <div className="gf-wrap"><style dangerouslySetInnerHTML={{ __html: CSS }} />
         <div className="gf-col"><div className="gf-center">
           <div className="gf-eyebrow">Nama</div>
-          <div className="gf-headline">This link isn&rsquo;t active.</div>
-          <div className="gf-sub">{loadState === 'invalid'
+          <div className="gf-headline">{preview ? 'Preview unavailable.' : <>This link isn&rsquo;t active.</>}</div>
+          <div className="gf-sub">{preview
+            ? 'Open the preview from the Selects Page settings while signed in to the dashboard.'
+            : loadState === 'invalid'
             ? 'It may have been replaced with a new one — reach out to your Nama contact and we’ll sort it.'
             : 'Something went wrong loading this page — please try again in a moment.'}</div>
         </div></div>
@@ -419,6 +449,16 @@ export default function GiftPageClient({ token, generic = false }) {
 
   return (
     <div className="gf-wrap"><style dangerouslySetInnerHTML={{ __html: CSS }} />
+      {preview && (
+        <div style={{ position: 'sticky', top: 0, zIndex: 50, background: '#111', color: '#fff', fontSize: 12, textAlign: 'center', padding: '7px 12px', letterSpacing: '0.02em' }}>
+          Preview — this is what creators see. Picks aren&rsquo;t submitted.
+          {step !== 'landing' && (
+            <button onClick={() => { setPicks([]); setOptSel({}); setSubmitted(null); setStep('landing') }} style={{ marginLeft: 10, color: '#fff', textDecoration: 'underline', background: 'none', border: 'none', fontSize: 12, cursor: 'pointer' }}>
+              Start over
+            </button>
+          )}
+        </div>
+      )}
       <div className="gf-col">
 
         {step === 'landing' && (

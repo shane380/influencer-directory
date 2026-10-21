@@ -21,6 +21,12 @@ export function giftGenericUrl(token: string): string {
   return `${base}/gift/g/${token}`;
 }
 
+// Preview (/gift/preview/[campaignId]) reads the settings dialog's unsaved
+// draft from this localStorage key — same origin as the dashboard.
+export function giftPreviewDraftKey(campaignId: string): string {
+  return `gift-preview-draft:${campaignId}`;
+}
+
 export function giftDmSnippet(firstName: string, campaignName: string, url: string): string {
   const name = firstName ? `Hey ${firstName}!` : "Hey!";
   return `${name} We'd love to send you pieces from our ${campaignName} drop 🤍 pick your styles + drop your address here (takes 1 min): ${url}`;

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { GiftProductPicker } from "@/components/gift-product-picker";
-import { generateGiftToken, giftGenericUrl } from "@/lib/gift";
+import { generateGiftToken, giftGenericUrl, giftPreviewDraftKey } from "@/lib/gift";
 import type { Campaign, GiftPoolProduct } from "@/types/database";
 
 // Campaign-level configuration for the public gift selection page.
@@ -143,6 +143,26 @@ export function GiftSettingsDialog({
       return;
     }
     handleHeroFile(file, target);
+  }
+
+  // Opens the page as creators will see it, using what's in this dialog now
+  // (saved or not). Works before the link is enabled.
+  function openPreview() {
+    const draft = {
+      hero_image: hero
+        ? { ...hero, mobile_url: heroMobile?.url || null, mobile_r2_key: heroMobile?.r2_key || null }
+        : null,
+      blurb: blurb.trim() || null,
+      outfits: Math.max(1, Math.min(10, maxSelects || 3)),
+      selects_deadline: selectsDeadline || null,
+      pool,
+    };
+    try {
+      localStorage.setItem(giftPreviewDraftKey(campaign.id), JSON.stringify(draft));
+    } catch {
+      // Storage blocked — the preview falls back to the saved settings.
+    }
+    window.open(`/gift/preview/${campaign.id}`, "_blank");
   }
 
   async function save() {
@@ -383,6 +403,9 @@ export function GiftSettingsDialog({
           {error && <div className="text-sm text-red-600">{error}</div>}
 
           <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" className="mr-auto" onClick={openPreview} disabled={pool.length === 0 || uploading}>
+              Preview
+            </Button>
             <Button variant="outline" onClick={onClose}>Cancel</Button>
             <Button onClick={save} disabled={saving || uploading}>{saving ? "Saving…" : "Save Selects Page"}</Button>
           </div>
