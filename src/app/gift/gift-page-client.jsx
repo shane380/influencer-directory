@@ -19,7 +19,7 @@ const CSS = `
 .gf-wrap { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #111; background: #fff; min-height: 100vh; -webkit-font-smoothing: antialiased; }
 .gf-wrap *, .gf-wrap *::before, .gf-wrap *::after { box-sizing: border-box; margin: 0; padding: 0; }
 .gf-col { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; background: #fff; }
-.gf-hero { width: 100%; aspect-ratio: 5/4; object-fit: cover; display: block; background: #f0ece4; }
+.gf-hero { width: 100%; aspect-ratio: 5/4; object-fit: cover; object-position: var(--hero-pos-m, 50% 50%); display: block; background: #f0ece4; }
 @media (min-width: 560px) { .gf-hero { aspect-ratio: 16/10; } }
 .gf-masthead { padding: 30px 34px 26px; border-bottom: 1px solid #eee; }
 .gf-mast-eyebrow { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: #A89F94; margin-bottom: 12px; }
@@ -129,7 +129,7 @@ const CSS = `
   /* Desktop landing: short face-safe banner, then two independent columns —
      title/letter/details left, collection preview + CTA right — sized so the
      whole invite lands above the fold. Mobile untouched. */
-  .gf-landing .gf-hero { aspect-ratio: 3.5/1; object-position: 50% 15%; }
+  .gf-landing .gf-hero { aspect-ratio: 3.5/1; object-position: var(--hero-pos, 50% 15%); }
   .gf-cols { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); }
   .gf-colL { border-right: 1px solid #eee; }
   .gf-colL .gf-masthead { max-width: none; margin: 0; padding: 24px 44px 14px 48px; }
@@ -466,7 +466,15 @@ export default function GiftPageClient({ token, generic = false, preview = false
             {c.hero_image_url && (
               <picture>
                 {c.hero_image_mobile_url && <source media="(max-width: 767px)" srcSet={c.hero_image_mobile_url} />}
-                <img className="gf-hero" src={c.hero_image_url} alt={c.name} />
+                <img
+                  className="gf-hero"
+                  src={c.hero_image_url}
+                  alt={c.name}
+                  style={{
+                    ...(c.hero_position ? { '--hero-pos': c.hero_position } : {}),
+                    ...(c.hero_mobile_position ? { '--hero-pos-m': c.hero_mobile_position } : {}),
+                  }}
+                />
               </picture>
             )}
             <div className="gf-cols">

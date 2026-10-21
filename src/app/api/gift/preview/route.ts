@@ -74,8 +74,10 @@ export async function POST(request: NextRequest) {
     preview: true,
     campaign: {
       name: campaign.name,
-      hero_image_url: hero?.url || null,
+      hero_image_url: hero?.url || hero?.mobile_url || null,
       hero_image_mobile_url: hero?.mobile_url || null,
+      hero_position: hero?.position || null,
+      hero_mobile_position: hero?.mobile_position || null,
       blurb: ("blurb" in draft ? draft.blurb : campaign.gift_blurb) || null,
       outfits,
       max_selects: outfits * 3,

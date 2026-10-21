@@ -52,8 +52,11 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const base = {
     campaign: {
       name: campaign.name,
-      hero_image_url: campaign.gift_hero_image?.url || null,
+      // Either hero may be set alone; desktop falls back to the mobile image.
+      hero_image_url: campaign.gift_hero_image?.url || campaign.gift_hero_image?.mobile_url || null,
       hero_image_mobile_url: campaign.gift_hero_image?.mobile_url || null,
+      hero_position: campaign.gift_hero_image?.position || null,
+      hero_mobile_position: campaign.gift_hero_image?.mobile_position || null,
       blurb: campaign.gift_blurb || null,
       outfits: effectiveOutfits(assignment, campaign),
       max_selects: effectiveMaxPieces(assignment, campaign),

@@ -145,7 +145,15 @@ export interface Campaign {
   collection_deck_url: string | null;
   requires_approval: boolean;
   gift_enabled: boolean;
-  gift_hero_image: { url: string; r2_key: string; mobile_url?: string | null; mobile_r2_key?: string | null } | null;
+  gift_hero_image: {
+    url: string | null;
+    r2_key: string | null;
+    mobile_url?: string | null;
+    mobile_r2_key?: string | null;
+    // CSS object-position ("x% y%") chosen in the settings dialog per crop.
+    position?: string | null;
+    mobile_position?: string | null;
+  } | null;
   gift_blurb: string | null;
   gift_products: GiftPoolProduct[] | null;
   gift_max_selects: number;
