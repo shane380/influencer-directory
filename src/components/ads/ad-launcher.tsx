@@ -16,6 +16,7 @@ import type {
   AdCopy,
   AdDraft,
   AdsetSummary,
+  AdsetTemplate,
   AssetKind,
   AssetRole,
   DraftAsset,
@@ -300,14 +301,25 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
   const [publishLive, setPublishLive] = useState(true);
   const [publishing, setPublishing] = useState(false);
   const [showPaused, setShowPaused] = useState(false);
-  const [cropRequest, setCropRequest] = useState<{
-    localId: string;
-    file: File;
-    /** Target ratio — 1 for feed/cards, 9/16 for the stories & reels slot */
-    aspect: number;
-    /** Slot the cropped file goes back into */
-    target: "feed" | "vertical" | "card";
-  } | null>(null);
+  // A queue rather than one request: a bulk drop can bring several images
+  // that each need cropping; the dialog works through them in order.
+  const [cropQueue, setCropQueue] = useState<
+    {
+      localId: string;
+      file: File;
+      /** Target ratio — 1 for feed/cards, 9/16 for the stories & reels slot */
+      aspect: number;
+      /** Slot the cropped file goes back into */
+      target: "feed" | "vertical" | "card";
+    }[]
+  >([]);
+  const cropRequest = cropQueue[0] || null;
+  /** Bulk publish: ads per new ad set (0 = everything into the selected ad set). */
+  const [splitSize, setSplitSize] = useState(0);
+  /** Name stem for the split ad sets; "" = derived from the selected ad set. */
+  const [splitBaseName, setSplitBaseName] = useState("");
+  /** Ad sets already created for a group this session, so a retry reuses them. */
+  const groupAdsetsRef = useRef<Map<string, AdsetSummary>>(new Map());
   const [textEdit, setTextEdit] = useState<{ localId: string; role: "feed" | "vertical" } | null>(
     null
   );
@@ -760,7 +772,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
       if (kind === "image" && (role === "feed" || role === "vertical")) {
         const aspect = role === "feed" ? FEED_ASPECT : VERTICAL_ASPECT;
         if (!(await matchesAspect(file, aspect))) {
-          setCropRequest({ localId, file, aspect, target: role });
+          setCropQueue((q) => [...q, { localId, file, aspect, target: role }]);
           return;
         }
       }
@@ -768,6 +780,60 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
       beginUpload(localId, role, kind, file);
     },
     [beginUpload]
+  );
+
+  /**
+   * Bulk drop: one single-format ad per file, named after the file. Copy,
+   * link and partnership come from the ad being edited, so set those once
+   * and drop the folder. Untouched blank ads are replaced rather than kept.
+   */
+  const bulkAdd = useCallback(
+    async (files: File[]) => {
+      const media = files.filter(
+        (f) => f.type.startsWith("video/") || f.type.startsWith("image/")
+      );
+      if (!media.length) return;
+      const template = selected;
+      const created = media.map((file) => ({
+        file,
+        ad: {
+          ...newAd(defaults),
+          adName: file.name.replace(/\.[^.]+$/, ""),
+          partnership: template?.partnership || false,
+          sponsorId: template?.sponsorId || "",
+          sponsorLabel: template?.sponsorLabel || "",
+          copy: template ? { ...template.copy } : emptyCopy(defaults),
+        } as AdState,
+      }));
+      const isBlank = (a: AdState) =>
+        a.phase === "idle" &&
+        !a.adName.trim() &&
+        !a.feed &&
+        !a.vertical &&
+        !a.cards.length &&
+        !a.igPost;
+      setAds((prev) => [...prev.filter((a) => !isBlank(a)), ...created.map((c) => c.ad)]);
+      setSelectedId(created[0].ad.localId);
+
+      // Three uploads at a time — a folder of 4K clips all at once stalls the tab.
+      const queue = [...created];
+      const worker = async () => {
+        for (let next = queue.shift(); next; next = queue.shift()) {
+          const { file, ad } = next;
+          const kind: AssetKind = file.type.startsWith("video/") ? "video" : "image";
+          if (kind === "image" && !(await matchesAspect(file, FEED_ASPECT))) {
+            setCropQueue((q) => [
+              ...q,
+              { localId: ad.localId, file, aspect: FEED_ASPECT, target: "feed" },
+            ]);
+            continue;
+          }
+          await beginUpload(ad.localId, "feed", kind, file);
+        }
+      };
+      await Promise.all([worker(), worker(), worker()]);
+    },
+    [beginUpload, defaults, selected]
   );
 
   const addCardUpload = useCallback(async (localId: string, kind: AssetKind, file: File) => {
@@ -842,7 +908,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
       if (!kind) return;
       // Carousel cards must be square on Instagram — crop non-square images.
       if (kind === "image" && !(await matchesAspect(file, FEED_ASPECT))) {
-        setCropRequest({ localId, file, aspect: FEED_ASPECT, target: "card" });
+        setCropQueue((q) => [...q, { localId, file, aspect: FEED_ASPECT, target: "card" }]);
         return;
       }
       addCardUpload(localId, kind, file);
@@ -1008,15 +1074,112 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
     []
   );
 
+  // Split publishing: consecutive runs of `splitSize` ads in batch order each
+  // get a new ad set, cloned from the selected one and numbered on from the
+  // campaign's existing "<stem> N" ad sets (pinstripe 9 → pinstripe 10, 11…).
+  const splitting = isAdmin && splitSize > 0;
+  const splitStem = (splitBaseName.trim() || (adset?.name || "").replace(/\s*\d+\s*$/, "")).trim();
+  const splitFirstNumber = useMemo(() => {
+    if (!campaign || !splitStem) return 1;
+    const re = new RegExp(`^${splitStem.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*(\\d+)$`);
+    let max = 0;
+    for (const a of campaign.adsets) {
+      const name = a.name.trim();
+      if (name === splitStem) max = Math.max(max, 1);
+      const m = name.match(re);
+      if (m) max = Math.max(max, Number(m[1]));
+    }
+    return max + 1;
+  }, [campaign, splitStem]);
+  const splitGroupCount = splitting ? Math.ceil(ads.length / splitSize) : 0;
+  const splitGroupOf = (localId: string) =>
+    Math.floor(ads.findIndex((a) => a.localId === localId) / splitSize);
+  /** The ad set an ad went into, or will go into on publish. */
+  const splitTargetName = (localId: string) => {
+    const group = splitGroupOf(localId);
+    const made = groupAdsetsRef.current.get(`${adset?.id}|${splitStem}|${splitSize}|${group}`);
+    if (made) return made.name;
+    const createdGroups = new Set(
+      Array.from(groupAdsetsRef.current.keys())
+        .filter((k) => k.startsWith(`${adset?.id}|${splitStem}|${splitSize}|`))
+        .map((k) => Number(k.split("|").pop()))
+    );
+    let pending = 0;
+    for (let g = 0; g < group; g++) if (!createdGroups.has(g)) pending++;
+    return `${splitStem} ${splitFirstNumber + pending}`;
+  };
+
   const publishAll = useCallback(async () => {
     if (!campaign || !adset || !defaults?.pageId || publishing) return;
+    if (splitting && !splitStem) return;
     setPublishing(true);
+
+    let template: AdsetTemplate | null = null;
+    let nextNumber = splitFirstNumber;
+    const adsetFor = async (ad: AdState): Promise<AdsetSummary> => {
+      if (!splitting) return adset;
+      const group = Math.floor(ads.findIndex((a) => a.localId === ad.localId) / splitSize);
+      const key = `${adset.id}|${splitStem}|${splitSize}|${group}`;
+      const existing = groupAdsetsRef.current.get(key);
+      if (existing) return existing;
+
+      const name = `${splitStem} ${nextNumber}`;
+      updateAd(ad.localId, { phase: "working", phaseMsg: `Creating ad set ${name}…` });
+      if (!template) {
+        const qs = new URLSearchParams({ campaignId: campaign.id, sourceAdsetId: adset.id });
+        const tRes = await fetch(`/api/ads/adsets?${qs}`);
+        const tData = await tRes.json();
+        if (!tRes.ok) throw new Error(tData.error || "Could not read the ad set to copy");
+        template = tData as AdsetTemplate;
+      }
+      const res = await fetch("/api/ads/adsets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          campaignId: campaign.id,
+          sourceAdsetId: adset.id,
+          name,
+          countries: template.countries,
+          bidAmount: template.requiresBidAmount ? template.bidAmount : null,
+          dailyBudget: template.campaignBudgetOptimization ? null : template.dailyBudget,
+          status: publishLive ? "ACTIVE" : "PAUSED",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Could not create ad set ${name}`);
+      const created = data.adset as AdsetSummary;
+      nextNumber++;
+      groupAdsetsRef.current.set(key, created);
+      // Same as the New ad set dialog: list it now, Meta's listing lags.
+      setTargets((prev) =>
+        prev
+          ? {
+              ...prev,
+              campaigns: prev.campaigns.map((c) =>
+                c.id === campaign.id ? { ...c, adsets: [created, ...c.adsets] } : c
+              ),
+            }
+          : prev
+      );
+      return created;
+    };
 
     for (const ad of ads) {
       if (ad.phase === "done") continue;
       const invalid = validateAd(ad);
       if (invalid) {
         updateAd(ad.localId, { phase: "error", phaseMsg: invalid });
+        continue;
+      }
+
+      let target: AdsetSummary;
+      try {
+        target = await adsetFor(ad);
+      } catch (err) {
+        updateAd(ad.localId, {
+          phase: "error",
+          phaseMsg: err instanceof Error ? err.message : "Could not create the ad set",
+        });
         continue;
       }
 
@@ -1094,8 +1257,8 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
             adName: ad.adName,
             campaignId: campaign.id,
             campaignName: campaign.name,
-            adsetId: adset.id,
-            adsetName: adset.name,
+            adsetId: target.id,
+            adsetName: target.name,
             pageId: defaults.pageId,
             instagramUserId: defaults.instagramUserId,
             // Partnership ads can't reference an organic post — Meta builds
@@ -1164,7 +1327,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
     }
 
     setPublishing(false);
-  }, [ads, adset, burnIn, campaign, defaults, isAdmin, publishLive, publishing, updateAd, validateAd]);
+  }, [ads, adset, burnIn, campaign, defaults, isAdmin, publishLive, publishing, splitFirstNumber, splitStem, splitting, splitSize, updateAd, validateAd]);
 
   const savePreset = useCallback(() => {
     if (!selected) return;
@@ -1271,12 +1434,13 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
 
       {cropRequest && (
         <CropDialog
+          key={`${cropRequest.localId}-${cropRequest.target}-${cropRequest.file.name}`}
           file={cropRequest.file}
           aspect={cropRequest.aspect}
-          onCancel={() => setCropRequest(null)}
+          onCancel={() => setCropQueue((q) => q.slice(1))}
           onCropped={(cropped) => {
             const { localId: id, target } = cropRequest;
-            setCropRequest(null);
+            setCropQueue((q) => q.slice(1));
             if (target === "card") addCardUpload(id, "image", cropped);
             else beginUpload(id, target, "image", cropped);
           }}
@@ -1436,9 +1600,22 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
             </div>
 
             <div className="self-stretch w-px bg-gray-200 mx-1 hidden sm:block" />
-            <div>
+            <div
+              onDragOver={(e) => {
+                if (e.dataTransfer.types.includes("Files")) e.preventDefault();
+              }}
+              onDrop={(e) => {
+                if (!e.dataTransfer.files.length) return;
+                e.preventDefault();
+                bulkAdd(Array.from(e.dataTransfer.files));
+              }}
+            >
               <label className="block text-[10px] uppercase tracking-wide text-gray-400 mb-1">
                 Ads in this batch
+                <span className="normal-case tracking-normal text-gray-300">
+                  {" "}
+                  · drop files here for one ad each
+                </span>
               </label>
               <div className="flex items-center gap-1.5 flex-wrap">
               {ads.map((ad) => (
@@ -1487,6 +1664,14 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                       />
                     );
                   })()}
+                  {splitting && (
+                    <span
+                      className="text-[10px] font-medium text-gray-500 bg-gray-100 rounded px-1"
+                      title={`New ad set: ${splitTargetName(ad.localId)}`}
+                    >
+                      #{splitTargetName(ad.localId).match(/(\d+)$/)?.[1]}
+                    </span>
+                  )}
                   <span className="text-[12px] font-medium text-gray-800 truncate max-w-[130px]">
                     {ad.adName || "Untitled ad"}
                   </span>
@@ -1517,6 +1702,22 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
               >
                 <Plus className="h-3 w-3" /> Add ad
               </button>
+              <label
+                title="One ad per file, using this ad's copy and link"
+                className="border border-dashed border-gray-300 rounded-md px-2.5 py-1 text-[12px] text-gray-500 hover:text-gray-800 hover:border-gray-400 flex items-center gap-1 cursor-pointer"
+              >
+                <UploadCloud className="h-3 w-3" /> Bulk add
+                <input
+                  type="file"
+                  accept="image/*,video/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    bulkAdd(Array.from(e.target.files || []));
+                    e.target.value = "";
+                  }}
+                />
+              </label>
               </div>
             </div>
           </div>
@@ -1884,6 +2085,25 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                   >
                     + Save preset
                   </button>
+                  {ads.filter((a) => a.phase !== "done").length > 1 && (
+                    <button
+                      onClick={() => {
+                        const { copy, partnership, sponsorId, sponsorLabel } = selected;
+                        setAds((prev) =>
+                          prev.map((a) =>
+                            a.phase === "done"
+                              ? a
+                              : { ...a, copy: { ...copy }, partnership, sponsorId, sponsorLabel }
+                          )
+                        );
+                      }}
+                      title="Copies this ad's text, link, button and partnership to every unpublished ad in the batch"
+                      className="text-[12px] text-gray-500 hover:text-gray-800 border border-gray-300 rounded-full px-2.5 py-0.5 flex items-center gap-1"
+                    >
+                      <Copy className="h-3 w-3" /> Use this copy on all{" "}
+                      {ads.filter((a) => a.phase !== "done").length} ads
+                    </button>
+                  )}
                 </div>
 
                 <CollectionBar lib={templateLib} />
@@ -2085,10 +2305,33 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                   {allDone
                     ? `${ads.length} ad${ads.length === 1 ? "" : "s"} ${isAdmin ? "published" : "submitted"}`
                     : `${readyCount} ad${readyCount === 1 ? "" : "s"} ready`}
-                  {adset ? ` → ${adset.name}` : ""}
+                  {adset
+                    ? splitting
+                      ? ` → ${splitGroupCount} new ad set${splitGroupCount === 1 ? "" : "s"}`
+                      : ` → ${adset.name}`
+                    : ""}
                 </p>
                 <p className="text-[11.5px] text-gray-500">
                   {campaign ? campaign.name : "Pick a campaign and ad set"}
+                  {splitting &&
+                    adset &&
+                    splitStem &&
+                    (() => {
+                      const names = Array.from(
+                        new Set(
+                          ads.filter((a) => a.phase !== "done").map((a) => splitTargetName(a.localId))
+                        )
+                      );
+                      if (!names.length) return null;
+                      const last = names[names.length - 1].match(/(\d+)$/)?.[1];
+                      return (
+                        <>
+                          <br />
+                          {names.length > 1 ? `${names[0]}–${last}` : names[0]}, each a copy of{" "}
+                          {adset.name}&apos;s settings
+                        </>
+                      );
+                    })()}
                 </p>
               </div>
               <div className="flex items-center gap-3 flex-wrap">
@@ -2107,11 +2350,40 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                     onClick={() => {
                       setAds([newAd(defaults)]);
                       setSelectedId(null);
+                      groupAdsetsRef.current.clear();
                     }}
                     className="text-[12px] text-gray-500 hover:text-gray-800 flex items-center gap-1"
                   >
                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Start a new batch
                   </button>
+                )}
+                {!allDone && isAdmin && (
+                  <label className="flex items-center gap-1.5 text-[12px] text-gray-500">
+                    Ad sets
+                    <select
+                      value={splitSize}
+                      onChange={(e) => setSplitSize(Number(e.target.value))}
+                      disabled={publishing}
+                      className="border border-gray-300 rounded-md px-1.5 py-1 text-[12px] bg-white"
+                    >
+                      <option value={0}>All into selected</option>
+                      {[2, 3, 4, 5, 6, 8, 10].map((n) => (
+                        <option key={n} value={n}>
+                          New, {n} ads each
+                        </option>
+                      ))}
+                    </select>
+                    {splitting && (
+                      <input
+                        value={splitBaseName}
+                        onChange={(e) => setSplitBaseName(e.target.value)}
+                        disabled={publishing}
+                        placeholder={splitStem || "Ad set name"}
+                        title="Ad set name; each new set gets a number after it"
+                        className="w-48 border border-gray-300 rounded-md px-2 py-1 text-[12px]"
+                      />
+                    )}
+                  </label>
                 )}
                 {!allDone &&
                   (isAdmin ? (
@@ -2144,6 +2416,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                       onClick={() => {
                         setAds([newAd(defaults)]);
                         setSelectedId(null);
+                        groupAdsetsRef.current.clear();
                       }}
                       className="bg-gray-900 text-white rounded-lg px-6 py-2.5 text-[13px] font-semibold flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors"
                     >
