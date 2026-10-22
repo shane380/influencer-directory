@@ -161,6 +161,7 @@ export interface Campaign {
   gift_generic_token: string | null;
   gift_generic_max_selects: number;
   gift_selects_deadline: string | null;
+  gift_ignore_stock: boolean;
   created_at: string;
   updated_at: string;
 }

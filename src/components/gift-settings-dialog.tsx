@@ -140,6 +140,7 @@ export function GiftSettingsDialog({
   const [maxSelects, setMaxSelects] = useState(3);
   const [selectsDeadline, setSelectsDeadline] = useState("");
   const [pool, setPool] = useState<GiftPoolProduct[]>([]);
+  const [ignoreStock, setIgnoreStock] = useState(false);
   const [genericEnabled, setGenericEnabled] = useState(false);
   const [genericToken, setGenericToken] = useState<string | null>(null);
   const [genericMaxSelects, setGenericMaxSelects] = useState(1);
@@ -164,6 +165,7 @@ export function GiftSettingsDialog({
     setMaxSelects(campaign.gift_max_selects ?? 3);
     setSelectsDeadline((campaign as any).gift_selects_deadline || "");
     setPool(campaign.gift_products ?? []);
+    setIgnoreStock((campaign as any).gift_ignore_stock ?? false);
     setGenericEnabled((campaign as any).gift_generic_enabled ?? false);
     setGenericToken((campaign as any).gift_generic_token ?? null);
     setGenericMaxSelects((campaign as any).gift_generic_max_selects ?? 1);
@@ -253,6 +255,7 @@ export function GiftSettingsDialog({
       blurb: blurb.trim() || null,
       outfits: Math.max(1, Math.min(10, maxSelects || 3)),
       selects_deadline: selectsDeadline || null,
+      ignore_stock: ignoreStock,
       pool,
     };
     try {
@@ -279,6 +282,7 @@ export function GiftSettingsDialog({
         ? { gift_selects_deadline: selectsDeadline || null }
         : {}),
       gift_products: pool,
+      ...("gift_ignore_stock" in (campaign as any) || ignoreStock ? { gift_ignore_stock: ignoreStock } : {}),
       // Written only when the columns exist (migration applied) or the user
       // touched the feature — so saving other settings never breaks pre-migration.
       ...("gift_generic_enabled" in (campaign as any) || genericEnabled || genericToken
@@ -436,6 +440,17 @@ export function GiftSettingsDialog({
             />
             <span className="text-xs text-gray-500">Shown on the page ("make your picks by …"). Leave empty to show shipping time instead.</span>
           </div>
+
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              className="h-4 w-4"
+              checked={ignoreStock}
+              onChange={(e) => setIgnoreStock(e.target.checked)}
+            />
+            <span className="text-sm font-medium">Ignore stock</span>
+            <span className="text-xs text-gray-500">Every size is selectable, even when Shopify shows it out of stock.</span>
+          </label>
 
           <div className="border rounded-md p-3 space-y-2.5">
             <label className="flex items-center gap-3 cursor-pointer">

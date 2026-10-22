@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   if (!campaignId) return NextResponse.json({ error: "campaign_id is required" }, { status: 400 });
 
   const { data: campaign } = await (supabase.from("campaigns") as any)
-    .select("id, name, start_date, gift_hero_image, gift_blurb, gift_products, gift_max_selects, gift_selects_deadline")
+    .select("id, name, start_date, gift_hero_image, gift_blurb, gift_products, gift_max_selects, gift_selects_deadline, gift_ignore_stock")
     .eq("id", campaignId)
     .single();
   if (!campaign) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
       ? campaign.gift_products
       : [];
   const hero = "hero_image" in draft ? draft.hero_image : campaign.gift_hero_image;
+  const ignoreStock = Boolean("ignore_stock" in draft ? draft.ignore_stock : campaign.gift_ignore_stock);
   const outfits = Math.max(1, Math.min(10, Number(draft.outfits ?? campaign.gift_max_selects) || 1));
 
   let products: any[] = [];
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
           variant_id: v.variant_id,
           title: v.title,
           selected_options: v.selected_options,
-          available: p.status === "draft" ? true : v.available,
+          available: p.status === "draft" || ignoreStock ? true : v.available,
         })),
       }));
   } catch (err) {
