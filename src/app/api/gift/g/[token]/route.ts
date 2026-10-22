@@ -31,8 +31,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         title: v.title,
         selected_options: v.selected_options,
         // Pre-launch drafts have no inventory yet — gifts ship from PR stock,
-        // so every size stays pickable; only ACTIVE products gate on stock.
-        available: p.status === "draft" ? true : v.available,
+        // so every size stays pickable; only ACTIVE products gate on stock, unless
+        // the campaign is set to ignore stock.
+        available: p.status === "draft" || campaign.gift_ignore_stock ? true : v.available,
       })),
     }));
   } catch (err) {
