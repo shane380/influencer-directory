@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getShopifyAccessToken, getShopifyStoreUrl } from "@/lib/shopify";
+import { cleanShopifyNames, normalizeShopifyProvince } from "@/lib/shopify-address";
 
 interface ShopifyCustomer {
   id: number;
@@ -210,6 +211,8 @@ export async function PUT(request: NextRequest) {
     }
 
     const normalizedPhone = phone ? normalizePhone(phone, country_code) : undefined;
+    const names = first_name || last_name ? cleanShopifyNames(first_name, last_name) : {};
+    const shopifyProvince = normalizeShopifyProvince(province, zip, country_code);
 
     const customerData: {
       customer: {
@@ -223,8 +226,8 @@ export async function PUT(request: NextRequest) {
       customer: {
         id: Number(id),
         email: email || undefined,
-        first_name: first_name || undefined,
-        last_name: last_name || undefined,
+        first_name: names.first_name,
+        last_name: names.last_name,
         phone: normalizedPhone,
       },
     };
@@ -270,7 +273,7 @@ export async function PUT(request: NextRequest) {
         ...(normalizedPhone ? { phone: normalizedPhone } : {}),
         ...(address2 !== undefined ? { address2: address2 || "" } : {}),
         ...(city ? { city } : {}),
-        ...(province ? { province } : {}),
+        ...(shopifyProvince ? { province: shopifyProvince } : {}),
         ...(zip ? { zip } : {}),
         ...(country_code ? { country_code } : {}),
         default: true,
@@ -366,6 +369,8 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedPhone = phone ? normalizePhone(phone, country_code) : undefined;
+    const names = first_name || last_name ? cleanShopifyNames(first_name, last_name) : {};
+    const shopifyProvince = normalizeShopifyProvince(province, zip, country_code);
 
     const customerData: {
       customer: {
@@ -378,8 +383,8 @@ export async function POST(request: NextRequest) {
     } = {
       customer: {
         email,
-        first_name: first_name || undefined,
-        last_name: last_name || undefined,
+        first_name: names.first_name,
+        last_name: names.last_name,
         phone: normalizedPhone,
       },
     };
@@ -395,7 +400,7 @@ export async function POST(request: NextRequest) {
           ...(normalizedPhone ? { phone: normalizedPhone } : {}),
           ...(address2 ? { address2 } : {}),
           ...(city ? { city } : {}),
-          ...(province ? { province } : {}),
+          ...(shopifyProvince ? { province: shopifyProvince } : {}),
           ...(zip ? { zip } : {}),
           ...(country_code ? { country_code } : {}),
         },
