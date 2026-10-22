@@ -23,6 +23,7 @@ import { RetainerSummaryBar } from "@/components/retainer-summary-bar";
 import { RetainerInstallments, RetainerTerm } from "@/components/retainer-installments";
 import { dealTotals } from "@/lib/retainers";
 import { OrderDialog } from "@/components/order-dialog";
+import { allocateToCurrentMonthlyGifting, findCurrentMonthlyGiftingCampaign, releaseUnusedAllocation } from "@/lib/monthly-gifting";
 import { Sidebar } from "@/components/sidebar";
 import { WhitelistingTab } from "@/components/whitelisting-tab";
 import { WhitelistingDialog } from "@/components/whitelisting-dialog";
@@ -109,6 +110,13 @@ const orderStatusColors: Record<ShopifyOrderStatus | "none", string> = {
   delivered: "bg-green-100 text-green-800",
 };
 
+const orderDots: Record<ShopifyOrderStatus, string> = {
+  draft: "bg-amber-400",
+  fulfilled: "bg-blue-400",
+  shipped: "bg-purple-400",
+  delivered: "bg-green-500",
+};
+
 const orderStatusLabels: Record<ShopifyOrderStatus | "none", string> = {
   none: "No Order",
   draft: "Draft",
@@ -170,6 +178,11 @@ function HomePageContent() {
   const [influencerDialogInitialTab, setInfluencerDialogInitialTab] = useState<string>("overview");
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   const [selectedOrderCollab, setSelectedOrderCollab] = useState<PaidCollabWithDetails | null>(null);
+  // One-off gifting from the directory: each influencer's row in this month's
+  // Monthly Gifting campaign (for the cart cell), and the one being ordered.
+  const [monthlyGiftRows, setMonthlyGiftRows] = useState<Map<string, CampaignInfluencer>>(new Map());
+  const [giftOrder, setGiftOrder] = useState<{ influencer: Influencer; campaignInfluencer: CampaignInfluencer; created: boolean } | null>(null);
+  const [loadingGiftFor, setLoadingGiftFor] = useState<string | null>(null);
 
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -618,6 +631,43 @@ function HomePageContent() {
     fetchPaidCollabs(true); // Force refresh after save
   };
 
+  const fetchMonthlyGiftRows = useCallback(async (influencerIds: string[]) => {
+    if (influencerIds.length === 0) return;
+    const campaign = await findCurrentMonthlyGiftingCampaign(supabase);
+    if (!campaign) {
+      setMonthlyGiftRows(new Map());
+      return;
+    }
+    const { data } = await (supabase.from("campaign_influencers") as any)
+      .select("*")
+      .eq("campaign_id", campaign.id)
+      .in("influencer_id", influencerIds);
+    setMonthlyGiftRows(new Map(((data || []) as CampaignInfluencer[]).map((ci) => [ci.influencer_id, ci])));
+  }, [supabase]);
+
+  useEffect(() => {
+    fetchMonthlyGiftRows(influencers.map((inf) => inf.id));
+  }, [influencers, fetchMonthlyGiftRows]);
+
+  const handleOpenGiftOrder = async (influencer: Influencer) => {
+    setLoadingGiftFor(influencer.id);
+    try {
+      const { campaignInfluencer, created } = await allocateToCurrentMonthlyGifting(supabase, influencer);
+      setGiftOrder({ influencer, campaignInfluencer, created });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not start a gifting order.");
+    } finally {
+      setLoadingGiftFor(null);
+    }
+  };
+
+  const handleCloseGiftOrder = async () => {
+    const order = giftOrder;
+    setGiftOrder(null);
+    if (order?.created) await releaseUnusedAllocation(supabase, order.campaignInfluencer.id);
+    fetchMonthlyGiftRows(influencers.map((inf) => inf.id));
+  };
+
   const handleDeletePaidCollab = async (dealId: string) => {
     if (!confirm("Are you sure you want to delete this paid collab?")) return;
 
@@ -860,6 +910,7 @@ function HomePageContent() {
                         <ArrowUpDown className="h-4 w-4" />
                       </button>
                     </TableHead>
+                    <TableHead className="w-[90px]" title="One-off gift, added to this month's Monthly Gifting campaign">Gift</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -911,6 +962,46 @@ function HomePageContent() {
                       </TableCell>
                       <TableCell className="text-gray-600">
                         {formatDate(influencer.last_contacted_at)}
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        {(() => {
+                          const giftRow = monthlyGiftRows.get(influencer.id);
+                          const selections = (giftRow?.product_selections as any[] | null) || [];
+                          if (loadingGiftFor === influencer.id) {
+                            return <Loader2 className="h-4 w-4 animate-spin text-gray-400" />;
+                          }
+                          if (giftRow?.shopify_order_id) {
+                            return (
+                              <button
+                                className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900"
+                                onClick={() => handleOpenGiftOrder(influencer)}
+                              >
+                                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${orderDots[giftRow.shopify_order_status || "draft"]}`}></span>
+                                {orderStatusLabels[giftRow.shopify_order_status || "draft"]}
+                              </button>
+                            );
+                          }
+                          if (selections.length > 0) {
+                            return (
+                              <button
+                                className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900"
+                                onClick={() => handleOpenGiftOrder(influencer)}
+                              >
+                                <span className="w-2 h-2 rounded-full flex-shrink-0 bg-purple-400"></span>
+                                {selections.length} items
+                              </button>
+                            );
+                          }
+                          return (
+                            <button
+                              className="text-xs text-gray-400 hover:text-gray-600"
+                              title="Gift products (adds to this month's Monthly Gifting campaign)"
+                              onClick={() => handleOpenGiftOrder(influencer)}
+                            >
+                              <ShoppingCart className="h-4 w-4" />
+                            </button>
+                          );
+                        })()}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1372,6 +1463,16 @@ function HomePageContent() {
           onSave={handleOrderSave}
           influencer={selectedOrderCollab.influencer}
           campaignInfluencer={selectedOrderCollab.campaign_influencer as any}
+        />
+      )}
+
+      {giftOrder && (
+        <OrderDialog
+          open
+          onClose={handleCloseGiftOrder}
+          onSave={() => fetchMonthlyGiftRows(influencers.map((inf) => inf.id))}
+          influencer={giftOrder.influencer}
+          campaignInfluencer={giftOrder.campaignInfluencer}
         />
       )}
     </div>
