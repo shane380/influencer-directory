@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { renderCropped } from "@/lib/video-overlay-render";
 
 interface Props {
   file: File;
@@ -19,6 +20,8 @@ const MIN_SRC_SHORT = 600;
 /** Export ceilings. Meta's own guidance tops out well below these. */
 const MAX_SHORT = 2048;
 const MAX_LONG = 2560;
+/** Videos are re-encoded frame by frame, so stop at Meta's ideal size. */
+const MAX_VIDEO_SHORT = IDEAL_SHORT;
 
 type Corner = "nw" | "ne" | "sw" | "se";
 /** Crop rect in display pixels; height is derived from `w` and the aspect. */
@@ -36,13 +39,26 @@ export function ratioLabel(aspect: number): string {
 
 /**
  * Interactive fixed-ratio crop: drag the frame to reposition it, drag a
- * corner (or the zoom slider) to tighten the framing.
+ * corner (or the zoom slider) to tighten the framing. Works on images and
+ * videos; videos are re-encoded in the browser.
  */
 export function CropDialog({ file, aspect, onCancel, onCropped }: Props) {
+  const isVideo = file.type.startsWith("video/");
   const [src, setSrc] = useState<string | null>(null);
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
   const [crop, setCrop] = useState<Crop>({ x: 0, y: 0, w: 0 });
   const [exporting, setExporting] = useState(false);
+  /** Video render progress, 0–1. */
+  const [progress, setProgress] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  /** Cleared on unmount so a render finishing after Cancel is dropped. */
+  const liveRef = useRef(true);
+  useEffect(() => {
+    liveRef.current = true;
+    return () => {
+      liveRef.current = false;
+    };
+  }, []);
   const imgRef = useRef<HTMLImageElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
@@ -182,10 +198,12 @@ export function CropDialog({ file, aspect, onCancel, onCropped }: Props) {
       const srcH = srcW / aspect;
       const short = Math.min(srcW, srcH);
       const long = Math.max(srcW, srcH);
-      const factor = Math.min(1, MAX_SHORT / short, MAX_LONG / long);
-      return { w: Math.round(srcW * factor), h: Math.round(srcH * factor), srcW, srcH };
+      const factor = Math.min(1, (isVideo ? MAX_VIDEO_SHORT : MAX_SHORT) / short, MAX_LONG / long);
+      // H.264 needs even dimensions.
+      const round = (n: number) => (isVideo ? Math.round(n / 2) * 2 : Math.round(n));
+      return { w: round(srcW * factor), h: round(srcH * factor), srcW, srcH };
     },
-    [scale, aspect]
+    [scale, aspect, isVideo]
   );
 
   const out = exportSize(crop.w);
@@ -194,7 +212,37 @@ export function CropDialog({ file, aspect, onCancel, onCropped }: Props) {
   const capped = out.w < Math.round(out.srcW);
 
   const confirm = useCallback(async () => {
-    if (!natural || !imgRef.current || exporting) return;
+    if (!natural || exporting) return;
+    if (isVideo) {
+      setExporting(true);
+      setError(null);
+      setProgress(0);
+      try {
+        const { w: outW, h: outH } = exportSize(crop.w);
+        const blob = await renderCropped(
+          file,
+          {
+            left: crop.x * scale,
+            top: crop.y * scale,
+            width: crop.w * scale,
+            height: cropH(crop.w) * scale,
+          },
+          outW,
+          outH,
+          (p) => liveRef.current && setProgress(p)
+        );
+        if (!liveRef.current) return;
+        const tag = ratioLabel(aspect).replace(":", "x");
+        const name = `${file.name.replace(/\.[^.]+$/, "")}-${tag}.mp4`;
+        onCropped(new File([blob], name, { type: "video/mp4" }));
+      } catch (err) {
+        if (!liveRef.current) return;
+        setError(err instanceof Error ? err.message : "Could not crop this video");
+        setExporting(false);
+      }
+      return;
+    }
+    if (!imgRef.current) return;
     setExporting(true);
     try {
       const { w: outW, h: outH } = exportSize(crop.w);
@@ -231,7 +279,18 @@ export function CropDialog({ file, aspect, onCancel, onCropped }: Props) {
     } catch {
       setExporting(false);
     }
-  }, [natural, crop, scale, aspect, cropH, exportSize, file, onCropped, exporting]);
+  }, [natural, crop, scale, aspect, cropH, exportSize, file, onCropped, exporting, isVideo]);
+
+  /** Fit the source into the view and start with the widest centred crop. */
+  const initSize = (nw: number, nh: number) => {
+    if (!nw || !nh) return;
+    setNatural({ w: nw, h: nh });
+    const wide = nw >= nh;
+    const w = wide ? VIEW : Math.round((nw / nh) * VIEW);
+    const h = wide ? Math.round((nh / nw) * VIEW) : VIEW;
+    const cw = Math.min(w, h * aspect);
+    setCrop({ w: cw, x: (w - cw) / 2, y: (h - cw / aspect) / 2 });
+  };
 
   const handleCls =
     "absolute w-3.5 h-3.5 bg-white border border-gray-400 rounded-[2px] shadow-sm";
@@ -252,22 +311,28 @@ export function CropDialog({ file, aspect, onCancel, onCropped }: Props) {
           className="relative mx-auto overflow-hidden rounded-lg bg-gray-100 select-none touch-none"
           style={{ width: dispW, height: dispH }}
         >
-          {src && (
+          {src && isVideo && (
+            <video
+              src={src}
+              muted
+              loop
+              autoPlay
+              playsInline
+              onLoadedMetadata={(e) =>
+                initSize(e.currentTarget.videoWidth, e.currentTarget.videoHeight)
+              }
+              style={{ width: dispW, height: dispH }}
+              className="block"
+            />
+          )}
+          {src && !isVideo && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               ref={imgRef}
               src={src}
               alt="Crop source"
               draggable={false}
-              onLoad={(e) => {
-                const el = e.currentTarget;
-                setNatural({ w: el.naturalWidth, h: el.naturalHeight });
-                const wide = el.naturalWidth >= el.naturalHeight;
-                const w = wide ? VIEW : Math.round((el.naturalWidth / el.naturalHeight) * VIEW);
-                const h = wide ? Math.round((el.naturalHeight / el.naturalWidth) * VIEW) : VIEW;
-                const cw = Math.min(w, h * aspect);
-                setCrop({ w: cw, x: (w - cw) / 2, y: (h - cw / aspect) / 2 });
-              }}
+              onLoad={(e) => initSize(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)}
               style={{ width: dispW, height: dispH }}
               className="block"
             />
@@ -335,12 +400,14 @@ export function CropDialog({ file, aspect, onCancel, onCropped }: Props) {
         {soft && (
           <p className="text-[11px] text-amber-700 mt-1">
             {srcShort < MIN_SRC_SHORT
-              ? `Only ${srcShort}px on the short edge — under Meta's ${MIN_SRC_SHORT}px minimum, so this image may be rejected.`
+              ? `Only ${srcShort}px on the short edge — under Meta's ${MIN_SRC_SHORT}px minimum, so this ${isVideo ? "video" : "image"} may be rejected.`
               : crop.w >= maxW - 1
-                ? `This image gives ${srcShort}px on the short edge, under Meta's ${IDEAL_SHORT}px ideal, so the ad may look slightly soft.`
+                ? `This ${isVideo ? "video" : "image"} gives ${srcShort}px on the short edge, under Meta's ${IDEAL_SHORT}px ideal, so the ad may look slightly soft.`
                 : `This crop is ${srcShort}px on the short edge — below Meta's ${IDEAL_SHORT}px ideal, so the ad may look slightly soft. Zoom out a little for a sharper export.`}
           </p>
         )}
+
+        {error && <p className="text-[11px] text-red-600 mt-1">{error}</p>}
 
         <div className="flex justify-end gap-2 mt-4">
           <button
@@ -349,13 +416,22 @@ export function CropDialog({ file, aspect, onCancel, onCropped }: Props) {
           >
             Cancel
           </button>
+          {isVideo && (
+            <button
+              onClick={() => onCropped(file)}
+              disabled={exporting}
+              className="border border-gray-300 rounded-md px-4 py-1.5 text-[13px] text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Use uncropped
+            </button>
+          )}
           <button
             onClick={confirm}
             disabled={!natural || exporting}
             className="bg-gray-900 text-white rounded-md px-4 py-1.5 text-[13px] font-semibold hover:bg-gray-800 disabled:opacity-50 flex items-center gap-1.5"
           >
             {exporting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            Crop &amp; use
+            {exporting && isVideo ? `Cropping ${Math.round(progress * 100)}%` : <>Crop &amp; use</>}
           </button>
         </div>
       </div>
