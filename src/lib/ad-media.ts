@@ -16,11 +16,29 @@ export const FEED_ASPECT = 1;
 export const VERTICAL_ASPECT = 9 / 16;
 
 /**
- * True when an image already matches the target aspect closely enough to skip
+ * True when an image or video already matches the target aspect closely enough to skip
  * cropping. Allows 2% for rounding — a match uploads the original bytes
  * untouched rather than re-encoding it through a canvas.
  */
 export async function matchesAspect(file: File, aspect: number): Promise<boolean> {
+  if (file.type.startsWith("video/")) {
+    return new Promise((resolve) => {
+      const v = document.createElement("video");
+      const url = URL.createObjectURL(file);
+      v.preload = "metadata";
+      v.muted = true;
+      v.onloadedmetadata = () => {
+        URL.revokeObjectURL(url);
+        if (!v.videoWidth || !v.videoHeight) return resolve(true);
+        resolve(Math.abs(v.videoWidth / v.videoHeight / aspect - 1) <= 0.02);
+      };
+      v.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(true);
+      };
+      v.src = url;
+    });
+  }
   return new Promise((resolve) => {
     const img = new Image();
     const url = URL.createObjectURL(file);

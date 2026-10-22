@@ -769,7 +769,12 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
 
       // Images that don't already match the slot's ratio go through the
       // interactive crop first — 1:1 for feed, 9:16 for stories & reels.
-      if (kind === "image" && (role === "feed" || role === "vertical")) {
+      // Videos too, for the feed slot only: that's where a story-shaped clip
+      // needs reframing, and the dialog offers to keep it uncropped.
+      if (
+        (kind === "image" && (role === "feed" || role === "vertical")) ||
+        (kind === "video" && role === "feed" && canBurnInText())
+      ) {
         const aspect = role === "feed" ? FEED_ASPECT : VERTICAL_ASPECT;
         if (!(await matchesAspect(file, aspect))) {
           setCropQueue((q) => [...q, { localId, file, aspect, target: role }]);
@@ -1441,8 +1446,9 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
           onCropped={(cropped) => {
             const { localId: id, target } = cropRequest;
             setCropQueue((q) => q.slice(1));
-            if (target === "card") addCardUpload(id, "image", cropped);
-            else beginUpload(id, target, "image", cropped);
+            const kind = cropped.type.startsWith("video/") ? "video" : "image";
+            if (target === "card") addCardUpload(id, kind, cropped);
+            else beginUpload(id, target, kind, cropped);
           }}
         />
       )}

@@ -269,3 +269,65 @@ async function renderClips(
   audioSource?.close();
   await output.finalize();
 }
+
+/**
+ * Crops `source` to `rect` (display pixels of the source) and returns an MP4
+ * blob at `outW`×`outH`. Same encoder settings as the text burn-in, so the
+ * crop doesn't visibly cost quality. `onProgress` receives 0–1.
+ */
+export async function renderCropped(
+  source: Blob,
+  rect: { left: number; top: number; width: number; height: number },
+  outW: number,
+  outH: number,
+  onProgress?: (p: number) => void
+): Promise<Blob> {
+  const { ALL_FORMATS, BlobSource, BufferTarget, Conversion, Input, Mp4OutputFormat, Output, Quality } =
+    await import("mediabunny");
+
+  const input = new Input({ source: new BlobSource(source), formats: ALL_FORMATS });
+  const track = await input.getPrimaryVideoTrack();
+  if (!track) throw new Error("No video track found");
+  const stats = await track.computePacketStats(100).catch(() => null);
+  const fps = stats?.averagePacketRate && stats.averagePacketRate > 0 ? stats.averagePacketRate : 30;
+  const bitrate = Math.round(
+    Math.min(40_000_000, Math.max(8_000_000, outW * outH * fps * BITS_PER_PIXEL_FRAME))
+  );
+
+  const output = new Output({
+    format: new Mp4OutputFormat({ fastStart: "in-memory" }),
+    target: new BufferTarget(),
+  });
+  const conversion = await Conversion.init({
+    input,
+    output,
+    tracks: "primary",
+    video: {
+      codec: "avc",
+      quality: new Quality({ quantizer: QUANTIZER, bitrate }),
+      allowTransformationMetadata: false,
+      forceTranscode: true,
+      crop: {
+        left: Math.round(rect.left),
+        top: Math.round(rect.top),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+      },
+      width: outW,
+      height: outH,
+      fit: "fill",
+    },
+    audio: {},
+    showWarnings: false,
+  });
+  if (!conversion.isValid) {
+    const reason = conversion.discardedTracks.map((d) => d.reason).join(", ");
+    throw new Error(`This browser can't re-encode this video${reason ? ` (${reason})` : ""}`);
+  }
+  if (onProgress) conversion.onProgress = (p) => onProgress(p);
+  await conversion.execute();
+
+  const buffer = (output.target as InstanceType<typeof BufferTarget>).buffer;
+  if (!buffer) throw new Error("Render produced no output");
+  return new Blob([buffer], { type: "video/mp4" });
+}
