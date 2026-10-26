@@ -5,9 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Campaign } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { ChevronUp, Check, X, Loader2, AlertTriangle } from "lucide-react";
-
-/** Creators gift-invited in another campaign within this window trigger a warning. */
-const RECENT_GIFT_DAYS = 30;
+import { RECENT_GIFT_DAYS } from "@/lib/gift";
 
 interface BulkActionBarProps {
   selectedCount: number;

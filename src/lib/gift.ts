@@ -34,6 +34,26 @@ export function giftDmSnippet(firstName: string, campaignName: string, url: stri
 
 export type GiftStage = "not_invited" | "invited" | "opened" | "submitted" | "ordered";
 
+// A creator gift-invited in another campaign within this many days is flagged
+// on the roster and in the bulk "Add to campaign" warning.
+export const RECENT_GIFT_DAYS = 30;
+
+// A view logged within 30 seconds of the invite is the sender loading the page
+// (copying the link, an email scanner), not the creator. Only later views count
+// as the creator opening it.
+export const GENUINE_OPEN_DELAY_MS = 30_000;
+
+export function isGenuineOpen(
+  ci: Pick<CampaignInfluencer, "gift_invited_at" | "gift_viewed_at">,
+): boolean {
+  if (!ci.gift_viewed_at) return false;
+  if (!ci.gift_invited_at) return true;
+  return (
+    new Date(ci.gift_viewed_at).getTime() - new Date(ci.gift_invited_at).getTime() >=
+    GENUINE_OPEN_DELAY_MS
+  );
+}
+
 export function giftStage(
   ci: Pick<
     CampaignInfluencer,
@@ -42,7 +62,7 @@ export function giftStage(
 ): GiftStage {
   if (ci.shopify_order_id) return "ordered";
   if (ci.gift_submitted_at) return "submitted";
-  if (ci.gift_viewed_at) return "opened";
+  if (isGenuineOpen(ci)) return "opened";
   if (ci.gift_token || ci.gift_invited_at) return "invited";
   return "not_invited";
 }

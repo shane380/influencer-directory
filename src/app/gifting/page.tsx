@@ -9,6 +9,7 @@ import { KpiCard } from "@/components/partnerships/kpi-card";
 import { RangePicker, type RangeOption } from "@/components/partnerships/range-picker";
 import { InfluencerDialog } from "@/components/influencer-dialog";
 import { OrderDialog } from "@/components/order-dialog";
+import { CampaignStatsTable } from "@/components/gifting/campaign-stats-table";
 import type { Influencer, CampaignInfluencer, Campaign } from "@/types/database";
 import { Search, X, Plus, Check, ShoppingCart, ChevronDown } from "lucide-react";
 import {
@@ -496,6 +497,9 @@ export default function GiftingDashboardPage() {
               )}
             </div>
           </div>
+
+          {/* Per-campaign funnel */}
+          <CampaignStatsTable />
 
           {/* Top taggers — last 90 days */}
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-4">
