@@ -31,6 +31,16 @@ function shortDate(iso: string | null | undefined): string {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+function shortDateTime(iso: string | null | undefined): string {
+  if (!iso) return "";
+  return new Date(iso).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export function GiftRowActions({
   campaign,
   ci,
@@ -161,7 +171,7 @@ export function GiftRowActions({
       <span className={`inline-flex items-center text-[12px] px-1.5 py-1 rounded ${stageStyles[stage]}`}>
         {stage === "not_invited" ? "—" : stageLabels[stage]}
         {stage === "invited" && ci.gift_invited_at ? ` · ${shortDate(ci.gift_invited_at)}` : ""}
-        {stage === "opened" && ci.gift_viewed_at ? ` · ${shortDate(ci.gift_viewed_at)}` : ""}
+        {stage === "opened" && ci.gift_viewed_at ? ` · ${shortDateTime(ci.gift_viewed_at)}` : ""}
       </span>
     );
 
