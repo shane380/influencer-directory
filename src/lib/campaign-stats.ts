@@ -51,7 +51,9 @@ export function summarizeCampaign(rows: Row[]): CampaignSummary {
     creators: pool.length,
     contacted,
     invited: pool.filter((r) => !!r.gift_invited_at).length,
-    opened: pool.filter(isGenuineOpen).length,
+    // A submission proves the page was opened even when the recorded view is
+    // the sender's own load (see the view route), so count both.
+    opened: pool.filter((r) => submitted(r) || isGenuineOpen(r)).length,
     selects: pool.filter(submitted).length,
     orders: pool.filter(
       (r) => submitted(r) || (r.shopify_order_status && ORDER_STATUSES.includes(r.shopify_order_status)),

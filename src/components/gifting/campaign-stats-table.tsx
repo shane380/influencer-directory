@@ -30,7 +30,7 @@ function Cell({ value, of }: { value: number; of: number }) {
 }
 
 // One funnel row per campaign. Definitions match the stats panel on each
-// campaign page; "opened" only counts views at least 30s after the invite.
+// campaign page; "opened" = submitted, or a view at least 30s after the invite.
 export function CampaignStatsTable() {
   const [scope, setScope] = useState<Scope>("open");
   const [rows, setRows] = useState<CampaignStatsRow[] | null>(null);
@@ -97,7 +97,7 @@ export function CampaignStatsTable() {
                 <th className="px-3 py-2 text-right font-medium">Creators</th>
                 <th className="px-3 py-2 text-right font-medium">Contacted</th>
                 <th className="px-3 py-2 text-right font-medium">Invited</th>
-                <th className="px-3 py-2 text-right font-medium" title="Views at least 30s after the invite">
+                <th className="px-3 py-2 text-right font-medium" title="Submitted selects, or a view at least 30s after the invite">
                   Opened
                 </th>
                 <th className="px-3 py-2 text-right font-medium">Selects</th>
