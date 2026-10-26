@@ -4,7 +4,10 @@ import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Campaign } from "@/types/database";
 import { Button } from "@/components/ui/button";
-import { ChevronUp, Check, X, Loader2 } from "lucide-react";
+import { ChevronUp, Check, X, Loader2, AlertTriangle } from "lucide-react";
+
+/** Creators gift-invited in another campaign within this window trigger a warning. */
+const RECENT_GIFT_DAYS = 30;
 
 interface BulkActionBarProps {
   selectedCount: number;
@@ -14,7 +17,21 @@ interface BulkActionBarProps {
   onCancel: () => void;
 }
 
-type BarState = "idle" | "loading" | "success" | "error";
+type BarState = "idle" | "loading" | "confirm" | "success" | "error";
+
+interface RecentGift {
+  influencerId: string;
+  campaignName: string;
+  invitedAt: string;
+}
+
+interface PendingAdd {
+  target: Campaign;
+  toAdd: string[];
+  skipped: number; // already in the target campaign
+  skippedRecent?: number; // left out by the user because of a recent gift
+  recent: RecentGift[];
+}
 
 export function BulkActionBar({
   selectedCount,
@@ -27,6 +44,7 @@ export function BulkActionBar({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [barState, setBarState] = useState<BarState>("idle");
   const [message, setMessage] = useState("");
+  const [pending, setPending] = useState<PendingAdd | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
@@ -73,7 +91,7 @@ export function BulkActionBar({
   const handleAddToCampaign = async (targetCampaign: Campaign) => {
     setDropdownOpen(false);
     setBarState("loading");
-    setMessage(`Adding to ${targetCampaign.name}...`);
+    setMessage(`Checking ${targetCampaign.name}...`);
 
     try {
       // Check which influencers already exist in the target campaign
@@ -90,6 +108,53 @@ export function BulkActionBar({
       if (toAdd.length === 0) {
         setBarState("success");
         setMessage(`All ${skipped} influencer${skipped !== 1 ? "s" : ""} already in campaign`);
+        return;
+      }
+
+      // Warn if any of these creators were gift-invited in another campaign recently
+      const since = new Date(Date.now() - RECENT_GIFT_DAYS * 86400000).toISOString();
+      const { data: recentRows } = await (supabase
+        .from("campaign_influencers") as any)
+        .select("influencer_id, gift_invited_at, campaign:campaigns(name)")
+        .in("influencer_id", toAdd)
+        .neq("campaign_id", targetCampaign.id)
+        .gte("gift_invited_at", since);
+
+      const seen = new Set<string>();
+      const recent: RecentGift[] = [];
+      for (const row of recentRows || []) {
+        if (seen.has(row.influencer_id)) continue;
+        seen.add(row.influencer_id);
+        recent.push({
+          influencerId: row.influencer_id,
+          campaignName: row.campaign?.name?.trim() || "another campaign",
+          invitedAt: row.gift_invited_at,
+        });
+      }
+
+      const next: PendingAdd = { target: targetCampaign, toAdd, skipped, recent };
+      if (recent.length > 0) {
+        setPending(next);
+        setBarState("confirm");
+        return;
+      }
+
+      await insertRows(next);
+    } catch (err) {
+      setBarState("error");
+      setMessage("An unexpected error occurred");
+    }
+  };
+
+  const insertRows = async ({ target, toAdd, skipped, skippedRecent = 0 }: PendingAdd) => {
+    setPending(null);
+    setBarState("loading");
+    setMessage(`Adding to ${target.name}...`);
+
+    try {
+      if (toAdd.length === 0) {
+        setBarState("success");
+        setMessage("Nothing to add");
         return;
       }
 
@@ -112,7 +177,7 @@ export function BulkActionBar({
 
       // Build insert rows
       const rows = toAdd.map((influencerId) => ({
-        campaign_id: targetCampaign.id,
+        campaign_id: target.id,
         influencer_id: influencerId,
         partnership_type: typeMap.get(influencerId) || "unassigned",
       }));
@@ -134,10 +199,14 @@ export function BulkActionBar({
       }
 
       setBarState("success");
-      if (skipped > 0) {
-        setMessage(`Added ${toAdd.length} of ${selectedInfluencerIds.length} (${skipped} already in campaign)`);
+      const reasons = [
+        skipped > 0 ? `${skipped} already in campaign` : null,
+        skippedRecent > 0 ? `${skippedRecent} skipped for recent gift` : null,
+      ].filter(Boolean);
+      if (reasons.length > 0) {
+        setMessage(`Added ${toAdd.length} of ${selectedInfluencerIds.length} (${reasons.join(", ")})`);
       } else {
-        setMessage(`Added ${toAdd.length} influencer${toAdd.length !== 1 ? "s" : ""} to ${targetCampaign.name}`);
+        setMessage(`Added ${toAdd.length} influencer${toAdd.length !== 1 ? "s" : ""} to ${target.name}`);
       }
     } catch (err) {
       setBarState("error");
@@ -145,9 +214,20 @@ export function BulkActionBar({
     }
   };
 
+  // Summary line for the warning, e.g. "The Study (131), Monthly Gifting (4)"
+  const recentSummary = (recent: RecentGift[]) => {
+    const counts = new Map<string, number>();
+    for (const r of recent) counts.set(r.campaignName, (counts.get(r.campaignName) || 0) + 1);
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, n]) => `${name} (${n})`)
+      .join(", ");
+  };
+
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-slide-up">
-      <div className="bg-gray-900 text-white rounded-lg shadow-lg px-6 py-3 flex items-center gap-4">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100vw-2rem)]">
+      {/* Animation lives on the inner element: its `forwards` fill would otherwise override the centering transform above. */}
+      <div className="animate-slide-up bg-gray-900 text-white rounded-lg shadow-lg px-6 py-3 flex items-center gap-4">
         {barState === "idle" && (
           <>
             <span className="text-sm font-medium">
@@ -197,6 +277,56 @@ export function BulkActionBar({
           <div className="flex items-center gap-2 text-sm">
             <Loader2 className="h-4 w-4 animate-spin" />
             {message}
+          </div>
+        )}
+
+        {barState === "confirm" && pending && (
+          <div className="flex items-center gap-4 text-sm max-w-3xl">
+            <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0" />
+            <div className="min-w-0">
+              <div className="font-medium">
+                {pending.recent.length} of {pending.toAdd.length} were gift-invited in the last{" "}
+                {RECENT_GIFT_DAYS} days
+              </div>
+              <div className="text-gray-400 text-xs truncate" title={recentSummary(pending.recent)}>
+                {recentSummary(pending.recent)}. They may receive back-to-back gift offers.
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                size="sm"
+                variant="secondary"
+                className="text-sm"
+                onClick={() => {
+                  const recentIds = new Set(pending.recent.map((r) => r.influencerId));
+                  insertRows({
+                    ...pending,
+                    toAdd: pending.toAdd.filter((id) => !recentIds.has(id)),
+                    skippedRecent: pending.recent.length,
+                  });
+                }}
+              >
+                Skip those {pending.recent.length}
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="text-sm bg-amber-500 hover:bg-amber-400 text-gray-900"
+                onClick={() => insertRows(pending)}
+              >
+                Add all {pending.toAdd.length} anyway
+              </Button>
+              <button
+                onClick={() => {
+                  setPending(null);
+                  setBarState("idle");
+                }}
+                className="text-gray-400 hover:text-white transition-colors"
+                title="Cancel"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         )}
 
