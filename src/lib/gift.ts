@@ -34,6 +34,10 @@ export function giftDmSnippet(firstName: string, campaignName: string, url: stri
 
 export type GiftStage = "not_invited" | "invited" | "opened" | "submitted" | "ordered";
 
+// A creator gift-invited in another campaign within this many days is flagged
+// on the roster and in the bulk "Add to campaign" warning.
+export const RECENT_GIFT_DAYS = 30;
+
 // A view logged within 30 seconds of the invite is the sender loading the page
 // (copying the link, an email scanner), not the creator. Only later views count
 // as the creator opening it.
