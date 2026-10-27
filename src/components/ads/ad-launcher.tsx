@@ -46,6 +46,7 @@ import {
   ExternalLink,
   Instagram,
   Loader2,
+  Pause,
   Plus,
   RefreshCw,
   Trash2,
@@ -103,7 +104,7 @@ const slotTextFields = (a: any): Partial<SlotState> => {
 /** Sentinel value for the "+ New ad set…" entry in the ad set select. */
 const NEW_ADSET_OPTION = "__new_adset__";
 
-type AdPhase = "idle" | "working" | "done" | "error";
+type AdPhase = "idle" | "queued" | "working" | "done" | "error";
 /** "post" promotes an existing organic IG post instead of uploaded media. */
 type AdFormat = "single" | "carousel" | "post";
 
@@ -178,6 +179,39 @@ function newAd(defaults?: LauncherDefaults | null): AdState {
     metaAdId: null,
   };
 }
+
+/**
+ * Split `n` ads into groups of about `size`. The group count is n / size
+ * rounded (halves round down), then the ads are spread evenly, so a small
+ * leftover joins the other groups instead of getting an ad set of its own:
+ * splitPlan(9, 4) → [4, 5]; splitPlan(10, 4) → [5, 5]; splitPlan(11, 4) → [3, 4, 4].
+ */
+function splitPlan(n: number, size: number): number[] {
+  if (n <= 0) return [];
+  if (size <= 0) return [n];
+  const groups = Math.max(1, Math.ceil(n / size - 0.5));
+  const base = Math.floor(n / groups);
+  const extra = n - base * groups;
+  return Array.from({ length: groups }, (_, g) => base + (g >= groups - extra ? 1 : 0));
+}
+
+/** Which group of `sizes` the item at `index` falls in. */
+function groupOfIndex(sizes: number[], index: number): number {
+  let end = 0;
+  for (let g = 0; g < sizes.length; g++) {
+    end += sizes[g];
+    if (index < end) return g;
+  }
+  return Math.max(0, sizes.length - 1);
+}
+
+const PUBLISH_GAPS: [number, string][] = [
+  [0, "Back to back"],
+  [30, "30 s apart"],
+  [60, "1 min apart"],
+  [120, "2 min apart"],
+  [300, "5 min apart"],
+];
 
 /** Rebuild a SlotState around media already sitting in R2 — nothing re-uploads. */
 function slotFromUrl(
@@ -318,6 +352,10 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
   const [splitSize, setSplitSize] = useState(0);
   /** Name stem for the split ad sets; "" = derived from the selected ad set. */
   const [splitBaseName, setSplitBaseName] = useState("");
+  // Seconds between ads on publish. A big batch back to back trips Meta's
+  // per-account API-call limit (each video is uploaded, polled, then built).
+  const [publishGap, setPublishGap] = useState(60);
+  const stopPublishRef = useRef(false);
   /** Ad sets already created for a group this session, so a retry reuses them. */
   const groupAdsetsRef = useRef<Map<string, AdsetSummary>>(new Map());
   const [textEdit, setTextEdit] = useState<{ localId: string; role: "feed" | "vertical" } | null>(
@@ -1096,9 +1134,13 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
     }
     return max + 1;
   }, [campaign, splitStem]);
-  const splitGroupCount = splitting ? Math.ceil(ads.length / splitSize) : 0;
+  const splitSizes = useMemo(
+    () => splitPlan(ads.length, splitting ? splitSize : 0),
+    [ads.length, splitSize, splitting]
+  );
+  const splitGroupCount = splitting ? splitSizes.length : 0;
   const splitGroupOf = (localId: string) =>
-    Math.floor(ads.findIndex((a) => a.localId === localId) / splitSize);
+    groupOfIndex(splitSizes, ads.findIndex((a) => a.localId === localId));
   /** The ad set an ad went into, or will go into on publish. */
   const splitTargetName = (localId: string) => {
     const group = splitGroupOf(localId);
@@ -1118,12 +1160,18 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
     if (!campaign || !adset || !defaults?.pageId || publishing) return;
     if (splitting && !splitStem) return;
     setPublishing(true);
+    stopPublishRef.current = false;
+    for (const a of ads) {
+      if (a.phase !== "done" && !validateAd(a)) {
+        updateAd(a.localId, { phase: "queued", phaseMsg: "Queued" });
+      }
+    }
 
     let template: AdsetTemplate | null = null;
     let nextNumber = splitFirstNumber;
     const adsetFor = async (ad: AdState): Promise<AdsetSummary> => {
       if (!splitting) return adset;
-      const group = Math.floor(ads.findIndex((a) => a.localId === ad.localId) / splitSize);
+      const group = groupOfIndex(splitSizes, ads.findIndex((a) => a.localId === ad.localId));
       const key = `${adset.id}|${splitStem}|${splitSize}|${group}`;
       const existing = groupAdsetsRef.current.get(key);
       if (existing) return existing;
@@ -1169,13 +1217,36 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
       return created;
     };
 
+    let started = 0;
     for (const ad of ads) {
       if (ad.phase === "done") continue;
+      if (stopPublishRef.current) {
+        updateAd(ad.localId, { phase: "idle", phaseMsg: "" });
+        continue;
+      }
       const invalid = validateAd(ad);
       if (invalid) {
         updateAd(ad.localId, { phase: "error", phaseMsg: invalid });
         continue;
       }
+
+      // Pace the batch: count down on this ad's row before it goes out.
+      if (publishGap > 0 && started > 0) {
+        const until = Date.now() + publishGap * 1000;
+        while (Date.now() < until && !stopPublishRef.current) {
+          const left = Math.ceil((until - Date.now()) / 1000);
+          updateAd(ad.localId, {
+            phase: "queued",
+            phaseMsg: `Next in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`,
+          });
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+        if (stopPublishRef.current) {
+          updateAd(ad.localId, { phase: "idle", phaseMsg: "" });
+          continue;
+        }
+      }
+      started++;
 
       let target: AdsetSummary;
       try {
@@ -1332,7 +1403,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
     }
 
     setPublishing(false);
-  }, [ads, adset, burnIn, campaign, defaults, isAdmin, publishLive, publishing, splitFirstNumber, splitStem, splitting, splitSize, updateAd, validateAd]);
+  }, [ads, adset, burnIn, campaign, defaults, isAdmin, publishGap, publishLive, publishing, splitFirstNumber, splitSizes, splitStem, splitting, splitSize, updateAd, validateAd]);
 
   const savePreset = useCallback(() => {
     if (!selected) return;
@@ -1662,7 +1733,9 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                               ? "bg-emerald-500"
                               : ad.phase === "working"
                                 ? "bg-blue-500 animate-pulse"
-                                : notReady
+                                : ad.phase === "queued"
+                                  ? "bg-gray-400"
+                                  : notReady
                                   ? "bg-amber-400"
                                   : "bg-gray-300"
                         }`}
@@ -2313,7 +2386,9 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                     : `${readyCount} ad${readyCount === 1 ? "" : "s"} ready`}
                   {adset
                     ? splitting
-                      ? ` → ${splitGroupCount} new ad set${splitGroupCount === 1 ? "" : "s"}`
+                      ? ` → ${splitGroupCount} new ad set${splitGroupCount === 1 ? "" : "s"}${
+                          splitGroupCount > 1 ? ` (${splitSizes.join(" + ")})` : ""
+                        }`
                       : ` → ${adset.name}`
                     : ""}
                 </p>
@@ -2338,6 +2413,13 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                         </>
                       );
                     })()}
+                  {publishing && publishGap > 0 && (
+                    <>
+                      <br />
+                      Ads go out {PUBLISH_GAPS.find(([s]) => s === publishGap)?.[1].toLowerCase()} — keep this
+                      tab open.
+                    </>
+                  )}
                 </p>
               </div>
               <div className="flex items-center gap-3 flex-wrap">
@@ -2391,6 +2473,26 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                     )}
                   </label>
                 )}
+                {!allDone && isAdmin && (
+                  <label
+                    className="flex items-center gap-1.5 text-[12px] text-gray-500"
+                    title="Wait between ads so a big batch doesn't hit Meta's API-call limit. Keep the tab open while it runs."
+                  >
+                    Pace
+                    <select
+                      value={publishGap}
+                      onChange={(e) => setPublishGap(Number(e.target.value))}
+                      disabled={publishing}
+                      className="border border-gray-300 rounded-md px-1.5 py-1 text-[12px] bg-white"
+                    >
+                      {PUBLISH_GAPS.map(([s, label]) => (
+                        <option key={s} value={s}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 {!allDone &&
                   (isAdmin ? (
                     <div className="inline-flex border border-gray-300 rounded-full overflow-hidden text-[12px]">
@@ -2430,6 +2532,18 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                     </button>
                   </>
                 ) : (
+                  <>
+                  {publishing && (
+                    <button
+                      onClick={() => {
+                        stopPublishRef.current = true;
+                      }}
+                      className="text-[12px] text-gray-500 hover:text-gray-800 flex items-center gap-1"
+                      title="Finish the ad that's going out now, leave the rest in the batch"
+                    >
+                      <Pause className="h-3.5 w-3.5" /> Stop after this ad
+                    </button>
+                  )}
                   <button
                     onClick={publishAll}
                     disabled={publishing || !adset || readyCount === 0}
@@ -2440,6 +2554,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                       ? `Publish ${readyCount || ""} ad${readyCount === 1 ? "" : "s"}`
                       : "Submit for approval"}
                   </button>
+                  </>
                 )}
               </div>
             </div>
@@ -2449,6 +2564,11 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                   .filter((a) => a.phase !== "idle")
                   .map((a) => (
                     <li key={a.localId} className="flex items-center gap-2 text-[12.5px]">
+                      {a.phase === "queued" && (
+                        <span className="w-3.5 h-3.5 flex items-center justify-center flex-shrink-0">
+                          <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                        </span>
+                      )}
                       {a.phase === "working" && (
                         <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500 flex-shrink-0" />
                       )}

@@ -711,8 +711,11 @@ async function uploadVideo(fileUrl: string, name: string): Promise<string> {
 }
 
 /** Poll until the video finishes processing; proceeds on timeout. */
-async function waitForVideoReady(videoId: string, timeoutMs = 120_000): Promise<void> {
+async function waitForVideoReady(videoId: string, timeoutMs = 180_000): Promise<void> {
   const start = Date.now();
+  // Every status check is an API call against the ad account's hourly limit,
+  // so give the transcode a head start and poll sparingly.
+  await new Promise((r) => setTimeout(r, 8000));
   while (Date.now() - start < timeoutMs) {
     const data = await graphGet(videoId, { fields: "status" });
     const status = data.status?.video_status;
@@ -720,7 +723,7 @@ async function waitForVideoReady(videoId: string, timeoutMs = 120_000): Promise<
     if (status === "error") {
       throw new MetaApiError("Meta could not process the video file", null);
     }
-    await new Promise((r) => setTimeout(r, 4000));
+    await new Promise((r) => setTimeout(r, 12_000));
   }
   console.warn(`[meta-ads] Video ${videoId} not ready after ${timeoutMs}ms; continuing`);
 }
