@@ -120,6 +120,12 @@ interface CardState {
 interface AdState {
   localId: string;
   adName: string;
+  /**
+   * True while the name is generated from the ad itself
+   * ("@handle // video // file"); typing a name turns it off, clearing the
+   * field turns it back on.
+   */
+  adNameAuto: boolean;
   partnership: boolean;
   sponsorId: string;
   sponsorLabel: string;
@@ -160,10 +166,47 @@ const emptyCopy = (defaults?: LauncherDefaults | null): AdCopy => ({
 let idCounter = 0;
 const nextId = () => `ad-${Date.now()}-${idCounter++}`;
 
+const stripExt = (fileName: string) => fileName.replace(/\.[^.]+$/, "");
+
+/**
+ * The ad's automatic name: "@handle // video // file" — the partner handle
+ * (whitelisting ads only), then the media type (video, image, carousel or
+ * post), then the uploaded file's name. Empty until there is media to name.
+ */
+function autoAdName(ad: AdState): string {
+  let media: string | null = null;
+  let source: string | null = null;
+  if (ad.format === "carousel") {
+    if (ad.cards.length) {
+      media = "carousel";
+      source = stripExt(ad.cards[0].slot.fileName);
+    }
+  } else if (ad.format === "post") {
+    if (ad.igPost) {
+      media = "post";
+      source = (ad.igPost.timestamp || "").slice(0, 10) || null;
+    }
+  } else {
+    const slot = ad.feed || ad.vertical;
+    if (slot) {
+      media = slot.kind;
+      source = stripExt(slot.fileName);
+    }
+  }
+  if (!media) return "";
+  const parts: string[] = [];
+  const handle = ad.partnership && ad.format !== "post" ? ad.sponsorLabel.trim() : "";
+  if (handle) parts.push(handle);
+  parts.push(media);
+  if (source) parts.push(source);
+  return parts.join(" // ");
+}
+
 function newAd(defaults?: LauncherDefaults | null): AdState {
   return {
     localId: nextId(),
     adName: "",
+    adNameAuto: true,
     partnership: false,
     sponsorId: "",
     sponsorLabel: "",
@@ -275,6 +318,7 @@ function adStateFromDraft(draft: AdDraft): AdState {
   return {
     ...newAd(null),
     adName: draft.adName ? `${draft.adName} (copy)` : "",
+    adNameAuto: !draft.adName,
     partnership: !!(draft.partnershipSponsorId || draft.partnershipSponsorLabel),
     sponsorId: draft.partnershipSponsorId || "",
     sponsorLabel: draft.partnershipSponsorLabel || "",
@@ -466,6 +510,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
       const restored: AdState[] = (saved.ads || []).map((a: any) => ({
         ...newAd(null),
         adName: a.adName || "",
+        adNameAuto: typeof a.adNameAuto === "boolean" ? a.adNameAuto : !a.adName,
         partnership: !!a.partnership,
         sponsorId: a.sponsorId || "",
         sponsorLabel: a.sponsorLabel || "",
@@ -544,6 +589,22 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
     if (!selectedId && ads.length) setSelectedId(ads[0].localId);
   }, [ads, selectedId]);
 
+  // Keep auto-named ads in sync with their partner, media and file. Only
+  // unpublished ads: a name Meta already has stays as it is.
+  useEffect(() => {
+    setAds((prev) => {
+      let changed = false;
+      const next = prev.map((a) => {
+        if (!a.adNameAuto || (a.phase !== "idle" && a.phase !== "error")) return a;
+        const name = autoAdName(a);
+        if (name === a.adName) return a;
+        changed = true;
+        return { ...a, adName: name };
+      });
+      return changed ? next : prev;
+    });
+  }, [ads]);
+
   // Autosave everything restorable.
   useEffect(() => {
     if (!restoredRef.current) return;
@@ -557,6 +618,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
           // resurrected "done" ad would arrive as a re-publishable draft.
           ads: ads.filter((a) => a.phase !== "done").map((a) => ({
             adName: a.adName,
+            adNameAuto: a.adNameAuto,
             partnership: a.partnership,
             sponsorId: a.sponsorId,
             sponsorLabel: a.sponsorLabel,
@@ -633,13 +695,6 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
         error: null,
       };
       updateAd(localId, { [role === "feed" ? "feed" : "vertical"]: slot } as Partial<AdState>);
-      setAds((prev) =>
-        prev.map((a) =>
-          a.localId === localId && !a.adName.trim()
-            ? { ...a, adName: file.name.replace(/\.[^.]+$/, "") }
-            : a
-        )
-      );
 
       const setSlot = (patch: Partial<SlotState>) => {
         setAds((prev) =>
@@ -826,7 +881,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
   );
 
   /**
-   * Bulk drop: one single-format ad per file, named after the file. Copy,
+   * Bulk drop: one single-format ad per file (auto-named from it). Copy,
    * link and partnership come from the ad being edited, so set those once
    * and drop the folder. Untouched blank ads are replaced rather than kept.
    */
@@ -841,7 +896,6 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
         file,
         ad: {
           ...newAd(defaults),
-          adName: file.name.replace(/\.[^.]+$/, ""),
           partnership: template?.partnership || false,
           sponsorId: template?.sponsorId || "",
           sponsorLabel: template?.sponsorLabel || "",
@@ -1814,9 +1868,16 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                     </label>
                     <input
                       value={selected.adName}
-                      onChange={(e) => updateAd(selected.localId, { adName: e.target.value })}
-                      placeholder="e.g. linen-drop-hook-v1"
-                      className="border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] font-medium w-60"
+                      onChange={(e) =>
+                        updateAd(selected.localId, {
+                          adName: e.target.value,
+                          // Clearing the field hands naming back to the auto-namer.
+                          adNameAuto: !e.target.value.trim(),
+                        })
+                      }
+                      placeholder="Auto: @handle // video // file"
+                      title="Named automatically from the partner handle, media type and file. Type to override; clear to go back to automatic."
+                      className="border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] font-medium w-72"
                     />
                   </div>
                   <div
@@ -1927,9 +1988,6 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                                   // The post's own caption is the ad text; mirror
                                   // it into copy so the preview matches what ships.
                                   copy: { ...a.copy, primaryText: item.caption || "" },
-                                  adName:
-                                    a.adName.trim() ||
-                                    `ig-post-${(item.timestamp || "").slice(0, 10)}`,
                                 }
                               : a
                           )

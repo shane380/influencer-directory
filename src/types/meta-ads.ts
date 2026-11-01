@@ -253,16 +253,21 @@ export interface PublishResponse {
 /** Copy fields that can be saved as reusable templates (subset of AdCopy keys). */
 export type TemplateFieldType = "primaryText" | "headline" | "description" | "link";
 
+/** A saved piece of copy. It has no name of its own — the content is the template. */
 export interface AdTemplate {
   id: string;
   collectionId: string;
   fieldType: TemplateFieldType;
-  name: string;
   content: string;
 }
 
+/**
+ * A folder in the shared template library. Folders nest via parentId
+ * (null = top level), e.g. "Between Hours" › "Whitelisting".
+ */
 export interface AdTemplateCollection {
   id: string;
   name: string;
+  parentId: string | null;
   templates: AdTemplate[];
 }

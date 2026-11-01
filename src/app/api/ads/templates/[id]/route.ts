@@ -8,12 +8,11 @@ function rowToTemplate(row: any): AdTemplate {
     id: row.id,
     collectionId: row.collection_id,
     fieldType: row.field_type,
-    name: row.name,
     content: row.content,
   };
 }
 
-/** Rename a template or edit its content. */
+/** Edit a template's content or move it to another folder. */
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -30,15 +29,15 @@ export async function PATCH(
   }
 
   const patch: Record<string, string> = {};
-  if (body?.name !== undefined) {
-    const name = typeof body.name === "string" ? body.name.trim() : "";
-    if (!name) return NextResponse.json({ error: "Template name is required" }, { status: 400 });
-    patch.name = name;
-  }
   if (body?.content !== undefined) {
     const content = typeof body.content === "string" ? body.content.trim() : "";
     if (!content) return NextResponse.json({ error: "Content is empty" }, { status: 400 });
     patch.content = content;
+  }
+  if (body?.collectionId !== undefined) {
+    const collectionId = typeof body.collectionId === "string" ? body.collectionId : "";
+    if (!collectionId) return NextResponse.json({ error: "Folder is required" }, { status: 400 });
+    patch.collection_id = collectionId;
   }
   if (!Object.keys(patch).length) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
@@ -49,15 +48,9 @@ export async function PATCH(
   const { data, error } = await (supabase.from("ad_templates") as any)
     .update(patch)
     .eq("id", id)
-    .select("id, collection_id, field_type, name, content")
+    .select("id, collection_id, field_type, content")
     .single();
   if (error) {
-    if (error.code === "23505") {
-      return NextResponse.json(
-        { error: "A template with that name already exists" },
-        { status: 409 }
-      );
-    }
     console.error("[ads/templates] patch failed:", error.message);
     return NextResponse.json({ error: "Could not update the template" }, { status: 500 });
   }
