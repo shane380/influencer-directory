@@ -37,6 +37,7 @@ import { canBurnInText, renderEditedVideo } from "@/lib/video-overlay-render";
 import { formatTime, newClipId, outputDuration } from "@/lib/video-edit";
 import { NewAdsetDialog } from "./new-adset-dialog";
 import { CollectionBar, TemplateActions, useTemplateLibrary } from "./copy-templates";
+import { PartnerPicker } from "./partner-picker";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -1904,26 +1905,16 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                     {selected.partnership && (
                       <>
                         {defaults?.partners.length ? (
-                          <select
+                          <PartnerPicker
+                            partners={defaults.partners}
                             value={selected.sponsorId}
-                            onChange={(e) => {
-                              const partner = defaults.partners.find(
-                                (p) => p.sponsorId === e.target.value
-                              );
+                            onPick={(partner) =>
                               updateAd(selected.localId, {
-                                sponsorId: e.target.value,
+                                sponsorId: partner?.sponsorId || "",
                                 sponsorLabel: partner?.label || "",
-                              });
-                            }}
-                            className="border border-gray-300 rounded-md px-2 py-1.5 text-[12.5px] bg-white"
-                          >
-                            <option value="">Pick partner…</option>
-                            {defaults.partners.map((p) => (
-                              <option key={p.sponsorId} value={p.sponsorId}>
-                                {p.label}
-                              </option>
-                            ))}
-                          </select>
+                              })
+                            }
+                          />
                         ) : null}
                         <input
                           value={selected.sponsorId}
