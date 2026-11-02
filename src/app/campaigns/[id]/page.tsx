@@ -45,6 +45,8 @@ import { GiftSettingsDialog } from "@/components/gift-settings-dialog";
 import { GiftOverrideDialog } from "@/components/gift-override-dialog";
 import { GiftRowActions } from "@/components/gift-row-actions";
 import { generateGiftToken, giftUrl } from "@/lib/gift";
+import { summarizeHistory, type HistoryRow } from "@/lib/creator-history";
+import { CreatorHistoryLine } from "@/components/creator-history-line";
 import {
   Plus,
   Search,
@@ -243,6 +245,9 @@ export default function CampaignDetailPage() {
   // so it never overrides a filter the user has changed manually.
   const approvalDefaultApplied = useRef(false);
   const [ownerFilter, setOwnerFilter] = useState<string>("all");
+  const [historyFilter, setHistoryFilter] = useState<string>("all");
+  // Rows in other campaigns for the creators on this roster, keyed by influencer.
+  const [historyRows, setHistoryRows] = useState<Map<string, HistoryRow[]>>(new Map());
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [selectedApprovalInfluencer, setSelectedApprovalInfluencer] = useState<CampaignInfluencerWithDetails | null>(null);
   const [currentUser, setCurrentUser] = useState<{ displayName: string; email: string; profilePhotoUrl: string | null; isAdmin: boolean; isManager: boolean } | null>(null);
@@ -372,10 +377,61 @@ export default function CampaignDetailPage() {
     fetchCurrentUser();
   }, [fetchCampaign, fetchCampaignInfluencers, fetchProfiles, fetchDeals, fetchCurrentUser]);
 
+  // Other campaigns these creators have been in, for the history line + filter.
+  const rosterInfluencerKey = campaignInfluencers.map((ci) => ci.influencer_id).sort().join(",");
+  useEffect(() => {
+    if (!rosterInfluencerKey) {
+      setHistoryRows(new Map());
+      return;
+    }
+    let cancelled = false;
+    const ids = rosterInfluencerKey.split(",");
+    (async () => {
+      const rows: HistoryRow[] = [];
+      const CHUNK = 150; // keep the `in` filter's URL short
+      const PAGE = 1000; // PostgREST's response cap
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const chunk = ids.slice(i, i + CHUNK);
+        for (let from = 0; ; from += PAGE) {
+          const { data, error } = await (supabase.from("campaign_influencers") as any)
+            .select(
+              "influencer_id, campaign_id, added_at, status, gift_invited_at, gift_viewed_at, gift_submitted_at, shopify_order_id, shopify_order_status, content_posted, campaign:campaigns(name, start_date)",
+            )
+            .in("influencer_id", chunk)
+            .neq("campaign_id", campaignId)
+            .order("id")
+            .range(from, from + PAGE - 1);
+          if (error || !data) break;
+          rows.push(...(data as HistoryRow[]));
+          if (data.length < PAGE) break;
+        }
+      }
+      if (cancelled) return;
+      const map = new Map<string, HistoryRow[]>();
+      for (const r of rows) {
+        const list = map.get(r.influencer_id);
+        if (list) list.push(r);
+        else map.set(r.influencer_id, [r]);
+      }
+      setHistoryRows(map);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, campaignId, rosterInfluencerKey]);
+
+  const historyByInfluencer = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof summarizeHistory>>();
+    for (const ci of campaignInfluencers) {
+      map.set(ci.influencer_id, summarizeHistory(historyRows.get(ci.influencer_id) || [], campaignId, ci.added_at));
+    }
+    return map;
+  }, [campaignInfluencers, historyRows, campaignId]);
+
   // Clear selection when filters change
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [statusFilter, partnershipTypeFilter, contentFilter, approvalFilter, ownerFilter, search]);
+  }, [statusFilter, partnershipTypeFilter, contentFilter, approvalFilter, ownerFilter, historyFilter, search]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -605,6 +661,13 @@ export default function CampaignDetailPage() {
         if (ownerFilter === "unassigned" && ci.influencer.assigned_to) return false;
         if (ownerFilter !== "unassigned" && ci.influencer.assigned_to !== ownerFilter) return false;
       }
+      if (historyFilter !== "all") {
+        const h = historyByInfluencer.get(ci.influencer_id);
+        if (!h) return false;
+        if (historyFilter === "new" && !h.isNew) return false;
+        if (historyFilter === "returning" && h.isNew) return false;
+        if (historyFilter === "recent_gift" && !h.anyRecentGift) return false;
+      }
       // Approval filter
       if (approvalFilter === "pending" && ci.approval_status !== "pending") return false;
       if (approvalFilter === "needs_review" && ci.approval_status !== "pending") return false;
@@ -643,7 +706,7 @@ export default function CampaignDetailPage() {
         return multiplier * (new Date(aDate).getTime() - new Date(bDate).getTime());
       }
       return 0;
-    }), [campaignInfluencers, statusFilter, partnershipTypeFilter, contentFilter, orderStatusFilter, approvalFilter, ownerFilter, search, sortField, sortDirection]);
+    }), [campaignInfluencers, statusFilter, partnershipTypeFilter, contentFilter, orderStatusFilter, approvalFilter, ownerFilter, historyFilter, historyByInfluencer, search, sortField, sortDirection]);
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -790,6 +853,16 @@ export default function CampaignDetailPage() {
               { value: "fulfilled", label: "Fulfilled" },
               { value: "shipped", label: "Shipped" },
               { value: "delivered", label: "Delivered" },
+            ]}
+          />
+          <FilterChip
+            label="History"
+            value={historyFilter === "all" ? null : historyFilter}
+            onChange={(v) => setHistoryFilter(v ?? "all")}
+            options={[
+              { value: "new", label: "New" },
+              { value: "returning", label: "Returning" },
+              { value: "recent_gift", label: "Gifted in last 30 days" },
             ]}
           />
           {/* Approval Filter */}
@@ -959,6 +1032,7 @@ export default function CampaignDetailPage() {
                           >
                             @{ci.influencer.instagram_handle}
                           </a>
+                          <CreatorHistoryLine summary={historyByInfluencer.get(ci.influencer_id)} />
                         </div>
                       </div>
                     </TableCell>
