@@ -217,6 +217,12 @@ export function CampaignStatsPanel({
 
   const contactedCount = approved.filter((ci) => ci.status !== "prospect" || submittedSelects(ci)).length;
 
+  // Selects page funnel — same signals the roster's Selects column uses
+  // (giftStage): a token or invited_at means the page was sent, submitted_at
+  // means they picked their products.
+  const selectsInvitedCount = approved.filter((ci) => !!ci.gift_token || !!ci.gift_invited_at).length;
+  const selectsMadeCount = approved.filter(submittedSelects).length;
+
   const orderStatuses: ShopifyOrderStatus[] = ["draft", "fulfilled", "shipped", "delivered"];
   const ordersPlacedCount = approved.filter(
     (ci) => ci.shopify_order_status && orderStatuses.includes(ci.shopify_order_status)
@@ -284,6 +290,8 @@ export function CampaignStatsPanel({
   // Progress bar percentages
   const contactedPct = approvedCount > 0 ? Math.round((contactedCount / approvedCount) * 100) : 0;
   const approvedPct = contactedCount > 0 ? Math.round((ordersPlacedCount / contactedCount) * 100) : 0;
+  const selectsPct =
+    selectsInvitedCount > 0 ? Math.min(100, Math.round((selectsMadeCount / selectsInvitedCount) * 100)) : 0;
 
   // Orders subline
   const orderParts: string[] = [];
@@ -423,7 +431,7 @@ export function CampaignStatsPanel({
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
                 gap: 1,
                 background: "hsl(var(--color-border-tertiary))",
                 border: "0.5px solid hsl(var(--color-border-tertiary))",
@@ -437,6 +445,10 @@ export function CampaignStatsPanel({
 
               <FunnelCell label="Contacted" value={contactedCount} denominator={approvedCount}>
                 <ProgressBar pct={contactedPct} color="hsl(var(--color-text-danger))" />
+              </FunnelCell>
+
+              <FunnelCell label="Selects made" value={selectsMadeCount} denominator={selectsInvitedCount}>
+                <ProgressBar pct={selectsPct} color="hsl(var(--color-text-primary))" />
               </FunnelCell>
 
               <FunnelCell label="Orders placed" value={ordersPlacedCount} denominator={contactedCount}>
