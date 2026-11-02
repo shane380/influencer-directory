@@ -1227,6 +1227,7 @@ export default function CampaignDetailPage() {
             selectedCount={selectedIds.size}
             selectedInfluencerIds={Array.from(selectedIds)}
             excludeCampaignIds={[campaignId]}
+            sourceCampaign={campaign ? { id: campaign.id, name: campaign.name } : undefined}
             onAddComplete={() => {
               setSelectedIds(new Set());
               fetchCampaignInfluencers();
