@@ -100,9 +100,13 @@ export async function POST(request: NextRequest) {
           destCountryCode = resolveDestCountryForCustomer(custData.customer);
           // The draft ships to the default address, and the 3PL reads the
           // phone from there — fill it from the customer when it's missing.
+          // Copy the country NAME and province code too: the draft-order API
+          // stores an address sent with only country_code as having no
+          // country, and Shopify admin then completes it as Canada/Ontario
+          // (the store's own region) or shows "Afghanistan" in the editor.
           if (address && !address.phone && custData.customer?.phone) {
-            const { first_name, last_name, company, address1, address2, city, province, zip, country_code } = address;
-            billingAddress = { first_name, last_name, company, address1, address2, city, province, zip, country_code };
+            const { first_name, last_name, company, address1, address2, city, province, province_code, zip, country, country_code } = address;
+            billingAddress = { first_name, last_name, company, address1, address2, city, province, province_code, zip, country, country_code };
             shippingAddressWithPhone = { ...billingAddress, phone: custData.customer.phone };
           }
 
