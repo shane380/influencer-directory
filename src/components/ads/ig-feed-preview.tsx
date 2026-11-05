@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 import type { AdCopy } from "@/types/meta-ads";
 import { useEditedPlayback } from "./video-editor/use-edited-playback";
@@ -18,9 +18,15 @@ interface Props {
   edit?: PreviewEdit;
 }
 
+/** Instagram shows feed media between 4:5 (portrait) and 1.91:1 (landscape). */
+const MIN_FEED_RATIO = 4 / 5;
+const MAX_FEED_RATIO = 1.91;
+
 /**
  * Instagram feed mockup at close to iPhone scale (375px content width)
- * rendering the actual uploaded asset.
+ * rendering the actual uploaded asset. The media box takes the asset's own
+ * ratio, clamped to what Instagram's feed shows, so a 4:5 creative previews
+ * taller than a square one.
  */
 export function IgFeedPreview({
   copy,
@@ -37,6 +43,10 @@ export function IgFeedPreview({
   const videoRef = useRef<HTMLVideoElement>(null);
   const { time } = useEditedPlayback(videoRef, edit?.clips, { enabled: !!edit });
   const [muted, setMuted] = useState(true);
+  /** Native width / height of the loaded media; square until known. */
+  const [ratio, setRatio] = useState<number | null>(null);
+  useEffect(() => setRatio(null), [mediaUrl]);
+  const boxRatio = Math.min(MAX_FEED_RATIO, Math.max(MIN_FEED_RATIO, ratio ?? 1));
   const toggleMute = () => {
     const v = videoRef.current;
     if (!v || edit?.muted) return;
@@ -54,10 +64,21 @@ export function IgFeedPreview({
         </div>
         <span className="ml-auto text-gray-400 tracking-widest text-sm">···</span>
       </div>
-      <div className="relative aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
+      <div
+        className="relative bg-gray-100 flex items-center justify-center overflow-hidden"
+        style={{ aspectRatio: String(boxRatio) }}
+      >
         {mediaUrl && mediaKind === "image" && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={mediaUrl} alt="Ad creative" className="w-full h-full object-cover" />
+          <img
+            src={mediaUrl}
+            alt="Ad creative"
+            className="w-full h-full object-cover"
+            onLoad={(e) => {
+              const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+              if (w && h) setRatio(w / h);
+            }}
+          />
         )}
         {mediaUrl && mediaKind === "video" && (
           <>
@@ -70,6 +91,10 @@ export function IgFeedPreview({
               playsInline
               loop={!edit?.clips}
               autoPlay
+              onLoadedMetadata={(e) => {
+                const { videoWidth: w, videoHeight: h } = e.currentTarget;
+                if (w && h) setRatio(w / h);
+              }}
             />
             {edit?.overlay?.(time)}
             <button

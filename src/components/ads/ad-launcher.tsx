@@ -1,11 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { uploadToR2 } from "@/lib/r2-upload";
 import {
   FEED_ASPECT,
+  FEED_ASPECTS,
   VERTICAL_ASPECT,
+  closeToAspect,
+  detectAspect,
   makeVideoThumb,
   matchesAspect,
   sanitizeFileName,
@@ -30,7 +34,7 @@ import { IgFeedPreview } from "./ig-feed-preview";
 import { IgReelsPreview } from "./ig-reels-preview";
 import { IgPostPicker } from "./ig-post-picker";
 import { ReviewQueue } from "./review-queue";
-import { CropDialog } from "./crop-dialog";
+import { CropDialog, ratioLabel } from "./crop-dialog";
 import { TextOverlayLayer, VideoEditor, newOverlayId } from "./video-editor";
 import type { VideoEditorResult } from "./video-editor";
 import { canBurnInText, renderEditedVideo } from "@/lib/video-overlay-render";
@@ -132,6 +136,12 @@ interface AdState {
   sponsorLabel: string;
   format: AdFormat;
   feed: SlotState | null;
+  /**
+   * Feed slot ratio (width / height): 1 for square, 4/5 for portrait. Sets
+   * the crop target for new uploads; snaps to whatever ratio a dropped or
+   * reloaded creative already has.
+   */
+  feedAspect: number;
   vertical: SlotState | null;
   cards: CardState[];
   /** Carousel: let Meta reorder cards (multi_share_optimized) */
@@ -213,6 +223,7 @@ function newAd(defaults?: LauncherDefaults | null): AdState {
     sponsorLabel: "",
     format: "single",
     feed: null,
+    feedAspect: FEED_ASPECT,
     vertical: null,
     cards: [],
     letMetaOrder: false,
@@ -376,6 +387,9 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
   const [campaignId, setCampaignId] = useState("");
   const [adsetId, setAdsetId] = useState("");
   const [ads, setAds] = useState<AdState[]>([]);
+  /** Latest ads for async handlers (file drops) that shouldn't re-bind on every change. */
+  const adsRef = useRef(ads);
+  adsRef.current = ads;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [publishLive, setPublishLive] = useState(true);
   const [publishing, setPublishing] = useState(false);
@@ -386,7 +400,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
     {
       localId: string;
       file: File;
-      /** Target ratio — 1 for feed/cards, 9/16 for the stories & reels slot */
+      /** Target ratio — 1 or 4/5 for feed, 1 for cards, 9/16 for the stories & reels slot */
       aspect: number;
       /** Slot the cropped file goes back into */
       target: "feed" | "vertical" | "card";
@@ -862,23 +876,34 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
       if (!kind) return;
 
       // Images that don't already match the slot's ratio go through the
-      // interactive crop first — 1:1 for feed, 9:16 for stories & reels.
+      // interactive crop first — 1:1 or 4:5 for feed, 9:16 for stories & reels.
       // Videos too, for the feed slot only: that's where a story-shaped clip
       // needs reframing, and the dialog offers to keep it uncropped.
       if (
         (kind === "image" && (role === "feed" || role === "vertical")) ||
         (kind === "video" && role === "feed" && canBurnInText())
       ) {
-        const aspect = role === "feed" ? FEED_ASPECT : VERTICAL_ASPECT;
-        if (!(await matchesAspect(file, aspect))) {
-          setCropQueue((q) => [...q, { localId, file, aspect, target: role }]);
+        if (role === "feed") {
+          // A file that is already square or portrait is taken as-is and the
+          // slot follows its ratio; anything else is cropped to the slot's
+          // current choice (switchable in the dialog).
+          const found = await detectAspect(file, FEED_ASPECTS);
+          if (found === null) {
+            const ad = adsRef.current.find((a) => a.localId === localId);
+            const aspect = ad?.feedAspect ?? FEED_ASPECT;
+            setCropQueue((q) => [...q, { localId, file, aspect, target: role }]);
+            return;
+          }
+          updateAd(localId, { feedAspect: found });
+        } else if (!(await matchesAspect(file, VERTICAL_ASPECT))) {
+          setCropQueue((q) => [...q, { localId, file, aspect: VERTICAL_ASPECT, target: role }]);
           return;
         }
       }
 
       beginUpload(localId, role, kind, file);
     },
-    [beginUpload]
+    [beginUpload, updateAd]
   );
 
   /**
@@ -919,19 +944,23 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
         for (let next = queue.shift(); next; next = queue.shift()) {
           const { file, ad } = next;
           const kind: AssetKind = file.type.startsWith("video/") ? "video" : "image";
-          if (kind === "image" && !(await matchesAspect(file, FEED_ASPECT))) {
-            setCropQueue((q) => [
-              ...q,
-              { localId: ad.localId, file, aspect: FEED_ASPECT, target: "feed" },
-            ]);
-            continue;
+          if (kind === "image") {
+            const found = await detectAspect(file, FEED_ASPECTS);
+            if (found === null) {
+              setCropQueue((q) => [
+                ...q,
+                { localId: ad.localId, file, aspect: ad.feedAspect, target: "feed" },
+              ]);
+              continue;
+            }
+            if (found !== ad.feedAspect) updateAd(ad.localId, { feedAspect: found });
           }
           await beginUpload(ad.localId, "feed", kind, file);
         }
       };
       await Promise.all([worker(), worker(), worker()]);
     },
-    [beginUpload, defaults, selected]
+    [beginUpload, defaults, selected, updateAd]
   );
 
   const addCardUpload = useCallback(async (localId: string, kind: AssetKind, file: File) => {
@@ -1358,7 +1387,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
               thumbnailUrl: slot.thumbUrl,
             };
             if (needsRender(slot)) {
-              const label = role === "feed" ? "1:1" : "9:16";
+              const label = role === "feed" ? ratioLabel(ad.feedAspect) : "9:16";
               updateAd(ad.localId, { phaseMsg: `Rendering ${label} video…` });
               const out = await burnIn(ad.localId, role, slot, (p) =>
                 updateAd(ad.localId, {
@@ -1568,13 +1597,17 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
           key={`${cropRequest.localId}-${cropRequest.target}-${cropRequest.file.name}`}
           file={cropRequest.file}
           aspect={cropRequest.aspect}
+          aspectOptions={cropRequest.target === "feed" ? FEED_ASPECTS : undefined}
           onCancel={() => setCropQueue((q) => q.slice(1))}
-          onCropped={(cropped) => {
+          onCropped={(cropped, usedAspect) => {
             const { localId: id, target } = cropRequest;
             setCropQueue((q) => q.slice(1));
             const kind = cropped.type.startsWith("video/") ? "video" : "image";
             if (target === "card") addCardUpload(id, kind, cropped);
-            else beginUpload(id, target, kind, cropped);
+            else {
+              if (target === "feed") updateAd(id, { feedAspect: usedAspect });
+              beginUpload(id, target, kind, cropped);
+            }
           }}
         />
       )}
@@ -1994,12 +2027,49 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                 ) : selected.format === "single" ? (
                   <div className="flex gap-4 mb-4 flex-wrap">
                     <CreativeSlot
-                      label="Feed · 1:1 (square)"
+                      label={
+                        <span className="inline-flex items-center gap-1.5">
+                          Feed ·
+                          <span
+                            className="inline-flex rounded border border-gray-300 overflow-hidden"
+                            title={
+                              selected.feed
+                                ? "Remove the creative to change its ratio"
+                                : "Ratio for the next upload — 4:5 fills more of the Instagram feed"
+                            }
+                          >
+                            {FEED_ASPECTS.map((opt) => (
+                              <button
+                                key={opt}
+                                type="button"
+                                disabled={!!selected.feed}
+                                onClick={() => updateAd(selected.localId, { feedAspect: opt })}
+                                className={`px-1.5 py-0.5 text-[10.5px] disabled:cursor-default ${
+                                  closeToAspect(selected.feedAspect, opt)
+                                    ? "bg-gray-900 text-white"
+                                    : "bg-white text-gray-500 hover:bg-gray-50 disabled:hover:bg-white"
+                                }`}
+                              >
+                                {ratioLabel(opt)}
+                              </button>
+                            ))}
+                          </span>
+                          {closeToAspect(selected.feedAspect, 1) ? "(square)" : "(portrait)"}
+                        </span>
+                      }
                       slot={selected.feed}
                       wide
+                      aspect={selected.feedAspect}
                       onFile={(f) => handleFile(selected.localId, "feed", f)}
                       onClear={() => updateAd(selected.localId, { feed: null })}
                       onEditText={() => setTextEdit({ localId: selected.localId, role: "feed" })}
+                      onMediaAspect={(ratio) => {
+                        // Reloaded drafts don't carry a ratio — pick it up from the media.
+                        const found = FEED_ASPECTS.find((a) => closeToAspect(ratio, a));
+                        if (found && found !== selected.feedAspect) {
+                          updateAd(selected.localId, { feedAspect: found });
+                        }
+                      }}
                     />
                     <CreativeSlot
                       label="Stories & Reels · 9:16 (optional)"
@@ -2658,22 +2728,30 @@ function CreativeSlot({
   label,
   slot,
   wide,
+  aspect,
   onFile,
   onClear,
   onEditText,
+  onMediaAspect,
 }: {
-  label: string;
+  label: ReactNode;
   slot: SlotState | null;
   wide?: boolean;
+  /** Wide slots only: box ratio (width / height), 1 for square, 4/5 for portrait. */
+  aspect?: number;
   onFile: (file: File) => void;
   onClear: () => void;
   /** Videos only: open the text-on-video editor */
   onEditText?: () => void;
+  /** Reports the native ratio of the slot's media once it has loaded. */
+  onMediaAspect?: (ratio: number) => void;
 }) {
   const textSupported = useMemo(() => canBurnInText(), []);
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
-  const box = wide ? "w-[160px] h-[160px]" : "w-[106px] h-[188px]";
+  const box = wide
+    ? { width: 160, height: Math.round(160 / (aspect || 1)) }
+    : { width: 106, height: 188 };
 
   return (
     <div className="text-center">
@@ -2690,7 +2768,8 @@ function CreativeSlot({
           const file = e.dataTransfer.files?.[0];
           if (file) onFile(file);
         }}
-        className={`${box} rounded-lg overflow-hidden relative ${
+        style={box}
+        className={`rounded-lg overflow-hidden relative ${
           slot
             ? "bg-gray-100"
             : `border-2 border-dashed cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
@@ -2702,7 +2781,15 @@ function CreativeSlot({
           <>
             {slot.kind === "image" ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={slot.previewUrl} alt="" className="w-full h-full object-cover" />
+              <img
+                src={slot.previewUrl}
+                alt=""
+                className="w-full h-full object-cover"
+                onLoad={(e) => {
+                  const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+                  if (w && h) onMediaAspect?.(w / h);
+                }}
+              />
             ) : (
               <video
                 src={slot.previewUrl}
@@ -2712,6 +2799,10 @@ function CreativeSlot({
                 playsInline
                 loop
                 autoPlay
+                onLoadedMetadata={(e) => {
+                  const { videoWidth: w, videoHeight: h } = e.currentTarget;
+                  if (w && h) onMediaAspect?.(w / h);
+                }}
               />
             )}
             {hasText(slot) ? (

@@ -1,6 +1,6 @@
 /**
  * Browser-side media helpers shared by the ad builder and the review queue's
- * edit form: filename sanitising, 1:1 feed-image detection, video poster
+ * edit form: filename sanitising, feed-ratio (1:1 / 4:5) detection, video poster
  * frames, and a one-call R2 upload that returns a DraftAsset.
  */
 
@@ -11,16 +11,31 @@ export function sanitizeFileName(name: string): string {
   return name.replace(/[^\w.-]+/g, "-").slice(-80);
 }
 
-/** Aspect targets for the two creative slots, as width / height. */
+/** Aspect targets for the creative slots, as width / height. */
 export const FEED_ASPECT = 1;
+/**
+ * Portrait feed alternative. Meta's Ads Guide recommends 4:5 (1440×1800) for
+ * Instagram and Facebook Feed images; feeds accept anything from 4:5 to 1.91:1.
+ */
+export const PORTRAIT_FEED_ASPECT = 4 / 5;
+/** Ratios the feed slot accepts as-is; anything else is cropped to one of them. */
+export const FEED_ASPECTS = [FEED_ASPECT, PORTRAIT_FEED_ASPECT];
 export const VERTICAL_ASPECT = 9 / 16;
 
+/** Allowed deviation from a target ratio before a file needs cropping. */
+const ASPECT_TOLERANCE = 0.02;
+
+/** True when `ratio` is within tolerance of `aspect`. */
+export function closeToAspect(ratio: number, aspect: number): boolean {
+  return Math.abs(ratio / aspect - 1) <= ASPECT_TOLERANCE;
+}
+
 /**
- * True when an image or video already matches the target aspect closely enough to skip
- * cropping. Allows 2% for rounding — a match uploads the original bytes
- * untouched rather than re-encoding it through a canvas.
+ * Native width / height of an image or video file, or null when the browser
+ * can't read it (the caller then treats the file as acceptable and lets Meta
+ * validate it).
  */
-export async function matchesAspect(file: File, aspect: number): Promise<boolean> {
+export function mediaRatio(file: File): Promise<number | null> {
   if (file.type.startsWith("video/")) {
     return new Promise((resolve) => {
       const v = document.createElement("video");
@@ -29,12 +44,12 @@ export async function matchesAspect(file: File, aspect: number): Promise<boolean
       v.muted = true;
       v.onloadedmetadata = () => {
         URL.revokeObjectURL(url);
-        if (!v.videoWidth || !v.videoHeight) return resolve(true);
-        resolve(Math.abs(v.videoWidth / v.videoHeight / aspect - 1) <= 0.02);
+        if (!v.videoWidth || !v.videoHeight) return resolve(null);
+        resolve(v.videoWidth / v.videoHeight);
       };
       v.onerror = () => {
         URL.revokeObjectURL(url);
-        resolve(true);
+        resolve(null);
       };
       v.src = url;
     });
@@ -44,16 +59,36 @@ export async function matchesAspect(file: File, aspect: number): Promise<boolean
     const url = URL.createObjectURL(file);
     img.onload = () => {
       URL.revokeObjectURL(url);
-      if (!img.naturalWidth || !img.naturalHeight) return resolve(true);
-      const ratio = img.naturalWidth / img.naturalHeight;
-      resolve(Math.abs(ratio / aspect - 1) <= 0.02);
+      if (!img.naturalWidth || !img.naturalHeight) return resolve(null);
+      resolve(img.naturalWidth / img.naturalHeight);
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      resolve(true);
+      resolve(null);
     };
     img.src = url;
   });
+}
+
+/**
+ * True when an image or video already matches the target aspect closely enough to skip
+ * cropping. Allows 2% for rounding — a match uploads the original bytes
+ * untouched rather than re-encoding it through a canvas.
+ */
+export async function matchesAspect(file: File, aspect: number): Promise<boolean> {
+  const ratio = await mediaRatio(file);
+  return ratio === null || closeToAspect(ratio, aspect);
+}
+
+/**
+ * Which of `aspects` the file already matches (first match wins), or null when
+ * it matches none and needs cropping. Unreadable files count as matching the
+ * first option, mirroring `matchesAspect`.
+ */
+export async function detectAspect(file: File, aspects: number[]): Promise<number | null> {
+  const ratio = await mediaRatio(file);
+  if (ratio === null) return aspects[0] ?? null;
+  return aspects.find((a) => closeToAspect(ratio, a)) ?? null;
 }
 
 export async function makeVideoThumb(file: File): Promise<Blob | null> {

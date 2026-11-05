@@ -6,10 +6,16 @@ import { renderCropped } from "@/lib/video-overlay-render";
 
 interface Props {
   file: File;
-  /** Target aspect as width / height — 1 for feed, 9/16 for stories & reels. */
+  /** Target aspect as width / height — 1 or 4/5 for feed, 9/16 for stories & reels. */
   aspect: number;
+  /**
+   * Alternative ratios the user may switch to before cropping (e.g. 1:1 and
+   * 4:5 for the feed slot). Omit to lock the dialog to `aspect`.
+   */
+  aspectOptions?: number[];
   onCancel: () => void;
-  onCropped: (file: File) => void;
+  /** The cropped file, plus the ratio it was cropped to. */
+  onCropped: (file: File, aspect: number) => void;
 }
 
 const VIEW = 460; // max display size of the source image
@@ -33,17 +39,28 @@ interface Crop {
 
 export function ratioLabel(aspect: number): string {
   if (Math.abs(aspect - 1) < 0.01) return "1:1";
+  if (Math.abs(aspect - 4 / 5) < 0.01) return "4:5";
   if (Math.abs(aspect - 9 / 16) < 0.01) return "9:16";
   return aspect.toFixed(2);
 }
+
+/** Feed-shaped ratios (square and portrait) versus the 9:16 stories/reels slot. */
+const isFeedRatio = (aspect: number) => aspect >= 4 / 5 - 0.01;
 
 /**
  * Interactive fixed-ratio crop: drag the frame to reposition it, drag a
  * corner (or the zoom slider) to tighten the framing. Works on images and
  * videos; videos are re-encoded in the browser.
  */
-export function CropDialog({ file, aspect, onCancel, onCropped }: Props) {
+export function CropDialog({
+  file,
+  aspect: initialAspect,
+  aspectOptions,
+  onCancel,
+  onCropped,
+}: Props) {
   const isVideo = file.type.startsWith("video/");
+  const [aspect, setAspect] = useState(initialAspect);
   const [src, setSrc] = useState<string | null>(null);
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
   const [crop, setCrop] = useState<Crop>({ x: 0, y: 0, w: 0 });
@@ -234,7 +251,7 @@ export function CropDialog({ file, aspect, onCancel, onCropped }: Props) {
         if (!liveRef.current) return;
         const tag = ratioLabel(aspect).replace(":", "x");
         const name = `${file.name.replace(/\.[^.]+$/, "")}-${tag}.mp4`;
-        onCropped(new File([blob], name, { type: "video/mp4" }));
+        onCropped(new File([blob], name, { type: "video/mp4" }), aspect);
       } catch (err) {
         if (!liveRef.current) return;
         setError(err instanceof Error ? err.message : "Could not crop this video");
@@ -275,21 +292,28 @@ export function CropDialog({ file, aspect, onCancel, onCropped }: Props) {
       const ext = png ? "png" : "jpg";
       const tag = ratioLabel(aspect).replace(":", "x");
       const name = `${file.name.replace(/\.[^.]+$/, "")}-${tag}.${ext}`;
-      onCropped(new File([blob], name, { type: png ? "image/png" : "image/jpeg" }));
+      onCropped(new File([blob], name, { type: png ? "image/png" : "image/jpeg" }), aspect);
     } catch {
       setExporting(false);
     }
   }, [natural, crop, scale, aspect, cropH, exportSize, file, onCropped, exporting, isVideo]);
 
   /** Fit the source into the view and start with the widest centred crop. */
-  const initSize = (nw: number, nh: number) => {
+  const initSize = (nw: number, nh: number, ratio = aspect) => {
     if (!nw || !nh) return;
     setNatural({ w: nw, h: nh });
     const wide = nw >= nh;
     const w = wide ? VIEW : Math.round((nw / nh) * VIEW);
     const h = wide ? Math.round((nh / nw) * VIEW) : VIEW;
-    const cw = Math.min(w, h * aspect);
-    setCrop({ w: cw, x: (w - cw) / 2, y: (h - cw / aspect) / 2 });
+    const cw = Math.min(w, h * ratio);
+    setCrop({ w: cw, x: (w - cw) / 2, y: (h - cw / ratio) / 2 });
+  };
+
+  /** Switch target ratio (feed 1:1 ⇄ 4:5) and recentre the widest crop for it. */
+  const switchAspect = (ratio: number) => {
+    if (exporting || ratio === aspect) return;
+    setAspect(ratio);
+    if (natural) initSize(natural.w, natural.h, ratio);
   };
 
   const handleCls =
@@ -299,9 +323,30 @@ export function CropDialog({ file, aspect, onCancel, onCropped }: Props) {
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-xl p-5 max-w-[560px]">
-        <p className="text-sm font-semibold text-gray-900">
-          Crop to {label} for {label === "1:1" ? "feed" : "stories & reels"}
-        </p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-semibold text-gray-900">
+            Crop to {label} for {isFeedRatio(aspect) ? "feed" : "stories & reels"}
+          </p>
+          {aspectOptions && aspectOptions.length > 1 && (
+            <div className="flex rounded-md border border-gray-300 overflow-hidden text-[11.5px]">
+              {aspectOptions.map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => switchAspect(opt)}
+                  disabled={exporting}
+                  className={`px-2.5 py-1 ${
+                    Math.abs(opt - aspect) < 0.01
+                      ? "bg-gray-900 text-white"
+                      : "bg-white text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {ratioLabel(opt)}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <p className="text-[12px] text-gray-500 mb-4">
           Drag the frame to reposition, drag a corner to zoom — everything dimmed gets cut.
         </p>
@@ -418,7 +463,7 @@ export function CropDialog({ file, aspect, onCancel, onCropped }: Props) {
           </button>
           {isVideo && (
             <button
-              onClick={() => onCropped(file)}
+              onClick={() => onCropped(file, aspect)}
               disabled={exporting}
               className="border border-gray-300 rounded-md px-4 py-1.5 text-[13px] text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
