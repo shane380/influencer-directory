@@ -9,7 +9,9 @@ import { CropDialog } from "./crop-dialog";
 import { NewAdsetDialog } from "./new-adset-dialog";
 import {
   FEED_ASPECT,
+  FEED_ASPECTS,
   VERTICAL_ASPECT,
+  detectAspect,
   fileAssetKind,
   matchesAspect,
   uploadAdAsset,
@@ -263,11 +265,15 @@ export function ReviewQueue({
       const kind = fileAssetKind(file);
       if (!kind) return;
       // Images that don't already match the slot's ratio go through the
-      // interactive crop first — 1:1 for feed, 9:16 for stories & reels.
+      // interactive crop first — 1:1 or 4:5 for feed, 9:16 for stories & reels.
       if (kind === "image") {
-        const aspect = role === "feed" ? FEED_ASPECT : VERTICAL_ASPECT;
-        if (!(await matchesAspect(file, aspect))) {
-          setCropRequest({ file, aspect, role });
+        if (role === "feed") {
+          if ((await detectAspect(file, FEED_ASPECTS)) === null) {
+            setCropRequest({ file, aspect: FEED_ASPECT, role });
+            return;
+          }
+        } else if (!(await matchesAspect(file, VERTICAL_ASPECT))) {
+          setCropRequest({ file, aspect: VERTICAL_ASPECT, role });
           return;
         }
       }
@@ -1081,6 +1087,7 @@ export function ReviewQueue({
         <CropDialog
           file={cropRequest.file}
           aspect={cropRequest.aspect}
+          aspectOptions={cropRequest.role === "feed" ? FEED_ASPECTS : undefined}
           onCancel={() => setCropRequest(null)}
           onCropped={(cropped) => {
             const { role } = cropRequest;
