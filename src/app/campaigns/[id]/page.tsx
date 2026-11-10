@@ -39,7 +39,7 @@ import { AddInfluencerDialog } from "@/components/add-influencer-dialog";
 import { OrderDialog } from "@/components/order-dialog";
 import { DealDialog } from "@/components/deal-dialog";
 import { DealSummaryBadge } from "@/components/deal-summary-badge";
-import { ApprovalDialog } from "@/components/approval-dialog";
+import { ApprovalDialog, type ApprovalUpdate } from "@/components/approval-dialog";
 import { BulkActionBar } from "@/components/bulk-action-bar";
 import { GiftSettingsDialog } from "@/components/gift-settings-dialog";
 import { GiftOverrideDialog } from "@/components/gift-override-dialog";
@@ -633,8 +633,12 @@ export default function CampaignDetailPage() {
   };
 
   // Handle approval save
-  const handleApprovalSave = () => {
-    fetchCampaignInfluencers();
+  const handleApprovalSave = (updated: ApprovalUpdate) => {
+    // Patch the row in place: a full refetch swaps the table for a loading
+    // placeholder and throws the scroll position back to the top.
+    setCampaignInfluencers((prev) =>
+      prev.map((ci) => (ci.id === updated.id ? { ...ci, ...updated } : ci))
+    );
   };
 
   // Update content posted
@@ -1052,6 +1056,33 @@ export default function CampaignDetailPage() {
                           <Plus className="h-3.5 w-3.5" />
                           Add note
                         </span>
+                      )}
+                      {ci.approval_note && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenApprovalDialog(ci);
+                          }}
+                          title="Approval note — click to view or edit"
+                          className={`mt-0.5 flex items-start gap-1.5 text-left text-[12.5px] px-1.5 py-1 max-w-full ${inlineEditBox}`}
+                        >
+                          <span
+                            className={`inline-flex items-center gap-1 flex-shrink-0 font-medium ${
+                              ci.approval_status === "approved"
+                                ? "text-green-600"
+                                : ci.approval_status === "declined"
+                                ? "text-red-600"
+                                : "text-amber-600"
+                            }`}
+                          >
+                            {ci.approval_status === "approved" && <CheckCircle2 className="h-3 w-3" />}
+                            {ci.approval_status === "declined" && <XCircle className="h-3 w-3" />}
+                            {ci.approval_status === "pending" && <Clock className="h-3 w-3" />}
+                            Approval note:
+                          </span>
+                          <span className="text-gray-600 line-clamp-2">{ci.approval_note}</span>
+                        </button>
                       )}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
