@@ -113,6 +113,32 @@ export function ApprovalDialog({
     }
   };
 
+  // Save the note without deciding — keeps the current status (e.g. pending)
+  const handleSaveNote = async () => {
+    setSaving(true);
+    try {
+      const patch = { approval_note: note || null };
+      const { error } = await (supabase.from("campaign_influencers") as any)
+        .update(patch)
+        .eq("id", campaignInfluencer.id);
+
+      if (error) throw error;
+
+      onSave({
+        id: campaignInfluencer.id,
+        approval_status: campaignInfluencer.approval_status,
+        approved_at: campaignInfluencer.approved_at,
+        approved_by: campaignInfluencer.approved_by,
+        ...patch,
+      });
+      onClose();
+    } catch (err) {
+      console.error("Error saving approval note:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const updateApprovalStatus = async (status: ApprovalStatus) => {
     setSaving(true);
     try {
@@ -208,7 +234,7 @@ export function ApprovalDialog({
               <Label htmlFor="approval-note">Note (optional)</Label>
               <Textarea
                 id="approval-note"
-                placeholder="Add a note about this decision..."
+                placeholder="Add a note — e.g. wait until they post from the previous campaign"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={3}
@@ -230,6 +256,14 @@ export function ApprovalDialog({
 
           {/* Decision Buttons */}
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleSaveNote}
+              disabled={saving || (note || "") === (campaignInfluencer.approval_note || "")}
+              title={isPending ? "Save the note and leave them pending" : "Update the note without changing the decision"}
+            >
+              Save note
+            </Button>
             <Button
               variant="outline"
               onClick={handleDecline}
