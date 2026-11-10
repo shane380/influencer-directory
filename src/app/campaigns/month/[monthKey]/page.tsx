@@ -1033,11 +1033,11 @@ export default function MonthCampaignViewPage() {
                             e.stopPropagation();
                             handleOpenApprovalDialog(ci);
                           }}
-                          title="Approval note — click to view or edit"
-                          className={`mt-0.5 flex items-start gap-1.5 text-left text-[12.5px] px-1.5 py-1 max-w-full ${inlineEditBox}`}
+                          title={ci.approval_note}
+                          className={`mt-0.5 block w-full text-left px-1.5 py-1 ${inlineEditBox}`}
                         >
                           <span
-                            className={`inline-flex items-center gap-1 flex-shrink-0 font-medium ${
+                            className={`flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide ${
                               ci.approval_status === "approved"
                                 ? "text-green-600"
                                 : ci.approval_status === "declined"
@@ -1048,9 +1048,9 @@ export default function MonthCampaignViewPage() {
                             {ci.approval_status === "approved" && <CheckCircle2 className="h-3 w-3" />}
                             {ci.approval_status === "declined" && <XCircle className="h-3 w-3" />}
                             {ci.approval_status === "pending" && <Clock className="h-3 w-3" />}
-                            Approval note:
+                            Approval note
                           </span>
-                          <span className="text-gray-600 line-clamp-2">{ci.approval_note}</span>
+                          <span className="block text-[13px] text-gray-600 line-clamp-2">{ci.approval_note}</span>
                         </button>
                       )}
                     </TableCell>
