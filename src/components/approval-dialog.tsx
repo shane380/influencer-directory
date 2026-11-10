@@ -17,10 +17,15 @@ import { Badge } from "@/components/ui/badge";
 import { Check, X, Clock, User } from "lucide-react";
 import Image from "next/image";
 
+export type ApprovalUpdate = Pick<
+  CampaignInfluencer,
+  "id" | "approval_status" | "approval_note" | "approved_at" | "approved_by"
+>;
+
 interface ApprovalDialogProps {
   open: boolean;
   onClose: () => void;
-  onSave: () => void;
+  onSave: (updated: ApprovalUpdate) => void;
   influencer: Influencer;
   campaignInfluencer: CampaignInfluencer;
   profiles?: Profile[];
@@ -87,18 +92,19 @@ export function ApprovalDialog({
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
+      const patch = {
+        approval_status: null,
+        approval_note: null,
+        approved_at: null,
+        approved_by: null,
+      };
       const { error } = await (supabase.from("campaign_influencers") as any)
-        .update({
-          approval_status: null,
-          approval_note: null,
-          approved_at: null,
-          approved_by: null,
-        })
+        .update(patch)
         .eq("id", campaignInfluencer.id);
 
       if (error) throw error;
 
-      onSave();
+      onSave({ id: campaignInfluencer.id, ...patch });
       onClose();
     } catch (err) {
       console.error("Error removing approval requirement:", err);
@@ -112,18 +118,19 @@ export function ApprovalDialog({
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
+      const patch = {
+        approval_status: status,
+        approval_note: note || null,
+        approved_at: new Date().toISOString(),
+        approved_by: user?.id || null,
+      };
       const { error } = await (supabase.from("campaign_influencers") as any)
-        .update({
-          approval_status: status,
-          approval_note: note || null,
-          approved_at: new Date().toISOString(),
-          approved_by: user?.id || null,
-        })
+        .update(patch)
         .eq("id", campaignInfluencer.id);
 
       if (error) throw error;
 
-      onSave();
+      onSave({ id: campaignInfluencer.id, ...patch });
       onClose();
     } catch (err) {
       console.error("Error updating approval status:", err);
