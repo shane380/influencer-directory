@@ -133,7 +133,7 @@ export function GiftOverrideDialog({
               type="number"
               min={1}
               max={10}
-              placeholder={String(campaign.gift_max_selects ?? 3)}
+              placeholder={String(campaign.gift_max_selects ?? 1)}
               value={maxOverride}
               onChange={(e) => setMaxOverride(e.target.value)}
               className="w-20"

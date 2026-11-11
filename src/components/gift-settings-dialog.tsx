@@ -137,7 +137,7 @@ export function GiftSettingsDialog({
   const [heroPosition, setHeroPosition] = useState(DEFAULT_DESKTOP_POSITION);
   const [heroMobilePosition, setHeroMobilePosition] = useState(DEFAULT_MOBILE_POSITION);
   const [blurb, setBlurb] = useState("");
-  const [maxSelects, setMaxSelects] = useState(3);
+  const [maxSelects, setMaxSelects] = useState(1);
   const [selectsDeadline, setSelectsDeadline] = useState("");
   const [pool, setPool] = useState<GiftPoolProduct[]>([]);
   const [ignoreStock, setIgnoreStock] = useState(false);
@@ -162,7 +162,7 @@ export function GiftSettingsDialog({
         : null
     );
     setBlurb(campaign.gift_blurb ?? "");
-    setMaxSelects(campaign.gift_max_selects ?? 3);
+    setMaxSelects(campaign.gift_max_selects ?? 1);
     setSelectsDeadline((campaign as any).gift_selects_deadline || "");
     setPool(campaign.gift_products ?? []);
     setIgnoreStock((campaign as any).gift_ignore_stock ?? false);
@@ -253,7 +253,7 @@ export function GiftSettingsDialog({
     const draft = {
       hero_image: heroImagePayload(),
       blurb: blurb.trim() || null,
-      outfits: Math.max(1, Math.min(10, maxSelects || 3)),
+      outfits: Math.max(1, Math.min(10, maxSelects || 1)),
       selects_deadline: selectsDeadline || null,
       ignore_stock: ignoreStock,
       pool,
@@ -277,7 +277,7 @@ export function GiftSettingsDialog({
       gift_enabled: enabled,
       gift_hero_image: heroImagePayload(),
       gift_blurb: blurb.trim() || null,
-      gift_max_selects: Math.max(1, Math.min(10, maxSelects || 3)),
+      gift_max_selects: Math.max(1, Math.min(10, maxSelects || 1)),
       ...("gift_selects_deadline" in (campaign as any) || selectsDeadline
         ? { gift_selects_deadline: selectsDeadline || null }
         : {}),
@@ -424,10 +424,10 @@ export function GiftSettingsDialog({
               min={1}
               max={10}
               value={maxSelects}
-              onChange={(e) => setMaxSelects(parseInt(e.target.value, 10) || 3)}
+              onChange={(e) => setMaxSelects(parseInt(e.target.value, 10) || 1)}
               className="w-20"
             />
-            <span className="text-xs text-gray-500">An outfit is 2–3 pieces — she can pick up to {Math.max(1, Math.min(10, maxSelects || 3)) * 3} pieces. Overridable per influencer.</span>
+            <span className="text-xs text-gray-500">An outfit is 2–3 pieces — she can pick up to {Math.max(1, Math.min(10, maxSelects || 1)) * 3} pieces. Overridable per influencer.</span>
           </div>
 
           <div className="flex items-center gap-3">
