@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { timingSafeEqual } from "crypto";
 import { getAdminClient } from "@/lib/admin-auth";
+import { integrationTokenOk } from "@/lib/integrations-token";
 import { isTestEnv } from "@/lib/payout-env";
 import { fetchAllRows } from "@/lib/partnerships/paginate";
 import {
@@ -18,14 +18,8 @@ import {
 
 export const dynamic = "force-dynamic";
 
-function tokenOk(request: NextRequest): boolean | null {
-  const expected = process.env.CASH_FORECAST_TOKEN;
-  if (!expected) return null; // unconfigured — the endpoint does not exist yet
-  const got = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
-  const a = Buffer.from(got);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
+// Token check lives in src/lib/integrations-token.ts (shared with ad-creatives).
+const tokenOk = integrationTokenOk;
 
 export async function GET(request: NextRequest) {
   const ok = tokenOk(request);
