@@ -86,6 +86,13 @@ export interface LauncherDefaults {
   diagnostics: string[];
 }
 
+/** A Shopify colourway an ad promotes (id = numeric product id). */
+export interface AdProductRef {
+  id: string;
+  title: string;
+  color?: string | null;
+}
+
 export interface AdCopy {
   primaryText: string;
   headline: string;
@@ -98,6 +105,12 @@ export interface AdCopy {
    * (multi_share_optimized); false/absent = keep the authored order.
    */
   multiShareOptimized?: boolean;
+  /**
+   * Products the ad promotes. Their titles are written into the automatic ad
+   * name, which the inventory app reads to tie spend to products. Kept inside
+   * copy (jsonb) so no schema change is needed; Meta never sees it.
+   */
+  products?: AdProductRef[];
 }
 
 export type AssetRole = "feed" | "vertical" | "card";
