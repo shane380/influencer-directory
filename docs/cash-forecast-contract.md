@@ -130,3 +130,19 @@ new `kind` and a version bump.
 - Auto values are computed at load and not persisted, matching planner design.
 - Surface `unscheduled.total` as a note/tooltip rather than a cell — undated
   money placed in an arbitrary week is worse than a visible caveat.
+
+## Companion feed: ad creatives (2026-11-15)
+
+`GET /api/integrations/cash-forecast/ad-creatives?ids=<ad_id>,<ad_id>,…` — same
+bearer (`CASH_FORECAST_TOKEN`), same consumer (the nama-inventory server). It
+sits under the cash-forecast path because that is the prefix the middleware
+lets through without a session.
+
+Returns `{ creatives: [{ ad_id, ad_name, format, effective_status,
+thumbnail_url, mux_playback_id, carousel_urls, preview_html }] }` from
+`meta_ads` for up to 300 ids per call. Ids not known here are simply absent.
+No Meta API call is made; everything is what the account sync already stores.
+
+Consumer: Paid Ads → Map ads shows the thumbnail per ad and opens a preview
+(Meta's `preview_html` when present, else the Mux poster / animated clip, else
+the carousel images) so a person can see the ad while picking its products.
