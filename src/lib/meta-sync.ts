@@ -480,20 +480,27 @@ async function persistAccountSweep(
     }
   }
 
-  // ── 5. Mux uploads + preview fallback — PARTNERSHIP ADS ONLY ──────────────
-  // Both of these exist to make video playable on the CREATOR dashboard, which
-  // only ever shows a creator their own partnership ads. Running them across the
-  // whole account would mean Mux-encoding several hundred brand ads (real money,
-  // per asset and per minute stored) and spending hundreds of /previews calls a
-  // run — to serve a page that, by design, shows a thumbnail and only resolves a
-  // player when someone actually clicks one ad.
+  // ── 5. Mux uploads + preview fallback ─────────────────────────────────────
+  // Mux copies serve two readers: the CREATOR dashboard (partnership ads only)
+  // and the inventory app's Map ads inbox, which plays any ad someone is mapping
+  // to products. So videos are mirrored for every partnership ad plus any brand
+  // ad that spent inside this run's window, whatever its status — a paused ad is
+  // exactly the kind that sits in the inbox waiting to be mapped. Brand ads that
+  // never spend are left alone: Mux bills per asset and per minute stored.
   //
-  // The Ad Performance page gets brand-ad playback lazily, on click, instead.
+  // The preview-iframe fallback below stays partnership-only: /previews URLs
+  // expire daily, so refreshing them account-wide would cost hundreds of calls
+  // a run for a page that resolves a player only on click.
   const playable = Array.from(rowsById.values()).filter((r) => r.partnership);
+  const recentSpenders = new Set<string>();
+  for (const d of sweep.daily) if (Number(d.spend) > 0) recentSpenders.add(String(d.ad_id));
+  const muxCandidates = Array.from(rowsById.values()).filter(
+    (r) => r.partnership || recentSpenders.has(r.ad_id),
+  );
 
   // processVideoUploads skips anything that already has a playback id, so this
   // is a no-op in steady state.
-  const asAdResults = playable.map((r) => ({
+  const asAdResults = muxCandidates.map((r) => ({
     id: r.ad_id,
     effective_status: r.effective_status,
     video_id: r.video_id,
@@ -506,11 +513,11 @@ async function persistAccountSweep(
   const needMux = asAdResults.filter(
     (a: any) =>
       !a.mux_playback_id &&
-      a.effective_status === "ACTIVE" &&
+      (a.effective_status === "ACTIVE" || recentSpenders.has(String(a.id))) &&
       (a.video_id || (a.ig_media_id && a.ig_media_type !== "IMAGE" && a.ig_media_type !== "CAROUSEL_ALBUM")),
   ).length;
-  console.log(`[meta-sync] partnership ads needing a Mux upload: ${needMux}`);
-  if (!dry) await processVideoUploads(asAdResults, null, accessToken);
+  console.log(`[meta-sync] ads needing a Mux upload: ${needMux} (of ${asAdResults.length} partnership or recently spending)`);
+  if (!dry) await processVideoUploads(asAdResults, null, accessToken, { allowInactive: recentSpenders });
   for (const a of asAdResults) {
     const row = rowsById.get(String(a.id));
     if (row) row.mux_playback_id = a.mux_playback_id ?? row.mux_playback_id;
@@ -676,7 +683,16 @@ async function buildHandleResult(
 async function processVideoUploads(
   ads: AdResult[],
   existingAds: AdResult[] | null,
-  accessToken: string
+  accessToken: string,
+  opts?: {
+    /**
+     * Ad ids whose video is wanted even when the ad is not ACTIVE — brand ads
+     * that spent recently, so the inventory app's Map ads inbox can play them.
+     * Everything else keeps the ACTIVE-only rule (paused creator ads are never
+     * encoded speculatively).
+     */
+    allowInactive?: Set<string>;
+  },
 ): Promise<void> {
   // Maps of existing mux_playback_ids so re-syncs never re-upload
   const existingByVideo = new Map<string, string>();
@@ -718,8 +734,8 @@ async function processVideoUploads(
       continue;
     }
 
-    // Only download videos for active ads
-    if (ad.effective_status !== "ACTIVE") continue;
+    // Only download videos for active ads, unless the caller asked for this one
+    if (ad.effective_status !== "ACTIVE" && !opts?.allowInactive?.has(String(ad.id))) continue;
 
     try {
       // Uploaded-video ads expose a downloadable `source` on the video node.
@@ -787,6 +803,60 @@ interface PerAdAgg {
  * wide a window we pulled from Meta. Pages through all rows so a creator with >1000
  * daily rows isn't silently truncated.
  */
+/**
+ * Mirror the videos of specific ads to Mux regardless of status — the one-time
+ * backfill behind the inventory app's Map ads player (ads that spent in the
+ * last 90 days but were paused before the nightly sync started copying brand
+ * videos). One Meta call per video for its download link, then a Mux encode.
+ * Ads that already have a playback id are skipped, so re-running is safe.
+ */
+export async function mirrorAdVideos(
+  db: any,
+  adIds: string[],
+  accessToken: string,
+  opts?: { dryRun?: boolean },
+): Promise<{ candidates: number; uploaded: number; skipped: number }> {
+  const ids = Array.from(new Set(adIds.map(String)));
+  const rows: any[] = [];
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await db
+      .from("meta_ads")
+      .select("ad_id, ad_name, effective_status, video_id, mux_playback_id, ig_media_id, ig_media_type")
+      .in("ad_id", ids.slice(i, i + 200));
+    if (error) throw new Error(`meta_ads read failed: ${error.message}`);
+    rows.push(...((data as any[]) || []));
+  }
+  const candidates = rows.filter(
+    (r) =>
+      !r.mux_playback_id &&
+      (r.video_id || (r.ig_media_id && r.ig_media_type !== "IMAGE" && r.ig_media_type !== "CAROUSEL_ALBUM")),
+  );
+  if (opts?.dryRun) {
+    for (const r of candidates) console.log(`[mirror-ad-videos] would upload ${r.ad_id} ${r.effective_status} ${r.ad_name}`);
+    return { candidates: candidates.length, uploaded: 0, skipped: rows.length - candidates.length };
+  }
+  const asAdResults = candidates.map((r) => ({
+    id: r.ad_id,
+    effective_status: r.effective_status,
+    video_id: r.video_id,
+    ig_media_id: r.ig_media_id,
+    ig_media_type: r.ig_media_type,
+    mux_playback_id: null,
+  })) as unknown as AdResult[];
+  await processVideoUploads(asAdResults, null, accessToken, { allowInactive: new Set(ids) });
+  let uploaded = 0;
+  for (const a of asAdResults) {
+    if (!a.mux_playback_id) continue;
+    const { error } = await db
+      .from("meta_ads")
+      .update({ mux_playback_id: a.mux_playback_id, updated_at: new Date().toISOString() })
+      .eq("ad_id", String(a.id));
+    if (error) console.error(`[mirror-ad-videos] write failed for ${a.id}: ${error.message}`);
+    else uploaded++;
+  }
+  return { candidates: candidates.length, uploaded, skipped: rows.length - candidates.length };
+}
+
 async function deriveMonthlyFromDaily(
   db: any,
   handle: string,
