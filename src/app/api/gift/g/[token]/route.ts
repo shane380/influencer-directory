@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchProductsByIds } from "@/lib/shopify-products";
-import { loadGenericCampaign, poolImageOverride } from "@/lib/gift-server";
+import { loadGenericCampaign, poolImageOverride, poolImagePosition } from "@/lib/gift-server";
 import type { GiftPoolProduct } from "@/types/database";
 
 // Public campaign-level open gift link (middleware-whitelisted under
@@ -24,6 +24,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       product_id: p.product_id,
       title: p.title,
       image: poolImageOverride(p.product_id, pool) || p.image,
+      image_position: poolImagePosition(p.product_id, pool),
       images: p.images,
       options: p.options,
       variants: p.variants.map((v) => ({
