@@ -300,14 +300,18 @@ export function GiftProductPicker({
       {cropping &&
         typeof document !== "undefined" &&
         createPortal(
-          <CropDialog
-            file={cropping.file}
-            aspect={PRODUCT_ASPECT}
-            title="Crop for the selects page (2:3)"
-            adGuidance={false}
-            onCancel={() => setCropping(null)}
-            onCropped={handleCropped}
-          />,
+          // The settings dialog is z-[100] and CropDialog's own overlay is
+          // z-50, so lift it above the dialog or it opens behind the backdrop.
+          <div className="fixed inset-0 z-[200]">
+            <CropDialog
+              file={cropping.file}
+              aspect={PRODUCT_ASPECT}
+              title="Crop for the selects page (2:3)"
+              adGuidance={false}
+              onCancel={() => setCropping(null)}
+              onCropped={handleCropped}
+            />
+          </div>,
           document.body
         )}
     </div>
