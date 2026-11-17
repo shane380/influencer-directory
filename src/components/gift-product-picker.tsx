@@ -1,10 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Input } from "@/components/ui/input";
 import { GripVertical, Search, X } from "lucide-react";
-import { ImagePositionFrame } from "@/components/image-position-frame";
+import { CropDialog } from "@/components/ads/crop-dialog";
 import type { GiftPoolProduct } from "@/types/database";
+
+// Product cards on the selects page are 2:3; campaign images are cropped to
+// that in the same crop dialog the ad launcher uses.
+const PRODUCT_ASPECT = 2 / 3;
 
 // Shared Shopify product picker for the gift pool (campaign settings) and
 // per-influencer overrides. Search includes DRAFT products — that's the
@@ -36,6 +41,8 @@ export function GiftProductPicker({
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
+  // Image awaiting a crop; source is set when re-cropping an upload we already have.
+  const [cropping, setCropping] = useState<{ id: string; file: File; source: { url: string; r2_key: string } | null } | null>(null);
   const searchSeq = useRef(0);
 
   // Auto-search: fires 350ms after typing pauses; stale responses are dropped.
@@ -77,30 +84,57 @@ export function GiftProductPicker({
     onChange(products.filter((x) => String(x.product_id) !== String(id)));
   }
 
-  async function setImage(id: string, file: File | undefined) {
+  function setImage(id: string, file: File | undefined) {
     if (!onUploadImage || !file) return;
     if (!file.type.startsWith("image/")) {
       setImageError("That drop didn't include an image file. Save the image to your computer first, then drag it from there (or click Campaign image).");
       return;
     }
     setImageError(null);
+    setCropping({ id, file, source: null });
+  }
+
+  // Re-open the crop dialog on the uncropped upload (older overrides only
+  // have the shown image, so those re-crop from that).
+  async function recrop(id: string) {
+    const current = products.find((x) => String(x.product_id) === id)?.image_override;
+    if (!onUploadImage || !current?.url || uploadingId) return;
+    const source = { url: current.source_url || current.url, r2_key: current.source_r2_key || current.r2_key };
+    setImageError(null);
     setUploadingId(id);
     try {
-      const uploaded = await onUploadImage(file, id);
-      onChange(products.map((x) => (String(x.product_id) === id ? { ...x, image_override: uploaded } : x)));
+      const res = await fetch(source.url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const name = decodeURIComponent(source.r2_key.split("/").pop() || "image.jpg");
+      setCropping({ id, file: new File([blob], name, { type: blob.type || "image/jpeg" }), source });
+    } catch (err) {
+      console.error("Product image fetch failed:", err);
+      setImageError("Couldn't load the original image to re-crop — upload it again instead.");
+    }
+    setUploadingId(null);
+  }
+
+  async function handleCropped(cropped: File) {
+    const job = cropping;
+    if (!job || !onUploadImage) return;
+    setCropping(null);
+    setUploadingId(job.id);
+    try {
+      const source = job.source ?? (await onUploadImage(job.file, job.id));
+      const uploaded = await onUploadImage(cropped, job.id);
+      onChange(
+        products.map((x) =>
+          String(x.product_id) === job.id
+            ? { ...x, image_override: { url: uploaded.url, r2_key: uploaded.r2_key, source_url: source.url, source_r2_key: source.r2_key } }
+            : x
+        )
+      );
     } catch (err) {
       console.error("Product image upload failed:", err);
       setImageError("Image upload failed — check your connection.");
     }
     setUploadingId(null);
-  }
-
-  function setImagePosition(id: string, position: string) {
-    onChange(
-      products.map((x) =>
-        String(x.product_id) === id && x.image_override ? { ...x, image_override: { ...x.image_override, position } } : x
-      )
-    );
   }
 
   function clearImage(id: string) {
@@ -195,15 +229,16 @@ export function GiftProductPicker({
           >
             <GripVertical className="h-4 w-4 text-gray-300 flex-shrink-0 cursor-grab" />
             {p.image_override?.url ? (
-              <div className="w-14 flex-shrink-0">
-                <ImagePositionFrame
-                  url={p.image_override.url}
-                  aspect="2/3"
-                  position={p.image_override.position || "50% 50%"}
-                  onPositionChange={(pos) => setImagePosition(String(p.product_id), pos)}
-                  alt=""
-                />
-              </div>
+              <button
+                type="button"
+                title="Click to crop"
+                disabled={uploadingId !== null}
+                onClick={() => recrop(String(p.product_id))}
+                className="w-10 h-[60px] rounded overflow-hidden border flex-shrink-0 hover:ring-2 hover:ring-gray-300 disabled:opacity-60"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.image_override.url} alt="" className="w-full h-full object-cover" style={{ objectPosition: p.image_override.position || undefined }} />
+              </button>
             ) : p.image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={p.image_url} alt="" className="w-8 h-10 object-cover rounded flex-shrink-0" />
@@ -215,7 +250,7 @@ export function GiftProductPicker({
               {p.color && <span className="block text-xs text-gray-500 truncate">{p.color}</span>}
               {p.image_override?.url && (
                 <span className="block text-[11px] text-gray-400">
-                  Campaign image — drag it to reposition · Shopify unchanged ·{" "}
+                  Campaign image — click it to crop · Shopify unchanged ·{" "}
                   <button className="underline hover:text-gray-700" onClick={() => clearImage(String(p.product_id))}>
                     Use Shopify image
                   </button>
@@ -224,7 +259,7 @@ export function GiftProductPicker({
             </span>
             {onUploadImage && (
               <label className="text-xs text-gray-500 hover:text-gray-800 border rounded px-2 py-1 cursor-pointer whitespace-nowrap">
-                {uploadingId === String(p.product_id) ? "Uploading…" : p.image_override?.url ? "Replace image" : "Campaign image"}
+                {uploadingId === String(p.product_id) ? "Working…" : p.image_override?.url ? "Replace image" : "Campaign image"}
                 <input
                   type="file"
                   accept="image/*"
@@ -262,6 +297,19 @@ export function GiftProductPicker({
         ))}
         {imageError && <div className="text-xs text-red-600">{imageError}</div>}
       </div>
+      {cropping &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <CropDialog
+            file={cropping.file}
+            aspect={PRODUCT_ASPECT}
+            title="Crop for the selects page (2:3)"
+            adGuidance={false}
+            onCancel={() => setCropping(null)}
+            onCropped={handleCropped}
+          />,
+          document.body
+        )}
     </div>
   );
 }
