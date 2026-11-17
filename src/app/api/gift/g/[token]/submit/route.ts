@@ -45,7 +45,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const campaign = await loadGenericCampaign(token);
   if (!campaign) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const shippingResult = validateGiftShipping(body.shipping);
+  const shippingResult = validateGiftShipping(body.shipping, { requireAddress: !campaign.gift_event_mode });
   if (!("shipping" in shippingResult)) return badRequest("shipping_invalid", shippingResult.detail);
   const shipping = shippingResult.shipping;
 
@@ -94,13 +94,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // Attach: fill blanks, always take the freshly confirmed address, and
     // upgrade a placeholder handle to the real one.
     try {
-      const patch: Record<string, string> = { mailing_address: mailingAddress };
+      const patch: Record<string, string> = {};
+      if (shipping.address1) patch.mailing_address = mailingAddress;
       if (!influencer.email && shipping.email) patch.email = shipping.email;
       if (!influencer.phone && shipping.phone) patch.phone = shipping.phone;
       if (handle && PLACEHOLDER_RE.test(String(influencer.instagram_handle || ""))) {
         patch.instagram_handle = handle;
       }
-      await db.from("influencers").update(patch).eq("id", influencer.id);
+      if (Object.keys(patch).length > 0) await db.from("influencers").update(patch).eq("id", influencer.id);
     } catch (err) {
       console.warn("[gift] generic influencer sync failed:", err);
     }
@@ -115,7 +116,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         instagram_handle: handle || placeholder,
         email: shipping.email,
         phone: shipping.phone || null,
-        mailing_address: mailingAddress,
+        mailing_address: mailingAddress || null,
       } as any)
       .select("id, name, email, phone, instagram_handle")
       .single();

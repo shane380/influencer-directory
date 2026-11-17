@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { fetchProductsByIds } from "@/lib/shopify-products";
-import { poolImageOverride } from "@/lib/gift-server";
+import { loadGiftEventFields, poolImageOverride } from "@/lib/gift-server";
 import type { GiftPoolProduct } from "@/types/database";
 
 // Admin/manager-only: builds the selects page payload for a campaign so the
@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
     .eq("id", campaignId)
     .single();
   if (!campaign) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  Object.assign(campaign, await loadGiftEventFields(campaign.id));
 
   const draft = body?.draft && typeof body.draft === "object" ? body.draft : {};
   const pool: GiftPoolProduct[] = Array.isArray(draft.pool)
@@ -84,6 +85,9 @@ export async function POST(request: NextRequest) {
       max_selects: outfits * 3,
       launch_date: campaign.start_date || null,
       selects_deadline: ("selects_deadline" in draft ? draft.selects_deadline : campaign.gift_selects_deadline) || null,
+      event_mode: Boolean("event_mode" in draft ? draft.event_mode : campaign.gift_event_mode),
+      event_time: ("event_time" in draft ? draft.event_time : campaign.gift_event_time) || null,
+      event_location: ("event_location" in draft ? draft.event_location : campaign.gift_event_location) || null,
     },
     influencer: { first_name: "Alex", top_size: null, bottoms_size: null },
     prefill: {

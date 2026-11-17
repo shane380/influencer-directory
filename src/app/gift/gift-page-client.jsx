@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { getCountries } from '@/lib/countries'
-import { giftPreviewDraftKey } from '@/lib/gift'
+import { formatGiftEventTime, giftPreviewDraftKey } from '@/lib/gift'
 
 // Public gift selection page — opened from an Instagram DM or email, usually
 // inside the IG in-app browser. No login, no storage APIs; all state lives in
@@ -24,7 +24,6 @@ const CSS = `
 .gf-masthead { padding: 30px 34px 26px; border-bottom: 1px solid #eee; }
 .gf-mast-eyebrow { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: #A89F94; margin-bottom: 12px; }
 .gf-mast-title { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 58px; line-height: 0.94; letter-spacing: -0.01em; color: #201D1A; }
-.gf-mast-title span { display: block; white-space: nowrap; }
 .gf-letter { padding: 26px 34px 8px; }
 .gf-letter-greeting { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 33px; font-weight: 400; line-height: 1.08; color: #201D1A; margin-bottom: 18px; }
 .gf-letter-body { font-size: 16.5px; line-height: 1.55; color: #4A453D; max-width: 34ch; margin-bottom: 18px; }
@@ -350,16 +349,19 @@ export default function GiftPageClient({ token, generic = false, preview = false
         order_status: null,
         tracking_url: null,
         tracking_number: null,
-        shipping: f.address1 ? { ...f } : null,
+        shipping: f.address1 || f.name ? { ...f } : null,
       })
       setStep('done')
       return
     }
     if (!f.name.trim()) return setSubmitError('Please enter your full name.')
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email)) return setSubmitError('Please enter a valid email.')
-    if ((f.phone.match(/\d/g) || []).length < 7) return setSubmitError('Please enter a valid phone number — the carrier needs it for delivery.')
-    if (!f.address1.trim() || !f.city.trim() || !f.zip.trim() || !f.country_code) return setSubmitError('Please complete your shipping address.')
-    if (['US', 'CA'].includes(f.country_code) && !f.province.trim()) return setSubmitError('Please enter your state / province.')
+    const eventMode = Boolean(data?.campaign?.event_mode)
+    if ((f.phone.match(/\d/g) || []).length < 7) return setSubmitError(eventMode ? 'Please enter a valid phone number so we can reach you on the day.' : 'Please enter a valid phone number — the carrier needs it for delivery.')
+    if (!eventMode) {
+      if (!f.address1.trim() || !f.city.trim() || !f.zip.trim() || !f.country_code) return setSubmitError('Please complete your shipping address.')
+      if (['US', 'CA'].includes(f.country_code) && !f.province.trim()) return setSubmitError('Please enter your state / province.')
+    }
     setSubmitting(true)
     try {
       const res = await fetch(`${apiBase}/${encodeURIComponent(token)}/submit`, {
@@ -446,6 +448,9 @@ export default function GiftPageClient({ token, generic = false, preview = false
   }
 
   const c = data.campaign
+  // Event mode: picks are collected at the event (launch_date + event_time).
+  const eventTime = c.event_mode ? formatGiftEventTime(c.event_time) : null
+  const fmtDate = (d) => new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
 
   return (
     <div className="gf-wrap"><style dangerouslySetInnerHTML={{ __html: CSS }} />
@@ -488,12 +493,12 @@ export default function GiftPageClient({ token, generic = false, preview = false
                 return ` · ${season} '${String(d.getFullYear()).slice(2)}`
               })()}</div>
               <div className="gf-mast-title" ref={titleRef} data-base="58">
-                {c.name.split(/\s+/).map((w, i) => <span key={i}>{w}</span>)}
+                {c.name}
               </div>
             </div>
             <div className="gf-letter">
               <div className="gf-letter-greeting">{data.influencer.first_name ? <>{data.influencer.first_name}, you&rsquo;re on the list.</> : <>You&rsquo;re on the list.</>}</div>
-              <div className="gf-letter-body">{c.blurb || `${c.name} is almost here — before it goes live, we'd love you in it. Pick your pieces below.`}</div>
+              <div className="gf-letter-body">{c.blurb || `${c.name} is almost here — before ${c.event_mode ? 'the doors open' : 'it goes live'}, we'd love you in it. Pick your pieces below.`}</div>
               <div className="gf-sign">— Daisy &amp; the Nama team</div>
             </div>
             </div>
@@ -511,20 +516,38 @@ export default function GiftPageClient({ token, generic = false, preview = false
                   <div className="gf-detail-row">
                     <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
                     <div>
-                      <div className="gf-detail-label">Campaign launches</div>
-                      <div className="gf-detail-value">{new Date(c.launch_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</div>
+                      <div className="gf-detail-label">{c.event_mode ? 'Event date' : 'Campaign launches'}</div>
+                      <div className="gf-detail-value">{fmtDate(c.launch_date)}{eventTime ? ` · Arrive at ${eventTime}` : ''}</div>
                     </div>
                   </div>
                 )}
-                {c.selects_deadline ? (
+                {c.event_mode && c.event_location && (
+                  <div className="gf-detail-row">
+                    <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z" /><circle cx="12" cy="10" r="3" /></svg>
+                    <div>
+                      <div className="gf-detail-label">Where</div>
+                      <div className="gf-detail-value">{c.event_location}</div>
+                    </div>
+                  </div>
+                )}
+                {c.selects_deadline && (
                   <div className="gf-detail-row">
                     <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><polyline points="12 7 12 12 15.5 14" /></svg>
                     <div>
                       <div className="gf-detail-label">Selects deadline</div>
-                      <div className="gf-detail-value">Make your picks by {new Date(c.selects_deadline + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</div>
+                      <div className="gf-detail-value">Make your picks by {fmtDate(c.selects_deadline)}</div>
                     </div>
                   </div>
-                ) : (
+                )}
+                {c.event_mode ? (
+                  <div className="gf-detail-row">
+                    <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z" /></svg>
+                    <div>
+                      <div className="gf-detail-label">Your outfit</div>
+                      <div className="gf-detail-value">Ready for you when you arrive</div>
+                    </div>
+                  </div>
+                ) : !c.selects_deadline && (
                   <div className="gf-detail-row">
                     <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z" /><path d="M3.3 8.3L12 13l8.7-4.7" /><line x1="12" y1="13" x2="12" y2="21" /></svg>
                     <div>
@@ -697,30 +720,34 @@ export default function GiftPageClient({ token, generic = false, preview = false
             <button className="gf-btn-ghost" style={{ textAlign: 'left', padding: '12px 0 0' }} onClick={() => setStep('select')}>← Change selection</button>
 
             <div className="gf-form">
-              <div className="gf-section-label">Shipping</div>
-              {form.source !== 'none' && form.address1.trim() !== '' && (
+              <div className="gf-section-label">{c.event_mode ? 'Your details' : 'Shipping'}</div>
+              {form.source !== 'none' && (c.event_mode ? form.name.trim() !== '' : form.address1.trim() !== '') && (
                 <div className="gf-note">We&rsquo;ve filled in what we have on file — please make sure it&rsquo;s still current.</div>
               )}
               {field('Full name', 'name', { required: true, autoComplete: 'name' })}
               {field('Email', 'email', { required: true, type: 'email', autoComplete: 'email', inputMode: 'email' })}
               {field('Phone', 'phone', { required: true, type: 'tel', autoComplete: 'tel', inputMode: 'tel' })}
               {generic && field('Instagram handle (optional)', 'instagram_handle', { autoComplete: 'off', placeholder: '@yourhandle' })}
-              {field('Address', 'address1', { required: true, autoComplete: 'address-line1' })}
-              {field('Apt / unit (optional)', 'address2', { autoComplete: 'address-line2' })}
-              <div className="gf-row2">
-                {field('City', 'city', { required: true, autoComplete: 'address-level2' })}
-                {field(['US', 'CA'].includes(form.country_code) ? 'State / Province' : 'Region', 'province', { required: ['US', 'CA'].includes(form.country_code), autoComplete: 'address-level1' })}
-              </div>
-              <div className="gf-row2">
-                {field('Postal / ZIP', 'zip', { required: true, autoComplete: 'postal-code' })}
-                <div className="gf-field">
-                  <label className="gf-label">Country *</label>
-                  <select className="gf-select" value={form.country_code} onChange={e => setForm(prev => ({ ...prev, country_code: e.target.value }))}>
-                    <option value="">Select…</option>
-                    {getCountries().map(cc => <option key={cc.code} value={cc.code}>{cc.name}</option>)}
-                  </select>
-                </div>
-              </div>
+              {!c.event_mode && (
+                <>
+                  {field('Address', 'address1', { required: true, autoComplete: 'address-line1' })}
+                  {field('Apt / unit (optional)', 'address2', { autoComplete: 'address-line2' })}
+                  <div className="gf-row2">
+                    {field('City', 'city', { required: true, autoComplete: 'address-level2' })}
+                    {field(['US', 'CA'].includes(form.country_code) ? 'State / Province' : 'Region', 'province', { required: ['US', 'CA'].includes(form.country_code), autoComplete: 'address-level1' })}
+                  </div>
+                  <div className="gf-row2">
+                    {field('Postal / ZIP', 'zip', { required: true, autoComplete: 'postal-code' })}
+                    <div className="gf-field">
+                      <label className="gf-label">Country *</label>
+                      <select className="gf-select" value={form.country_code} onChange={e => setForm(prev => ({ ...prev, country_code: e.target.value }))}>
+                        <option value="">Select…</option>
+                        {getCountries().map(cc => <option key={cc.code} value={cc.code}>{cc.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </>
+              )}
               {submitError && <div className="gf-error">{submitError}</div>}
               <button className="gf-btn" style={{ marginTop: 10 }} disabled={submitting} onClick={submit}>
                 {submitting ? 'Sending…' : 'Confirm My Picks'}
@@ -735,17 +762,27 @@ export default function GiftPageClient({ token, generic = false, preview = false
             <div className="gf-headline" style={{ textAlign: 'center' }}>You&rsquo;re all set.</div>
             <div className="gf-sub" style={{ textAlign: 'center' }}>Your picks are in — here&rsquo;s what happens next.</div>
             <div className="gf-steps">
-              <div className="gf-step"><div className="gf-step-num">1</div><div className="gf-step-text">Our team confirms your order.</div></div>
-              <div className="gf-step"><div className="gf-step-num">2</div><div className="gf-step-text">Your pieces ship within 5–7 business days.</div></div>
-              <div className="gf-step"><div className="gf-step-num">3</div><div className="gf-step-text">Tracking goes to {submitted?.shipping?.email || 'your email'}.</div></div>
-              <div className="gf-step" style={{ borderBottom: 'none' }}><div className="gf-step-num">4</div><div className="gf-step-text">Tag <strong>@nama</strong> when they arrive — we&rsquo;d love to reshare you 🤍</div></div>
+              {c.event_mode ? (
+                <>
+                  <div className="gf-step"><div className="gf-step-num">1</div><div className="gf-step-text">Our team confirms your picks.</div></div>
+                  <div className="gf-step"><div className="gf-step-num">2</div><div className="gf-step-text">Your outfit will be ready for you when you arrive{c.event_location ? ` at ${c.event_location}` : ''}{c.launch_date ? ` on ${fmtDate(c.launch_date)}` : ''}{eventTime ? ` at ${eventTime}` : ''}.</div></div>
+                  <div className="gf-step" style={{ borderBottom: 'none' }}><div className="gf-step-num">3</div><div className="gf-step-text">Tag <strong>@nama</strong> on the day — we&rsquo;d love to reshare you 🤍</div></div>
+                </>
+              ) : (
+                <>
+                  <div className="gf-step"><div className="gf-step-num">1</div><div className="gf-step-text">Our team confirms your order.</div></div>
+                  <div className="gf-step"><div className="gf-step-num">2</div><div className="gf-step-text">Your pieces ship within 5–7 business days.</div></div>
+                  <div className="gf-step"><div className="gf-step-num">3</div><div className="gf-step-text">Tracking goes to {submitted?.shipping?.email || 'your email'}.</div></div>
+                  <div className="gf-step" style={{ borderBottom: 'none' }}><div className="gf-step-num">4</div><div className="gf-step-text">Tag <strong>@nama</strong> when they arrive — we&rsquo;d love to reshare you 🤍</div></div>
+                </>
+              )}
             </div>
             {generic && personalUrl ? (
               <a className="gf-btn-ghost" href={personalUrl} style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}>
-                View my order status — save this link
+                {c.event_mode ? 'View my picks — save this link' : 'View my order status — save this link'}
               </a>
             ) : (
-              <button className="gf-btn-ghost" onClick={() => setStep('status')}>View my order status</button>
+              <button className="gf-btn-ghost" onClick={() => setStep('status')}>{c.event_mode ? 'View my picks' : 'View my order status'}</button>
             )}
           </div>
         )}
@@ -755,12 +792,16 @@ export default function GiftPageClient({ token, generic = false, preview = false
             <div className="gf-eyebrow">Nama — {c.name}</div>
             <div className="gf-headline">Your <em>picks.</em></div>
             <div className="gf-timeline">
-              {[
+              {(c.event_mode ? [
+                ['Submitted', true],
+                ['Confirmed', !!submitted.order_status],
+                ['Ready at the event', false],
+              ] : [
                 ['Submitted', true],
                 ['Order placed', !!submitted.order_status],
                 ['Shipped', submitted.order_status === 'shipped' || submitted.order_status === 'delivered' || !!submitted.tracking_url],
                 ['Delivered', submitted.order_status === 'delivered'],
-              ].map(([label, on]) => (
+              ]).map(([label, on]) => (
                 <div key={label} className={`gf-tl-item${on ? ' on' : ''}`}><div className="gf-tl-dot" /><div className="gf-tl-label">{label}</div></div>
               ))}
             </div>
@@ -780,7 +821,17 @@ export default function GiftPageClient({ token, generic = false, preview = false
                 </div>
               ))}
             </div>
-            {submitted.shipping && (
+            {submitted.shipping && c.event_mode && (
+              <>
+                <div className="gf-section-label">Your details</div>
+                <div className="gf-addr">
+                  {submitted.shipping.name}<br />
+                  {submitted.shipping.email}{submitted.shipping.phone ? <><br />{submitted.shipping.phone}</> : null}
+                </div>
+                <div className="gf-sub" style={{ marginTop: 14 }}>Need to change something? Reply to your Nama contact and we&rsquo;ll sort it before the event.</div>
+              </>
+            )}
+            {submitted.shipping && !c.event_mode && (
               <>
                 <div className="gf-section-label">Shipping to</div>
                 <div className="gf-addr">

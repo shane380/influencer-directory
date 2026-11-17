@@ -32,6 +32,7 @@ export async function loadGiftAssignment(token: string) {
   const campaign = Array.isArray((data as any).campaigns) ? (data as any).campaigns[0] : (data as any).campaigns;
   const influencer = Array.isArray((data as any).influencers) ? (data as any).influencers[0] : (data as any).influencers;
   if (!campaign?.gift_enabled) return null;
+  Object.assign(campaign, await loadGiftEventFields((data as any).campaign_id));
   return { assignment: data as any, campaign, influencer };
 }
 
@@ -78,14 +79,41 @@ export async function loadGenericCampaign(token: string) {
     .eq("gift_generic_token", token)
     .single();
   if (!data || !(data as any).gift_enabled || !(data as any).gift_generic_enabled) return null;
-  return data as any;
+  return { ...(data as any), ...(await loadGiftEventFields((data as any).id)) };
+}
+
+export type GiftEventFields = { gift_event_mode: boolean; gift_event_time: string | null; gift_event_location: string | null };
+
+// Event mode is read in its own best-effort query so the Selects page keeps
+// working (as a normal shipped gift) until the migration adding these
+// columns has been applied.
+export async function loadGiftEventFields(campaignId: string): Promise<GiftEventFields> {
+  const off: GiftEventFields = { gift_event_mode: false, gift_event_time: null, gift_event_location: null };
+  if (!campaignId) return off;
+  const { data, error } = await supabase
+    .from("campaigns")
+    .select("gift_event_mode, gift_event_time, gift_event_location")
+    .eq("id", campaignId)
+    .single();
+  if (error || !data) return off;
+  return {
+    gift_event_mode: Boolean((data as any).gift_event_mode),
+    gift_event_time: (data as any).gift_event_time || null,
+    gift_event_location: (data as any).gift_event_location || null,
+  };
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Shared by the personal and generic submit routes. Returns either the
 // normalized shipping object or a human-readable validation detail.
-export function validateGiftShipping(raw: any): { shipping: GiftShipping } | { detail: string } {
+// Event-mode campaigns collect outfits in person, so the address is optional
+// there (requireAddress: false); name, email and phone are always required.
+export function validateGiftShipping(
+  raw: any,
+  opts: { requireAddress?: boolean } = {}
+): { shipping: GiftShipping } | { detail: string } {
+  const requireAddress = opts.requireAddress !== false;
   const s = raw || {};
   const shipping: GiftShipping = {
     name: String(s.name || "").trim().slice(0, 120),
@@ -101,11 +129,13 @@ export function validateGiftShipping(raw: any): { shipping: GiftShipping } | { d
   if (!shipping.name) return { detail: "name required" };
   if (!EMAIL_RE.test(shipping.email)) return { detail: "valid email required" };
   if ((shipping.phone.match(/\d/g) || []).length < 7) return { detail: "valid phone required" };
-  if (!shipping.address1 || !shipping.city || !shipping.zip || !shipping.country_code) {
-    return { detail: "address incomplete" };
-  }
-  if (["US", "CA"].includes(shipping.country_code) && !shipping.province) {
-    return { detail: "province/state required" };
+  if (requireAddress) {
+    if (!shipping.address1 || !shipping.city || !shipping.zip || !shipping.country_code) {
+      return { detail: "address incomplete" };
+    }
+    if (["US", "CA"].includes(shipping.country_code) && !shipping.province) {
+      return { detail: "province/state required" };
+    }
   }
   return { shipping };
 }
