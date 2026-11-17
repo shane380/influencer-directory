@@ -360,10 +360,8 @@ export default function GiftPageClient({ token, generic = false, preview = false
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email)) return setSubmitError('Please enter a valid email.')
     const eventMode = Boolean(data?.campaign?.event_mode)
     if ((f.phone.match(/\d/g) || []).length < 7) return setSubmitError(eventMode ? 'Please enter a valid phone number so we can reach you on the day.' : 'Please enter a valid phone number — the carrier needs it for delivery.')
-    if (!eventMode) {
-      if (!f.address1.trim() || !f.city.trim() || !f.zip.trim() || !f.country_code) return setSubmitError('Please complete your shipping address.')
-      if (['US', 'CA'].includes(f.country_code) && !f.province.trim()) return setSubmitError('Please enter your state / province.')
-    }
+    if (!f.address1.trim() || !f.city.trim() || !f.zip.trim() || !f.country_code) return setSubmitError(eventMode ? 'Please complete your address.' : 'Please complete your shipping address.')
+    if (['US', 'CA'].includes(f.country_code) && !f.province.trim()) return setSubmitError('Please enter your state / province.')
     setSubmitting(true)
     try {
       const res = await fetch(`${apiBase}/${encodeURIComponent(token)}/submit`, {
@@ -742,33 +740,29 @@ export default function GiftPageClient({ token, generic = false, preview = false
 
             <div className="gf-form">
               <div className="gf-section-label">{c.event_mode ? 'Your details' : 'Shipping'}</div>
-              {form.source !== 'none' && (c.event_mode ? form.name.trim() !== '' : form.address1.trim() !== '') && (
+              {form.source !== 'none' && form.address1.trim() !== '' && (
                 <div className="gf-note">We&rsquo;ve filled in what we have on file — please make sure it&rsquo;s still current.</div>
               )}
               {field('Full name', 'name', { required: true, autoComplete: 'name' })}
               {field('Email', 'email', { required: true, type: 'email', autoComplete: 'email', inputMode: 'email' })}
               {field('Phone', 'phone', { required: true, type: 'tel', autoComplete: 'tel', inputMode: 'tel' })}
               {generic && field('Instagram handle (optional)', 'instagram_handle', { autoComplete: 'off', placeholder: '@yourhandle' })}
-              {!c.event_mode && (
-                <>
-                  {field('Address', 'address1', { required: true, autoComplete: 'address-line1' })}
-                  {field('Apt / unit (optional)', 'address2', { autoComplete: 'address-line2' })}
-                  <div className="gf-row2">
-                    {field('City', 'city', { required: true, autoComplete: 'address-level2' })}
-                    {field(['US', 'CA'].includes(form.country_code) ? 'State / Province' : 'Region', 'province', { required: ['US', 'CA'].includes(form.country_code), autoComplete: 'address-level1' })}
-                  </div>
-                  <div className="gf-row2">
-                    {field('Postal / ZIP', 'zip', { required: true, autoComplete: 'postal-code' })}
-                    <div className="gf-field">
-                      <label className="gf-label">Country *</label>
-                      <select className="gf-select" value={form.country_code} onChange={e => setForm(prev => ({ ...prev, country_code: e.target.value }))}>
-                        <option value="">Select…</option>
-                        {getCountries().map(cc => <option key={cc.code} value={cc.code}>{cc.name}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                </>
-              )}
+              {field('Address', 'address1', { required: true, autoComplete: 'address-line1' })}
+              {field('Apt / unit (optional)', 'address2', { autoComplete: 'address-line2' })}
+              <div className="gf-row2">
+                {field('City', 'city', { required: true, autoComplete: 'address-level2' })}
+                {field(['US', 'CA'].includes(form.country_code) ? 'State / Province' : 'Region', 'province', { required: ['US', 'CA'].includes(form.country_code), autoComplete: 'address-level1' })}
+              </div>
+              <div className="gf-row2">
+                {field('Postal / ZIP', 'zip', { required: true, autoComplete: 'postal-code' })}
+                <div className="gf-field">
+                  <label className="gf-label">Country *</label>
+                  <select className="gf-select" value={form.country_code} onChange={e => setForm(prev => ({ ...prev, country_code: e.target.value }))}>
+                    <option value="">Select…</option>
+                    {getCountries().map(cc => <option key={cc.code} value={cc.code}>{cc.name}</option>)}
+                  </select>
+                </div>
+              </div>
               {submitError && <div className="gf-error">{submitError}</div>}
               <button className="gf-btn" style={{ marginTop: 10 }} disabled={submitting} onClick={submit}>
                 {submitting ? 'Sending…' : 'Confirm My Picks'}
@@ -848,6 +842,8 @@ export default function GiftPageClient({ token, generic = false, preview = false
                 <div className="gf-addr">
                   {submitted.shipping.name}<br />
                   {submitted.shipping.email}{submitted.shipping.phone ? <><br />{submitted.shipping.phone}</> : null}
+                  {submitted.shipping.address1 ? <><br />{submitted.shipping.address1}{submitted.shipping.address2 ? `, ${submitted.shipping.address2}` : ''}<br />
+                  {[submitted.shipping.city, submitted.shipping.province, submitted.shipping.zip].filter(Boolean).join(', ')} {submitted.shipping.country_code}</> : null}
                 </div>
                 <div className="gf-sub" style={{ marginTop: 14 }}>Need to change something? Reply to your Nama contact and we&rsquo;ll sort it before the event.</div>
               </>

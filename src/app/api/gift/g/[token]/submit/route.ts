@@ -45,7 +45,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const campaign = await loadGenericCampaign(token);
   if (!campaign) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const shippingResult = validateGiftShipping(body.shipping, { requireAddress: !campaign.gift_event_mode });
+  const shippingResult = validateGiftShipping(body.shipping);
   if (!("shipping" in shippingResult)) return badRequest("shipping_invalid", shippingResult.detail);
   const shipping = shippingResult.shipping;
 
