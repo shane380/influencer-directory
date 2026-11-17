@@ -41,7 +41,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: "already_submitted" }, { status: 409 });
   }
 
-  const shippingResult = validateGiftShipping(body.shipping, { requireAddress: !campaign.gift_event_mode });
+  const shippingResult = validateGiftShipping(body.shipping);
   if (!("shipping" in shippingResult)) return badRequest("shipping_invalid", shippingResult.detail);
   const shipping = shippingResult.shipping;
 
