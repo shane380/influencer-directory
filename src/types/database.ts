@@ -153,6 +153,9 @@ export interface Campaign {
     // CSS object-position ("x% y%") chosen in the settings dialog per crop.
     position?: string | null;
     mobile_position?: string | null;
+    // Hide the eyebrow + campaign title block under the banner (when the
+    // banner artwork already carries the name).
+    hide_title?: boolean;
   } | null;
   gift_blurb: string | null;
   gift_products: GiftPoolProduct[] | null;

@@ -57,6 +57,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       hero_image_mobile_url: campaign.gift_hero_image?.mobile_url || null,
       hero_position: campaign.gift_hero_image?.position || null,
       hero_mobile_position: campaign.gift_hero_image?.mobile_position || null,
+      hide_title: Boolean(campaign.gift_hero_image?.hide_title),
       blurb: campaign.gift_blurb || null,
       outfits: effectiveOutfits(assignment, campaign),
       max_selects: effectiveMaxPieces(assignment, campaign),
