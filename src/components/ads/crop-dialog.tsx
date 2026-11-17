@@ -16,6 +16,13 @@ interface Props {
   onCancel: () => void;
   /** The cropped file, plus the ratio it was cropped to. */
   onCropped: (file: File, aspect: number) => void;
+  /** Heading override — the default names the Meta placement. */
+  title?: string;
+  /**
+   * Meta placement guidance (minimum short edge, softness warnings). Pass
+   * false for non-ad crops such as selects-page product images.
+   */
+  adGuidance?: boolean;
 }
 
 const VIEW = 460; // max display size of the source image
@@ -41,6 +48,7 @@ export function ratioLabel(aspect: number): string {
   if (Math.abs(aspect - 1) < 0.01) return "1:1";
   if (Math.abs(aspect - 4 / 5) < 0.01) return "4:5";
   if (Math.abs(aspect - 9 / 16) < 0.01) return "9:16";
+  if (Math.abs(aspect - 2 / 3) < 0.01) return "2:3";
   return aspect.toFixed(2);
 }
 
@@ -58,6 +66,8 @@ export function CropDialog({
   aspectOptions,
   onCancel,
   onCropped,
+  title,
+  adGuidance = true,
 }: Props) {
   const isVideo = file.type.startsWith("video/");
   const [aspect, setAspect] = useState(initialAspect);
@@ -100,8 +110,8 @@ export function CropDialog({
   /** Widest crop of this ratio that still fits inside the image. */
   const maxW = Math.min(dispW, dispH * aspect);
   const minW = useMemo(
-    () => Math.min(maxW, Math.max(32, (MIN_SRC_SHORT * Math.max(1, aspect)) / scale)),
-    [maxW, aspect, scale]
+    () => Math.min(maxW, Math.max(32, ((adGuidance ? MIN_SRC_SHORT : 0) * Math.max(1, aspect)) / scale)),
+    [maxW, aspect, scale, adGuidance]
   );
 
   const clampCrop = useCallback(
@@ -325,7 +335,7 @@ export function CropDialog({
       <div className="bg-white rounded-xl shadow-xl p-5 max-w-[560px]">
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm font-semibold text-gray-900">
-            Crop to {label} for {isFeedRatio(aspect) ? "feed" : "stories & reels"}
+            {title ?? `Crop to ${label} for ${isFeedRatio(aspect) ? "feed" : "stories & reels"}`}
           </p>
           {aspectOptions && aspectOptions.length > 1 && (
             <div className="flex rounded-md border border-gray-300 overflow-hidden text-[11.5px]">
@@ -442,7 +452,7 @@ export function CropDialog({
             {capped && ` (crop is ${Math.round(out.srcW)}px wide, capped)`}
           </p>
         )}
-        {soft && (
+        {adGuidance && soft && (
           <p className="text-[11px] text-amber-700 mt-1">
             {srcShort < MIN_SRC_SHORT
               ? `Only ${srcShort}px on the short edge — under Meta's ${MIN_SRC_SHORT}px minimum, so this ${isVideo ? "video" : "image"} may be rejected.`

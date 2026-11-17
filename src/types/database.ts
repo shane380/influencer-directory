@@ -120,8 +120,16 @@ export interface GiftPoolProduct {
   image_url: string | null;
   color?: string | null;
   // Selects-page-only image (R2); Shopify's product image is left untouched.
-  // position = CSS object-position for the page's 2:3 frames (default centre).
-  image_override?: { url: string; r2_key: string; position?: string | null } | null;
+  // url/r2_key is the 2:3 crop shown on the page; source_* is the uncropped
+  // upload it was cut from, kept so the crop can be redone. position is a
+  // legacy CSS object-position from before cropping existed.
+  image_override?: {
+    url: string;
+    r2_key: string;
+    source_url?: string | null;
+    source_r2_key?: string | null;
+    position?: string | null;
+  } | null;
 }
 
 export interface GiftShipping {
