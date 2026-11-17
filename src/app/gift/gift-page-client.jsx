@@ -43,6 +43,7 @@ const CSS = `
 .gf-detail-icon { width: 20px; height: 20px; color: #999; flex-shrink: 0; }
 .gf-detail-label { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #999; margin-bottom: 2px; }
 .gf-detail-value { font-size: 13.5px; color: #111; }
+.gf-detail-sub { font-size: 12.5px; color: #6B655D; margin-top: 2px; line-height: 1.4; }
 .gf-body { padding: 28px 24px 40px; flex: 1; display: flex; flex-direction: column; }
 .gf-eyebrow { font-size: 10px; letter-spacing: 0.34em; text-transform: uppercase; color: #999; margin-bottom: 14px; }
 .gf-headline { font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 300; line-height: 1.08; color: #111; margin-bottom: 16px; }
@@ -133,6 +134,7 @@ const CSS = `
   .gf-colL { border-right: 1px solid #eee; }
   .gf-colL .gf-masthead { max-width: none; margin: 0; padding: 24px 44px 14px 48px; }
   .gf-colL .gf-letter { max-width: none; margin: 0; padding: 12px 44px 24px 48px; }
+  .gf-colL.gf-no-mast .gf-letter { padding-top: 28px; }
   /* The 16.5px mobile body size (iOS zoom guard) reads oversized on
      desktop — step the letter down to editorial sizes. */
   .gf-colL .gf-letter-greeting { font-size: 28px; }
@@ -472,12 +474,16 @@ export default function GiftPageClient({ token, generic = false, preview = false
       </div>
     </div>
   )
+  // Location is stored as "venue\naddress"; older values are a single line.
+  const [eventVenue = '', ...eventAddressLines] = String(c.event_location || '').split('\n')
+  const eventAddress = eventAddressLines.join(', ').trim()
   const whereRow = c.event_mode && c.event_location && (
     <div className="gf-detail-row">
       <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z" /><circle cx="12" cy="10" r="3" /></svg>
       <div>
         <div className="gf-detail-label">Where</div>
-        <div className="gf-detail-value">{c.event_location}</div>
+        <div className="gf-detail-value">{eventVenue}</div>
+        {eventAddress && <div className="gf-detail-sub">{eventAddress}</div>}
       </div>
     </div>
   )
@@ -495,7 +501,7 @@ export default function GiftPageClient({ token, generic = false, preview = false
       <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z" /></svg>
       <div>
         <div className="gf-detail-label">Your outfit</div>
-        <div className="gf-detail-value">Ready for you when you arrive</div>
+        <div className="gf-detail-value">Make your selects below, ready for you when you arrive</div>
       </div>
     </div>
   ) : !c.selects_deadline && (
@@ -526,7 +532,9 @@ export default function GiftPageClient({ token, generic = false, preview = false
           <div className="gf-landing">
             {c.hero_image_url && (
               <picture>
-                {c.hero_image_mobile_url && <source media="(max-width: 767px)" srcSet={c.hero_image_mobile_url} />}
+                {/* srcset splits on spaces, so an uploaded file name with spaces
+                    silently drops the mobile source and phones get the desktop crop. */}
+                {c.hero_image_mobile_url && <source media="(max-width: 767px)" srcSet={c.hero_image_mobile_url.replace(/ /g, '%20')} />}
                 <img
                   className="gf-hero"
                   src={c.hero_image_url}
@@ -539,7 +547,8 @@ export default function GiftPageClient({ token, generic = false, preview = false
               </picture>
             )}
             <div className="gf-cols">
-            <div className="gf-colL">
+            <div className={c.hide_title ? 'gf-colL gf-no-mast' : 'gf-colL'}>
+            {!c.hide_title && (
             <div className="gf-masthead">
               <div className="gf-mast-eyebrow">Nama{(() => {
                 if (!c.launch_date) return ''
@@ -552,10 +561,11 @@ export default function GiftPageClient({ token, generic = false, preview = false
                 {c.name}
               </div>
             </div>
+            )}
             <div className="gf-letter">
               <div className="gf-letter-greeting">{data.influencer.first_name ? <>{data.influencer.first_name}, you&rsquo;re on the list.</> : <>You&rsquo;re on the list.</>}</div>
               <div className="gf-letter-body">{c.blurb || `${c.name} is almost here — before ${c.event_mode ? 'the doors open' : 'it goes live'}, we'd love you in it. Pick your pieces below.`}</div>
-              <div className="gf-sign">— Daisy &amp; the Nama team</div>
+              <div className="gf-sign">— {c.sign_off || 'Daisy'} &amp; the Nama team</div>
             </div>
             </div>
             <div className="gf-colR">
@@ -776,7 +786,7 @@ export default function GiftPageClient({ token, generic = false, preview = false
               {c.event_mode ? (
                 <>
                   <div className="gf-step"><div className="gf-step-num">1</div><div className="gf-step-text">Our team confirms your picks.</div></div>
-                  <div className="gf-step"><div className="gf-step-num">2</div><div className="gf-step-text">Your outfit will be ready for you when you arrive{c.event_location ? ` at ${c.event_location}` : ''}{c.launch_date ? ` on ${fmtDate(c.launch_date)}` : ''}{eventTime ? ` at ${eventTime}` : ''}.</div></div>
+                  <div className="gf-step"><div className="gf-step-num">2</div><div className="gf-step-text">Your outfit will be ready for you when you arrive{eventVenue ? ` at ${eventVenue}` : ''}{c.launch_date ? ` on ${fmtDate(c.launch_date)}` : ''}{eventTime ? ` at ${eventTime}` : ''}.</div></div>
                   <div className="gf-step" style={{ borderBottom: 'none' }}><div className="gf-step-num">3</div><div className="gf-step-text">Tag <strong>@nama</strong> on the day — we&rsquo;d love to reshare you 🤍</div></div>
                 </>
               ) : (

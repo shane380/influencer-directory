@@ -143,7 +143,10 @@ export function GiftSettingsDialog({
   const [ignoreStock, setIgnoreStock] = useState(false);
   const [eventMode, setEventMode] = useState(false);
   const [eventTime, setEventTime] = useState("");
-  const [eventLocation, setEventLocation] = useState("");
+  const [eventVenue, setEventVenue] = useState("");
+  const [eventAddress, setEventAddress] = useState("");
+  const [hideTitle, setHideTitle] = useState(false);
+  const [signOff, setSignOff] = useState("");
   const [genericEnabled, setGenericEnabled] = useState(false);
   const [genericToken, setGenericToken] = useState<string | null>(null);
   const [genericMaxSelects, setGenericMaxSelects] = useState(1);
@@ -171,7 +174,14 @@ export function GiftSettingsDialog({
     setIgnoreStock((campaign as any).gift_ignore_stock ?? false);
     setEventMode((campaign as any).gift_event_mode ?? false);
     setEventTime((campaign as any).gift_event_time || "");
-    setEventLocation((campaign as any).gift_event_location || "");
+    {
+      // Stored as "venue\naddress" — the page shows the two lines separately.
+      const [venue = "", ...rest] = String((campaign as any).gift_event_location || "").split("\n");
+      setEventVenue(venue);
+      setEventAddress(rest.join("\n"));
+    }
+    setHideTitle(Boolean(campaign.gift_hero_image?.hide_title));
+    setSignOff(campaign.gift_hero_image?.sign_off || "");
     setGenericEnabled((campaign as any).gift_generic_enabled ?? false);
     setGenericToken((campaign as any).gift_generic_token ?? null);
     setGenericMaxSelects((campaign as any).gift_generic_max_selects ?? 1);
@@ -242,7 +252,9 @@ export function GiftSettingsDialog({
 
   // Either image may exist alone; the page falls back to whichever is set.
   function heroImagePayload() {
-    if (!hero && !heroMobile) return null;
+    // Also carries page presentation settings (hide_title, sign_off), so it
+    // is kept even without an image when one of those is set.
+    if (!hero && !heroMobile && !hideTitle && !signOff.trim()) return null;
     return {
       url: hero?.url || null,
       r2_key: hero?.r2_key || null,
@@ -250,7 +262,13 @@ export function GiftSettingsDialog({
       mobile_r2_key: heroMobile?.r2_key || null,
       position: heroPosition,
       mobile_position: heroMobilePosition,
+      hide_title: hideTitle,
+      sign_off: signOff.trim() || null,
     };
+  }
+
+  function eventLocationValue(): string | null {
+    return [eventVenue.trim(), eventAddress.trim()].filter(Boolean).join("\n") || null;
   }
 
   // Opens the page as creators will see it, using what's in this dialog now
@@ -264,7 +282,7 @@ export function GiftSettingsDialog({
       ignore_stock: ignoreStock,
       event_mode: eventMode,
       event_time: eventMode && eventTime ? eventTime : null,
-      event_location: eventMode ? eventLocation.trim() || null : null,
+      event_location: eventMode ? eventLocationValue() : null,
       pool,
     };
     try {
@@ -296,7 +314,7 @@ export function GiftSettingsDialog({
         ? {
             gift_event_mode: eventMode,
             gift_event_time: eventMode && eventTime ? eventTime : null,
-            gift_event_location: eventMode ? eventLocation.trim() || null : null,
+            gift_event_location: eventMode ? eventLocationValue() : null,
           }
         : {}),
       // Written only when the columns exist (migration applied) or the user
@@ -420,6 +438,18 @@ export function GiftSettingsDialog({
                 {heroMobile && hero ? " Mobile uses its own image; remove it to fall back to the desktop one." : ""}
               </div>
             )}
+            {(hero || heroMobile) && (
+              <label className="flex items-center gap-3 cursor-pointer mt-2">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={hideTitle}
+                  onChange={(e) => setHideTitle(e.target.checked)}
+                />
+                <span className="text-sm">Hide the title block under the banner</span>
+                <span className="text-xs text-gray-500">For banners that already show the campaign name.</span>
+              </label>
+            )}
           </div>
 
           <div>
@@ -431,6 +461,17 @@ export function GiftSettingsDialog({
               onChange={(e) => setBlurb(e.target.value)}
             />
             <div className="text-xs text-gray-400 mt-1">The collection paragraph, shown under “{"{name}"}, you’re on the list.”</div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="text-sm font-medium">Signed by</div>
+            <Input
+              value={signOff}
+              onChange={(e) => setSignOff(e.target.value)}
+              placeholder="Daisy"
+              className="w-40"
+            />
+            <span className="text-xs text-gray-500">The letter ends “— {signOff.trim() || "Daisy"} &amp; the Nama team”.</span>
           </div>
 
           <div className="flex items-center gap-3">
@@ -485,14 +526,24 @@ export function GiftSettingsDialog({
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="text-sm">Location</div>
+                  <div className="text-sm w-24">Venue</div>
                   <Input
-                    value={eventLocation}
-                    onChange={(e) => setEventLocation(e.target.value)}
-                    placeholder="Venue name, 123 Example St, City"
+                    value={eventVenue}
+                    onChange={(e) => setEventVenue(e.target.value)}
+                    placeholder="Example Studio"
                     className="flex-1"
                   />
                 </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-sm w-24">Address</div>
+                  <Input
+                    value={eventAddress}
+                    onChange={(e) => setEventAddress(e.target.value)}
+                    placeholder="123 Example St, City, ST 00000"
+                    className="flex-1"
+                  />
+                </div>
+                <div className="text-xs text-gray-400 -mt-2">Shown under &ldquo;Where&rdquo; as two lines: venue, then address.</div>
                 <div className="text-xs text-gray-400">
                   {campaign.start_date
                     ? "The date is the campaign start date — change it on the campaign to move the event."
