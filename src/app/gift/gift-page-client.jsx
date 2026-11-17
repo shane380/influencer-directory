@@ -452,6 +452,62 @@ export default function GiftPageClient({ token, generic = false, preview = false
   const eventTime = c.event_mode ? formatGiftEventTime(c.event_time) : null
   const fmtDate = (d) => new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
 
+  // Landing detail rows. Event pages lead with the date and venue; gifting
+  // pages lead with the picks allowance.
+  const picksRow = (
+    <div className="gf-detail-row">
+      <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+      <div>
+        <div className="gf-detail-label">Your picks</div>
+        <div className="gf-detail-value">{outfits} {outfits === 1 ? 'outfit' : 'outfits'} (up to 3 pieces each)</div>
+      </div>
+    </div>
+  )
+  const dateRow = c.launch_date && (
+    <div className="gf-detail-row">
+      <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+      <div>
+        <div className="gf-detail-label">{c.event_mode ? 'Event date' : 'Campaign launches'}</div>
+        <div className="gf-detail-value">{fmtDate(c.launch_date)}{eventTime ? ` · Arrive at ${eventTime}` : ''}</div>
+      </div>
+    </div>
+  )
+  const whereRow = c.event_mode && c.event_location && (
+    <div className="gf-detail-row">
+      <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z" /><circle cx="12" cy="10" r="3" /></svg>
+      <div>
+        <div className="gf-detail-label">Where</div>
+        <div className="gf-detail-value">{c.event_location}</div>
+      </div>
+    </div>
+  )
+  const deadlineRow = c.selects_deadline && (
+    <div className="gf-detail-row">
+      <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><polyline points="12 7 12 12 15.5 14" /></svg>
+      <div>
+        <div className="gf-detail-label">Selects deadline</div>
+        <div className="gf-detail-value">Make your picks by {fmtDate(c.selects_deadline)}</div>
+      </div>
+    </div>
+  )
+  const lastRow = c.event_mode ? (
+    <div className="gf-detail-row">
+      <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z" /></svg>
+      <div>
+        <div className="gf-detail-label">Your outfit</div>
+        <div className="gf-detail-value">Ready for you when you arrive</div>
+      </div>
+    </div>
+  ) : !c.selects_deadline && (
+    <div className="gf-detail-row">
+      <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z" /><path d="M3.3 8.3L12 13l8.7-4.7" /><line x1="12" y1="13" x2="12" y2="21" /></svg>
+      <div>
+        <div className="gf-detail-label">Ships</div>
+        <div className="gf-detail-value">Within 5 days</div>
+      </div>
+    </div>
+  )
+    
   return (
     <div className="gf-wrap"><style dangerouslySetInnerHTML={{ __html: CSS }} />
       {preview && (
@@ -505,57 +561,12 @@ export default function GiftPageClient({ token, generic = false, preview = false
             <div className="gf-colR">
             <div className="gf-body" style={{ flex: 'none' }}>
               <div className="gf-details">
-                <div className="gf-detail-row">
-                  <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
-                  <div>
-                    <div className="gf-detail-label">Your picks</div>
-                    <div className="gf-detail-value">{outfits} {outfits === 1 ? 'outfit' : 'outfits'} (up to 3 pieces each)</div>
-                  </div>
-                </div>
-                {c.launch_date && (
-                  <div className="gf-detail-row">
-                    <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-                    <div>
-                      <div className="gf-detail-label">{c.event_mode ? 'Event date' : 'Campaign launches'}</div>
-                      <div className="gf-detail-value">{fmtDate(c.launch_date)}{eventTime ? ` · Arrive at ${eventTime}` : ''}</div>
-                    </div>
-                  </div>
-                )}
-                {c.event_mode && c.event_location && (
-                  <div className="gf-detail-row">
-                    <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z" /><circle cx="12" cy="10" r="3" /></svg>
-                    <div>
-                      <div className="gf-detail-label">Where</div>
-                      <div className="gf-detail-value">{c.event_location}</div>
-                    </div>
-                  </div>
-                )}
-                {c.selects_deadline && (
-                  <div className="gf-detail-row">
-                    <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><polyline points="12 7 12 12 15.5 14" /></svg>
-                    <div>
-                      <div className="gf-detail-label">Selects deadline</div>
-                      <div className="gf-detail-value">Make your picks by {fmtDate(c.selects_deadline)}</div>
-                    </div>
-                  </div>
-                )}
-                {c.event_mode ? (
-                  <div className="gf-detail-row">
-                    <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z" /></svg>
-                    <div>
-                      <div className="gf-detail-label">Your outfit</div>
-                      <div className="gf-detail-value">Ready for you when you arrive</div>
-                    </div>
-                  </div>
-                ) : !c.selects_deadline && (
-                  <div className="gf-detail-row">
-                    <svg className="gf-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z" /><path d="M3.3 8.3L12 13l8.7-4.7" /><line x1="12" y1="13" x2="12" y2="21" /></svg>
-                    <div>
-                      <div className="gf-detail-label">Ships</div>
-                      <div className="gf-detail-value">Within 5 days</div>
-                    </div>
-                  </div>
-                )}
+                {c.event_mode && dateRow}
+                {c.event_mode && whereRow}
+                {picksRow}
+                {!c.event_mode && dateRow}
+                {deadlineRow}
+                {lastRow}
               </div>
               {(data.products || []).length > 0 && (
                 <div className="gf-collection">
