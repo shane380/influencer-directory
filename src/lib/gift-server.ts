@@ -57,6 +57,18 @@ export function poolImageOverride(
   return entry?.image_override?.url || null;
 }
 
+// object-position for the override above (the page's 2:3 frames default to centre).
+export function poolImagePosition(
+  productId: string,
+  campaignPool: GiftPoolProduct[] | null | undefined,
+  pool: GiftPoolProduct[] = []
+): string | null {
+  const id = String(productId);
+  const fromCampaign = (campaignPool || []).find((p) => String(p.product_id) === id);
+  const entry = fromCampaign ?? pool.find((p) => String(p.product_id) === id);
+  return entry?.image_override?.url ? entry.image_override.position || null : null;
+}
+
 // gift_max_selects stores the OUTFIT allowance; an outfit is 2–3 pieces,
 // so the hard piece cap is outfits × 3 (soft guidance only on minimums).
 export function effectiveOutfits(assignment: any, campaign: any): number {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { fetchProductsByIds } from "@/lib/shopify-products";
-import { loadGiftEventFields, poolImageOverride } from "@/lib/gift-server";
+import { loadGiftEventFields, poolImageOverride, poolImagePosition } from "@/lib/gift-server";
 import type { GiftPoolProduct } from "@/types/database";
 
 // Admin/manager-only: builds the selects page payload for a campaign so the
@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
         product_id: p.product_id,
         title: p.title,
         image: poolImageOverride(p.product_id, pool) || p.image,
+        image_position: poolImagePosition(p.product_id, pool),
         images: p.images,
         options: p.options,
         variants: p.variants.map((v) => ({

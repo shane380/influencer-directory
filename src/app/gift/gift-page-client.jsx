@@ -270,6 +270,7 @@ export default function GiftPageClient({ token, generic = false, preview = false
         title: product.title,
         variant_title: variant.title,
         image: product.image,
+        image_position: product.image_position || null,
       }
       if (existing) return prev.map(p => (p.product_id === product.product_id ? next : p))
       if (prev.length >= maxSelects) { setMaxHint(true); return prev }
@@ -308,7 +309,7 @@ export default function GiftPageClient({ token, generic = false, preview = false
     const v = variantFor(product, chosen)
     if (!v || !v.available) return
     if (!existing && picks.length >= maxSelects) { setMaxHint(true); return }
-    const next = { product_id: pid, variant_id: v.variant_id, title: product.title, variant_title: v.title, image: product.image }
+    const next = { product_id: pid, variant_id: v.variant_id, title: product.title, variant_title: v.title, image: product.image, image_position: product.image_position || null }
     setPicks(prev => (existing ? prev.map(x => (x.product_id === pid ? next : x)) : [...prev, next]))
   }
 
@@ -583,7 +584,7 @@ export default function GiftPageClient({ token, generic = false, preview = false
                     {data.products.map((p) => (
                       <div key={p.product_id} className="gf-coll-item" onClick={() => setStep('select')}>
                         <div className="gf-coll-imgwrap">
-                          <img className="gf-coll-img" src={p.image || ''} alt={p.title} />
+                          <img className="gf-coll-img" src={p.image || ''} alt={p.title} style={p.image_position ? { objectPosition: p.image_position } : undefined} />
                         </div>
                         <div className="gf-coll-name">{p.title}</div>
                       </div>
@@ -614,7 +615,7 @@ export default function GiftPageClient({ token, generic = false, preview = false
                     {picked && (
                       <button className="gf-uncheck" title="Remove" onClick={(e) => { e.stopPropagation(); removePick(picked) }}>×</button>
                     )}
-                    <img className="gf-card-img" src={product.image || ''} alt={product.title} onClick={() => tapProduct(product)} />
+                    <img className="gf-card-img" src={product.image || ''} alt={product.title} style={product.image_position ? { objectPosition: product.image_position } : undefined} onClick={() => tapProduct(product)} />
                     <div className="gf-card-body" onClick={() => tapProduct(product)}>
                       <div className="gf-card-title">{product.title}</div>
                       <div className="gf-card-size">{picked ? (picked.variant_title ? `${picked.variant_title} — selected` : 'Selected') : (product.variants.length > 1 ? 'Tap to select your size' : 'Tap to select')}</div>
@@ -696,7 +697,7 @@ export default function GiftPageClient({ token, generic = false, preview = false
                 return (
                   <div key={p.product_id}>
                     <div className="gf-cart-row" style={editing ? { borderBottom: 'none' } : undefined}>
-                      <img className="gf-cart-img" src={p.image || ''} alt={p.title} />
+                      <img className="gf-cart-img" src={p.image || ''} alt={p.title} style={p.image_position ? { objectPosition: p.image_position } : undefined} />
                       <div>
                         <div className="gf-cart-title">{p.title}</div>
                         {p.variant_title && <div className="gf-cart-variant">Size {p.variant_title}</div>}

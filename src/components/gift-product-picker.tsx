@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { GripVertical, Search, X } from "lucide-react";
+import { ImagePositionFrame } from "@/components/image-position-frame";
 import type { GiftPoolProduct } from "@/types/database";
 
 // Shared Shopify product picker for the gift pool (campaign settings) and
@@ -92,6 +93,14 @@ export function GiftProductPicker({
       setImageError("Image upload failed — check your connection.");
     }
     setUploadingId(null);
+  }
+
+  function setImagePosition(id: string, position: string) {
+    onChange(
+      products.map((x) =>
+        String(x.product_id) === id && x.image_override ? { ...x, image_override: { ...x.image_override, position } } : x
+      )
+    );
   }
 
   function clearImage(id: string) {
@@ -185,9 +194,19 @@ export function GiftProductPicker({
             }}
           >
             <GripVertical className="h-4 w-4 text-gray-300 flex-shrink-0 cursor-grab" />
-            {p.image_override?.url || p.image_url ? (
+            {p.image_override?.url ? (
+              <div className="w-14 flex-shrink-0">
+                <ImagePositionFrame
+                  url={p.image_override.url}
+                  aspect="2/3"
+                  position={p.image_override.position || "50% 50%"}
+                  onPositionChange={(pos) => setImagePosition(String(p.product_id), pos)}
+                  alt=""
+                />
+              </div>
+            ) : p.image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={p.image_override?.url || p.image_url!} alt="" className="w-8 h-10 object-cover rounded flex-shrink-0" />
+              <img src={p.image_url} alt="" className="w-8 h-10 object-cover rounded flex-shrink-0" />
             ) : (
               <div className="w-8 h-10 bg-gray-100 rounded flex-shrink-0" />
             )}
@@ -196,7 +215,7 @@ export function GiftProductPicker({
               {p.color && <span className="block text-xs text-gray-500 truncate">{p.color}</span>}
               {p.image_override?.url && (
                 <span className="block text-[11px] text-gray-400">
-                  Campaign image — Shopify unchanged ·{" "}
+                  Campaign image — drag it to reposition · Shopify unchanged ·{" "}
                   <button className="underline hover:text-gray-700" onClick={() => clearImage(String(p.product_id))}>
                     Use Shopify image
                   </button>

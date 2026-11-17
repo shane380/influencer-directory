@@ -120,7 +120,8 @@ export interface GiftPoolProduct {
   image_url: string | null;
   color?: string | null;
   // Selects-page-only image (R2); Shopify's product image is left untouched.
-  image_override?: { url: string; r2_key: string } | null;
+  // position = CSS object-position for the page's 2:3 frames (default centre).
+  image_override?: { url: string; r2_key: string; position?: string | null } | null;
 }
 
 export interface GiftShipping {
