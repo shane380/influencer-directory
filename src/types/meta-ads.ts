@@ -86,6 +86,16 @@ export interface LauncherDefaults {
   diagnostics: string[];
 }
 
+/** One row of the ad launcher's product catalogue (/api/ads/products). */
+export interface AdCatalogProduct {
+  id: string;
+  title: string;
+  color: string | null;
+  status: "active" | "draft";
+  type: string | null;
+  image: string | null;
+}
+
 /** A Shopify colourway an ad promotes (id = numeric product id). */
 export interface AdProductRef {
   id: string;
