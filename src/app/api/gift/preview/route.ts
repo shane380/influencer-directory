@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
       hero_position: hero?.position || null,
       hero_mobile_position: hero?.mobile_position || null,
       hide_title: Boolean(hero?.hide_title),
+      sign_off: hero?.sign_off || null,
       blurb: ("blurb" in draft ? draft.blurb : campaign.gift_blurb) || null,
       outfits,
       max_selects: outfits * 3,

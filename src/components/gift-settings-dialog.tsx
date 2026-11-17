@@ -146,6 +146,7 @@ export function GiftSettingsDialog({
   const [eventVenue, setEventVenue] = useState("");
   const [eventAddress, setEventAddress] = useState("");
   const [hideTitle, setHideTitle] = useState(false);
+  const [signOff, setSignOff] = useState("");
   const [genericEnabled, setGenericEnabled] = useState(false);
   const [genericToken, setGenericToken] = useState<string | null>(null);
   const [genericMaxSelects, setGenericMaxSelects] = useState(1);
@@ -180,6 +181,7 @@ export function GiftSettingsDialog({
       setEventAddress(rest.join("\n"));
     }
     setHideTitle(Boolean(campaign.gift_hero_image?.hide_title));
+    setSignOff(campaign.gift_hero_image?.sign_off || "");
     setGenericEnabled((campaign as any).gift_generic_enabled ?? false);
     setGenericToken((campaign as any).gift_generic_token ?? null);
     setGenericMaxSelects((campaign as any).gift_generic_max_selects ?? 1);
@@ -250,7 +252,9 @@ export function GiftSettingsDialog({
 
   // Either image may exist alone; the page falls back to whichever is set.
   function heroImagePayload() {
-    if (!hero && !heroMobile) return null;
+    // Also carries page presentation settings (hide_title, sign_off), so it
+    // is kept even without an image when one of those is set.
+    if (!hero && !heroMobile && !hideTitle && !signOff.trim()) return null;
     return {
       url: hero?.url || null,
       r2_key: hero?.r2_key || null,
@@ -259,6 +263,7 @@ export function GiftSettingsDialog({
       position: heroPosition,
       mobile_position: heroMobilePosition,
       hide_title: hideTitle,
+      sign_off: signOff.trim() || null,
     };
   }
 
@@ -456,6 +461,17 @@ export function GiftSettingsDialog({
               onChange={(e) => setBlurb(e.target.value)}
             />
             <div className="text-xs text-gray-400 mt-1">The collection paragraph, shown under “{"{name}"}, you’re on the list.”</div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="text-sm font-medium">Signed by</div>
+            <Input
+              value={signOff}
+              onChange={(e) => setSignOff(e.target.value)}
+              placeholder="Daisy"
+              className="w-40"
+            />
+            <span className="text-xs text-gray-500">The letter ends “— {signOff.trim() || "Daisy"} &amp; the Nama team”.</span>
           </div>
 
           <div className="flex items-center gap-3">

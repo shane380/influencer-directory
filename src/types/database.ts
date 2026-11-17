@@ -156,6 +156,8 @@ export interface Campaign {
     // Hide the eyebrow + campaign title block under the banner (when the
     // banner artwork already carries the name).
     hide_title?: boolean;
+    // First name the landing letter is signed with ("— <name> & the Nama team").
+    sign_off?: string | null;
   } | null;
   gift_blurb: string | null;
   gift_products: GiftPoolProduct[] | null;

@@ -565,7 +565,7 @@ export default function GiftPageClient({ token, generic = false, preview = false
             <div className="gf-letter">
               <div className="gf-letter-greeting">{data.influencer.first_name ? <>{data.influencer.first_name}, you&rsquo;re on the list.</> : <>You&rsquo;re on the list.</>}</div>
               <div className="gf-letter-body">{c.blurb || `${c.name} is almost here — before ${c.event_mode ? 'the doors open' : 'it goes live'}, we'd love you in it. Pick your pieces below.`}</div>
-              <div className="gf-sign">— Daisy &amp; the Nama team</div>
+              <div className="gf-sign">— {c.sign_off || 'Daisy'} &amp; the Nama team</div>
             </div>
             </div>
             <div className="gf-colR">
