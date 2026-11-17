@@ -27,6 +27,17 @@ export function giftPreviewDraftKey(campaignId: string): string {
   return `gift-preview-draft:${campaignId}`;
 }
 
+// Event-mode arrival time is stored as 24h "HH:MM"; shown as "6:00 PM".
+export function formatGiftEventTime(value: string | null | undefined): string | null {
+  const m = /^(\d{1,2}):(\d{2})/.exec(String(value || "").trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const minutes = m[2];
+  if (h > 23 || Number(minutes) > 59) return null;
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${minutes} ${h < 12 ? "AM" : "PM"}`;
+}
+
 export function giftDmSnippet(firstName: string, campaignName: string, url: string): string {
   const name = firstName ? `Hey ${firstName}!` : "Hey!";
   return `${name} We'd love to send you pieces from our ${campaignName} drop 🤍 pick your styles + drop your address here (takes 1 min): ${url}`;

@@ -162,6 +162,11 @@ export interface Campaign {
   gift_generic_max_selects: number;
   gift_selects_deadline: string | null;
   gift_ignore_stock: boolean;
+  // Event mode: outfits are collected at an event (start_date + gift_event_time)
+  // instead of shipped. gift_event_time is 24h "HH:MM" or null.
+  gift_event_mode: boolean;
+  gift_event_time: string | null;
+  gift_event_location: string | null;
   created_at: string;
   updated_at: string;
 }

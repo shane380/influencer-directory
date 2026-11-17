@@ -41,7 +41,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: "already_submitted" }, { status: 409 });
   }
 
-  const shippingResult = validateGiftShipping(body.shipping);
+  const shippingResult = validateGiftShipping(body.shipping, { requireAddress: !campaign.gift_event_mode });
   if (!("shipping" in shippingResult)) return badRequest("shipping_invalid", shippingResult.detail);
   const shipping = shippingResult.shipping;
 
@@ -84,10 +84,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const patch: Record<string, string> = {};
     if (!influencer.email && shipping.email) patch.email = shipping.email;
     if (!influencer.phone && shipping.phone) patch.phone = shipping.phone;
-    patch.mailing_address = [shipping.address1, shipping.address2, shipping.city, `${shipping.province} ${shipping.zip}`.trim(), shipping.country_code]
-      .filter(Boolean)
-      .join(", ");
-    await db.from("influencers").update(patch).eq("id", influencer.id);
+    if (shipping.address1) {
+      patch.mailing_address = [shipping.address1, shipping.address2, shipping.city, `${shipping.province} ${shipping.zip}`.trim(), shipping.country_code]
+        .filter(Boolean)
+        .join(", ");
+    }
+    if (Object.keys(patch).length > 0) await db.from("influencers").update(patch).eq("id", influencer.id);
   } catch (err) {
     console.warn("[gift] influencer sync failed:", err);
   }

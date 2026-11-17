@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { GiftProductPicker } from "@/components/gift-product-picker";
-import { generateGiftToken, giftGenericUrl, giftPreviewDraftKey } from "@/lib/gift";
+import { formatGiftEventTime, generateGiftToken, giftGenericUrl, giftPreviewDraftKey } from "@/lib/gift";
 import type { Campaign, GiftPoolProduct } from "@/types/database";
 
 // Campaign-level configuration for the public gift selection page.
@@ -141,6 +141,9 @@ export function GiftSettingsDialog({
   const [selectsDeadline, setSelectsDeadline] = useState("");
   const [pool, setPool] = useState<GiftPoolProduct[]>([]);
   const [ignoreStock, setIgnoreStock] = useState(false);
+  const [eventMode, setEventMode] = useState(false);
+  const [eventTime, setEventTime] = useState("");
+  const [eventLocation, setEventLocation] = useState("");
   const [genericEnabled, setGenericEnabled] = useState(false);
   const [genericToken, setGenericToken] = useState<string | null>(null);
   const [genericMaxSelects, setGenericMaxSelects] = useState(1);
@@ -166,6 +169,9 @@ export function GiftSettingsDialog({
     setSelectsDeadline((campaign as any).gift_selects_deadline || "");
     setPool(campaign.gift_products ?? []);
     setIgnoreStock((campaign as any).gift_ignore_stock ?? false);
+    setEventMode((campaign as any).gift_event_mode ?? false);
+    setEventTime((campaign as any).gift_event_time || "");
+    setEventLocation((campaign as any).gift_event_location || "");
     setGenericEnabled((campaign as any).gift_generic_enabled ?? false);
     setGenericToken((campaign as any).gift_generic_token ?? null);
     setGenericMaxSelects((campaign as any).gift_generic_max_selects ?? 1);
@@ -256,6 +262,9 @@ export function GiftSettingsDialog({
       outfits: Math.max(1, Math.min(10, maxSelects || 1)),
       selects_deadline: selectsDeadline || null,
       ignore_stock: ignoreStock,
+      event_mode: eventMode,
+      event_time: eventMode && eventTime ? eventTime : null,
+      event_location: eventMode ? eventLocation.trim() || null : null,
       pool,
     };
     try {
@@ -283,6 +292,13 @@ export function GiftSettingsDialog({
         : {}),
       gift_products: pool,
       ...("gift_ignore_stock" in (campaign as any) || ignoreStock ? { gift_ignore_stock: ignoreStock } : {}),
+      ...("gift_event_mode" in (campaign as any) || eventMode
+        ? {
+            gift_event_mode: eventMode,
+            gift_event_time: eventMode && eventTime ? eventTime : null,
+            gift_event_location: eventMode ? eventLocation.trim() || null : null,
+          }
+        : {}),
       // Written only when the columns exist (migration applied) or the user
       // touched the feature — so saving other settings never breaks pre-migration.
       ...("gift_generic_enabled" in (campaign as any) || genericEnabled || genericToken
@@ -439,6 +455,51 @@ export function GiftSettingsDialog({
               className="w-40"
             />
             <span className="text-xs text-gray-500">Shown on the page ("make your picks by …"). Leave empty to show shipping time instead.</span>
+          </div>
+
+          <div className="border rounded-md p-3 space-y-2.5">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                className="h-4 w-4"
+                checked={eventMode}
+                onChange={(e) => setEventMode(e.target.checked)}
+              />
+              <span className="text-sm font-medium">Event</span>
+              <span className="text-xs text-gray-500">Outfits are collected at an event, not shipped — shows the event date, says the outfit is ready on arrival, and drops the address fields.</span>
+            </label>
+            {eventMode && (
+              <>
+                <div className="flex items-center gap-3">
+                  <div className="text-sm">Arrival time</div>
+                  <Input
+                    type="time"
+                    value={eventTime}
+                    onChange={(e) => setEventTime(e.target.value)}
+                    className="w-32"
+                  />
+                  <span className="text-xs text-gray-500">
+                    Shown as &ldquo;Event date · {campaign.start_date
+                      ? new Date(campaign.start_date + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric" })
+                      : "—"}{formatGiftEventTime(eventTime) ? ` · Arrive at ${formatGiftEventTime(eventTime)}` : ""}&rdquo;.
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-sm">Location</div>
+                  <Input
+                    value={eventLocation}
+                    onChange={(e) => setEventLocation(e.target.value)}
+                    placeholder="Venue name, 123 Example St, City"
+                    className="flex-1"
+                  />
+                </div>
+                <div className="text-xs text-gray-400">
+                  {campaign.start_date
+                    ? "The date is the campaign start date — change it on the campaign to move the event."
+                    : "Set the campaign start date so the event date shows on the page."}
+                </div>
+              </>
+            )}
           </div>
 
           <label className="flex items-center gap-3 cursor-pointer">
