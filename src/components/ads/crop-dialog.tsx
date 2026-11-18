@@ -43,11 +43,11 @@ const MAX_VIDEO_SHORT = IDEAL_SHORT;
 /**
  * A video render reports progress per decoded frame, and the flush after the
  * last frame takes seconds, so this long without news means the browser's
- * encoder has stalled (seen in Arc). Give up rather than spin forever.
+ * encoder has stalled. Give up rather than spin forever.
  */
 const STALL_MS = 30_000;
 const STALL_MESSAGE =
-  "The browser's video encoder stopped responding. Try again — if it stalls again, do this in Chrome or Safari.";
+  "The video encoder stopped responding. Try again — if it keeps happening, reload the page first.";
 
 type Corner = "nw" | "ne" | "sw" | "se";
 /** Crop rect in display pixels; height is derived from `w` and the aspect. */
