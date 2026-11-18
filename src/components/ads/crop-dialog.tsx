@@ -40,6 +40,14 @@ const MAX_SHORT = 2048;
 const MAX_LONG = 2560;
 /** Videos are re-encoded frame by frame, so stop at Meta's ideal size. */
 const MAX_VIDEO_SHORT = IDEAL_SHORT;
+/**
+ * A video render reports progress per decoded frame, and the flush after the
+ * last frame takes seconds, so this long without news means the browser's
+ * encoder has stalled (seen in Arc). Give up rather than spin forever.
+ */
+const STALL_MS = 30_000;
+const STALL_MESSAGE =
+  "The browser's video encoder stopped responding. Try again — if it stalls again, do this in Chrome or Safari.";
 
 type Corner = "nw" | "ne" | "sw" | "se";
 /** Crop rect in display pixels; height is derived from `w` and the aspect. */
@@ -86,10 +94,13 @@ export function CropDialog({
   const [error, setError] = useState<string | null>(null);
   /** Cleared on unmount so a render finishing after Cancel is dropped. */
   const liveRef = useRef(true);
+  /** The in-flight video render, cancelled on unmount or when it stalls. */
+  const abortRef = useRef<AbortController | null>(null);
   useEffect(() => {
     liveRef.current = true;
     return () => {
       liveRef.current = false;
+      abortRef.current?.abort();
     };
   }, []);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -250,6 +261,16 @@ export function CropDialog({
       setExporting(true);
       setError(null);
       setProgress(0);
+      const controller = new AbortController();
+      abortRef.current = controller;
+      let lastProgressAt = Date.now();
+      let stalled = false;
+      const watchdog = window.setInterval(() => {
+        if (Date.now() - lastProgressAt > STALL_MS) {
+          stalled = true;
+          controller.abort();
+        }
+      }, 1000);
       try {
         const { w: outW, h: outH } = exportSize(crop.w);
         const blob = await renderCropped(
@@ -262,7 +283,11 @@ export function CropDialog({
           },
           outW,
           outH,
-          (p) => liveRef.current && setProgress(p)
+          (p) => {
+            lastProgressAt = Date.now();
+            if (liveRef.current) setProgress(p);
+          },
+          controller.signal
         );
         if (!liveRef.current) return;
         const tag = ratioLabel(aspect).replace(":", "x");
@@ -270,8 +295,13 @@ export function CropDialog({
         onCropped(new File([blob], name, { type: "video/mp4" }), aspect);
       } catch (err) {
         if (!liveRef.current) return;
-        setError(err instanceof Error ? err.message : "Could not crop this video");
+        setError(
+          stalled ? STALL_MESSAGE : err instanceof Error ? err.message : "Could not crop this video"
+        );
         setExporting(false);
+      } finally {
+        window.clearInterval(watchdog);
+        if (abortRef.current === controller) abortRef.current = null;
       }
       return;
     }
