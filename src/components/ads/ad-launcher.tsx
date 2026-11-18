@@ -404,6 +404,8 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
   // that each need cropping; the dialog works through them in order.
   const [cropQueue, setCropQueue] = useState<
     {
+      /** Unique per request — keys the dialog so a repeat request for the same file never reuses a finished one */
+      id: number;
       localId: string;
       file: File;
       /** Target ratio — 1 or 4/5 for feed, 1 for cards, 9/16 for the stories & reels slot */
@@ -418,6 +420,12 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
     }[]
   >([]);
   const cropRequest = cropQueue[0] || null;
+  const cropRequestSeq = useRef(0);
+  const queueCrop = useCallback(
+    (entry: Omit<(typeof cropQueue)[number], "id">) =>
+      setCropQueue((q) => [...q, { ...entry, id: ++cropRequestSeq.current }]),
+    []
+  );
   /** Bulk publish: ads per new ad set (0 = everything into the selected ad set). */
   const [splitSize, setSplitSize] = useState(0);
   /** Name stem for the split ad sets; "" = derived from the selected ad set. */
@@ -902,12 +910,12 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
           if (found === null) {
             const ad = adsRef.current.find((a) => a.localId === localId);
             const aspect = ad?.feedAspect ?? FEED_ASPECT;
-            setCropQueue((q) => [...q, { localId, file, aspect, target: role }]);
+            queueCrop({ localId, file, aspect, target: role });
             return;
           }
           updateAd(localId, { feedAspect: found });
         } else if (!(await matchesAspect(file, VERTICAL_ASPECT))) {
-          setCropQueue((q) => [...q, { localId, file, aspect: VERTICAL_ASPECT, target: role }]);
+          queueCrop({ localId, file, aspect: VERTICAL_ASPECT, target: role });
           return;
         }
       }
@@ -924,11 +932,8 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
    * replaces the slot; cuts carry over (they are time-based) but burnt-in
    * text does not, so the button is disabled while text is present.
    */
-  const reframeSlot = useCallback(
-    async (localId: string, role: "feed" | "vertical") => {
-      const ad = adsRef.current.find((a) => a.localId === localId);
-      const slot = ad?.[role];
-      if (!ad || !slot || slot.uploading) return;
+  const reframeSlotInner = useCallback(
+    async (localId: string, role: "feed" | "vertical", feedAspect: number, slot: SlotState) => {
       let blob: Blob | null = null;
       try {
         blob = await (await fetch(slot.previewUrl)).blob();
@@ -947,10 +952,34 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
       }
       const type = blob.type || (slot.kind === "video" ? "video/mp4" : "image/jpeg");
       const file = new File([blob], slot.fileName, { type });
-      const aspect = role === "feed" ? ad.feedAspect : VERTICAL_ASPECT;
-      setCropQueue((q) => [...q, { localId, file, aspect, target: role, reframe: true }]);
+      const aspect = role === "feed" ? feedAspect : VERTICAL_ASPECT;
+      // Never stack a second crop on a slot that already has one waiting.
+      setCropQueue((q) =>
+        q.some((e) => e.localId === localId && e.target === role)
+          ? q
+          : [...q, { localId, file, aspect, target: role, reframe: true, id: ++cropRequestSeq.current }]
+      );
     },
     [updateAd]
+  );
+  const reframeInFlight = useRef(new Set<string>());
+  const reframeSlot = useCallback(
+    async (localId: string, role: "feed" | "vertical") => {
+      const ad = adsRef.current.find((a) => a.localId === localId);
+      const slot = ad?.[role];
+      if (!ad || !slot || slot.uploading) return;
+      // Reading a large clip back takes a moment, long enough for a second
+      // click — which must not queue a second crop of the same file.
+      const inFlightKey = `${localId}:${role}`;
+      if (reframeInFlight.current.has(inFlightKey)) return;
+      reframeInFlight.current.add(inFlightKey);
+      try {
+        await reframeSlotInner(localId, role, ad.feedAspect, slot);
+      } finally {
+        reframeInFlight.current.delete(inFlightKey);
+      }
+    },
+    [reframeSlotInner]
   );
 
   /**
@@ -994,10 +1023,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
           if (kind === "image") {
             const found = await detectAspect(file, FEED_ASPECTS);
             if (found === null) {
-              setCropQueue((q) => [
-                ...q,
-                { localId: ad.localId, file, aspect: ad.feedAspect, target: "feed" },
-              ]);
+              queueCrop({ localId: ad.localId, file, aspect: ad.feedAspect, target: "feed" });
               continue;
             }
             if (found !== ad.feedAspect) updateAd(ad.localId, { feedAspect: found });
@@ -1082,7 +1108,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
       if (!kind) return;
       // Carousel cards must be square on Instagram — crop non-square images.
       if (kind === "image" && !(await matchesAspect(file, FEED_ASPECT))) {
-        setCropQueue((q) => [...q, { localId, file, aspect: FEED_ASPECT, target: "card" }]);
+        queueCrop({ localId, file, aspect: FEED_ASPECT, target: "card" });
         return;
       }
       addCardUpload(localId, kind, file);
@@ -1641,7 +1667,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
 
       {cropRequest && (
         <CropDialog
-          key={`${cropRequest.localId}-${cropRequest.target}-${cropRequest.file.name}`}
+          key={cropRequest.id}
           file={cropRequest.file}
           aspect={cropRequest.aspect}
           aspectOptions={cropRequest.target === "feed" ? FEED_ASPECTS : undefined}
