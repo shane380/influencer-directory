@@ -13,6 +13,11 @@ interface Props {
    * 4:5 for the feed slot). Omit to lock the dialog to `aspect`.
    */
   aspectOptions?: number[];
+  /**
+   * Offer "Use uncropped" for videos (the upload prompt). Off when the dialog
+   * is reframing media already in a slot, where Cancel means the same thing.
+   */
+  allowUncropped?: boolean;
   onCancel: () => void;
   /** The cropped file, plus the ratio it was cropped to. */
   onCropped: (file: File, aspect: number) => void;
@@ -64,6 +69,7 @@ export function CropDialog({
   file,
   aspect: initialAspect,
   aspectOptions,
+  allowUncropped = true,
   onCancel,
   onCropped,
   title,
@@ -471,7 +477,7 @@ export function CropDialog({
           >
             Cancel
           </button>
-          {isVideo && (
+          {isVideo && allowUncropped && (
             <button
               onClick={() => onCropped(file, aspect)}
               disabled={exporting}
