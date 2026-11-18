@@ -49,6 +49,7 @@ import {
   ChevronDown,
   ChevronUp,
   Copy,
+  Crop,
   ExternalLink,
   Instagram,
   Loader2,
@@ -409,6 +410,11 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
       aspect: number;
       /** Slot the cropped file goes back into */
       target: "feed" | "vertical" | "card";
+      /**
+       * Re-crop of media already in the slot (opened from the slot's Reframe
+       * button) rather than the prompt for a new upload.
+       */
+      reframe?: boolean;
     }[]
   >([]);
   const cropRequest = cropQueue[0] || null;
@@ -909,6 +915,42 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
       beginUpload(localId, role, kind, file);
     },
     [beginUpload, updateAd]
+  );
+
+  /**
+   * Reopen the crop dialog on media already in a slot — e.g. zoom a 9:16
+   * clip in to cut off the top. Uploads never prompt for this on the
+   * stories & reels slot, so it is always the user's call. The cropped file
+   * replaces the slot; cuts carry over (they are time-based) but burnt-in
+   * text does not, so the button is disabled while text is present.
+   */
+  const reframeSlot = useCallback(
+    async (localId: string, role: "feed" | "vertical") => {
+      const ad = adsRef.current.find((a) => a.localId === localId);
+      const slot = ad?.[role];
+      if (!ad || !slot || slot.uploading) return;
+      let blob: Blob | null = null;
+      try {
+        blob = await (await fetch(slot.previewUrl)).blob();
+      } catch {
+        try {
+          if (slot.r2Url) blob = await (await fetch(slot.r2Url)).blob();
+        } catch {
+          blob = null;
+        }
+      }
+      if (!blob) {
+        updateAd(localId, {
+          [role]: { ...slot, error: "Couldn't reload this file to reframe it" },
+        } as Partial<AdState>);
+        return;
+      }
+      const type = blob.type || (slot.kind === "video" ? "video/mp4" : "image/jpeg");
+      const file = new File([blob], slot.fileName, { type });
+      const aspect = role === "feed" ? ad.feedAspect : VERTICAL_ASPECT;
+      setCropQueue((q) => [...q, { localId, file, aspect, target: role, reframe: true }]);
+    },
+    [updateAd]
   );
 
   /**
@@ -1603,15 +1645,29 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
           file={cropRequest.file}
           aspect={cropRequest.aspect}
           aspectOptions={cropRequest.target === "feed" ? FEED_ASPECTS : undefined}
+          allowUncropped={!cropRequest.reframe}
           onCancel={() => setCropQueue((q) => q.slice(1))}
           onCropped={(cropped, usedAspect) => {
-            const { localId: id, target } = cropRequest;
+            const { localId: id, target, reframe } = cropRequest;
             setCropQueue((q) => q.slice(1));
             const kind = cropped.type.startsWith("video/") ? "video" : "image";
             if (target === "card") addCardUpload(id, kind, cropped);
             else {
+              const prevEdit = reframe
+                ? adsRef.current.find((a) => a.localId === id)?.[target]?.edit
+                : undefined;
               if (target === "feed") updateAd(id, { feedAspect: usedAspect });
               beginUpload(id, target, kind, cropped);
+              if (prevEdit?.clips.length) {
+                // Cuts are timestamps, so they still apply to the reframed clip.
+                setAds((prev) =>
+                  prev.map((a) =>
+                    a.localId === id && a[target]
+                      ? { ...a, [target]: { ...a[target]!, edit: prevEdit } }
+                      : a
+                  )
+                );
+              }
             }
           }}
         />
@@ -2086,6 +2142,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                       onFile={(f) => handleFile(selected.localId, "feed", f)}
                       onClear={() => updateAd(selected.localId, { feed: null })}
                       onEditText={() => setTextEdit({ localId: selected.localId, role: "feed" })}
+                      onReframe={() => reframeSlot(selected.localId, "feed")}
                       onMediaAspect={(ratio) => {
                         // Reloaded drafts don't carry a ratio — pick it up from the media.
                         const found = FEED_ASPECTS.find((a) => closeToAspect(ratio, a));
@@ -2100,6 +2157,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                       onFile={(f) => handleFile(selected.localId, "vertical", f)}
                       onClear={() => updateAd(selected.localId, { vertical: null })}
                       onEditText={() => setTextEdit({ localId: selected.localId, role: "vertical" })}
+                      onReframe={() => reframeSlot(selected.localId, "vertical")}
                     />
                     {selected.vertical && selected.feed && selected.vertical.kind !== selected.feed.kind && (
                       <p className="text-[11.5px] text-red-600 self-end">
@@ -2755,6 +2813,7 @@ function CreativeSlot({
   onFile,
   onClear,
   onEditText,
+  onReframe,
   onMediaAspect,
 }: {
   label: ReactNode;
@@ -2766,6 +2825,8 @@ function CreativeSlot({
   onClear: () => void;
   /** Videos only: open the text-on-video editor */
   onEditText?: () => void;
+  /** Reopen the crop dialog on the slot's current media (zoom / recrop). */
+  onReframe?: () => void;
   /** Reports the native ratio of the slot's media once it has loaded. */
   onMediaAspect?: (ratio: number) => void;
 }) {
@@ -2861,6 +2922,21 @@ function CreativeSlot({
               <div className="absolute inset-x-0 bottom-0 bg-red-600/90 text-white text-[10px] py-0.5 px-1">
                 {slot.error}
               </div>
+            )}
+            {onReframe && !slot.uploading && !slot.error && (
+              <button
+                onClick={onReframe}
+                disabled={hasText(slot)}
+                title={
+                  hasText(slot)
+                    ? "Remove the text first — it won't line up after a reframe"
+                    : "Reframe: zoom in or recrop this creative"
+                }
+                className="absolute top-1.5 right-8 bg-black/50 hover:bg-black/70 disabled:opacity-40 disabled:hover:bg-black/50 text-white rounded-full p-1"
+                aria-label="Reframe creative"
+              >
+                <Crop className="h-3 w-3" />
+              </button>
             )}
             <button
               onClick={onClear}
