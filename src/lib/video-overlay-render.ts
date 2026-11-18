@@ -273,14 +273,16 @@ async function renderClips(
 /**
  * Crops `source` to `rect` (display pixels of the source) and returns an MP4
  * blob at `outW`×`outH`. Same encoder settings as the text burn-in, so the
- * crop doesn't visibly cost quality. `onProgress` receives 0–1.
+ * crop doesn't visibly cost quality. `onProgress` receives 0–1. Aborting
+ * `signal` cancels the conversion and rejects.
  */
 export async function renderCropped(
   source: Blob,
   rect: { left: number; top: number; width: number; height: number },
   outW: number,
   outH: number,
-  onProgress?: (p: number) => void
+  onProgress?: (p: number) => void,
+  signal?: AbortSignal
 ): Promise<Blob> {
   const { ALL_FORMATS, BlobSource, BufferTarget, Conversion, Input, Mp4OutputFormat, Output, Quality } =
     await import("mediabunny");
@@ -325,7 +327,25 @@ export async function renderCropped(
     throw new Error(`This browser can't re-encode this video${reason ? ` (${reason})` : ""}`);
   }
   if (onProgress) conversion.onProgress = (p) => onProgress(p);
-  await conversion.execute();
+  if (signal?.aborted) {
+    void conversion.cancel();
+    throw new Error("Render cancelled");
+  }
+  // Reject on abort straight away: cancel() itself waits on the encoder, which
+  // is the very thing that has stopped responding when a render stalls.
+  const aborted = new Promise<never>((_, reject) => {
+    signal?.addEventListener(
+      "abort",
+      () => {
+        void conversion.cancel();
+        reject(new Error("Render cancelled"));
+      },
+      { once: true }
+    );
+  });
+  const run = conversion.execute();
+  run.catch(() => {}); // settled via the race below; keep a late rejection quiet
+  await Promise.race([run, aborted]);
 
   const buffer = (output.target as InstanceType<typeof BufferTarget>).buffer;
   if (!buffer) throw new Error("Render produced no output");
