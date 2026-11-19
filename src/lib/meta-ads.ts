@@ -702,6 +702,25 @@ async function uploadImage(fileUrl: string): Promise<string> {
   return first.hash;
 }
 
+/**
+ * Title for a video in Meta's library. Meta caps it below 255 characters,
+ * counting multi-byte characters (™) as several, and answers a longer one with
+ * the generic "Error Uploading Video". The ad keeps its full name (Meta allows
+ * ~400 bytes there); only this label is trimmed, from the end, where the
+ * product list sits.
+ */
+const VIDEO_TITLE_MAX_BYTES = 240;
+export function videoTitle(adName: string, suffix: string): string {
+  const tail = ` (${suffix})`;
+  const budget = VIDEO_TITLE_MAX_BYTES - Buffer.byteLength(tail, "utf8");
+  if (Buffer.byteLength(adName, "utf8") <= budget) return `${adName}${tail}`;
+  let cut = adName;
+  while (cut.length > 0 && Buffer.byteLength(`${cut}…`, "utf8") > budget) {
+    cut = cut.slice(0, -1);
+  }
+  return `${cut.trimEnd()}…${tail}`;
+}
+
 /** Register a video by URL (Meta pulls it from R2); returns the video id. */
 async function uploadVideo(fileUrl: string, name: string): Promise<string> {
   const { actId } = getEnv();
@@ -817,10 +836,10 @@ export async function pushDraftToMeta(
       }
       uploaded.push(up);
     } else {
-      const videoId = await uploadVideo(asset.fileUrl, `${draft.adName} (${asset.role})`);
+      const videoId = await uploadVideo(asset.fileUrl, videoTitle(draft.adName, asset.role));
       let verticalVideoId: string | undefined;
       if (asset.verticalFileUrl) {
-        verticalVideoId = await uploadVideo(asset.verticalFileUrl, `${draft.adName} (${asset.role} 9:16)`);
+        verticalVideoId = await uploadVideo(asset.verticalFileUrl, videoTitle(draft.adName, `${asset.role} 9:16`));
       }
       await waitForVideoReady(videoId);
       if (verticalVideoId) await waitForVideoReady(verticalVideoId);
