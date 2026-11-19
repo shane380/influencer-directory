@@ -19,6 +19,7 @@ import { IgCarouselPreview } from "./ig-carousel-preview";
 import type {
   AdCopy,
   AdDraft,
+  AdProductRef,
   AdsetSummary,
   AdsetTemplate,
   AssetKind,
@@ -42,7 +43,7 @@ import { formatTime, newClipId, outputDuration } from "@/lib/video-edit";
 import { NewAdsetDialog } from "./new-adset-dialog";
 import { CollectionBar, TemplateActions, useTemplateLibrary } from "./copy-templates";
 import { PartnerPicker } from "./partner-picker";
-import { ProductPicker, productRefLabel } from "./product-picker";
+import { ProductPicker, productRefKey, productRefLabel } from "./product-picker";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -217,6 +218,20 @@ function autoAdName(ad: AdState): string {
   parts.push(media);
   if (source) parts.push(source);
   return parts.join(" // ");
+}
+
+/** The thumbnail shown for an ad in the batch strip and the "Same as" chips. */
+function adThumb(ad: AdState): string | null {
+  if (ad.format === "post") return ad.igPost?.thumbnailUrl || ad.igPost?.mediaUrl || null;
+  if (ad.feed) {
+    return ad.feed.kind === "image" ? ad.feed.previewUrl : ad.feed.thumbUrl || ad.feed.previewUrl;
+  }
+  return ad.cards[0]?.slot.previewUrl || null;
+}
+
+/** Order-independent identity of a product selection, to spot ads tagged alike. */
+function productSetKey(products: AdProductRef[]): string {
+  return products.map(productRefKey).sort().join("|");
 }
 
 function newAd(defaults?: LauncherDefaults | null): AdState {
@@ -448,6 +463,24 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
   const templateLib = useTemplateLibrary();
 
   const selected = ads.find((a) => a.localId === selectedId) || null;
+
+  /**
+   * Every distinct product selection in the batch and the ads that carry it,
+   * so another hook or clip of the same outfit can be tagged with one click
+   * ("Same as …") instead of searching the catalogue again.
+   */
+  const productSets = useMemo(() => {
+    const sets = new Map<string, { products: AdProductRef[]; ads: AdState[] }>();
+    for (const a of ads) {
+      const products = a.copy.products || [];
+      if (!products.length) continue;
+      const key = productSetKey(products);
+      const entry = sets.get(key);
+      if (entry) entry.ads.push(a);
+      else sets.set(key, { products, ads: [a] });
+    }
+    return sets;
+  }, [ads]);
   const campaign = targets?.campaigns.find((c) => c.id === campaignId) || null;
   const adset = campaign?.adsets.find((a) => a.id === adsetId) || null;
 
@@ -1882,14 +1915,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                 >
                   <div className="w-5 h-5 rounded bg-gray-100 overflow-hidden flex-shrink-0">
                     {(() => {
-                      const chip =
-                        ad.format === "post"
-                          ? ad.igPost?.thumbnailUrl || ad.igPost?.mediaUrl
-                          : ad.feed
-                            ? ad.feed.kind === "image"
-                              ? ad.feed.previewUrl
-                              : ad.feed.thumbUrl || ad.feed.previewUrl
-                            : ad.cards[0]?.slot.previewUrl;
+                      const chip = adThumb(ad);
                       return chip ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={chip} alt="" className="w-full h-full object-cover" />
@@ -2060,6 +2086,72 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                     onChange={(products) => updateCopy(selected.localId, { products })}
                     disabled={selected.phase !== "idle" && selected.phase !== "error"}
                   />
+                  {(() => {
+                    // Reuse another ad's products (same outfit, different hook)
+                    // or push this ad's products across the batch.
+                    const locked = selected.phase !== "idle" && selected.phase !== "error";
+                    const mine = selected.copy.products || [];
+                    const myKey = productSetKey(mine);
+                    const others = [...productSets.entries()].filter(([key]) => key !== myKey);
+                    const openCount = ads.filter((a) => a.phase !== "done").length;
+                    if (!others.length && !(mine.length && openCount > 1)) return null;
+                    return (
+                      <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                        {others.length > 0 && (
+                          <span className="text-[11px] text-gray-400">Same as</span>
+                        )}
+                        {others.map(([key, set]) => {
+                          const thumb = adThumb(set.ads[0]);
+                          const label = set.products.map(productRefLabel).join(", ");
+                          const names = set.ads.map((a) => a.adName || "Untitled ad").join("\n");
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              disabled={locked}
+                              onClick={() =>
+                                updateCopy(selected.localId, { products: [...set.products] })
+                              }
+                              title={`${label}\n\nOn ${set.ads.length} ad${set.ads.length === 1 ? "" : "s"}:\n${names}`}
+                              className="inline-flex items-center gap-1.5 border border-gray-300 rounded-full pl-1 pr-2.5 py-0.5 text-[12px] text-gray-700 hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed max-w-[260px]"
+                            >
+                              <span className="w-4 h-4 rounded-full bg-gray-100 overflow-hidden flex-shrink-0">
+                                {thumb ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={thumb} alt="" className="w-full h-full object-cover" />
+                                ) : null}
+                              </span>
+                              <span className="truncate">{label}</span>
+                              {set.ads.length > 1 && (
+                                <span className="text-[10px] text-gray-400 flex-shrink-0">
+                                  ×{set.ads.length}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                        {mine.length > 0 && openCount > 1 && (
+                          <button
+                            type="button"
+                            disabled={locked}
+                            onClick={() =>
+                              setAds((prev) =>
+                                prev.map((a) =>
+                                  a.phase === "done"
+                                    ? a
+                                    : { ...a, copy: { ...a.copy, products: [...mine] } }
+                                )
+                              )
+                            }
+                            title="Replaces the products on every unpublished ad in the batch with these. Text, link and button are left alone."
+                            className="text-[12px] text-gray-500 hover:text-gray-800 border border-gray-300 rounded-full px-2.5 py-0.5 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <Copy className="h-3 w-3" /> Use on all {openCount} ads
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <p className="mt-1 text-[11px] text-gray-400">
                     {selected.adNameAuto
                       ? "Goes into the ad name so inventory can see which products this ad pushes. Duplicates made in Ads Manager keep it."
