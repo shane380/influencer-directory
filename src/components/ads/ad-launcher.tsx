@@ -182,11 +182,13 @@ const nextId = () => `ad-${Date.now()}-${idCounter++}`;
 const stripExt = (fileName: string) => fileName.replace(/\.[^.]+$/, "");
 
 /**
- * The ad's automatic name: "@handle // Product, Product // video // file" —
- * the partner handle (whitelisting ads only), the products the ad promotes
- * (title + colour, comma-separated — the inventory app reads these to tie
- * spend to products), then the media type (video, image, carousel or post),
- * then the uploaded file's name. Empty until there is media to name.
+ * The ad's automatic name: "@handle // video // file // Product, Product" —
+ * the partner handle (whitelisting ads only), the media type (video, image,
+ * carousel or post), the uploaded file's name, then the products the ad
+ * promotes (title + colour, comma-separated). Products go last so the
+ * descriptive part of the name reads first in Ads Manager; the inventory app
+ * splits on " // " and checks every segment, so position doesn't matter to
+ * it. Empty until there is media to name.
  */
 function autoAdName(ad: AdState): string {
   let media: string | null = null;
@@ -212,10 +214,10 @@ function autoAdName(ad: AdState): string {
   const parts: string[] = [];
   const handle = ad.partnership && ad.format !== "post" ? ad.sponsorLabel.trim() : "";
   if (handle) parts.push(handle);
-  const products = (ad.copy.products || []).map(productRefLabel).filter(Boolean);
-  if (products.length) parts.push(products.join(", "));
   parts.push(media);
   if (source) parts.push(source);
+  const products = (ad.copy.products || []).map(productRefLabel).filter(Boolean);
+  if (products.length) parts.push(products.join(", "));
   return parts.join(" // ");
 }
 
@@ -1997,7 +1999,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                         })
                       }
                       placeholder="Auto: @handle // product // video // file"
-                      title="Named automatically from the partner handle, the products picked below, media type and file. Type to override; clear to go back to automatic."
+                      title="Named automatically from the partner handle, media type, file, then the products picked below. Type to override; clear to go back to automatic."
                       className="border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] font-medium w-72"
                     />
                   </div>
@@ -2062,7 +2064,7 @@ export function AdLauncher({ isAdmin }: { isAdmin: boolean }) {
                   />
                   <p className="mt-1 text-[11px] text-gray-400">
                     {selected.adNameAuto
-                      ? "Goes into the ad name so inventory can see which products this ad pushes. Duplicates made in Ads Manager keep it."
+                      ? "Added to the end of the ad name so inventory can see which products this ad pushes. Duplicates made in Ads Manager keep it."
                       : "The name is custom, so these are not added to it — put the product names in the name yourself."}
                   </p>
                 </div>
