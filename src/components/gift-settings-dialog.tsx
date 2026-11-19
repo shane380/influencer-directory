@@ -303,7 +303,7 @@ export function GiftSettingsDialog({
                     onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                     onDrop={(e) => handleHeroDrop(e, "desktop")}
                   >
-                    {uploading ? "Uploading…" : heroMobile ? "Drag an image here or click to upload — until then desktop uses the mobile image" : "Drag an image here or click to upload"}
+                    {uploading ? "Uploading…" : "Drag an image here or click to upload"}
                     <input
                       type="file"
                       accept="image/*"
@@ -315,39 +315,22 @@ export function GiftSettingsDialog({
               </div>
               <div>
                 <div className="text-xs text-gray-500 mb-1">Mobile (5:4)</div>
-                {hero || heroMobile ? (
-                  <div
-                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                    onDrop={(e) => handleHeroDrop(e, "mobile")}
-                  >
-                    <ImagePositionFrame url={(heroMobile || hero)!.url} aspect="5/4" position={heroMobilePosition} onPositionChange={setHeroMobilePosition} alt="Mobile hero">
-                      {heroMobile ? (
-                        <button
-                          className="absolute top-2 right-2 bg-white/90 border rounded px-2 py-0.5 text-xs"
-                          onClick={() => setHeroMobile(null)}
-                        >
-                          Remove
-                        </button>
-                      ) : (
-                        <label className="absolute bottom-2 left-2 right-2 text-center bg-white/90 border rounded px-2 py-1 text-xs cursor-pointer hover:bg-white">
-                          {uploading ? "Uploading…" : "Use a different image"}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => handleHeroFile(e.target.files?.[0], "mobile")}
-                          />
-                        </label>
-                      )}
-                    </ImagePositionFrame>
-                  </div>
+                {heroMobile ? (
+                  <ImagePositionFrame url={heroMobile.url} aspect="5/4" position={heroMobilePosition} onPositionChange={setHeroMobilePosition} alt="Mobile hero">
+                    <button
+                      className="absolute top-2 right-2 bg-white/90 border rounded px-2 py-0.5 text-xs"
+                      onClick={() => setHeroMobile(null)}
+                    >
+                      Remove
+                    </button>
+                  </ImagePositionFrame>
                 ) : (
                   <label
                     className="flex items-center justify-center h-24 border-2 border-dashed rounded-md text-xs text-gray-400 text-center px-2 cursor-pointer hover:border-gray-400"
                     onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                     onDrop={(e) => handleHeroDrop(e, "mobile")}
                   >
-                    {uploading ? "Uploading…" : "Optional — uses the desktop image if empty"}
+                    {uploading ? "Uploading…" : "Drag a separate mobile image here or click to upload"}
                     <input
                       type="file"
                       accept="image/*"
@@ -362,7 +345,8 @@ export function GiftSettingsDialog({
             {(hero || heroMobile) && (
               <div className="text-xs text-gray-400 mt-1">
                 Drag an image to reposition it in its frame.
-                {heroMobile && hero ? " Mobile uses its own image; remove it to fall back to the desktop one." : ""}
+                {hero && !heroMobile ? " No mobile image yet — phones show the desktop image until you add one." : ""}
+                {heroMobile && !hero ? " No desktop image yet — desktop shows the mobile image until you add one." : ""}
               </div>
             )}
             {(hero || heroMobile) && (

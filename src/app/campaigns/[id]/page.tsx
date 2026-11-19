@@ -44,7 +44,7 @@ import { BulkActionBar } from "@/components/bulk-action-bar";
 import { GiftSettingsDialog } from "@/components/gift-settings-dialog";
 import { GiftOverrideDialog } from "@/components/gift-override-dialog";
 import { GiftRowActions } from "@/components/gift-row-actions";
-import { generateGiftToken, giftUrl } from "@/lib/gift";
+import { generateGiftToken, giftUrl, giftOrderLines, giftOrderCsv } from "@/lib/gift";
 import { summarizeHistory, type HistoryRow } from "@/lib/creator-history";
 import { CreatorHistoryLine } from "@/components/creator-history-line";
 import {
@@ -57,6 +57,7 @@ import {
   Trash2,
   ShoppingCart,
   ExternalLink,
+  Download,
   Clock,
   CheckCircle2,
   XCircle,
@@ -587,6 +588,27 @@ export default function CampaignDetailPage() {
     }
   };
 
+  // Everyone who has submitted picks, rolled up by variant — one CSV so a
+  // single Shopify order can be placed for event gifting.
+  const giftSubmittedCount = campaignInfluencers.filter((ci) => ci.gift_submitted_at).length;
+  const handleExportGiftOrder = () => {
+    if (!campaign) return;
+    const lines = giftOrderLines(campaignInfluencers, campaign.gift_products);
+    if (lines.length === 0) {
+      alert("No submitted picks to export yet.");
+      return;
+    }
+    const blob = new Blob([giftOrderCsv(lines)], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${campaign.name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase()}-gift-order.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const handleOpenOrderDialog = (ci: CampaignInfluencerWithDetails) => {
     setSelectedCampaignInfluencer(ci);
     setOrderDialogOpen(true);
@@ -788,6 +810,16 @@ export default function CampaignDetailPage() {
               <Gift className="h-4 w-4 mr-2" />
               Selects Page{campaign.gift_enabled ? " · On" : ""}
             </Button>
+            {campaign.gift_enabled && giftSubmittedCount > 0 && (
+              <Button
+                variant="outline"
+                onClick={handleExportGiftOrder}
+                title="CSV of every submitted pick, totalled by product / colour / size — for one bulk Shopify order"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export picks for order ({giftSubmittedCount})
+              </Button>
+            )}
           </div>
         </div>
 

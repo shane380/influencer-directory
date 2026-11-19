@@ -1,4 +1,4 @@
-import type { CampaignInfluencer } from "@/types/database";
+import type { CampaignInfluencer, GiftPoolProduct, ProductSelection } from "@/types/database";
 
 // Gift selection link helpers, shared by the coordinator UI and the
 // admin send-invite route.
@@ -76,4 +76,84 @@ export function giftStage(
   if (isGenuineOpen(ci)) return "opened";
   if (ci.gift_token || ci.gift_invited_at) return "invited";
   return "not_invited";
+}
+
+// --- Bulk order export -------------------------------------------------------
+// For event gifting: every submitted pick in the campaign, rolled up by
+// variant so the team can place one Shopify order for the whole lot.
+
+export interface GiftOrderLine {
+  product: string;
+  color: string;
+  size: string;
+  sku: string;
+  variant_id: string;
+  quantity: number;
+  picked_by: string[];
+}
+
+// Submitted picks carry variant_title (the size) on top of the base shape.
+type GiftPick = ProductSelection & { variant_title?: string | null };
+type SelectionRow = {
+  gift_submitted_at?: string | null;
+  product_selections?: GiftPick[] | null;
+  influencer?: { name?: string | null } | null;
+};
+
+// Picks don't store the colour; the pool does (per product) and the SKU
+// embeds it. Try the SKU against every pool colour first, then the pool
+// entry with the same title, so multi-colour pools still resolve.
+function selectionColor(sel: GiftPick, pool: GiftPoolProduct[]): string {
+  const sku = String(sel.sku || "").toLowerCase();
+  const colors = Array.from(new Set(pool.map((p) => (p.color || "").trim()).filter(Boolean)));
+  const fromSku = colors.find((c) => sku.includes(c.toLowerCase().replace(/\s+/g, "-")));
+  if (fromSku) return fromSku;
+  const title = String(sel.title || "");
+  const byTitle = pool.find((p) => p.product_title === title && p.color);
+  return byTitle?.color || "";
+}
+
+export function giftOrderLines(rows: SelectionRow[], pool: GiftPoolProduct[] | null | undefined): GiftOrderLine[] {
+  const lines = new Map<string, GiftOrderLine>();
+  for (const row of rows) {
+    if (!row.gift_submitted_at) continue;
+    const name = (row.influencer?.name || "").trim();
+    for (const sel of row.product_selections || []) {
+      const key = String(sel.variant_id || sel.sku || `${sel.title}|${sel.variant_title}`);
+      const qty = Math.max(1, Number(sel.quantity) || 1);
+      const line = lines.get(key) || {
+        product: String(sel.title || ""),
+        color: selectionColor(sel, pool || []),
+        size: String(sel.variant_title || ""),
+        sku: String(sel.sku || ""),
+        variant_id: String(sel.variant_id || ""),
+        quantity: 0,
+        picked_by: [],
+      };
+      line.quantity += qty;
+      if (name) line.picked_by.push(qty > 1 ? `${name} ×${qty}` : name);
+      lines.set(key, line);
+    }
+  }
+  return Array.from(lines.values()).sort(
+    (a, b) => a.product.localeCompare(b.product) || a.color.localeCompare(b.color) || sizeRank(a.size) - sizeRank(b.size)
+  );
+}
+
+const SIZE_ORDER = ["xxs", "xs", "s", "m", "l", "xl", "xxl", "2xl", "3xl"];
+function sizeRank(size: string): number {
+  const i = SIZE_ORDER.indexOf(size.trim().toLowerCase());
+  return i === -1 ? SIZE_ORDER.length : i;
+}
+
+export function giftOrderCsv(lines: GiftOrderLine[]): string {
+  const esc = (v: string | number) => {
+    const s = String(v ?? "");
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const header = ["Product", "Color", "Size", "Quantity", "SKU", "Variant ID", "Picked by"];
+  const body = lines.map((l) =>
+    [l.product, l.color, l.size, l.quantity, l.sku, l.variant_id, l.picked_by.join("; ")].map(esc).join(",")
+  );
+  return [header.join(","), ...body].join("\n");
 }
