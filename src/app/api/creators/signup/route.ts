@@ -1,130 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
-import { NextRequest, NextResponse } from 'next/server';
-import { getShopifyAccessToken, getShopifyStoreUrl } from '@/lib/shopify';
+import { NextRequest, NextResponse, after } from 'next/server';
+import { createShopifyDiscountCode } from '@/lib/shopify-affiliate';
 import { sendEmail } from '@/lib/email';
 import { syncCreator } from '@/lib/meta-sync';
 import { isEmailTriggerEnabled } from '@/lib/app-settings';
 import { welcomeEmail } from '@/lib/email-templates';
 import { CREATOR_TERMS_CURRENT, CREATOR_TERMS_KEY } from '@/lib/terms/versions';
-import { AFFILIATE_DISCOUNT_PERCENT } from '@/lib/affiliate-program';
 import { recordTermsAcceptance, requestClientInfo } from '@/lib/terms/record-acceptance';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-// The customer-facing discount is the program standard, NOT the commission
-// rate. These were the same value until now, so a 10%-commission partner's code
-// gave 10% off instead of the 15% the terms promise.
-async function createShopifyDiscountCode(
-  affiliateCode: string,
-  creatorName: string,
-  inviteId: string
-) {
-  const storeUrl = getShopifyStoreUrl();
-  const accessToken = await getShopifyAccessToken();
-
-  if (!storeUrl || !accessToken) {
-    console.error('Shopify credentials not configured, skipping discount code creation');
-    await supabase
-      .from('creator_invites')
-      .update({ shopify_code_status: 'failed' })
-      .eq('id', inviteId);
-    return;
-  }
-
-  try {
-    // Step 1: Create price rule
-    const priceRuleRes = await fetch(
-      `https://${storeUrl}/admin/api/2024-01/price_rules.json`,
-      {
-        method: 'POST',
-        headers: {
-          'X-Shopify-Access-Token': accessToken,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          price_rule: {
-            title: `${affiliateCode.toUpperCase()} — ${creatorName}`,
-            target_type: 'line_item',
-            target_selection: 'all',
-            allocation_method: 'across',
-            value_type: 'percentage',
-            value: `-${AFFILIATE_DISCOUNT_PERCENT}.0`,
-            customer_selection: 'all',
-            starts_at: new Date().toISOString(),
-            once_per_customer: false,
-          },
-        }),
-      }
-    );
-
-    if (!priceRuleRes.ok) {
-      const errBody = await priceRuleRes.text();
-      console.error(`Shopify price rule creation failed for ${affiliateCode}:`, errBody);
-      await supabase
-        .from('creator_invites')
-        .update({ shopify_code_status: 'failed' })
-        .eq('id', inviteId);
-      return;
-    }
-
-    const priceRuleData = await priceRuleRes.json();
-    const priceRuleId = priceRuleData.price_rule.id;
-
-    // Step 2: Create discount code under the price rule
-    const discountRes = await fetch(
-      `https://${storeUrl}/admin/api/2024-01/price_rules/${priceRuleId}/discount_codes.json`,
-      {
-        method: 'POST',
-        headers: {
-          'X-Shopify-Access-Token': accessToken,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          discount_code: {
-            code: affiliateCode.toUpperCase(),
-          },
-        }),
-      }
-    );
-
-    if (!discountRes.ok) {
-      const errBody = await discountRes.text();
-      console.error(`Shopify discount code creation failed for ${affiliateCode}:`, errBody);
-      await supabase
-        .from('creator_invites')
-        .update({
-          shopify_price_rule_id: String(priceRuleId),
-          shopify_code_status: 'failed',
-        })
-        .eq('id', inviteId);
-      return;
-    }
-
-    const discountData = await discountRes.json();
-    const discountCodeId = discountData.discount_code.id;
-
-    // Success — update invite with Shopify IDs
-    await supabase
-      .from('creator_invites')
-      .update({
-        shopify_price_rule_id: String(priceRuleId),
-        shopify_discount_code_id: String(discountCodeId),
-        shopify_code_status: 'active',
-      })
-      .eq('id', inviteId);
-
-    console.log(`Shopify discount code created: ${affiliateCode.toUpperCase()} (price_rule=${priceRuleId}, discount_code=${discountCodeId})`);
-  } catch (err) {
-    console.error(`Shopify discount code creation error for ${affiliateCode}:`, err);
-    await supabase
-      .from('creator_invites')
-      .update({ shopify_code_status: 'failed' })
-      .eq('id', inviteId);
-  }
-}
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -294,12 +181,16 @@ export async function POST(request: NextRequest) {
   }
 
   if (invite?.has_affiliate) {
-    // Fire and forget — don't block the signup response
-    createShopifyDiscountCode(
-      affiliateCode,
-      creatorName,
-      inviteId
-    ).catch((err) => console.error('Background Shopify discount creation failed:', err));
+    // Runs after the response is sent. A bare fire-and-forget promise gets
+    // frozen with the function on Vercel and the Shopify fetch dies mid-flight
+    // (seen as "fetch failed / other side closed"); after() keeps the function
+    // alive until the sync finishes.
+    after(async () => {
+      const result = await createShopifyDiscountCode(affiliateCode, creatorName, inviteId);
+      if (!result.ok) {
+        console.error(`Shopify discount code sync failed for invite ${inviteId}: ${result.error}`);
+      }
+    });
   }
 
   // Fire and forget — sync Meta ads so dashboard has data on first login (existing creators only)

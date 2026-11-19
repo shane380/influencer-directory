@@ -1,7 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { getShopifyAccessToken, getShopifyStoreUrl } from "@/lib/shopify";
-
-export const AFFILIATE_DISCOUNT_PERCENT = 25;
+import { AFFILIATE_DISCOUNT_PERCENT } from "@/lib/affiliate-program";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
