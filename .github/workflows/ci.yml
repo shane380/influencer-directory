@@ -31,6 +31,9 @@ jobs:
 
       - run: npm run build
         env:
+          # The build has outgrown V8's default heap on the 7 GB runner
+          # (two OOM failures on 2026-11-19/20). Next's workers inherit this.
+          NODE_OPTIONS: --max-old-space-size=6144
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
           SUPABASE_SERVICE_ROLE_KEY: placeholder
