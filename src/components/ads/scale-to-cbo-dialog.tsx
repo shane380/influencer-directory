@@ -13,6 +13,8 @@ export interface ScaleTarget {
 interface Props {
   ads: ScaleTarget[];
   onClose: () => void;
+  /** Called with the source ads that got a new ad, so the page can badge them at once. */
+  onScaled?: (adIds: string[], adsetName: string | null) => void;
 }
 
 const NEW_ADSET_OPTION = "__new__";
@@ -25,12 +27,16 @@ type RunState =
   | { phase: "failed"; error: string }
   | { phase: "skipped"; reason: string };
 
+const CANT_KEEP = "Can't keep engagement — separate feed/vertical creatives";
+
 /** Why an ad can't be scaled as-is; null when it can. */
-function blocker(src: SourceState, adsetId: string): string | null {
+function blocker(src: SourceState, adsetId: string, includeFresh: boolean): string | null {
   if ("error" in src) return src.error;
-  if (!src.ad.postId) return "No post to reuse";
   if (src.ad.partnershipUnresolved) return "Partnership ad not published from here";
   if (adsetId && src.ad.adsetId === adsetId) return "Already in that ad set";
+  if (!src.ad.keepsEngagement && !includeFresh) {
+    return src.ad.postId ? CANT_KEEP : "No post to reuse";
+  }
   return null;
 }
 
@@ -40,7 +46,7 @@ function blocker(src: SourceState, adsetId: string): string | null {
  * reads each post id from the source creative; this dialog only picks where
  * they go, then runs the batch one ad at a time so a failure is per ad.
  */
-export function ScaleToCboDialog({ ads, onClose }: Props) {
+export function ScaleToCboDialog({ ads, onClose, onScaled }: Props) {
   const single = ads.length === 1;
   const [sources, setSources] = useState<Record<string, SourceState>>({});
   const [targets, setTargets] = useState<TargetsResponse | null>(null);
@@ -52,6 +58,9 @@ export function ScaleToCboDialog({ ads, onClose }: Props) {
   const [status, setStatus] = useState<"ACTIVE" | "PAUSED">("ACTIVE");
   const [newAdsetFor, setNewAdsetFor] = useState<CampaignSummary | null>(null);
 
+  // Ads whose post can't be reused may still be duplicated as fresh ads
+  // (new post, engagement from zero) — but only if asked for explicitly.
+  const [includeFresh, setIncludeFresh] = useState(false);
   const [runs, setRuns] = useState<Record<string, RunState>>({});
   const [running, setRunning] = useState(false);
   const finished = !running && Object.keys(runs).length > 0;
@@ -113,7 +122,13 @@ export function ScaleToCboDialog({ ads, onClose }: Props) {
   );
 
   const loaded = !!targets && Object.keys(sources).length === ads.length;
-  const eligible = ads.filter((a) => sources[a.adId] && !blocker(sources[a.adId], adsetId));
+  const eligible = ads.filter((a) => sources[a.adId] && !blocker(sources[a.adId], adsetId, includeFresh));
+  const freshCandidates = ads.filter((a) => {
+    const src = sources[a.adId];
+    return src && "ad" in src && !src.ad.keepsEngagement && !blocker(src, adsetId, true);
+  });
+  const freshCount = includeFresh ? freshCandidates.length : 0;
+  const keepCount = eligible.length - freshCount;
   const canSubmit =
     loaded && !!adsetId && eligible.length > 0 && !running && !finished && (!single || name.trim().length > 0);
 
@@ -122,7 +137,7 @@ export function ScaleToCboDialog({ ads, onClose }: Props) {
     setRunning(true);
     const initial: Record<string, RunState> = {};
     for (const a of ads) {
-      const why = blocker(sources[a.adId], adsetId);
+      const why = blocker(sources[a.adId], adsetId, includeFresh);
       initial[a.adId] = why ? { phase: "skipped", reason: why } : { phase: "queued" };
     }
     setRuns(initial);
@@ -138,13 +153,21 @@ export function ScaleToCboDialog({ ads, onClose }: Props) {
           body: JSON.stringify({
             adId: a.adId,
             adsetId,
+            adsetName: adsets.find((x) => x.id === adsetId)?.name || null,
+            campaignId: campaign?.id || null,
+            campaignName: campaign?.name || null,
             name: single ? name.trim() : null,
             status,
+            mode: (() => {
+              const src = sources[a.adId];
+              return src && "ad" in src && src.ad.keepsEngagement ? "post" : "copy";
+            })(),
           }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Failed to scale the ad");
         setRuns((r) => ({ ...r, [a.adId]: { phase: "done", newAdId: data.adId } }));
+        onScaled?.([a.adId], adsets.find((x) => x.id === adsetId)?.name || null);
       } catch (err) {
         setRuns((r) => ({
           ...r,
@@ -233,7 +256,7 @@ export function ScaleToCboDialog({ ads, onClose }: Props) {
               <ul className="space-y-1.5">
                 {ads.map((a) => {
                   const src = sources[a.adId];
-                  const why = blocker(src, adsetId);
+                  const why = blocker(src, adsetId, includeFresh);
                   const info = "ad" in src ? src.ad : null;
                   return (
                     <li key={a.adId} className="flex items-start justify-between gap-3">
@@ -251,8 +274,10 @@ export function ScaleToCboDialog({ ads, onClose }: Props) {
                           <RunBadge run={runs[a.adId]} />
                         ) : why ? (
                           <span className="text-[11px] text-amber-700">{why}</span>
+                        ) : info && !info.keepsEngagement ? (
+                          <span className="text-[11px] text-amber-700">Fresh copy — new post, no engagement</span>
                         ) : (
-                          <span className="text-[11px] text-emerald-700">Post found</span>
+                          <span className="text-[11px] text-emerald-700">Keeps engagement</span>
                         )}
                       </div>
                     </li>
@@ -260,6 +285,32 @@ export function ScaleToCboDialog({ ads, onClose }: Props) {
                 })}
               </ul>
             </div>
+
+            {!finished && freshCandidates.length > 0 && (
+              <label className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 text-[12.5px] text-amber-900 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includeFresh}
+                  onChange={(e) => setIncludeFresh(e.target.checked)}
+                  disabled={running}
+                  className="mt-0.5 h-3.5 w-3.5 accent-gray-900"
+                />
+                <span>
+                  <span className="font-medium">
+                    {freshCandidates.length === ads.length
+                      ? single
+                        ? "This ad can't keep its engagement."
+                        : "None of these ads can keep their engagement."
+                      : `${freshCandidates.length} of these ads can't keep their engagement.`}
+                  </span>{" "}
+                  They were built with separate feed and vertical creatives, and Meta exposes no post that can be
+                  re-run — the post it reports is a thumbnail stub, and its Instagram post is an ad post it won't
+                  reuse. Tick to duplicate {freshCandidates.length === 1 ? "it" : "them"} as{" "}
+                  {freshCandidates.length === 1 ? "a fresh ad" : "fresh ads"} instead: same video and placements,
+                  new post, likes and comments start at zero.
+                </span>
+              </label>
+            )}
 
             {finished ? (
               <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 text-[13px] text-emerald-800">
@@ -377,10 +428,10 @@ export function ScaleToCboDialog({ ads, onClose }: Props) {
               {running
                 ? `Scaling ${doneCount + failedCount + 1} of ${eligible.length}…`
                 : single
-                  ? status === "ACTIVE"
-                    ? "Scale and go live"
-                    : "Scale (paused)"
-                  : `Scale ${eligible.length} ad${eligible.length === 1 ? "" : "s"}${status === "ACTIVE" ? " live" : " paused"}`}
+                  ? `${freshCount ? "Copy" : "Scale"}${status === "ACTIVE" ? " and go live" : " (paused)"}`
+                  : `${keepCount ? `Scale ${keepCount}` : ""}${keepCount && freshCount ? " + " : ""}${
+                      freshCount ? `copy ${freshCount}` : ""
+                    }${status === "ACTIVE" ? " live" : " paused"}`}
             </button>
           )}
         </div>

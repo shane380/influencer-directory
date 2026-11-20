@@ -163,6 +163,23 @@ export async function GET(request: NextRequest) {
     for (const d of (data as any[]) || []) dims.set(String(d.ad_id), d);
   }
 
+  // Scale actions taken from this page, newest first per source ad. Best-effort:
+  // if the table isn't there yet nothing is badged, nothing breaks.
+  const scaled = new Map<string, { count: number; last_at: string; adset: string | null }>();
+  for (let i = 0; i < adIds.length; i += CHUNK) {
+    const { data, error } = await (db.from("ad_scale_actions") as any)
+      .select("source_ad_id, created_at, adset_name")
+      .in("source_ad_id", adIds.slice(i, i + CHUNK))
+      .order("created_at", { ascending: false });
+    if (error) break;
+    for (const r of (data as any[]) || []) {
+      const id = String(r.source_ad_id);
+      const cur = scaled.get(id);
+      if (cur) cur.count += 1;
+      else scaled.set(id, { count: 1, last_at: r.created_at, adset: r.adset_name || null });
+    }
+  }
+
   const rangeSpend = spendWithKnownPurchases + spendWithUnknownPurchases;
   const unknownShare = rangeSpend > 0 ? spendWithUnknownPurchases / rangeSpend : 0;
   // Below 1% the totals are materially right and worth showing; above it the
@@ -197,6 +214,7 @@ export async function GET(request: NextRequest) {
       mux_playback_id: dim.mux_playback_id || null,
       carousel_urls:
         Array.isArray(dim.carousel_urls) && dim.carousel_urls.length > 0 ? dim.carousel_urls : null,
+      scaled: scaled.get(adId) || null,
       partnership: !!dim.partnership,
       handle: dim.instagram_handle || null,
       created_time: createdTime,
