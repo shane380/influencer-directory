@@ -195,6 +195,9 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
   // New ad tests board: narrow to one campaign / ad set to read one test at a time.
   const [testCampaign, setTestCampaign] = useState("All campaigns");
   const [testAdset, setTestAdset] = useState("All ad sets");
+  // Free-text match on the ad set name: tests of one idea are spread across
+  // many ad sets that share a phrase in the title ("between hours", "study").
+  const [testAdsetQuery, setTestAdsetQuery] = useState("");
   const [scaleAd, setScaleAd] = useState<PerfAd | null>(null);
 
   useEffect(() => {
@@ -223,6 +226,7 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
     setScope("All");
     setTestCampaign("All campaigns");
     setTestAdset("All ad sets");
+    setTestAdsetQuery("");
   }
 
   const allAds = data?.ads || [];
@@ -310,17 +314,19 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
     () => Array.from(new Set(tests.ads.map((a) => a.campaign).filter(Boolean) as string[])).sort(),
     [tests],
   );
+  const adsetQuery = testAdsetQuery.trim().toLowerCase();
   const testAdsets = useMemo(
     () =>
       Array.from(
         new Set(
           tests.ads
             .filter((a) => testCampaign === "All campaigns" || a.campaign === testCampaign)
+            .filter((a) => !adsetQuery || (a.adset || "").toLowerCase().includes(adsetQuery))
             .map((a) => a.adset)
             .filter(Boolean) as string[],
         ),
       ).sort(),
-    [tests, testCampaign],
+    [tests, testCampaign, adsetQuery],
   );
 
   const testAds = useMemo(() => {
@@ -328,11 +334,12 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
     return [...tests.ads]
       .filter((a) => testCampaign === "All campaigns" || a.campaign === testCampaign)
       .filter((a) => testAdset === "All ad sets" || a.adset === testAdset)
+      .filter((a) => !adsetQuery || (a.adset || "").toLowerCase().includes(adsetQuery))
       // Spend-first, not newest-first: newest-first fills the grid with same-day
       // ads carrying no signal yet.
       .sort((a, b) => b.spend - a.spend)
       .map((a) => ({ ad: a, status: launchStatus(a, blended) }));
-  }, [tests, summary.cur.roas, testCampaign, testAdset]);
+  }, [tests, summary.cur.roas, testCampaign, testAdset, adsetQuery]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -707,6 +714,18 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
                     <option key={c}>{c}</option>
                   ))}
                 </select>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                  <input
+                    value={testAdsetQuery}
+                    onChange={(e) => {
+                      setTestAdsetQuery(e.target.value);
+                      setTestAdset("All ad sets");
+                    }}
+                    placeholder="Ad set name contains… e.g. between hours"
+                    className="border border-gray-200 rounded-lg pl-8 pr-2.5 py-1.5 text-[13px] bg-white w-[280px]"
+                  />
+                </div>
                 <select
                   value={testAdset}
                   onChange={(e) => setTestAdset(e.target.value)}
@@ -717,13 +736,15 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
                     <option key={a}>{a}</option>
                   ))}
                 </select>
-                {(testCampaign !== "All campaigns" || testAdset !== "All ad sets") && (
+                {(testCampaign !== "All campaigns" || testAdset !== "All ad sets" || adsetQuery) && (
                   <span className="text-[12px] text-gray-500">
                     {testAds.length} of {tests.ads.length} new ads
+                    {adsetQuery && ` in ${testAdsets.length} ad set${testAdsets.length === 1 ? "" : "s"}`}
                     <button
                       onClick={() => {
                         setTestCampaign("All campaigns");
                         setTestAdset("All ad sets");
+                        setTestAdsetQuery("");
                       }}
                       className="ml-2 text-gray-900 underline underline-offset-2"
                     >
