@@ -11,6 +11,9 @@ import type {
   IgMediaResponse,
   LauncherDefaults,
   PartnerIdentity,
+  PromotableAd,
+  PromoteAdRequest,
+  PromoteAdResult,
   TargetsResponse,
 } from "@/types/meta-ads";
 
@@ -85,7 +88,7 @@ export async function listTargets(): Promise<TargetsResponse> {
   const { actId } = getEnv();
   const data = await graphGet(`${actId}/campaigns`, {
     fields:
-      "id,name,status,effective_status,objective," +
+      "id,name,status,effective_status,objective,daily_budget,lifetime_budget," +
       "adsets.limit(100){id,name,status,effective_status,daily_budget,lifetime_budget}",
     filtering: JSON.stringify([
       { field: "effective_status", operator: "IN", value: ["ACTIVE", "PAUSED"] },
@@ -99,6 +102,7 @@ export async function listTargets(): Promise<TargetsResponse> {
     status: c.status,
     effective_status: c.effective_status,
     objective: c.objective || null,
+    cbo: Boolean(c.daily_budget || c.lifetime_budget),
     adsets: (c.adsets?.data || [])
       .filter((a: any) => ["ACTIVE", "PAUSED"].includes(a.effective_status))
       .map((a: any) => ({
@@ -811,21 +815,10 @@ export async function pushDraftToMeta(
 
   // For partnership ads, also resolve the creator's FB page so both the IG
   // and Facebook sponsor identities are linked on the creative.
-  let sponsorPageId: string | null = null;
-  if (draft.partnershipSponsorId && draft.instagramUserId) {
-    try {
-      const perms = await graphGet(
-        `${draft.instagramUserId}/branded_content_ad_permissions`,
-        { limit: "100" }
-      );
-      const rec = (perms.data || []).find(
-        (p: any) => String(p.creator_ig_id) === draft.partnershipSponsorId
-      );
-      if (rec?.creator_fb_page_id) sponsorPageId = String(rec.creator_fb_page_id);
-    } catch {
-      // Optional enrichment — instagram_branded_content alone still works.
-    }
-  }
+  const sponsorPageId =
+    draft.partnershipSponsorId && draft.instagramUserId
+      ? await resolveSponsorPageId(draft.instagramUserId, draft.partnershipSponsorId)
+      : null;
 
   const uploaded: UploadedAsset[] = [];
   for (const asset of draft.assets) {
@@ -872,8 +865,124 @@ export async function pushDraftToMeta(
   return { adId: ad.id, creativeId: creative.id };
 }
 
+/** The creator's FB page behind a partnership sponsor; null when unreadable. */
+async function resolveSponsorPageId(
+  instagramUserId: string,
+  sponsorId: string
+): Promise<string | null> {
+  try {
+    const perms = await graphGet(`${instagramUserId}/branded_content_ad_permissions`, {
+      limit: "100",
+    });
+    const rec = (perms.data || []).find((p: any) => String(p.creator_ig_id) === sponsorId);
+    return rec?.creator_fb_page_id ? String(rec.creator_fb_page_id) : null;
+  } catch {
+    // Optional enrichment — instagram_branded_content alone still works.
+    return null;
+  }
+}
+
 export async function setAdStatus(adId: string, status: "ACTIVE" | "PAUSED"): Promise<void> {
   await graphPost(adId, { status });
+}
+
+// ---- Scaling a proven ad on its existing post ----
+// Testing happens in ABO ad sets; a winner is re-run in a CBO ad set as a new
+// ad that points at the SAME page post (object_story_id = the source creative's
+// effective_object_story_id), so the likes and comments it earned carry over.
+// This is the API form of Ads Manager's "use existing post" — NOT /copies,
+// whose docs only promise "an identical ad creative", i.e. possibly a new post.
+
+/**
+ * Read what the dialog needs about a live ad: where it sits, and the post it
+ * runs on. `partnershipSponsorId` is filled in by the route from our records —
+ * Meta does not echo branded-content fields back on a creative read.
+ */
+export async function getPromotableAd(adId: string): Promise<PromotableAd> {
+  const ad = await graphGet(adId, {
+    fields:
+      "id,name,adset_id,adset{name},campaign_id,campaign{name}," +
+      "creative{id,effective_object_story_id,effective_instagram_media_id," +
+      "instagram_user_id,object_story_spec}",
+  });
+  const creative = ad.creative || {};
+  const postId: string | null = creative.effective_object_story_id || null;
+  // Post ids are "<pageId>_<postId>"; the prefix is the owning page.
+  const pageId: string | null =
+    creative.object_story_spec?.page_id || (postId ? postId.split("_")[0] : null) || null;
+
+  return {
+    adId: String(ad.id),
+    adName: ad.name || "",
+    adsetId: String(ad.adset_id || ""),
+    adsetName: ad.adset?.name || null,
+    campaignId: String(ad.campaign_id || ""),
+    campaignName: ad.campaign?.name || null,
+    creativeId: String(creative.id || ""),
+    postId,
+    instagramMediaId: creative.effective_instagram_media_id || null,
+    pageId,
+    instagramUserId:
+      creative.instagram_user_id || creative.object_story_spec?.instagram_user_id || null,
+    partnershipSponsorId: null,
+    partnershipUnresolved: false,
+  };
+}
+
+/**
+ * Create a new ad in `adsetId` on the source ad's existing post. With
+ * `validateOnly` nothing is created: the creative payload is validated, and
+ * the ad payload is validated against the source creative instead.
+ */
+export async function promoteAdToAdset(
+  input: PromoteAdRequest & { partnershipSponsorId?: string | null },
+  opts: { validateOnly?: boolean } = {}
+): Promise<PromoteAdResult> {
+  const { actId } = getEnv();
+  if (!input.adsetId) throw new MetaApiError("Pick a destination ad set", null);
+
+  const source = await getPromotableAd(input.adId);
+  if (!source.postId) {
+    throw new MetaApiError(
+      "This ad has no post to reuse — Meta returned no effective_object_story_id",
+      null
+    );
+  }
+  const name = (input.name || source.adName).trim() || source.adName;
+
+  const creativeParams: Record<string, any> = {
+    name: `${name} — creative`,
+    object_story_id: source.postId,
+  };
+  if (source.instagramUserId) creativeParams.instagram_user_id = source.instagramUserId;
+  if (input.partnershipSponsorId) {
+    creativeParams.instagram_branded_content = { sponsor_id: input.partnershipSponsorId };
+    const sponsorPageId = source.instagramUserId
+      ? await resolveSponsorPageId(source.instagramUserId, input.partnershipSponsorId)
+      : null;
+    if (sponsorPageId) {
+      creativeParams.facebook_branded_content = { sponsor_page_id: sponsorPageId };
+    }
+  }
+  if (opts.validateOnly) creativeParams.execution_options = ["validate_only"];
+
+  const creative = await graphPost(`${actId}/adcreatives`, creativeParams);
+  const creativeId = opts.validateOnly ? source.creativeId : String(creative.id);
+
+  const adParams: Record<string, any> = {
+    name,
+    adset_id: input.adsetId,
+    creative: { creative_id: creativeId },
+    status: input.status === "ACTIVE" ? "ACTIVE" : "PAUSED",
+  };
+  if (opts.validateOnly) adParams.execution_options = ["validate_only"];
+  const ad = await graphPost(`${actId}/ads`, adParams);
+
+  return {
+    adId: opts.validateOnly ? "" : String(ad.id),
+    creativeId,
+    postId: source.postId,
+  };
 }
 
 function buildCreativeParams(

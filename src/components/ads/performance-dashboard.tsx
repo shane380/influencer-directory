@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Search, ChevronDown, ChevronRight, Play, Images } from "lucide-react";
+import { Loader2, Search, ChevronDown, ChevronRight, Play, Images, TrendingUp } from "lucide-react";
 import { DateRangePicker, type ResolvedRange, resolveRange } from "@/components/partnerships/date-range-picker";
+import { ScaleToCboDialog } from "./scale-to-cbo-dialog";
 import {
   type PerfAd,
   type MetricKey,
@@ -52,6 +53,63 @@ function Delta({
   if (!show) return null;
   const t = trend(metric, current, prev);
   return <span className={`text-[11px] font-semibold ${t.className}`}>{t.label}</span>;
+}
+
+/**
+ * Meta's effective_status, as a reader would say it. Anything paused above the
+ * ad (ad set / campaign) still reads "Paused" — the ad isn't delivering.
+ */
+function deliveryStatus(status: string | null): { label: string; className: string } {
+  switch (status) {
+    case "ACTIVE":
+      return { label: "Live", className: "bg-emerald-50 text-emerald-700" };
+    case "PAUSED":
+    case "ADSET_PAUSED":
+    case "CAMPAIGN_PAUSED":
+      return { label: "Paused", className: "bg-gray-100 text-gray-600" };
+    case "IN_PROCESS":
+    case "PENDING_REVIEW":
+      return { label: "In review", className: "bg-sky-50 text-sky-700" };
+    case "WITH_ISSUES":
+    case "DISAPPROVED":
+      return { label: "Issue", className: "bg-red-50 text-red-700" };
+    case null:
+      return { label: "Unknown", className: "bg-gray-100 text-gray-500" };
+    default:
+      return {
+        label: status.toLowerCase().replace(/_/g, " "),
+        className: "bg-gray-100 text-gray-600",
+      };
+  }
+}
+
+/** "Running 12d · since 7 Nov" — how long the ad has had to prove itself. */
+function runningFor(ad: PerfAd): string {
+  if (ad.days_live == null) return "No launch date";
+  const since = ad.created_time
+    ? new Date(ad.created_time).toLocaleDateString(undefined, { day: "numeric", month: "short" })
+    : null;
+  const span =
+    ad.days_live === 0 ? "Launched today" : ad.days_live === 1 ? "Running 1 day" : `Running ${ad.days_live} days`;
+  return since ? `${span} · since ${since}` : span;
+}
+
+function ScaleButton({ onClick, compact = false }: { onClick: () => void; compact?: boolean }) {
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      title="Re-run this ad in a CBO ad set on the same post, keeping its engagement"
+      className={`inline-flex items-center gap-1 rounded-md border border-gray-200 text-gray-700 hover:border-gray-900 hover:text-gray-900 whitespace-nowrap ${
+        compact ? "px-1.5 py-0.5 text-[10.5px]" : "px-2 py-1 text-[11.5px]"
+      }`}
+    >
+      <TrendingUp className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
+      Scale to CBO
+    </button>
+  );
 }
 
 function SegmentedControl<T extends string>({
@@ -105,7 +163,7 @@ function Thumb({ ad, className }: { ad: PerfAd; className: string }) {
   );
 }
 
-export function PerformanceDashboard() {
+export function PerformanceDashboard({ canScale = false }: { canScale?: boolean }) {
   const [range, setRange] = useState<ResolvedRange>(() => resolveRange("30d"));
   const [data, setData] = useState<{
     ads: PerfAd[];
@@ -134,6 +192,10 @@ export function PerformanceDashboard() {
   const [tableSort, setTableSort] = useState<MetricKey | "name">("spend");
   const [page, setPage] = useState(0);
   const [openCreator, setOpenCreator] = useState<string | null>(null);
+  // New ad tests board: narrow to one campaign / ad set to read one test at a time.
+  const [testCampaign, setTestCampaign] = useState("All campaigns");
+  const [testAdset, setTestAdset] = useState("All ad sets");
+  const [scaleAd, setScaleAd] = useState<PerfAd | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -159,6 +221,8 @@ export function PerformanceDashboard() {
     setCampaign("All campaigns");
     setQuery("");
     setScope("All");
+    setTestCampaign("All campaigns");
+    setTestAdset("All ad sets");
   }
 
   const allAds = data?.ads || [];
@@ -242,14 +306,33 @@ export function PerformanceDashboard() {
     [scoped, scopeAll, launchWindow],
   );
 
+  const testCampaigns = useMemo(
+    () => Array.from(new Set(tests.ads.map((a) => a.campaign).filter(Boolean) as string[])).sort(),
+    [tests],
+  );
+  const testAdsets = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          tests.ads
+            .filter((a) => testCampaign === "All campaigns" || a.campaign === testCampaign)
+            .map((a) => a.adset)
+            .filter(Boolean) as string[],
+        ),
+      ).sort(),
+    [tests, testCampaign],
+  );
+
   const testAds = useMemo(() => {
     const blended = tests.benchmark.roas ?? summary.cur.roas;
     return [...tests.ads]
+      .filter((a) => testCampaign === "All campaigns" || a.campaign === testCampaign)
+      .filter((a) => testAdset === "All ad sets" || a.adset === testAdset)
       // Spend-first, not newest-first: newest-first fills the grid with same-day
       // ads carrying no signal yet.
       .sort((a, b) => b.spend - a.spend)
       .map((a) => ({ ad: a, status: launchStatus(a, blended) }));
-  }, [tests, summary.cur.roas]);
+  }, [tests, summary.cur.roas, testCampaign, testAdset]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -488,7 +571,10 @@ export function PerformanceDashboard() {
                   </div>
                   <div className="px-4 pt-3 pb-4 flex-1 flex flex-col">
                     <p className="text-[13px] font-semibold text-gray-900 truncate">{ad.name || "Untitled ad"}</p>
-                    <p className="text-[11px] text-gray-400 truncate">{ad.campaign || "—"}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[11px] text-gray-400 truncate">{ad.campaign || "—"}</p>
+                      {canScale && <ScaleButton compact onClick={() => setScaleAd(ad)} />}
+                    </div>
                     <div className="border-t border-gray-100 mt-3 pt-3 flex items-end justify-between">
                       <div>
                         <Label>{METRIC_LABEL[sort]}</Label>
@@ -605,6 +691,48 @@ export function PerformanceDashboard() {
                 ]}
               />
             </div>
+
+            {tests.ads.length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap mb-3">
+                <select
+                  value={testCampaign}
+                  onChange={(e) => {
+                    setTestCampaign(e.target.value);
+                    setTestAdset("All ad sets");
+                  }}
+                  className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-[13px] bg-white max-w-[320px] truncate"
+                >
+                  <option>All campaigns</option>
+                  {testCampaigns.map((c) => (
+                    <option key={c}>{c}</option>
+                  ))}
+                </select>
+                <select
+                  value={testAdset}
+                  onChange={(e) => setTestAdset(e.target.value)}
+                  className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-[13px] bg-white max-w-[320px] truncate"
+                >
+                  <option>All ad sets</option>
+                  {testAdsets.map((a) => (
+                    <option key={a}>{a}</option>
+                  ))}
+                </select>
+                {(testCampaign !== "All campaigns" || testAdset !== "All ad sets") && (
+                  <span className="text-[12px] text-gray-500">
+                    {testAds.length} of {tests.ads.length} new ads
+                    <button
+                      onClick={() => {
+                        setTestCampaign("All campaigns");
+                        setTestAdset("All ad sets");
+                      }}
+                      className="ml-2 text-gray-900 underline underline-offset-2"
+                    >
+                      Clear
+                    </button>
+                  </span>
+                )}
+              </div>
+            )}
 
             {tests.ads.length === 0 ? (
               // Never render nothing. An empty window is a real answer — "no new
@@ -740,9 +868,26 @@ export function PerformanceDashboard() {
                           </span>
                         </div>
                         <p className="text-[11px] text-gray-400 truncate mt-0.5">
-                          {ad.days_live}d live
-                          {ad.handle ? ` · @${ad.handle}` : ""}
+                          {ad.campaign || "—"}
+                          {ad.adset ? ` › ${ad.adset}` : ""}
                         </p>
+                        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                          {(() => {
+                            const d = deliveryStatus(ad.status);
+                            return (
+                              <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${d.className}`}>
+                                {d.label}
+                              </span>
+                            );
+                          })()}
+                          <span className="text-[11px] text-gray-500">{runningFor(ad)}</span>
+                          {ad.handle && <span className="text-[11px] text-indigo-700">@{ad.handle}</span>}
+                        </div>
+                        {canScale && (
+                          <div className="mt-2">
+                            <ScaleButton compact onClick={() => setScaleAd(ad)} />
+                          </div>
+                        )}
                         <div className="grid grid-cols-4 gap-2 mt-auto pt-3">
                           {(["spend", "roas", "ctr", "purchases"] as MetricKey[]).map((k) => (
                             <div key={k}>
@@ -857,6 +1002,11 @@ export function PerformanceDashboard() {
                               <p className="text-[13px] text-gray-900 truncate max-w-[280px]">{ad.name || "Untitled ad"}</p>
                               <p className="text-[11px] text-gray-400 truncate max-w-[280px]">{ad.campaign || "—"}</p>
                             </div>
+                            {canScale && (
+                              <div className="ml-auto pl-2">
+                                <ScaleButton compact onClick={() => setScaleAd(ad)} />
+                              </div>
+                            )}
                           </div>
                         </td>
                         <td className="px-3 py-2.5 text-xs">
@@ -907,12 +1057,16 @@ export function PerformanceDashboard() {
           </section>
 
           <p className="text-[11px] text-gray-400 mt-4">
-            Read-only. Deltas compare the selected range with the equivalent range immediately before it.
+            Deltas compare the selected range with the equivalent range immediately before it.
             Figures come from the stored Meta sync, not a live API call. &ldquo;Best&rdquo; rankings ignore ads
             below {MIN_IMPRESSIONS_FOR_RATE.toLocaleString()} impressions (rates) or{" "}
             {money(MIN_SPEND_FOR_RETURN)} spend (return), so a single click cannot top the chart.
           </p>
         </>
+      )}
+
+      {scaleAd && (
+        <ScaleToCboDialog adId={scaleAd.ad_id} adName={scaleAd.name} onClose={() => setScaleAd(null)} />
       )}
     </div>
   );
