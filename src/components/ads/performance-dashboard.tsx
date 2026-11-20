@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Search, ChevronDown, ChevronRight, ChevronLeft, Play, Images, TrendingUp, X, ExternalLink, CheckCircle2 } from "lucide-react";
 import { DateRangePicker, type ResolvedRange, resolveRange } from "@/components/partnerships/date-range-picker";
 import { ScaleToCboDialog, type ScaleTarget } from "./scale-to-cbo-dialog";
@@ -302,9 +302,14 @@ function MediaPreview({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose, frames.length, view]);
 
-  // Only fetch the per-placement assets once stories are asked for.
+  // Only fetch the per-placement assets once stories are asked for, and only
+  // once per ad. The request must not depend on `media` itself: an effect
+  // keyed on the loading state re-runs when it flips to "loading" and cancels
+  // the fetch it just started (the "stuck on Loading 9:16" bug).
+  const requestedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (view !== "story" || media.phase !== "idle") return;
+    if (view !== "story" || requestedFor.current === ad.ad_id) return;
+    requestedFor.current = ad.ad_id;
     let cancelled = false;
     setMedia({ phase: "loading" });
     fetch(`/api/ads/media?adId=${encodeURIComponent(ad.ad_id)}`)
@@ -315,8 +320,12 @@ function MediaPreview({
       })
       .then((d) => { if (!cancelled) setMedia({ phase: "ok", feed: d.feed, vertical: d.vertical, source: d.source }); })
       .catch((e) => { if (!cancelled) setMedia({ phase: "error", message: e.message }); });
-    return () => { cancelled = true; };
-  }, [view, media.phase, ad.ad_id]);
+    return () => {
+      // Unmount or a different ad: drop the result and allow a fresh request.
+      cancelled = true;
+      if (requestedFor.current === ad.ad_id) requestedFor.current = null;
+    };
+  }, [view, ad.ad_id]);
 
   const d = deliveryStatus(ad.status);
   const mediaCls = "max-h-[70vh] max-w-[92vw] w-auto h-auto";
