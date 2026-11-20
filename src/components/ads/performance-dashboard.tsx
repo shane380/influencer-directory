@@ -28,6 +28,9 @@ type SortKey = "spend" | "ctr" | "roas";
 type Scope = "All" | "Partnership" | "Non-partnership";
 
 const TABLE_COLUMNS: MetricKey[] = ["spend", "revenue", "roas", "purchases", "ctr", "cpa"];
+type TestView = "cards" | "list";
+type TestSort = MetricKey | "name" | "days";
+const TEST_VIEW_KEY = "ads-perf:test-view";
 const CARD_METRICS: MetricKey[] = ["spend", "revenue", "roas", "purchases", "ctr", "cpa"];
 const ROWS_PER_PAGE = 25;
 
@@ -198,6 +201,16 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
   // Free-text match on the ad set name: tests of one idea are spread across
   // many ad sets that share a phrase in the title ("between hours", "study").
   const [testAdsetQuery, setTestAdsetQuery] = useState("");
+  // Cards read one ad at a time; the list lines the numbers up for comparing.
+  // Remembered per browser — a one-time preference, not shared state.
+  const [testView, setTestView] = useState<TestView>(() => {
+    try {
+      return localStorage.getItem(TEST_VIEW_KEY) === "list" ? "list" : "cards";
+    } catch {
+      return "cards";
+    }
+  });
+  const [testSort, setTestSort] = useState<TestSort>("spend");
   const [scaleAd, setScaleAd] = useState<PerfAd | null>(null);
 
   useEffect(() => {
@@ -331,15 +344,32 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
 
   const testAds = useMemo(() => {
     const blended = tests.benchmark.roas ?? summary.cur.roas;
-    return [...tests.ads]
+    const rows = [...tests.ads]
       .filter((a) => testCampaign === "All campaigns" || a.campaign === testCampaign)
       .filter((a) => testAdset === "All ad sets" || a.adset === testAdset)
-      .filter((a) => !adsetQuery || (a.adset || "").toLowerCase().includes(adsetQuery))
-      // Spend-first, not newest-first: newest-first fills the grid with same-day
-      // ads carrying no signal yet.
-      .sort((a, b) => b.spend - a.spend)
-      .map((a) => ({ ad: a, status: launchStatus(a, blended) }));
-  }, [tests, summary.cur.roas, testCampaign, testAdset, adsetQuery]);
+      .filter((a) => !adsetQuery || (a.adset || "").toLowerCase().includes(adsetQuery));
+    // Spend-first by default, not newest-first: newest-first fills the board
+    // with same-day ads carrying no signal yet.
+    if (testSort === "name") {
+      rows.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    } else if (testSort === "days") {
+      rows.sort((a, b) => (b.days_live ?? -1) - (a.days_live ?? -1));
+    } else if (testSort === "cpa") {
+      rows.sort((a, b) => (a.cpa ?? Infinity) - (b.cpa ?? Infinity));
+    } else {
+      rows.sort((a, b) => (b[testSort] ?? -Infinity) - (a[testSort] ?? -Infinity));
+    }
+    return rows.map((a) => ({ ad: a, status: launchStatus(a, blended) }));
+  }, [tests, summary.cur.roas, testCampaign, testAdset, adsetQuery, testSort]);
+
+  function switchTestView(v: TestView) {
+    setTestView(v);
+    try {
+      localStorage.setItem(TEST_VIEW_KEY, v);
+    } catch {
+      // Private window or blocked storage — the toggle still works for this visit.
+    }
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -688,15 +718,25 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
                   Launched in the last {launchWindow} days, against everything older.
                 </p>
               </div>
-              <SegmentedControl
-                value={String(launchWindow)}
-                onChange={(v) => setLaunchWindow(Number(v) as LaunchWindow)}
-                options={[
-                  { value: "7", label: "7 days" },
-                  { value: "14", label: "14 days" },
-                  { value: "30", label: "30 days" },
-                ]}
-              />
+              <div className="flex items-center gap-2 flex-wrap">
+                <SegmentedControl
+                  value={testView}
+                  onChange={(v) => switchTestView(v as TestView)}
+                  options={[
+                    { value: "cards", label: "Cards" },
+                    { value: "list", label: "List" },
+                  ]}
+                />
+                <SegmentedControl
+                  value={String(launchWindow)}
+                  onChange={(v) => setLaunchWindow(Number(v) as LaunchWindow)}
+                  options={[
+                    { value: "7", label: "7 days" },
+                    { value: "14", label: "14 days" },
+                    { value: "30", label: "30 days" },
+                  ]}
+                />
+              </div>
             </div>
 
             {tests.ads.length > 0 && (
@@ -873,6 +913,96 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
                 )}
 
                 {/* Every new ad, not just a top handful — this is the test board. */}
+                {testView === "list" ? (
+                  <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="border-b border-gray-100">
+                          <th
+                            onClick={() => setTestSort("name")}
+                            className={`px-4 py-2.5 text-[11px] uppercase tracking-wider font-medium cursor-pointer ${
+                              testSort === "name" ? "text-gray-900" : "text-gray-500"
+                            }`}
+                          >
+                            Ad {testSort === "name" && "▾"}
+                          </th>
+                          <th className="px-3 py-2.5 text-[11px] uppercase tracking-wider font-medium text-gray-500">
+                            Status
+                          </th>
+                          <th
+                            onClick={() => setTestSort("days")}
+                            className={`px-3 py-2.5 text-[11px] uppercase tracking-wider font-medium cursor-pointer whitespace-nowrap ${
+                              testSort === "days" ? "text-gray-900" : "text-gray-500"
+                            }`}
+                          >
+                            Running {testSort === "days" && "▾"}
+                          </th>
+                          {TABLE_COLUMNS.map((k) => (
+                            <th
+                              key={k}
+                              onClick={() => setTestSort(k)}
+                              className={`text-right px-3 py-2.5 text-[11px] uppercase tracking-wider font-medium cursor-pointer whitespace-nowrap ${
+                                testSort === k ? "text-gray-900" : "text-gray-500"
+                              }`}
+                            >
+                              {METRIC_LABEL[k]} {testSort === k && "▾"}
+                            </th>
+                          ))}
+                          {canScale && <th className="px-3 py-2.5" />}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {testAds.map(({ ad, status }, i) => {
+                          const d = deliveryStatus(ad.status);
+                          return (
+                            <tr key={ad.ad_id} className={`border-b border-gray-50 ${i % 2 ? "bg-gray-50/40" : ""}`}>
+                              <td className="px-4 py-2">
+                                <div className="flex items-center gap-3">
+                                  <Thumb ad={ad} className="w-9 h-11 rounded" />
+                                  <div className="min-w-0">
+                                    <p className="text-[13px] text-gray-900 truncate max-w-[260px]">{ad.name || "Untitled ad"}</p>
+                                    <p className="text-[11px] text-gray-400 truncate max-w-[260px]">
+                                      {ad.adset || ad.campaign || "—"}
+                                      {ad.handle ? ` · @${ad.handle}` : ""}
+                                    </p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-3 py-2">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 whitespace-nowrap ${d.className}`}>
+                                    {d.label}
+                                  </span>
+                                  <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 whitespace-nowrap ${status.className}`}>
+                                    {status.label}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-3 py-2 text-[12px] text-gray-600 whitespace-nowrap tabular-nums">
+                                {ad.days_live == null ? "—" : `${ad.days_live}d`}
+                              </td>
+                              {TABLE_COLUMNS.map((k) => (
+                                <td key={k} className="px-3 py-2 text-right">
+                                  <div className={`text-[13px] tabular-nums ${testSort === k ? "font-semibold text-gray-900" : "text-gray-700"}`}>
+                                    {formatMetric(k, ad[k])}
+                                  </div>
+                                </td>
+                              ))}
+                              {canScale && (
+                                <td className="px-3 py-2 text-right">
+                                  <ScaleButton compact onClick={() => setScaleAd(ad)} />
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    {testAds.length === 0 && (
+                      <p className="px-4 py-6 text-center text-[13px] text-gray-500">No new ads match these filters.</p>
+                    )}
+                  </div>
+                ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                   {testAds.map(({ ad, status }) => (
                     <div key={ad.ad_id} className="bg-white border border-gray-200 rounded-lg p-4 flex gap-4">
@@ -923,6 +1053,7 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
                     </div>
                   ))}
                 </div>
+                )}
               </>
             )}
           </section>
