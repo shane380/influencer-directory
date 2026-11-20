@@ -939,6 +939,104 @@ export async function getAdLandingPage(adId: string): Promise<AdLandingPage> {
   };
 }
 
+// ---- Per-placement media (feed vs story/reels) ----
+
+export interface PlacementMedia {
+  kind: "video" | "image";
+  /** Playable/displayable URL; null when Meta won't serve the video file */
+  url: string | null;
+  poster: string | null;
+}
+
+export interface AdPlacementMedia {
+  feed: PlacementMedia | null;
+  vertical: PlacementMedia | null;
+}
+
+/**
+ * The feed and 9:16 assets behind an ad, read from Meta. Placement-customised
+ * creatives carry both in asset_feed_spec, labelled feed_asset / vertical_asset
+ * by the launcher (or in position order otherwise). Meta does not expose the
+ * video file (`source` is empty for ad videos), so videos come back with a
+ * poster only; images resolve to their CDN URL.
+ */
+export async function getAdPlacementMedia(adId: string): Promise<AdPlacementMedia> {
+  const { actId } = getEnv();
+  const ad = await graphGet(adId, {
+    fields:
+      "creative{object_story_spec{video_data{video_id,image_url},link_data{image_hash,picture}}," +
+      "asset_feed_spec{videos{video_id,adlabels,thumbnail_url},images{hash,adlabels}}}",
+  });
+  const c = ad.creative || {};
+  const afs = c.asset_feed_spec || {};
+  const oss = c.object_story_spec || {};
+
+  const isVertical = (a: any) =>
+    (a.adlabels || []).some((l: any) => /vert|story|reel|9x16|9_16/i.test(String(l.name || "")));
+  const pick = (list: any[]) => {
+    if (!list?.length) return { feed: null as any, vertical: null as any };
+    const vertical = list.find(isVertical) || (list.length > 1 ? list[1] : null);
+    const feed = list.find((a) => a !== vertical) || list[0];
+    return { feed, vertical };
+  };
+
+  if (afs.videos?.length) {
+    const { feed, vertical } = pick(afs.videos);
+    const poster = async (v: any) => {
+      if (v?.thumbnail_url) return String(v.thumbnail_url);
+      try {
+        const r = await graphGet(String(v.video_id), { fields: "picture" });
+        return r.picture ? String(r.picture) : null;
+      } catch {
+        return null;
+      }
+    };
+    return {
+      feed: feed ? { kind: "video", url: null, poster: await poster(feed) } : null,
+      vertical: vertical ? { kind: "video", url: null, poster: await poster(vertical) } : null,
+    };
+  }
+
+  if (afs.images?.length) {
+    const { feed, vertical } = pick(afs.images);
+    const hashes = [feed?.hash, vertical?.hash].filter(Boolean) as string[];
+    const urls = new Map<string, string>();
+    if (hashes.length) {
+      const r = await graphGet(`${actId}/adimages`, {
+        hashes: JSON.stringify(hashes),
+        fields: "hash,url",
+      });
+      for (const img of r.data || []) if (img.url) urls.set(String(img.hash), String(img.url));
+    }
+    const toMedia = (img: any): PlacementMedia | null =>
+      img ? { kind: "image", url: urls.get(String(img.hash)) || null, poster: null } : null;
+    return { feed: toMedia(feed), vertical: toMedia(vertical) };
+  }
+
+  if (oss.video_data?.video_id) {
+    return {
+      feed: { kind: "video", url: null, poster: oss.video_data.image_url || null },
+      vertical: null,
+    };
+  }
+  if (oss.link_data?.picture || oss.link_data?.image_hash) {
+    let url: string | null = oss.link_data.picture || null;
+    if (!url && oss.link_data.image_hash) {
+      try {
+        const r = await graphGet(`${actId}/adimages`, {
+          hashes: JSON.stringify([oss.link_data.image_hash]),
+          fields: "hash,url",
+        });
+        url = r.data?.[0]?.url || null;
+      } catch {
+        // Fall through with no URL.
+      }
+    }
+    return { feed: { kind: "image", url, poster: null }, vertical: null };
+  }
+  return { feed: null, vertical: null };
+}
+
 // ---- Scaling a proven ad on its existing post ----
 // Testing happens in ABO ad sets; a winner is re-run in a CBO ad set as a new
 // ad that points at the SAME page post (object_story_id = the source creative's

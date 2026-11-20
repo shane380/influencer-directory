@@ -21,6 +21,8 @@ export interface PerfAd {
   mux_playback_id: string | null;
   /** Mirrored carousel frames, in order */
   carousel_urls: string[] | null;
+  /** Set once this ad has been scaled to another ad set from this page */
+  scaled: { count: number; last_at: string; adset: string | null } | null;
   partnership: boolean;
   handle: string | null;
   created_time: string | null;

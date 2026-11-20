@@ -13,6 +13,8 @@ export interface ScaleTarget {
 interface Props {
   ads: ScaleTarget[];
   onClose: () => void;
+  /** Called with the source ads that got a new ad, so the page can badge them at once. */
+  onScaled?: (adIds: string[], adsetName: string | null) => void;
 }
 
 const NEW_ADSET_OPTION = "__new__";
@@ -40,7 +42,7 @@ function blocker(src: SourceState, adsetId: string): string | null {
  * reads each post id from the source creative; this dialog only picks where
  * they go, then runs the batch one ad at a time so a failure is per ad.
  */
-export function ScaleToCboDialog({ ads, onClose }: Props) {
+export function ScaleToCboDialog({ ads, onClose, onScaled }: Props) {
   const single = ads.length === 1;
   const [sources, setSources] = useState<Record<string, SourceState>>({});
   const [targets, setTargets] = useState<TargetsResponse | null>(null);
@@ -138,6 +140,9 @@ export function ScaleToCboDialog({ ads, onClose }: Props) {
           body: JSON.stringify({
             adId: a.adId,
             adsetId,
+            adsetName: adsets.find((x) => x.id === adsetId)?.name || null,
+            campaignId: campaign?.id || null,
+            campaignName: campaign?.name || null,
             name: single ? name.trim() : null,
             status,
           }),
@@ -145,6 +150,7 @@ export function ScaleToCboDialog({ ads, onClose }: Props) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Failed to scale the ad");
         setRuns((r) => ({ ...r, [a.adId]: { phase: "done", newAdId: data.adId } }));
+        onScaled?.([a.adId], adsets.find((x) => x.id === adsetId)?.name || null);
       } catch (err) {
         setRuns((r) => ({
           ...r,

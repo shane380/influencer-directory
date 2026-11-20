@@ -70,16 +70,33 @@ export async function POST(request: Request) {
         { status: 409 }
       );
     }
+    const status: "ACTIVE" | "PAUSED" = body.status === "PAUSED" ? "PAUSED" : "ACTIVE";
     const result = await promoteAdToAdset({
       adId: source.adId,
       adsetId: String(body.adsetId),
       name: typeof body.name === "string" ? body.name : null,
-      status: body.status === "PAUSED" ? "PAUSED" : "ACTIVE",
+      status,
       partnershipSponsorId: source.partnershipSponsorId,
     });
     console.log(
       `[ads/promote] ${user.displayName} scaled ad ${source.adId} -> ${result.adId} in ad set ${body.adsetId}`
     );
+
+    // Remember the action so the page can badge the source ad as scaled.
+    // Best-effort: the new ad already exists on Meta, so a missing table or
+    // a failed insert must not turn the response into an error.
+    const { error: recordError } = await (getAdminClient().from("ad_scale_actions") as any).insert({
+      source_ad_id: source.adId,
+      new_ad_id: result.adId,
+      adset_id: String(body.adsetId),
+      adset_name: typeof body.adsetName === "string" ? body.adsetName : null,
+      campaign_id: typeof body.campaignId === "string" ? body.campaignId : null,
+      campaign_name: typeof body.campaignName === "string" ? body.campaignName : null,
+      status,
+      created_by: user.userId,
+    });
+    if (recordError) console.warn("[ads/promote] could not record scale action:", recordError.message);
+
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     const message = err instanceof MetaApiError ? err.userMessage : "Failed to scale the ad";

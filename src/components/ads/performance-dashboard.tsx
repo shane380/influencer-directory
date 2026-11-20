@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Search, ChevronDown, ChevronRight, ChevronLeft, Play, Images, TrendingUp, X, ExternalLink } from "lucide-react";
+import { Loader2, Search, ChevronDown, ChevronRight, ChevronLeft, Play, Images, TrendingUp, X, ExternalLink, CheckCircle2 } from "lucide-react";
 import { DateRangePicker, type ResolvedRange, resolveRange } from "@/components/partnerships/date-range-picker";
 import { ScaleToCboDialog, type ScaleTarget } from "./scale-to-cbo-dialog";
 import {
@@ -97,7 +97,16 @@ function runningFor(ad: PerfAd): string {
   return since ? `${span} · since ${since}` : span;
 }
 
-function ScaleButton({ onClick, compact = false }: { onClick: () => void; compact?: boolean }) {
+function ScaleButton({
+  onClick,
+  compact = false,
+  again = false,
+}: {
+  onClick: () => void;
+  compact?: boolean;
+  /** Already scaled once — label it so a repeat is deliberate. */
+  again?: boolean;
+}) {
   return (
     <button
       onClick={(e) => {
@@ -105,13 +114,29 @@ function ScaleButton({ onClick, compact = false }: { onClick: () => void; compac
         onClick();
       }}
       title="Re-run this ad in a CBO ad set on the same post, keeping its engagement"
-      className={`inline-flex items-center gap-1 rounded-md border border-gray-200 text-gray-700 hover:border-gray-900 hover:text-gray-900 whitespace-nowrap ${
-        compact ? "px-1.5 py-0.5 text-[10.5px]" : "px-2 py-1 text-[11.5px]"
-      }`}
+      className={`inline-flex items-center gap-1 rounded-md border whitespace-nowrap ${
+        again
+          ? "border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-700"
+          : "border-gray-200 text-gray-700 hover:border-gray-900 hover:text-gray-900"
+      } ${compact ? "px-1.5 py-0.5 text-[10.5px]" : "px-2 py-1 text-[11.5px]"}`}
     >
       <TrendingUp className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
-      Scale to CBO
+      {again ? "Scale again" : "Scale to CBO"}
     </button>
+  );
+}
+
+/** "Scaled" mark: this ad has already been re-run in another ad set from here. */
+function ScaledBadge({ scaled }: { scaled: PerfAd["scaled"] }) {
+  if (!scaled) return null;
+  const when = new Date(scaled.last_at).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  return (
+    <span
+      title={`Scaled${scaled.adset ? ` to ${scaled.adset}` : ""} on ${when}${scaled.count > 1 ? ` (${scaled.count} times)` : ""}`}
+      className="inline-flex items-center gap-1 text-[10px] font-semibold rounded-full px-2 py-0.5 bg-indigo-50 text-indigo-700 whitespace-nowrap"
+    >
+      <CheckCircle2 className="h-3 w-3" /> Scaled{scaled.count > 1 ? ` ×${scaled.count}` : ""}
+    </span>
   );
 }
 
@@ -237,10 +262,16 @@ function LandingPageLine({ adId }: { adId: string }) {
   );
 }
 
+type PlacementMedia = { kind: "video" | "image"; url: string | null; poster: string | null };
+type PlacementView = "feed" | "story";
+
 /**
- * Bigger look at one creative: the Mux video with controls, the carousel
- * frames with arrows, or the still — plus where the ad sends people.
- * Escape or the backdrop closes it.
+ * Bigger look at one creative, in feed or story/reels dimensions. Feed uses
+ * what the sync already mirrored (Mux video, carousel frames, still). Story
+ * fetches the ad's 9:16 asset: launcher ads keep it on R2 and it plays; other
+ * ads only yield Meta's poster frame. With no 9:16 asset at all, the feed
+ * creative is shown cropped the way stories would crop it. Escape or the
+ * backdrop closes it.
  */
 function MediaPreview({
   ad,
@@ -253,18 +284,174 @@ function MediaPreview({
 }) {
   const frames = ad.carousel_urls || [];
   const [frame, setFrame] = useState(0);
+  const [view, setView] = useState<PlacementView>("feed");
+  const [media, setMedia] = useState<
+    | { phase: "idle" }
+    | { phase: "loading" }
+    | { phase: "error"; message: string }
+    | { phase: "ok"; feed: PlacementMedia | null; vertical: PlacementMedia | null; source: "launcher" | "meta" }
+  >({ phase: "idle" });
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
-      if (frames.length > 1 && e.key === "ArrowRight") setFrame((f) => Math.min(frames.length - 1, f + 1));
-      if (frames.length > 1 && e.key === "ArrowLeft") setFrame((f) => Math.max(0, f - 1));
+      if (view === "feed" && frames.length > 1 && e.key === "ArrowRight") setFrame((f) => Math.min(frames.length - 1, f + 1));
+      if (view === "feed" && frames.length > 1 && e.key === "ArrowLeft") setFrame((f) => Math.max(0, f - 1));
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, frames.length]);
+  }, [onClose, frames.length, view]);
+
+  // Only fetch the per-placement assets once stories are asked for.
+  useEffect(() => {
+    if (view !== "story" || media.phase !== "idle") return;
+    let cancelled = false;
+    setMedia({ phase: "loading" });
+    fetch(`/api/ads/media?adId=${encodeURIComponent(ad.ad_id)}`)
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Couldn't read the ad's media");
+        return data;
+      })
+      .then((d) => { if (!cancelled) setMedia({ phase: "ok", feed: d.feed, vertical: d.vertical, source: d.source }); })
+      .catch((e) => { if (!cancelled) setMedia({ phase: "error", message: e.message }); });
+    return () => { cancelled = true; };
+  }, [view, media.phase, ad.ad_id]);
 
   const d = deliveryStatus(ad.status);
+  const mediaCls = "max-h-[70vh] max-w-[92vw] w-auto h-auto";
+
+  function feedMedia() {
+    if (ad.mux_playback_id) {
+      return (
+        <video
+          src={`https://stream.mux.com/${ad.mux_playback_id}/capped-1080p.mp4`}
+          poster={`https://image.mux.com/${ad.mux_playback_id}/thumbnail.jpg?time=0`}
+          controls
+          autoPlay
+          playsInline
+          className={mediaCls}
+        />
+      );
+    }
+    if (frames.length > 0) {
+      return (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={frames[frame]} alt="" className={`${mediaCls} object-contain`} />
+          {frame > 0 && (
+            <button
+              onClick={() => setFrame((f) => f - 1)}
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5"
+              aria-label="Previous frame"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+          )}
+          {frame < frames.length - 1 && (
+            <button
+              onClick={() => setFrame((f) => f + 1)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5"
+              aria-label="Next frame"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          )}
+          {frames.length > 1 && (
+            <div className="absolute bottom-2 inset-x-0 flex justify-center gap-1">
+              {frames.map((_, i) => (
+                <span key={i} className={`h-1.5 w-1.5 rounded-full ${i === frame ? "bg-white" : "bg-white/40"}`} />
+              ))}
+            </div>
+          )}
+        </>
+      );
+    }
+    if (ad.thumbnail_url) {
+      // eslint-disable-next-line @next/next/no-img-element
+      return <img src={ad.thumbnail_url} alt="" className={`${mediaCls} object-contain`} />;
+    }
+    return (
+      <div className="w-[320px] h-[400px] flex items-center justify-center text-white/60 text-sm">
+        No creative stored for this ad
+      </div>
+    );
+  }
+
+  /** 9:16 phone-shaped frame; children fill it. */
+  function StoryFrame({ children, note }: { children: React.ReactNode; note?: string | null }) {
+    return (
+      <div className="flex flex-col items-center gap-2">
+        <div className="relative bg-black rounded-2xl overflow-hidden h-[70vh] aspect-[9/16] flex items-center justify-center">
+          {children}
+        </div>
+        {note && <p className="text-[11px] text-white/60 max-w-[320px] text-center">{note}</p>}
+      </div>
+    );
+  }
+
+  function storyMedia() {
+    if (media.phase === "loading" || media.phase === "idle") {
+      return (
+        <StoryFrame>
+          <span className="text-white/60 text-[13px] inline-flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading 9:16 asset…
+          </span>
+        </StoryFrame>
+      );
+    }
+    if (media.phase === "error") {
+      return <StoryFrame note={media.message}>{feedCover()}</StoryFrame>;
+    }
+    const v = media.vertical;
+    if (v?.kind === "video" && v.url) {
+      return (
+        <StoryFrame>
+          <video src={v.url} poster={v.poster || undefined} controls autoPlay playsInline className="w-full h-full object-cover" />
+        </StoryFrame>
+      );
+    }
+    if (v?.kind === "video" && v.poster) {
+      return (
+        <StoryFrame note="Meta doesn't serve this ad's video file, so this is the 9:16 version's poster frame.">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={v.poster} alt="" className="w-full h-full object-cover" />
+        </StoryFrame>
+      );
+    }
+    if (v?.kind === "image" && v.url) {
+      return (
+        <StoryFrame>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={v.url} alt="" className="w-full h-full object-cover" />
+        </StoryFrame>
+      );
+    }
+    return (
+      <StoryFrame note="No separate 9:16 asset on this ad — this is the feed creative as stories and reels would crop it.">
+        {feedCover()}
+      </StoryFrame>
+    );
+  }
+
+  /** The feed creative filling a 9:16 frame — what Meta does when there is no vertical asset. */
+  function feedCover() {
+    if (ad.mux_playback_id) {
+      return (
+        <video
+          src={`https://stream.mux.com/${ad.mux_playback_id}/capped-1080p.mp4`}
+          poster={`https://image.mux.com/${ad.mux_playback_id}/thumbnail.jpg?time=0`}
+          controls
+          autoPlay
+          playsInline
+          className="w-full h-full object-cover"
+        />
+      );
+    }
+    const src = frames[0] || ad.thumbnail_url;
+    // eslint-disable-next-line @next/next/no-img-element
+    return src ? <img src={src} alt="" className="w-full h-full object-cover" /> : null;
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={onClose}>
@@ -276,55 +463,28 @@ function MediaPreview({
         <X className="h-6 w-6" />
       </button>
       <div className="flex flex-col items-center gap-3 max-w-[92vw]" onClick={(e) => e.stopPropagation()}>
-        <div className="relative bg-black rounded-lg overflow-hidden flex items-center justify-center">
-          {ad.mux_playback_id ? (
-            <video
-              src={`https://stream.mux.com/${ad.mux_playback_id}/capped-1080p.mp4`}
-              poster={`https://image.mux.com/${ad.mux_playback_id}/thumbnail.jpg?time=0`}
-              controls
-              autoPlay
-              playsInline
-              className="max-h-[74vh] max-w-[92vw] w-auto h-auto"
-            />
-          ) : frames.length > 0 ? (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={frames[frame]} alt="" className="max-h-[74vh] max-w-[92vw] w-auto h-auto object-contain" />
-              {frame > 0 && (
-                <button
-                  onClick={() => setFrame((f) => f - 1)}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5"
-                  aria-label="Previous frame"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-              )}
-              {frame < frames.length - 1 && (
-                <button
-                  onClick={() => setFrame((f) => f + 1)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5"
-                  aria-label="Next frame"
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </button>
-              )}
-              {frames.length > 1 && (
-                <div className="absolute bottom-2 inset-x-0 flex justify-center gap-1">
-                  {frames.map((_, i) => (
-                    <span key={i} className={`h-1.5 w-1.5 rounded-full ${i === frame ? "bg-white" : "bg-white/40"}`} />
-                  ))}
-                </div>
-              )}
-            </>
-          ) : ad.thumbnail_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={ad.thumbnail_url} alt="" className="max-h-[74vh] max-w-[92vw] w-auto h-auto object-contain" />
-          ) : (
-            <div className="w-[320px] h-[400px] flex items-center justify-center text-white/60 text-sm">
-              No creative stored for this ad
-            </div>
-          )}
+        <div className="bg-white/10 rounded-lg p-0.5 flex">
+          {([["feed", "Feed"], ["story", "Story & Reels"]] as [PlacementView, string][]).map(([v, label]) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={`px-3 py-1 rounded-md text-[12px] transition-colors ${
+                view === v ? "bg-white text-gray-900 font-medium" : "text-white/80 hover:text-white"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
+
+        {view === "feed" ? (
+          <div className="relative bg-black rounded-lg overflow-hidden flex items-center justify-center">
+            {feedMedia()}
+          </div>
+        ) : (
+          storyMedia()
+        )}
+
         <div className="flex flex-col items-center gap-1.5 text-white max-w-full">
           <div className="flex items-center gap-3 max-w-full">
             <div className="min-w-0">
@@ -344,7 +504,7 @@ function MediaPreview({
                 onClick={onScale}
                 className="inline-flex items-center gap-1.5 bg-white text-gray-900 rounded-full px-3 py-1 text-[12px] font-medium hover:bg-gray-100 whitespace-nowrap"
               >
-                <TrendingUp className="h-3.5 w-3.5" /> Scale to CBO
+                <TrendingUp className="h-3.5 w-3.5" /> {ad.scaled ? "Scale again" : "Scale to CBO"}
               </button>
             )}
           </div>
@@ -402,6 +562,8 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
   const [testSort, setTestSort] = useState<TestSort>("spend");
   const [scaleAds, setScaleAds] = useState<ScaleTarget[] | null>(null);
   const [previewAd, setPreviewAd] = useState<PerfAd | null>(null);
+  // Scale actions taken in this visit, so the badge appears before a reload.
+  const [scaledNow, setScaledNow] = useState<Map<string, string | null>>(new Map());
   // Multi-select for batch scaling; keyed by ad id so it survives re-sorts.
   const [selected, setSelected] = useState<Map<string, ScaleTarget>>(new Map());
   const isSelected = (id: string) => selected.has(id);
@@ -444,7 +606,21 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
     setSelected(new Map());
   }
 
-  const allAds = data?.ads || [];
+  const allAds = useMemo(() => {
+    const ads = data?.ads || [];
+    if (scaledNow.size === 0) return ads;
+    const now = new Date().toISOString();
+    return ads.map((a) => {
+      const adset = scaledNow.get(a.ad_id);
+      if (adset === undefined) return a;
+      return {
+        ...a,
+        scaled: a.scaled
+          ? { count: a.scaled.count + 1, last_at: now, adset: adset ?? a.scaled.adset }
+          : { count: 1, last_at: now, adset },
+      };
+    });
+  }, [data, scaledNow]);
 
   // When the comparison window starts before the fact table does, the previous
   // period is only partially covered and every delta would overstate growth by
@@ -815,7 +991,10 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
                     </div>
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-[11px] text-gray-400 truncate">{ad.campaign || "—"}</p>
-                      {canScale && <ScaleButton compact onClick={() => scaleOne(ad)} />}
+                      <span className="flex items-center gap-1.5">
+                        <ScaledBadge scaled={ad.scaled} />
+                        {canScale && <ScaleButton compact again={!!ad.scaled} onClick={() => scaleOne(ad)} />}
+                      </span>
                     </div>
                     <div className="border-t border-gray-100 mt-3 pt-3 flex items-end justify-between">
                       <div>
@@ -1182,6 +1361,7 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
                                   <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 whitespace-nowrap ${status.className}`}>
                                     {status.label}
                                   </span>
+                                  <ScaledBadge scaled={ad.scaled} />
                                 </div>
                               </td>
                               <td className="px-3 py-2 text-[12px] text-gray-600 whitespace-nowrap tabular-nums">
@@ -1196,7 +1376,7 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
                               ))}
                               {canScale && (
                                 <td className="px-3 py-2 text-right">
-                                  <ScaleButton compact onClick={() => scaleOne(ad)} />
+                                  <ScaleButton compact again={!!ad.scaled} onClick={() => scaleOne(ad)} />
                                 </td>
                               )}
                             </tr>
@@ -1242,10 +1422,11 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
                           })()}
                           <span className="text-[11px] text-gray-500">{runningFor(ad)}</span>
                           {ad.handle && <span className="text-[11px] text-indigo-700">@{ad.handle}</span>}
+                          <ScaledBadge scaled={ad.scaled} />
                         </div>
                         {canScale && (
                           <div className="mt-2">
-                            <ScaleButton compact onClick={() => scaleOne(ad)} />
+                            <ScaleButton compact again={!!ad.scaled} onClick={() => scaleOne(ad)} />
                           </div>
                         )}
                         <div className="grid grid-cols-4 gap-2 mt-auto pt-3">
@@ -1364,11 +1545,10 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
                               <p className="text-[13px] text-gray-900 truncate max-w-[280px]">{ad.name || "Untitled ad"}</p>
                               <p className="text-[11px] text-gray-400 truncate max-w-[280px]">{ad.campaign || "—"}</p>
                             </div>
-                            {canScale && (
-                              <div className="ml-auto pl-2">
-                                <ScaleButton compact onClick={() => scaleOne(ad)} />
-                              </div>
-                            )}
+                            <div className="ml-auto pl-2 flex items-center gap-1.5">
+                              <ScaledBadge scaled={ad.scaled} />
+                              {canScale && <ScaleButton compact again={!!ad.scaled} onClick={() => scaleOne(ad)} />}
+                            </div>
                           </div>
                         </td>
                         <td className="px-3 py-2.5 text-xs">
@@ -1466,6 +1646,13 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
       {scaleAds && (
         <ScaleToCboDialog
           ads={scaleAds}
+          onScaled={(ids, adsetName) =>
+            setScaledNow((prev) => {
+              const next = new Map(prev);
+              for (const id of ids) next.set(id, adsetName);
+              return next;
+            })
+          }
           onClose={() => {
             // A batch that came from the selection clears it on close, so the
             // bar does not reappear offering to scale the same ads again.
