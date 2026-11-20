@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, Search, ChevronDown, ChevronRight, Play, Images, TrendingUp } from "lucide-react";
 import { DateRangePicker, type ResolvedRange, resolveRange } from "@/components/partnerships/date-range-picker";
-import { ScaleToCboDialog } from "./scale-to-cbo-dialog";
+import { ScaleToCboDialog, type ScaleTarget } from "./scale-to-cbo-dialog";
 import {
   type PerfAd,
   type MetricKey,
@@ -115,6 +115,19 @@ function ScaleButton({ onClick, compact = false }: { onClick: () => void; compac
   );
 }
 
+function SelectBox({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+  return (
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={onChange}
+      onClick={(e) => e.stopPropagation()}
+      title="Select to scale with others"
+      className="h-3.5 w-3.5 rounded border-gray-300 accent-gray-900 cursor-pointer"
+    />
+  );
+}
+
 function SegmentedControl<T extends string>({
   options,
   value,
@@ -211,7 +224,18 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
     }
   });
   const [testSort, setTestSort] = useState<TestSort>("spend");
-  const [scaleAd, setScaleAd] = useState<PerfAd | null>(null);
+  const [scaleAds, setScaleAds] = useState<ScaleTarget[] | null>(null);
+  // Multi-select for batch scaling; keyed by ad id so it survives re-sorts.
+  const [selected, setSelected] = useState<Map<string, ScaleTarget>>(new Map());
+  const isSelected = (id: string) => selected.has(id);
+  const toggleSelected = (ad: PerfAd) =>
+    setSelected((prev) => {
+      const next = new Map(prev);
+      if (next.has(ad.ad_id)) next.delete(ad.ad_id);
+      else next.set(ad.ad_id, { adId: ad.ad_id, adName: ad.name });
+      return next;
+    });
+  const scaleOne = (ad: PerfAd) => setScaleAds([{ adId: ad.ad_id, adName: ad.name }]);
 
   useEffect(() => {
     let cancelled = false;
@@ -240,6 +264,7 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
     setTestCampaign("All campaigns");
     setTestAdset("All ad sets");
     setTestAdsetQuery("");
+    setSelected(new Map());
   }
 
   const allAds = data?.ads || [];
@@ -607,10 +632,13 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
                     </div>
                   </div>
                   <div className="px-4 pt-3 pb-4 flex-1 flex flex-col">
-                    <p className="text-[13px] font-semibold text-gray-900 truncate">{ad.name || "Untitled ad"}</p>
+                    <div className="flex items-center gap-2">
+                      {canScale && <SelectBox checked={isSelected(ad.ad_id)} onChange={() => toggleSelected(ad)} />}
+                      <p className="text-[13px] font-semibold text-gray-900 truncate">{ad.name || "Untitled ad"}</p>
+                    </div>
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-[11px] text-gray-400 truncate">{ad.campaign || "—"}</p>
-                      {canScale && <ScaleButton compact onClick={() => setScaleAd(ad)} />}
+                      {canScale && <ScaleButton compact onClick={() => scaleOne(ad)} />}
                     </div>
                     <div className="border-t border-gray-100 mt-3 pt-3 flex items-end justify-between">
                       <div>
@@ -958,6 +986,7 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
                             <tr key={ad.ad_id} className={`border-b border-gray-50 ${i % 2 ? "bg-gray-50/40" : ""}`}>
                               <td className="px-4 py-2">
                                 <div className="flex items-center gap-3">
+                                  {canScale && <SelectBox checked={isSelected(ad.ad_id)} onChange={() => toggleSelected(ad)} />}
                                   <Thumb ad={ad} className="w-9 h-11 rounded" />
                                   <div className="min-w-0">
                                     <p className="text-[13px] text-gray-900 truncate max-w-[260px]">{ad.name || "Untitled ad"}</p>
@@ -990,7 +1019,7 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
                               ))}
                               {canScale && (
                                 <td className="px-3 py-2 text-right">
-                                  <ScaleButton compact onClick={() => setScaleAd(ad)} />
+                                  <ScaleButton compact onClick={() => scaleOne(ad)} />
                                 </td>
                               )}
                             </tr>
@@ -1009,9 +1038,12 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
                       <Thumb ad={ad} className="w-[88px] h-[110px] rounded-md" />
                       <div className="flex-1 min-w-0 flex flex-col">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-[13px] font-semibold text-gray-900 truncate">
-                            {ad.name || "Untitled ad"}
-                          </p>
+                          <div className="flex items-center gap-2 min-w-0">
+                            {canScale && <SelectBox checked={isSelected(ad.ad_id)} onChange={() => toggleSelected(ad)} />}
+                            <p className="text-[13px] font-semibold text-gray-900 truncate">
+                              {ad.name || "Untitled ad"}
+                            </p>
+                          </div>
                           <span
                             className={`text-[10px] font-semibold rounded-full px-2 py-0.5 whitespace-nowrap ${status.className}`}
                           >
@@ -1036,7 +1068,7 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
                         </div>
                         {canScale && (
                           <div className="mt-2">
-                            <ScaleButton compact onClick={() => setScaleAd(ad)} />
+                            <ScaleButton compact onClick={() => scaleOne(ad)} />
                           </div>
                         )}
                         <div className="grid grid-cols-4 gap-2 mt-auto pt-3">
@@ -1146,6 +1178,7 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
                       <tr key={ad.ad_id} className={`border-b border-gray-50 ${i % 2 ? "bg-gray-50/40" : ""}`}>
                         <td className="px-4 py-2.5">
                           <div className="flex items-center gap-3">
+                            {canScale && <SelectBox checked={isSelected(ad.ad_id)} onChange={() => toggleSelected(ad)} />}
                             <span className="text-[11px] text-gray-400 w-6 text-right tabular-nums">
                               {page * ROWS_PER_PAGE + i + 1}
                             </span>
@@ -1156,7 +1189,7 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
                             </div>
                             {canScale && (
                               <div className="ml-auto pl-2">
-                                <ScaleButton compact onClick={() => setScaleAd(ad)} />
+                                <ScaleButton compact onClick={() => scaleOne(ad)} />
                               </div>
                             )}
                           </div>
@@ -1217,8 +1250,36 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
         </>
       )}
 
-      {scaleAd && (
-        <ScaleToCboDialog adId={scaleAd.ad_id} adName={scaleAd.name} onClose={() => setScaleAd(null)} />
+      {canScale && selected.size > 0 && !scaleAds && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 bg-gray-900 text-white rounded-full shadow-lg pl-5 pr-2 py-2 flex items-center gap-3">
+          <span className="text-[13px]">
+            {selected.size} ad{selected.size === 1 ? "" : "s"} selected
+          </span>
+          <button
+            onClick={() => setScaleAds(Array.from(selected.values()))}
+            className="inline-flex items-center gap-1.5 bg-white text-gray-900 rounded-full px-3.5 py-1.5 text-[13px] font-medium hover:bg-gray-100"
+          >
+            <TrendingUp className="h-3.5 w-3.5" /> Scale to CBO
+          </button>
+          <button
+            onClick={() => setSelected(new Map())}
+            className="text-[12px] text-gray-300 hover:text-white pr-2"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
+      {scaleAds && (
+        <ScaleToCboDialog
+          ads={scaleAds}
+          onClose={() => {
+            // A batch that came from the selection clears it on close, so the
+            // bar does not reappear offering to scale the same ads again.
+            if (scaleAds.length > 1) setSelected(new Map());
+            setScaleAds(null);
+          }}
+        />
       )}
     </div>
   );
