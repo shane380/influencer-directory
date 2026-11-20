@@ -15,6 +15,8 @@ export interface CampaignSummary {
   status: string;
   effective_status: string;
   objective: string | null;
+  /** True when the campaign holds the budget (CBO) — the scaling destination */
+  cbo: boolean;
   adsets: AdsetSummary[];
 }
 
@@ -293,4 +295,41 @@ export interface AdTemplateCollection {
   name: string;
   parentId: string | null;
   templates: AdTemplate[];
+}
+
+// ---- Scaling a proven ad into another ad set on its existing post ----
+
+/** What a live ad looks like to the "Scale to CBO" dialog. */
+export interface PromotableAd {
+  adId: string;
+  adName: string;
+  adsetId: string;
+  adsetName: string | null;
+  campaignId: string;
+  campaignName: string | null;
+  creativeId: string;
+  /** effective_object_story_id — the page post the ad runs on; null when Meta has none */
+  postId: string | null;
+  /** effective_instagram_media_id — where the ad's Instagram comments live */
+  instagramMediaId: string | null;
+  pageId: string | null;
+  instagramUserId: string | null;
+  /** Partnership sponsor recovered from our own records; null for brand ads */
+  partnershipSponsorId: string | null;
+  /** True when the ad is tagged as a partnership but we could not recover the sponsor */
+  partnershipUnresolved: boolean;
+}
+
+export interface PromoteAdRequest {
+  adId: string;
+  adsetId: string;
+  /** New ad's name; defaults to the source ad's name */
+  name?: string | null;
+  status: "ACTIVE" | "PAUSED";
+}
+
+export interface PromoteAdResult {
+  adId: string;
+  creativeId: string;
+  postId: string;
 }

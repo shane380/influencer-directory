@@ -57,7 +57,7 @@ export default function AdPerformancePage() {
             <Loader2 className="h-4 w-4 animate-spin" /> Loading…
           </div>
         ) : (
-          <PerformanceDashboard />
+          <PerformanceDashboard canScale={!!currentUser?.isAdmin} />
         )}
       </main>
     </div>
