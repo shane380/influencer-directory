@@ -194,6 +194,9 @@ export async function GET(request: NextRequest) {
       // without resolving the player until the ad is actually clicked.
       has_video: !!dim.mux_playback_id,
       has_carousel: Array.isArray(dim.carousel_urls) && dim.carousel_urls.length > 0,
+      mux_playback_id: dim.mux_playback_id || null,
+      carousel_urls:
+        Array.isArray(dim.carousel_urls) && dim.carousel_urls.length > 0 ? dim.carousel_urls : null,
       partnership: !!dim.partnership,
       handle: dim.instagram_handle || null,
       created_time: createdTime,

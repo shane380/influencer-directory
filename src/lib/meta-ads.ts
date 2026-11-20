@@ -886,6 +886,59 @@ export async function setAdStatus(adId: string, status: "ACTIVE" | "PAUSED"): Pr
   await graphPost(adId, { status });
 }
 
+/** Where an ad sends people — the link on its creative, and its URL tags. */
+export interface AdLandingPage {
+  url: string | null;
+  urlTags: string | null;
+  /** Meta's preview of the post, when the creative came from an Instagram post */
+  instagramPermalink: string | null;
+}
+
+/**
+ * Read the landing page back off a live ad. The link lives in different
+ * places depending on how the creative was built: single-image/video ads put
+ * it in object_story_spec, placement-customised ads in asset_feed_spec, and
+ * existing-post ads only on the post itself.
+ */
+export async function getAdLandingPage(adId: string): Promise<AdLandingPage> {
+  const ad = await graphGet(adId, {
+    fields:
+      "creative{link_url,url_tags,instagram_permalink_url,effective_object_story_id," +
+      "object_story_spec{link_data{link,child_attachments{link}},video_data{call_to_action}}," +
+      "asset_feed_spec{link_urls}}",
+  });
+  const c = ad.creative || {};
+  const spec = c.object_story_spec || {};
+  let url: string | null =
+    spec.link_data?.link ||
+    spec.video_data?.call_to_action?.value?.link ||
+    spec.link_data?.child_attachments?.[0]?.link ||
+    c.asset_feed_spec?.link_urls?.[0]?.website_url ||
+    c.link_url ||
+    null;
+
+  if (!url && c.effective_object_story_id) {
+    try {
+      const post = await graphGet(c.effective_object_story_id, {
+        fields: "call_to_action,attachments{url,unshimmed_url}",
+      });
+      url =
+        post.call_to_action?.value?.link ||
+        post.attachments?.data?.[0]?.unshimmed_url ||
+        post.attachments?.data?.[0]?.url ||
+        null;
+    } catch {
+      // Post may not be readable with this token; the URL simply stays unknown.
+    }
+  }
+
+  return {
+    url,
+    urlTags: c.url_tags || null,
+    instagramPermalink: c.instagram_permalink_url || null,
+  };
+}
+
 // ---- Scaling a proven ad on its existing post ----
 // Testing happens in ABO ad sets; a winner is re-run in a CBO ad set as a new
 // ad that points at the SAME page post (object_story_id = the source creative's
