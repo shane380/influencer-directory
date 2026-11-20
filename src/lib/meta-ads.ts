@@ -1054,10 +1054,16 @@ export async function getPromotableAd(adId: string): Promise<PromotableAd> {
     fields:
       "id,name,adset_id,adset{name},campaign_id,campaign{name}," +
       "creative{id,effective_object_story_id,effective_instagram_media_id," +
-      "instagram_user_id,object_story_spec}",
+      "instagram_user_id,object_story_spec,asset_feed_spec{ad_formats},object_story_id}",
   });
   const creative = ad.creative || {};
   const postId: string | null = creative.effective_object_story_id || null;
+  const oss = creative.object_story_spec || {};
+  const creativeKind: PromotableAd["creativeKind"] = creative.asset_feed_spec
+    ? "customised"
+    : oss.video_data || oss.link_data || oss.photo_data
+      ? "post"
+      : "existing-post";
   // Post ids are "<pageId>_<postId>"; the prefix is the owning page.
   const pageId: string | null =
     creative.object_story_spec?.page_id || (postId ? postId.split("_")[0] : null) || null;
@@ -1077,6 +1083,8 @@ export async function getPromotableAd(adId: string): Promise<PromotableAd> {
       creative.instagram_user_id || creative.object_story_spec?.instagram_user_id || null,
     partnershipSponsorId: null,
     partnershipUnresolved: false,
+    creativeKind,
+    keepsEngagement: creativeKind !== "customised" && !!postId,
   };
 }
 
@@ -1093,13 +1101,44 @@ export async function promoteAdToAdset(
   if (!input.adsetId) throw new MetaApiError("Pick a destination ad set", null);
 
   const source = await getPromotableAd(input.adId);
+  const name = (input.name || source.adName).trim() || source.adName;
+
+  // Fresh duplicate: Meta's copy endpoint re-creates the creative (and even
+  // re-uploads the videos), so the copy is a faithful new ad on a new post.
+  if (input.mode === "copy") {
+    const params: Record<string, any> = {
+      adset_id: input.adsetId,
+      status_option: input.status === "ACTIVE" ? "ACTIVE" : "PAUSED",
+      rename_options:
+        name === source.adName
+          ? { rename_strategy: "NO_RENAME" }
+          : { rename_strategy: "ONLY_TOP_LEVEL_RENAME", rename_suffix: "" },
+    };
+    if (opts.validateOnly) {
+      // The copy endpoint has no validate_only; validating the ad set read is
+      // the most we can do without creating anything.
+      await graphGet(input.adsetId, { fields: "id" });
+      return { adId: "", creativeId: source.creativeId, postId: source.postId || "" };
+    }
+    const copied = await graphPost(`${input.adId}/copies`, params);
+    const newId = String(copied.copied_ad_id || copied.ad_object_ids?.[0]?.copied_id || "");
+    if (!newId) throw new MetaApiError("Meta copied the ad but returned no id", null);
+    if (name !== source.adName) await graphPost(newId, { name });
+    return { adId: newId, creativeId: "", postId: "" };
+  }
+
   if (!source.postId) {
     throw new MetaApiError(
       "This ad has no post to reuse — Meta returned no effective_object_story_id",
       null
     );
   }
-  const name = (input.name || source.adName).trim() || source.adName;
+  if (!source.keepsEngagement) {
+    throw new MetaApiError(
+      "This ad was built with separate feed and vertical creatives, so Meta can't re-run it on its post — scale it as a fresh copy instead",
+      null
+    );
+  }
 
   const creativeParams: Record<string, any> = {
     name: `${name} — creative`,

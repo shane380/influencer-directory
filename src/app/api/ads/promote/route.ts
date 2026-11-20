@@ -71,15 +71,17 @@ export async function POST(request: Request) {
       );
     }
     const status: "ACTIVE" | "PAUSED" = body.status === "PAUSED" ? "PAUSED" : "ACTIVE";
+    const mode: "post" | "copy" = body.mode === "copy" ? "copy" : "post";
     const result = await promoteAdToAdset({
       adId: source.adId,
       adsetId: String(body.adsetId),
       name: typeof body.name === "string" ? body.name : null,
       status,
+      mode,
       partnershipSponsorId: source.partnershipSponsorId,
     });
     console.log(
-      `[ads/promote] ${user.displayName} scaled ad ${source.adId} -> ${result.adId} in ad set ${body.adsetId}`
+      `[ads/promote] ${user.displayName} scaled ad ${source.adId} -> ${result.adId} in ad set ${body.adsetId} (${mode})`
     );
 
     // Remember the action so the page can badge the source ad as scaled.

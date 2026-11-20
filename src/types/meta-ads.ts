@@ -318,6 +318,17 @@ export interface PromotableAd {
   partnershipSponsorId: string | null;
   /** True when the ad is tagged as a partnership but we could not recover the sponsor */
   partnershipUnresolved: boolean;
+  /**
+   * How the creative was built, which decides whether its post can be reused:
+   * "post" — a plain page post (object_story_spec video/link/photo): reusing the
+   *   post keeps engagement. "customised" — asset_feed_spec (separate feed and
+   *   vertical assets): Meta's exposed post is a thumbnail stub and its Instagram
+   *   post is an ad post, so NO route keeps engagement (verified 2026-11-19).
+   *   "existing-post" — already built on a post with no spec of its own.
+   */
+  creativeKind: "post" | "customised" | "existing-post";
+  /** True when scaling on the existing post really carries the engagement over */
+  keepsEngagement: boolean;
 }
 
 export interface PromoteAdRequest {
@@ -326,6 +337,12 @@ export interface PromoteAdRequest {
   /** New ad's name; defaults to the source ad's name */
   name?: string | null;
   status: "ACTIVE" | "PAUSED";
+  /**
+   * "post" (default) re-runs the ad on its existing post, keeping engagement —
+   * only legal when keepsEngagement. "copy" makes a fresh duplicate via Meta's
+   * copy endpoint: same media, new post, engagement starts at zero.
+   */
+  mode?: "post" | "copy";
 }
 
 export interface PromoteAdResult {
