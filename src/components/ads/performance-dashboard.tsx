@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Search, ChevronDown, ChevronRight, Play, Images, TrendingUp } from "lucide-react";
+import { Loader2, Search, ChevronDown, ChevronRight, ChevronLeft, Play, Images, TrendingUp, X, ExternalLink } from "lucide-react";
 import { DateRangePicker, type ResolvedRange, resolveRange } from "@/components/partnerships/date-range-picker";
 import { ScaleToCboDialog, type ScaleTarget } from "./scale-to-cbo-dialog";
 import {
@@ -156,10 +156,14 @@ function SegmentedControl<T extends string>({
   );
 }
 
-/** Creative thumbnail with a play/carousel affordance. */
-function Thumb({ ad, className }: { ad: PerfAd; className: string }) {
+/** Creative thumbnail with a play/carousel affordance; click opens the preview. */
+function Thumb({ ad, className, onOpen }: { ad: PerfAd; className: string; onOpen?: () => void }) {
   return (
-    <div className={`relative bg-gray-100 overflow-hidden flex-shrink-0 ${className}`}>
+    <div
+      onClick={onOpen ? (e) => { e.stopPropagation(); onOpen(); } : undefined}
+      title={onOpen ? "Preview" : undefined}
+      className={`relative bg-gray-100 overflow-hidden flex-shrink-0 ${onOpen ? "cursor-zoom-in" : ""} ${className}`}
+    >
       {ad.thumbnail_url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={ad.thumbnail_url} alt="" className="w-full h-full object-cover" loading="lazy" />
@@ -175,6 +179,178 @@ function Thumb({ ad, className }: { ad: PerfAd; className: string }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Landing-page lookup shown under the preview; read live from the creative. */
+function LandingPageLine({ adId }: { adId: string }) {
+  const [state, setState] = useState<
+    { phase: "loading" } | { phase: "error"; message: string } | { phase: "ok"; url: string | null; urlTags: string | null }
+  >({ phase: "loading" });
+
+  useEffect(() => {
+    let cancelled = false;
+    setState({ phase: "loading" });
+    fetch(`/api/ads/landing?adId=${encodeURIComponent(adId)}`)
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Couldn't read the landing page");
+        return data as { url: string | null; urlTags: string | null };
+      })
+      .then((d) => { if (!cancelled) setState({ phase: "ok", url: d.url, urlTags: d.urlTags }); })
+      .catch((e) => { if (!cancelled) setState({ phase: "error", message: e.message }); });
+    return () => { cancelled = true; };
+  }, [adId]);
+
+  if (state.phase === "loading") {
+    return (
+      <p className="text-[11px] text-white/60 inline-flex items-center gap-1">
+        <Loader2 className="h-3 w-3 animate-spin" /> Reading landing page…
+      </p>
+    );
+  }
+  if (state.phase === "error") return <p className="text-[11px] text-amber-300">{state.message}</p>;
+  if (!state.url) return <p className="text-[11px] text-white/60">No landing page on this ad (post engagement or no link).</p>;
+
+  // Show the page without the tracking noise; the full URL is still the href.
+  let readable = state.url;
+  try {
+    const u = new URL(state.url);
+    readable = `${u.host}${u.pathname}`.replace(/\/$/, "");
+  } catch {
+    // Leave as-is.
+  }
+  return (
+    <p className="text-[12px] text-white min-w-0 flex items-center gap-1.5">
+      <span className="text-white/60 text-[11px] uppercase tracking-wide">Lands on</span>
+      <a
+        href={state.url}
+        target="_blank"
+        rel="noreferrer"
+        className="truncate underline underline-offset-2 decoration-white/40 hover:decoration-white inline-flex items-center gap-1 max-w-[520px]"
+        title={state.url + (state.urlTags ? `?${state.urlTags}` : "")}
+      >
+        {readable} <ExternalLink className="h-3 w-3 flex-shrink-0" />
+      </a>
+    </p>
+  );
+}
+
+/**
+ * Bigger look at one creative: the Mux video with controls, the carousel
+ * frames with arrows, or the still — plus where the ad sends people.
+ * Escape or the backdrop closes it.
+ */
+function MediaPreview({
+  ad,
+  onClose,
+  onScale,
+}: {
+  ad: PerfAd;
+  onClose: () => void;
+  onScale?: () => void;
+}) {
+  const frames = ad.carousel_urls || [];
+  const [frame, setFrame] = useState(0);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+      if (frames.length > 1 && e.key === "ArrowRight") setFrame((f) => Math.min(frames.length - 1, f + 1));
+      if (frames.length > 1 && e.key === "ArrowLeft") setFrame((f) => Math.max(0, f - 1));
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, frames.length]);
+
+  const d = deliveryStatus(ad.status);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={onClose}>
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 text-white/70 hover:text-white"
+        aria-label="Close preview"
+      >
+        <X className="h-6 w-6" />
+      </button>
+      <div className="flex flex-col items-center gap-3 max-w-[92vw]" onClick={(e) => e.stopPropagation()}>
+        <div className="relative bg-black rounded-lg overflow-hidden flex items-center justify-center">
+          {ad.mux_playback_id ? (
+            <video
+              src={`https://stream.mux.com/${ad.mux_playback_id}/capped-1080p.mp4`}
+              poster={`https://image.mux.com/${ad.mux_playback_id}/thumbnail.jpg?time=0`}
+              controls
+              autoPlay
+              playsInline
+              className="max-h-[74vh] max-w-[92vw] w-auto h-auto"
+            />
+          ) : frames.length > 0 ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={frames[frame]} alt="" className="max-h-[74vh] max-w-[92vw] w-auto h-auto object-contain" />
+              {frame > 0 && (
+                <button
+                  onClick={() => setFrame((f) => f - 1)}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5"
+                  aria-label="Previous frame"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+              )}
+              {frame < frames.length - 1 && (
+                <button
+                  onClick={() => setFrame((f) => f + 1)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5"
+                  aria-label="Next frame"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              )}
+              {frames.length > 1 && (
+                <div className="absolute bottom-2 inset-x-0 flex justify-center gap-1">
+                  {frames.map((_, i) => (
+                    <span key={i} className={`h-1.5 w-1.5 rounded-full ${i === frame ? "bg-white" : "bg-white/40"}`} />
+                  ))}
+                </div>
+              )}
+            </>
+          ) : ad.thumbnail_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={ad.thumbnail_url} alt="" className="max-h-[74vh] max-w-[92vw] w-auto h-auto object-contain" />
+          ) : (
+            <div className="w-[320px] h-[400px] flex items-center justify-center text-white/60 text-sm">
+              No creative stored for this ad
+            </div>
+          )}
+        </div>
+        <div className="flex flex-col items-center gap-1.5 text-white max-w-full">
+          <div className="flex items-center gap-3 max-w-full">
+            <div className="min-w-0">
+              <p className="text-[13px] font-medium truncate">{ad.name || "Untitled ad"}</p>
+              <p className="text-[11px] text-white/60 truncate">
+                {ad.campaign || "—"}
+                {ad.adset ? ` › ${ad.adset}` : ""}
+                {ad.handle ? ` · @${ad.handle}` : ""}
+              </p>
+            </div>
+            <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 whitespace-nowrap ${d.className}`}>
+              {d.label}
+            </span>
+            <span className="text-[11px] text-white/60 whitespace-nowrap">{runningFor(ad)}</span>
+            {onScale && (
+              <button
+                onClick={onScale}
+                className="inline-flex items-center gap-1.5 bg-white text-gray-900 rounded-full px-3 py-1 text-[12px] font-medium hover:bg-gray-100 whitespace-nowrap"
+              >
+                <TrendingUp className="h-3.5 w-3.5" /> Scale to CBO
+              </button>
+            )}
+          </div>
+          <LandingPageLine adId={ad.ad_id} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -225,6 +401,7 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
   });
   const [testSort, setTestSort] = useState<TestSort>("spend");
   const [scaleAds, setScaleAds] = useState<ScaleTarget[] | null>(null);
+  const [previewAd, setPreviewAd] = useState<PerfAd | null>(null);
   // Multi-select for batch scaling; keyed by ad id so it survives re-sorts.
   const [selected, setSelected] = useState<Map<string, ScaleTarget>>(new Map());
   const isSelected = (id: string) => selected.has(id);
@@ -615,7 +792,7 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
               {topAds.map((ad, i) => (
                 <div key={ad.ad_id} className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col">
                   <div className="relative h-52">
-                    <Thumb ad={ad} className="w-full h-full" />
+                    <Thumb ad={ad} onOpen={() => setPreviewAd(ad)} className="w-full h-full" />
                     <span className="absolute top-2 left-2 w-6 h-6 rounded-md bg-white/90 text-xs font-bold text-gray-900 flex items-center justify-center">
                       {i + 1}
                     </span>
@@ -715,7 +892,7 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
                         <div className="pb-4 pl-4 space-y-2">
                           {[...row.ads].sort((a, b) => b.spend - a.spend).slice(0, 4).map((ad) => (
                             <div key={ad.ad_id} className="flex items-center gap-3">
-                              <Thumb ad={ad} className="w-7 h-9 rounded" />
+                              <Thumb ad={ad} onOpen={() => setPreviewAd(ad)} className="w-7 h-9 rounded" />
                               <span className="text-xs text-gray-700 truncate flex-1 min-w-0">
                                 {ad.name || "Untitled ad"}
                               </span>
@@ -987,7 +1164,7 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
                               <td className="px-4 py-2">
                                 <div className="flex items-center gap-3">
                                   {canScale && <SelectBox checked={isSelected(ad.ad_id)} onChange={() => toggleSelected(ad)} />}
-                                  <Thumb ad={ad} className="w-9 h-11 rounded" />
+                                  <Thumb ad={ad} onOpen={() => setPreviewAd(ad)} className="w-9 h-11 rounded" />
                                   <div className="min-w-0">
                                     <p className="text-[13px] text-gray-900 truncate max-w-[260px]">{ad.name || "Untitled ad"}</p>
                                     <p className="text-[11px] text-gray-400 truncate max-w-[260px]">
@@ -1035,7 +1212,7 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                   {testAds.map(({ ad, status }) => (
                     <div key={ad.ad_id} className="bg-white border border-gray-200 rounded-lg p-4 flex gap-4">
-                      <Thumb ad={ad} className="w-[88px] h-[110px] rounded-md" />
+                      <Thumb ad={ad} onOpen={() => setPreviewAd(ad)} className="w-[88px] h-[110px] rounded-md" />
                       <div className="flex-1 min-w-0 flex flex-col">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2 min-w-0">
@@ -1182,7 +1359,7 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
                             <span className="text-[11px] text-gray-400 w-6 text-right tabular-nums">
                               {page * ROWS_PER_PAGE + i + 1}
                             </span>
-                            <Thumb ad={ad} className="w-9 h-11 rounded" />
+                            <Thumb ad={ad} onOpen={() => setPreviewAd(ad)} className="w-9 h-11 rounded" />
                             <div className="min-w-0">
                               <p className="text-[13px] text-gray-900 truncate max-w-[280px]">{ad.name || "Untitled ad"}</p>
                               <p className="text-[11px] text-gray-400 truncate max-w-[280px]">{ad.campaign || "—"}</p>
@@ -1268,6 +1445,22 @@ export function PerformanceDashboard({ canScale = false }: { canScale?: boolean 
             Clear
           </button>
         </div>
+      )}
+
+      {previewAd && (
+        <MediaPreview
+          ad={previewAd}
+          onClose={() => setPreviewAd(null)}
+          onScale={
+            canScale
+              ? () => {
+                  const ad = previewAd;
+                  setPreviewAd(null);
+                  scaleOne(ad);
+                }
+              : undefined
+          }
+        />
       )}
 
       {scaleAds && (

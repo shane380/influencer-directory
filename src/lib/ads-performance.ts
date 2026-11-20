@@ -17,6 +17,10 @@ export interface PerfAd {
   thumbnail_url: string | null;
   has_video: boolean;
   has_carousel: boolean;
+  /** Mux playback id for the mirrored video; the preview plays it full size */
+  mux_playback_id: string | null;
+  /** Mirrored carousel frames, in order */
+  carousel_urls: string[] | null;
   partnership: boolean;
   handle: string | null;
   created_time: string | null;
