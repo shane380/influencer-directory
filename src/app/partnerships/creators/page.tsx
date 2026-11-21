@@ -279,6 +279,16 @@ export default function CreatorsListPage() {
   const [minimumCommitment, setMinimumCommitment] = useState<number | null>(null);
   const [submittingInvite, setSubmittingInvite] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
+  // Optional admin-chosen discount code for affiliate invites. Checked live
+  // against app creators, legacy affiliates, other invites and Shopify.
+  const [requestedCode, setRequestedCode] = useState("");
+  const [codeCheck, setCodeCheck] = useState<
+    | { state: "idle" }
+    | { state: "checking" }
+    | { state: "ok"; code: string; shopify: { title: string; percent: number | null } | null }
+    | { state: "conflict"; code: string; reason: "format" | "creator" | "legacy" | "invite" }
+    | { state: "error" }
+  >({ state: "idle" });
   const [copied, setCopied] = useState(false);
 
   // Quick add from Instagram state
@@ -779,6 +789,8 @@ export default function CreatorsListPage() {
     setExistingHasAdSpend(false);
     setMinimumCommitment(null);
     setGeneratedUrl(null);
+    setRequestedCode("");
+    setCodeCheck({ state: "idle" });
     setCopied(false);
     setQuickAddHandle("");
     setQuickAddLooking(false);
@@ -839,6 +851,30 @@ export default function CreatorsListPage() {
     return { retainerAmount, adSpendPercentage, adSpendMinimum, commissionRate, hasRetainer, hasAdSpend, hasAffiliate, hasGiftCard, hasFlatFee };
   }
 
+  useEffect(() => {
+    const raw = requestedCode.trim();
+    if (!raw) {
+      setCodeCheck({ state: "idle" });
+      return;
+    }
+    setCodeCheck({ state: "checking" });
+    const handle = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/admin/invite-code-check?code=${encodeURIComponent(raw)}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (data.valid) {
+          setCodeCheck({ state: "ok", code: data.code, shopify: data.shopify });
+        } else {
+          setCodeCheck({ state: "conflict", code: data.code || raw, reason: data.conflict || "format" });
+        }
+      } catch {
+        setCodeCheck({ state: "error" });
+      }
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [requestedCode]);
+
   async function handleGenerateInvite() {
     setSubmittingInvite(true);
     const ds = buildDealStructure();
@@ -871,6 +907,7 @@ export default function CreatorsListPage() {
         flatFeeAmount: fields.hasFlatFee ? dealFlatFee : null,
         whitelistingDurationDays: fields.hasFlatFee ? flatFeeWhitelistingDays : null,
         contentSource: oneOff ? contentSource : null,
+        requestedAffiliateCode: fields.hasAffiliate && codeCheck.state === "ok" ? codeCheck.code : null,
       });
       setGeneratedUrl(url);
     } catch (err: any) {
@@ -2401,9 +2438,52 @@ export default function CreatorsListPage() {
                     )}
                   </div>
 
+                  {getInviteFields().hasAffiliate && (
+                    <div className="mb-4">
+                      <label className="block text-xs text-gray-500 mb-1">Discount code <span className="text-gray-400">(optional)</span></label>
+                      <input
+                        type="text"
+                        value={requestedCode}
+                        onChange={(e) => setRequestedCode(e.target.value)}
+                        placeholder="Leave blank to generate from their name"
+                        autoCapitalize="characters"
+                        spellCheck={false}
+                        className="w-full border rounded-md px-3 py-2 text-sm uppercase placeholder:normal-case focus:outline-none focus:ring-1 focus:ring-gray-300"
+                      />
+                      {codeCheck.state === "checking" && (
+                        <div className="text-xs text-gray-400 mt-1">Checking…</div>
+                      )}
+                      {codeCheck.state === "ok" && !codeCheck.shopify && (
+                        <div className="text-xs text-green-700 mt-1">{codeCheck.code.toUpperCase()} is free. It&apos;ll be created in Shopify at 15% off when they accept.</div>
+                      )}
+                      {codeCheck.state === "ok" && codeCheck.shopify && (
+                        <div className="text-xs text-amber-700 mt-1">
+                          {codeCheck.code.toUpperCase()} already exists in Shopify
+                          {codeCheck.shopify.percent != null ? ` (${codeCheck.shopify.percent}% off, "${codeCheck.shopify.title}")` : ` ("${codeCheck.shopify.title}")`}.
+                          It&apos;ll be linked to this creator as-is. Pick another if that&apos;s a sitewide promo.
+                        </div>
+                      )}
+                      {codeCheck.state === "conflict" && (
+                        <div className="text-xs text-red-600 mt-1">
+                          {codeCheck.reason === "format" && "Use 3–20 letters or numbers."}
+                          {codeCheck.reason === "creator" && `${codeCheck.code.toUpperCase()} already belongs to another creator.`}
+                          {codeCheck.reason === "legacy" && `${codeCheck.code.toUpperCase()} is a legacy affiliate's code.`}
+                          {codeCheck.reason === "invite" && `${codeCheck.code.toUpperCase()} is already reserved on another invite.`}
+                        </div>
+                      )}
+                      {codeCheck.state === "error" && (
+                        <div className="text-xs text-red-600 mt-1">Couldn&apos;t check that code. Try again.</div>
+                      )}
+                    </div>
+                  )}
+
                   <button
                     onClick={handleGenerateInvite}
-                    disabled={submittingInvite || !inviteForm.creatorName}
+                    disabled={
+                      submittingInvite ||
+                      !inviteForm.creatorName ||
+                      (getInviteFields().hasAffiliate && requestedCode.trim() !== "" && codeCheck.state !== "ok")
+                    }
                     className="w-full px-4 py-2 bg-gray-900 text-white text-sm rounded-md hover:bg-gray-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >
                     {submittingInvite ? "Generating..." : "Generate Invite Link"}
