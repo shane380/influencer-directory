@@ -295,7 +295,8 @@ async function persistAccountSweep(
   const { data: existingRows } = await db
     .from("meta_ads")
     .select(
-      "ad_id, thumbnail_url, video_id, mux_playback_id, ig_media_id, ig_media_type, carousel_urls, preview_html, hook_line, format, creative_synced_at",
+      "ad_id, thumbnail_url, video_id, mux_playback_id, ig_media_id, ig_media_type, carousel_urls, preview_html, hook_line, format, creative_synced_at, " +
+        "campaign_id, campaign_name, adset_id, adset_name, created_time",
     );
   const existing = new Map<string, any>();
   for (const r of (existingRows as any[]) || []) existing.set(String(r.ad_id), r);
@@ -343,11 +344,16 @@ async function persistAccountSweep(
       ad_name: listRec.ad_name,
       status: listRec.status,
       effective_status: listRec.effective_status,
-      campaign_id: listRec.campaign_id,
-      campaign_name: listRec.campaign_name,
-      adset_id: listRec.adset_id,
-      adset_name: listRec.adset_name,
-      created_time: listRec.created_time,
+      // Placement comes from the insights rows, so an ad with no delivery in
+      // THIS run's window (a live ad on a reconcile pass over older days, or
+      // one that hasn't spent yet) arrives without it. Keep what an earlier
+      // run stored rather than blanking it — the performance page filters and
+      // groups on these names, and a blanked ad silently drops out.
+      campaign_id: listRec.campaign_id ?? prior?.campaign_id ?? null,
+      campaign_name: listRec.campaign_name ?? prior?.campaign_name ?? null,
+      adset_id: listRec.adset_id ?? prior?.adset_id ?? null,
+      adset_name: listRec.adset_name ?? prior?.adset_name ?? null,
+      created_time: listRec.created_time ?? prior?.created_time ?? null,
       format: prior?.format ?? seeded?.format ?? null,
       hook_line: prior?.hook_line ?? null,
       thumbnail_url: prior?.thumbnail_url ?? seeded?.thumbnailUrl ?? null,
