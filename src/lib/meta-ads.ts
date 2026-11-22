@@ -190,7 +190,6 @@ const FALLBACK_ADSET_BLUEPRINT: AdsetBlueprint = {
   promotedObject: { pixel_id: "680666762114076", custom_event_type: "PURCHASE" },
   attributionSpec: [
     { event_type: "CLICK_THROUGH", window_days: 7 },
-    { event_type: "VIEW_THROUGH", window_days: 1 },
     { event_type: "ENGAGED_VIDEO_VIEW", window_days: 1 },
   ],
   targeting: {
@@ -259,6 +258,32 @@ function toBlueprint(adset: any): AdsetBlueprint {
   };
 }
 
+/**
+ * Attribution for a new ad set: the source's click and engaged-view windows,
+ * plus 1-day view-through only when asked for. View-through is never copied
+ * silently — Ads Manager duplicates carry it, and Meta refuses to change
+ * attribution after creation ("create a new adset instead").
+ */
+function summarizeAttribution(bp: AdsetBlueprint) {
+  const spec = bp.attributionSpec || [];
+  const find = (t: string) => spec.find((a: any) => a.event_type === t);
+  return {
+    clickDays: Number(find("CLICK_THROUGH")?.window_days) || 7,
+    engagedViewDays: find("ENGAGED_VIDEO_VIEW") ? Number(find("ENGAGED_VIDEO_VIEW").window_days) || 1 : null,
+    sourceHasViewThrough: !!find("VIEW_THROUGH"),
+  };
+}
+
+function buildAttributionSpec(bp: AdsetBlueprint, viewThrough: boolean) {
+  const a = summarizeAttribution(bp);
+  const spec: { event_type: string; window_days: number }[] = [
+    { event_type: "CLICK_THROUGH", window_days: a.clickDays },
+  ];
+  if (viewThrough) spec.push({ event_type: "VIEW_THROUGH", window_days: 1 });
+  if (a.engagedViewDays) spec.push({ event_type: "ENGAGED_VIDEO_VIEW", window_days: a.engagedViewDays });
+  return spec;
+}
+
 /** Bid strategies that make a per-ad-set bid/cost cap mandatory. */
 const BID_AMOUNT_STRATEGIES = ["COST_CAP", "LOWEST_COST_WITH_BID_CAP"];
 
@@ -311,18 +336,6 @@ function describeBlueprint(bp: AdsetBlueprint): string[] {
           ? ` · ${String(bp.promotedObject.custom_event_type).toLowerCase()} event`
           : "")
     );
-  }
-  if (bp.attributionSpec?.length) {
-    const parts = bp.attributionSpec.map((a: any) => {
-      const label =
-        a.event_type === "CLICK_THROUGH"
-          ? "click"
-          : a.event_type === "VIEW_THROUGH"
-            ? "view"
-            : "video view";
-      return `${a.window_days}-day ${label}`;
-    });
-    lines.push(`Attribution: ${parts.join(", ")}`);
   }
   if (bp.bidConstraints?.roas_average_floor) {
     lines.push(`Minimum ROAS floor ${Number(bp.bidConstraints.roas_average_floor) / 10000}`);
@@ -378,6 +391,7 @@ export async function getAdsetTemplate(
     countries: bp.targeting.geo_locations?.countries || [],
     bidAmount: requiresBidAmount ? bp.bidAmount : null,
     dailyBudget: cbo ? null : bp.dailyBudget,
+    attribution: summarizeAttribution(bp),
     inherited: describeBlueprint(bp),
   };
 }
@@ -421,7 +435,7 @@ export async function createAdset(
     status: input.status === "ACTIVE" ? "ACTIVE" : "PAUSED",
   };
   if (bp.promotedObject) params.promoted_object = bp.promotedObject;
-  if (bp.attributionSpec) params.attribution_spec = bp.attributionSpec;
+  params.attribution_spec = buildAttributionSpec(bp, !!input.viewThrough);
   if (bp.destinationType) params.destination_type = bp.destinationType;
 
   // Only ABO ad sets carry their own strategy; sending one under CBO is an error.
