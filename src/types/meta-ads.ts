@@ -49,6 +49,12 @@ export interface AdsetTemplate {
   bidAmount: number | null;
   /** Daily budget in account cents; null under CBO */
   dailyBudget: number | null;
+  /**
+   * Attribution the source ad set runs. Click and engaged-view windows are
+   * copied; view-through is an explicit choice because Ads Manager duplicates
+   * carry it silently and Meta won't let it be changed after creation.
+   */
+  attribution: { clickDays: number; engagedViewDays: number | null; sourceHasViewThrough: boolean };
   /** Plain-English lines describing what gets copied verbatim */
   inherited: string[];
 }
@@ -61,6 +67,8 @@ export interface CreateAdsetRequest {
   countries: string[];
   bidAmount?: number | null;
   dailyBudget?: number | null;
+  /** Also count 1-day view-through conversions. Default false (account standard). */
+  viewThrough?: boolean;
   status: "ACTIVE" | "PAUSED";
 }
 

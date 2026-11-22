@@ -45,6 +45,9 @@ export function NewAdsetDialog({ campaignId, campaignName, onCancel, onCreated }
   const [bid, setBid] = useState("");
   const [budget, setBudget] = useState("");
   const [status, setStatus] = useState<"ACTIVE" | "PAUSED">("ACTIVE");
+  // Off by default even when the source has it: the account standard is
+  // 7-day click + 1-day engaged view, and this can't be changed afterwards.
+  const [viewThrough, setViewThrough] = useState(false);
 
   const loadTemplate = useCallback(
     async (source?: string) => {
@@ -110,6 +113,7 @@ export function NewAdsetDialog({ campaignId, campaignName, onCancel, onCreated }
           countries: allCountries,
           bidAmount: template.requiresBidAmount ? dollarsToCents(bid) : null,
           dailyBudget: needsBudget ? dollarsToCents(budget) : null,
+          viewThrough,
           status,
         }),
       });
@@ -257,6 +261,32 @@ export function NewAdsetDialog({ campaignId, campaignName, onCancel, onCreated }
                 This campaign holds the budget (CBO) — the new ad set shares it.
               </p>
             )}
+
+            <div className="border border-gray-200 rounded-lg px-3 py-2.5">
+              <p className="text-[10px] uppercase tracking-wide text-gray-400 mb-1">Attribution</p>
+              <p className="text-[12.5px] text-gray-800">
+                {template.attribution.clickDays}-day click
+                {template.attribution.engagedViewDays
+                  ? ` · ${template.attribution.engagedViewDays}-day engaged view`
+                  : ""}
+                {viewThrough ? " · 1-day view" : ""}
+              </p>
+              <label className="mt-1.5 flex items-start gap-2 text-[12px] text-gray-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={viewThrough}
+                  onChange={(e) => setViewThrough(e.target.checked)}
+                  className="mt-0.5 h-3.5 w-3.5 accent-gray-900"
+                />
+                <span>
+                  Also count 1-day view-through
+                  {template.attribution.sourceHasViewThrough && (
+                    <span className="text-amber-700"> — the source ad set has this on</span>
+                  )}
+                  . Meta won&apos;t let attribution change after the ad set exists.
+                </span>
+              </label>
+            </div>
 
             <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5">
               <p className="text-[10px] uppercase tracking-wide text-gray-400 mb-1">

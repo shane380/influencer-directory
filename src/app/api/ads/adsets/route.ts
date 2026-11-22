@@ -52,6 +52,7 @@ export async function POST(request: Request) {
       countries: Array.isArray(body.countries) ? body.countries.map(String) : [],
       bidAmount: typeof body.bidAmount === "number" ? body.bidAmount : null,
       dailyBudget: typeof body.dailyBudget === "number" ? body.dailyBudget : null,
+      viewThrough: body.viewThrough === true,
       status: body.status === "ACTIVE" ? "ACTIVE" : "PAUSED",
     });
     console.log(`[ads/adsets] ${user.displayName} created ad set ${adset.id} (${adset.status})`);
