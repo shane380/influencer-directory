@@ -7,6 +7,7 @@ import { isEmailTriggerEnabled } from '@/lib/app-settings';
 import { welcomeEmail } from '@/lib/email-templates';
 import { CREATOR_TERMS_CURRENT, CREATOR_TERMS_KEY } from '@/lib/terms/versions';
 import { recordTermsAcceptance, requestClientInfo } from '@/lib/terms/record-acceptance';
+import { normalizeAffiliateCode } from '@/lib/affiliate-code';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,12 +27,29 @@ export async function POST(request: NextRequest) {
   // affiliate deal (or the affiliate add-on). Previously every partner got a
   // code regardless, which left gift-card and retainer creators holding codes
   // they were never meant to have.
-  const { data: signupInvite } = await supabase
-    .from('creator_invites')
-    .select('has_affiliate')
+  const { data: signupInvite } = await (supabase.from('creator_invites') as any)
+    // select('*') rather than naming requested_affiliate_code so a deploy that
+    // lands before its migration still issues codes (the field is just absent).
+    .select('*')
     .eq('id', inviteId)
     .single();
-  const isAffiliate = !!(signupInvite as any)?.has_affiliate;
+  const isAffiliate = !!signupInvite?.has_affiliate;
+
+  // An admin can pick the code on the invite form (e.g. ARIA15 rather than the
+  // name-derived ARIAMICHELLE). The form pre-checks it, but the invite is
+  // written straight from the browser, so re-check the one conflict that would
+  // misroute someone else's commission before honouring it.
+  let requestedCode = isAffiliate ? normalizeAffiliateCode(signupInvite?.requested_affiliate_code) : '';
+  if (requestedCode) {
+    const { data: legacyHit } = await (supabase.from as any)('legacy_affiliates')
+      .select('id')
+      .ilike('discount_code', requestedCode)
+      .limit(1);
+    if (legacyHit && legacyHit.length > 0) {
+      console.error(`Requested affiliate code for invite ${inviteId} belongs to a legacy affiliate; falling back to a generated code`);
+      requestedCode = '';
+    }
+  }
 
   // Create auth user — or reuse existing one (e.g. team member also becoming a partner)
   let userId: string;
@@ -100,7 +118,9 @@ export async function POST(request: NextRequest) {
       .replace(/[^a-z0-9]/g, '')
       .slice(0, 12);
 
-    affiliateCode = baseCode;
+    // Try the admin-chosen code first; a collision drops through to the
+    // generated code rather than failing the signup.
+    affiliateCode = requestedCode || baseCode;
 
     for (let attempt = 0; attempt < 5; attempt++) {
       const { error } = await supabase.from('creators').insert({
