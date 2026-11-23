@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifyAdmin } from "@/lib/admin-auth";
 import { getShopifyAccessToken, getShopifyStoreUrl } from "@/lib/shopify";
 
 export async function GET(request: NextRequest) {
+  // Middleware lets this path through without a session because the payment
+  // generator calls it server-to-server, so the route has to check for itself:
+  // either the cron secret or a signed-in staff member.
+  const cronSecret = process.env.CRON_SECRET;
+  const hasCronAuth = !!cronSecret && request.headers.get("authorization") === `Bearer ${cronSecret}`;
+  if (!hasCronAuth && !(await verifyAdmin())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const discountCode = request.nextUrl.searchParams.get("discount_code");
   const month = request.nextUrl.searchParams.get("month");
   const commissionRateParam = request.nextUrl.searchParams.get("commission_rate");

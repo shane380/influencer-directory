@@ -72,7 +72,6 @@ export async function middleware(request: NextRequest) {
   }
 
   const userRole = user?.user_metadata?.role;
-  const isCreator = userRole === 'creator';
 
   // Creator routes — redirect to /creator/login if no session
   if (pathname.startsWith('/creator')) {
@@ -84,9 +83,35 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // Role-based route siloing
-  if (isCreator && !pathname.startsWith('/creator') && !pathname.startsWith('/reset-password') && !pathname.startsWith('/api/creator') && !pathname.startsWith('/api/meta') && !pathname.startsWith('/api/r2/presign') && !pathname.startsWith('/api/shopify/products') && !pathname.startsWith('/login')) {
-    return NextResponse.redirect('https://creators.namaclo.com');
+  // Staff vs. everyone else. "Staff" is decided by the profiles flags, which
+  // users cannot change themselves — NOT by user_metadata.role, which any
+  // signed-in user can edit from the browser. Anyone signed in who is not
+  // staff (creators, or an account that registered itself) may only reach the
+  // creator-portal endpoints listed here; every other page and API is staff-only.
+  const NON_STAFF_ALLOWED = [
+    '/reset-password',
+    '/login',
+    '/api/creator/', // trailing slash: must not match /api/creators/*
+    '/api/creators/payment',
+    '/api/creators/rate-change',
+    '/api/creators/accept-terms',
+    '/api/meta',
+    '/api/r2/presign',
+    '/api/shopify/products',
+  ];
+  if (user && !NON_STAFF_ALLOWED.some((p) => pathname.startsWith(p))) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_admin, is_manager')
+      .eq('id', user.id)
+      .maybeSingle();
+    const isStaff = !!(profile?.is_admin || profile?.is_manager);
+    if (!isStaff) {
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+      return NextResponse.redirect('https://creators.namaclo.com');
+    }
   }
   if (userRole === 'admin' && pathname.startsWith('/creator')) {
     const url = request.nextUrl.clone();

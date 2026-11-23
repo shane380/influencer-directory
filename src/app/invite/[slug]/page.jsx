@@ -286,12 +286,16 @@ export default function InvitePage() {
 
   useEffect(() => {
     async function load() {
-      const { data, error } = await supabase
-        .from('creator_invites')
-        .select('*')
-        .eq('slug', slug)
-        .single()
-      if (!error && data) {
+      // Loaded through a server route: the invites table is no longer readable
+      // from a logged-out browser.
+      let data = null
+      try {
+        const res = await fetch(`/invite/${encodeURIComponent(slug)}/details`, { cache: 'no-store' })
+        if (res.ok) data = (await res.json()).invite || null
+      } catch {
+        data = null
+      }
+      if (data) {
         // If invite was already accepted (account created), redirect to login
         if (data.status === 'accepted') {
           window.location.href = 'https://creators.namaclo.com/creator/login'
