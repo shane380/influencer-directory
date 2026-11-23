@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 
 const CSS = `
 .pt-page { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #111; max-width: 680px; margin: 0 auto; padding: 56px 32px 80px; min-height: 100vh; background: white; }
@@ -26,7 +25,6 @@ const CSS = `
 
 export default function PartnershipTermsPage() {
   const { slug } = useParams()
-  const supabase = createClient()
   const [invite, setInvite] = useState(null)
   const [dealParam, setDealParam] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -38,12 +36,15 @@ export default function PartnershipTermsPage() {
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from('creator_invites')
-        .select('*')
-        .eq('slug', slug)
-        .single()
-      if (data) setInvite(data)
+      try {
+        const res = await fetch(`/invite/${encodeURIComponent(slug)}/details`, { cache: 'no-store' })
+        if (res.ok) {
+          const { invite: data } = await res.json()
+          if (data) setInvite(data)
+        }
+      } catch {
+        // fall through to the not-found state
+      }
       setLoading(false)
     }
     if (slug) load()

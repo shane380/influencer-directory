@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { commissionRateForMonth } from "@/lib/affiliate-program";
+import { verifyAdmin } from "@/lib/admin-auth";
 
 export const maxDuration = 60;
 
@@ -15,6 +16,14 @@ function getBaseUrl(): string {
   // Prefer the public site URL to avoid deployment-specific URLs that may redirect
   return process.env.NEXT_PUBLIC_SITE_URL
     || "https://influencer-directory-self.vercel.app";
+}
+
+// Auth for the server-to-server call into /api/shopify/affiliate-orders.
+function internalHeaders(): Record<string, string> {
+  const cronSecret = process.env.CRON_SECRET;
+  return cronSecret
+    ? { "Content-Type": "application/json", Authorization: `Bearer ${cronSecret}` }
+    : { "Content-Type": "application/json" };
 }
 
 async function getMetaSpendForMonth(handle: string, month: string, supabase: ReturnType<typeof getSupabase>): Promise<number> {
@@ -44,20 +53,10 @@ export async function POST(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   const authHeader = request.headers.get("authorization");
   const hasCronAuth = cronSecret && authHeader === `Bearer ${cronSecret}`;
-  // If no cron auth, the request must have passed middleware auth (logged-in admin)
-  // Since this route is now in the public routes list, we need to verify one or the other
-  if (!hasCronAuth) {
-    // Check for a valid Supabase session via cookie
-    const { createServerClient } = await import("@supabase/ssr");
-    const supabaseAuth = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { cookies: { getAll: () => request.cookies.getAll(), setAll: () => {} } }
-    );
-    const { data: { user } } = await supabaseAuth.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  // This path is public in middleware (for cron), so without the cron secret
+  // the caller must be a signed-in admin or manager — not just any session.
+  if (!hasCronAuth && !(await verifyAdmin())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const month = request.nextUrl.searchParams.get("month");
@@ -165,7 +164,7 @@ export async function POST(request: NextRequest) {
           const baseUrl = getBaseUrl();
           const affRes = await fetch(
             `${baseUrl}/api/shopify/affiliate-orders?discount_code=${encodeURIComponent(affiliateCode)}&month=${month}&commission_rate=${affCommissionRate}`,
-            { headers: { "Content-Type": "application/json" } }
+            { headers: internalHeaders() }
           );
           const affData = await affRes.json();
           if (affData.summary) {
@@ -339,7 +338,7 @@ export async function POST(request: NextRequest) {
       const baseUrl = getBaseUrl();
       const res = await fetch(
         `${baseUrl}/api/shopify/affiliate-orders?discount_code=${encodeURIComponent(la.discount_code)}&month=${month}&commission_rate=${rate}`,
-        { headers: { "x-api-key": supabaseServiceKey } }
+        { headers: internalHeaders() }
       );
       if (res.ok) {
         const data = await res.json();

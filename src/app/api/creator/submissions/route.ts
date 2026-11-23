@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifyAdmin } from "@/lib/admin-auth";
 import { createClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email";
 import { contentStatusEmail } from "@/lib/email-templates";
@@ -9,6 +10,9 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 // GET: Fetch submissions for an influencer or a single submission by ID (admin use)
 export async function GET(request: NextRequest) {
+  if (!(await verifyAdmin())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
   const submissionId = request.nextUrl.searchParams.get("id");
   const influencerId = request.nextUrl.searchParams.get("influencer_id");
@@ -45,6 +49,9 @@ export async function GET(request: NextRequest) {
 
 // PATCH: Update submission status (admin review)
 export async function PATCH(request: NextRequest) {
+  if (!(await verifyAdmin())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
   const body = await request.json();
   const { id, status, admin_feedback, reviewed_by } = body;

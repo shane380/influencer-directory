@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifyAdmin } from "@/lib/admin-auth";
 import { createClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email";
 import { campaignAssignedEmail } from "@/lib/email-templates";
@@ -186,6 +187,9 @@ export async function POST(request: NextRequest) {
 
 // PATCH: Update campaign (admin)
 export async function PATCH(request: NextRequest) {
+  if (!(await verifyAdmin())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
   const body = await request.json();
   const { id, ...updates } = body;
@@ -258,6 +262,9 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  if (!(await verifyAdmin())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
   const { id } = await request.json();
 

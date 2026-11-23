@@ -15,23 +15,42 @@ const supabase = createClient(
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { inviteId, creatorName, password, commissionRate, postUrl } = body;
+  const { inviteId, creatorName, password, postUrl } = body;
   const email = (body.email || '').trim().toLowerCase();
 
   if (!inviteId || !creatorName || !email || !password) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
+  // The invite is the only thing that authorises a signup, so it has to be a
+  // real one that is still open. Without this check the route would create an
+  // account (or, worse, touch an existing one) for anyone who posted to it.
+  const { data: signupInvite } = await supabase
+    .from('creator_invites')
+    .select('id, status, expires_at, has_affiliate, commission_rate')
+    .eq('id', inviteId)
+    .maybeSingle();
+  const inviteRow = signupInvite as any;
+  if (!inviteRow) {
+    return NextResponse.json({ error: 'This invite link is not valid.' }, { status: 403 });
+  }
+  if (inviteRow.status !== 'pending') {
+    return NextResponse.json(
+      { error: 'This invite has already been used. Please log in instead.' },
+      { status: 409 }
+    );
+  }
+  if (inviteRow.expires_at && new Date(inviteRow.expires_at).getTime() < Date.now()) {
+    return NextResponse.json({ error: 'This invite has expired.' }, { status: 403 });
+  }
+
   // Affiliate codes are issued only when whoever built the invite selected an
   // affiliate deal (or the affiliate add-on). Previously every partner got a
   // code regardless, which left gift-card and retainer creators holding codes
   // they were never meant to have.
-  const { data: signupInvite } = await supabase
-    .from('creator_invites')
-    .select('has_affiliate')
-    .eq('id', inviteId)
-    .single();
-  const isAffiliate = !!(signupInvite as any)?.has_affiliate;
+  const isAffiliate = !!inviteRow.has_affiliate;
+  // The rate comes from the invite, never from the request body.
+  const commissionRate = inviteRow.commission_rate;
 
   // Create auth user — or reuse existing one (e.g. team member also becoming a partner)
   let userId: string;
@@ -43,18 +62,26 @@ export async function POST(request: NextRequest) {
   });
 
   if (authError) {
-    // If user already exists, look them up and add creator role
     if (authError.message?.toLowerCase().includes('already') || authError.message?.toLowerCase().includes('exists')) {
-      const { data: listData } = await supabase.auth.admin.listUsers();
-      const existingUser = listData?.users?.find((u: { email?: string }) => u.email === email);
-      if (!existingUser) {
-        return NextResponse.json({ error: 'Could not find existing user' }, { status: 400 });
+      // The email already has an account. Only link it to this invite if the
+      // caller proves they own it by supplying its CURRENT password — never
+      // set a new one here, or this public route becomes a way to take over
+      // any account by email.
+      const verifier = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+      );
+      const { data: signIn, error: signInError } = await verifier.auth.signInWithPassword({ email, password });
+      if (signInError || !signIn?.user) {
+        return NextResponse.json(
+          { error: 'An account with this email already exists. Enter that account\'s current password to continue, or reset it from the login page first.' },
+          { status: 409 }
+        );
       }
-      userId = existingUser.id;
-      // Update metadata to include creator role alongside existing role
-      const existingMeta = existingUser.user_metadata || {};
+      userId = signIn.user.id;
+      const existingMeta = signIn.user.user_metadata || {};
       await supabase.auth.admin.updateUserById(userId, {
-        password,
         user_metadata: { ...existingMeta, full_name: existingMeta.full_name || creatorName, creator_role: true },
       });
     } else {
