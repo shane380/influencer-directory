@@ -35,6 +35,10 @@
     {
       "path": "/api/cron/scan-code-leaks",
       "schedule": "0 7 1,15 * *"
+    },
+    {
+      "path": "/api/cron/send-scheduled-blasts",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
