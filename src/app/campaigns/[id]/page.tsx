@@ -43,6 +43,7 @@ import { ApprovalDialog, type ApprovalUpdate } from "@/components/approval-dialo
 import { BulkActionBar } from "@/components/bulk-action-bar";
 import { GiftSettingsDialog } from "@/components/gift-settings-dialog";
 import { GiftOverrideDialog } from "@/components/gift-override-dialog";
+import { CampaignEmailDialog } from "@/components/campaign-email-dialog";
 import { GiftRowActions } from "@/components/gift-row-actions";
 import { generateGiftToken, giftUrl, giftOrderLines, giftOrderCsv } from "@/lib/gift";
 import { summarizeHistory, type HistoryRow } from "@/lib/creator-history";
@@ -51,6 +52,7 @@ import {
   Plus,
   Search,
   Gift,
+  Mail,
   ArrowUpDown,
   Settings,
   Calendar,
@@ -234,6 +236,7 @@ export default function CampaignDetailPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   const [giftSettingsOpen, setGiftSettingsOpen] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [giftOverrideCi, setGiftOverrideCi] = useState<CampaignInfluencerWithDetails | null>(null);
   const [selectedCampaignInfluencer, setSelectedCampaignInfluencer] = useState<CampaignInfluencerWithDetails | null>(null);
   const [deals, setDeals] = useState<Map<string, CampaignDeal>>(new Map());
@@ -810,6 +813,12 @@ export default function CampaignDetailPage() {
               <Gift className="h-4 w-4 mr-2" />
               Selects Page{campaign.gift_enabled ? " · On" : ""}
             </Button>
+            {(currentUser?.isAdmin || currentUser?.isManager) && (
+              <Button variant="outline" onClick={() => setEmailDialogOpen(true)}>
+                <Mail className="h-4 w-4 mr-2" />
+                Email{selectedIds.size > 0 ? ` (${selectedIds.size} selected)` : ""}
+              </Button>
+            )}
             {campaign.gift_enabled && giftSubmittedCount > 0 && (
               <Button
                 variant="outline"
@@ -1332,6 +1341,17 @@ export default function CampaignDetailPage() {
           onClose={() => setGiftSettingsOpen(false)}
           campaign={campaign}
           onSaved={(patch) => setCampaign((prev) => (prev ? { ...prev, ...patch } : prev))}
+        />
+      )}
+
+      {campaign && (
+        <CampaignEmailDialog
+          open={emailDialogOpen}
+          onClose={() => setEmailDialogOpen(false)}
+          campaignId={campaign.id}
+          campaignName={campaign.name}
+          selectedInfluencerIds={Array.from(selectedIds)}
+          defaultTestEmail={currentUser?.email || ""}
         />
       )}
 
