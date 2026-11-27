@@ -994,18 +994,26 @@ export default function MonthCampaignViewPage() {
                               </button>
                             )}
                           </div>
-                          <span className="text-[12.5px] text-gray-400 tabular-nums truncate">
-                            {formatNumber(ci.influencer.follower_count)} followers
-                          </span>
-                          <a
-                            href={`https://instagram.com/${ci.influencer.instagram_handle}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-[12.5px] font-medium text-purple-600 hover:underline truncate max-w-full"
-                          >
-                            @{ci.influencer.instagram_handle}
-                          </a>
+                          {ci.influencer.is_non_influencer || !ci.influencer.instagram_handle ? (
+                            <span className="text-[12.5px] text-gray-400 truncate">
+                              Non-influencer
+                            </span>
+                          ) : (
+                            <>
+                              <span className="text-[12.5px] text-gray-400 tabular-nums truncate">
+                                {formatNumber(ci.influencer.follower_count)} followers
+                              </span>
+                              <a
+                                href={`https://instagram.com/${ci.influencer.instagram_handle}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-[12.5px] font-medium text-purple-600 hover:underline truncate max-w-full"
+                              >
+                                @{ci.influencer.instagram_handle}
+                              </a>
+                            </>
+                          )}
                         </div>
                       </div>
                     </TableCell>

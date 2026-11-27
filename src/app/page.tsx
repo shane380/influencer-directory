@@ -234,7 +234,8 @@ function HomePageContent() {
     // Build query with count
     let query = supabase
       .from("influencers")
-      .select("*", { count: "exact" });
+      .select("*", { count: "exact" })
+      .eq("is_non_influencer", false);
 
     // Apply filters
     if (partnershipTypeFilter !== "all") {

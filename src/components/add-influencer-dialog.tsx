@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
+  ClothingSize,
   Influencer,
   InfluencerInsert,
   PartnershipType,
@@ -19,6 +20,8 @@ import {
 } from "@/components/ui/dialog";
 import { Search, Loader2, AlertCircle, Plus } from "lucide-react";
 import Image from "next/image";
+
+const MANUAL_SIZES: ClothingSize[] = ["XS", "S", "M", "L", "XL"];
 
 interface AddInfluencerDialogProps {
   open: boolean;
@@ -53,6 +56,12 @@ export function AddInfluencerDialog({
   } | null>(null);
   const [requiresApproval, setRequiresApproval] = useState(false);
   const [selectedPartnershipType, setSelectedPartnershipType] = useState<PartnershipType>("gifted_no_ask");
+  // Manual add for people with no Instagram (event staff, instructors, etc.)
+  const [showManual, setShowManual] = useState(false);
+  const [manualName, setManualName] = useState("");
+  const [manualEmail, setManualEmail] = useState("");
+  const [manualTopSize, setManualTopSize] = useState<ClothingSize | "">("");
+  const [manualBottomsSize, setManualBottomsSize] = useState<ClothingSize | "">("");
 
   const supabase = createClient();
 
@@ -67,8 +76,59 @@ export function AddInfluencerDialog({
       setInstagramPreview(null);
       setRequiresApproval(false);
       setSelectedPartnershipType("gifted_no_ask");
+      setShowManual(false);
+      resetManualForm();
     }
   }, [open]);
+
+  const resetManualForm = () => {
+    setManualName("");
+    setManualEmail("");
+    setManualTopSize("");
+    setManualBottomsSize("");
+  };
+
+  const handleAddNonInfluencer = async () => {
+    const name = manualName.trim();
+    if (!name) return;
+
+    setAdding(true);
+    setError(null);
+
+    try {
+      const newPersonData: InfluencerInsert = {
+        name,
+        instagram_handle: "",
+        follower_count: 0,
+        email: manualEmail.trim() || null,
+        top_size: manualTopSize || null,
+        bottoms_size: manualBottomsSize || null,
+        tier: "C",
+        partnership_type: "gifted_no_ask",
+        relationship_status: "prospect",
+        is_non_influencer: true,
+        created_by: currentUserId,
+        assigned_to: currentUserId,
+      };
+
+      const insertResult = await (supabase
+        .from("influencers") as any)
+        .insert(newPersonData)
+        .select()
+        .single();
+
+      if (insertResult.error) throw insertResult.error;
+
+      await addInfluencerToCampaign(insertResult.data as Influencer);
+
+      resetManualForm();
+      fetchAllInfluencers();
+    } catch (err: any) {
+      setError(err.message || "Failed to add person");
+    } finally {
+      setAdding(false);
+    }
+  };
 
   const fetchCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -538,6 +598,82 @@ export function AddInfluencerDialog({
             </div>
           )}
 
+          {/* Manual add for people without Instagram */}
+          <div className="space-y-3">
+            <button
+              type="button"
+              className="text-sm font-medium text-blue-600 hover:underline"
+              onClick={() => setShowManual((v) => !v)}
+            >
+              {showManual ? "Cancel manual add" : "No Instagram? Add a non-influencer manually"}
+            </button>
+            {showManual && (
+              <div className="border rounded-lg p-4 bg-gray-50 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="manual-name" className="text-xs">Name *</Label>
+                    <Input
+                      id="manual-name"
+                      value={manualName}
+                      onChange={(e) => setManualName(e.target.value)}
+                      placeholder="Full name"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="manual-email" className="text-xs">Email</Label>
+                    <Input
+                      id="manual-email"
+                      type="email"
+                      value={manualEmail}
+                      onChange={(e) => setManualEmail(e.target.value)}
+                      placeholder="Optional"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="manual-top-size" className="text-xs">Top size</Label>
+                    <Select
+                      id="manual-top-size"
+                      value={manualTopSize}
+                      onChange={(e) => setManualTopSize(e.target.value as ClothingSize | "")}
+                    >
+                      <option value="">Not set</option>
+                      {MANUAL_SIZES.map((size) => (
+                        <option key={size} value={size}>{size}</option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="manual-bottoms-size" className="text-xs">Bottoms size</Label>
+                    <Select
+                      id="manual-bottoms-size"
+                      value={manualBottomsSize}
+                      onChange={(e) => setManualBottomsSize(e.target.value as ClothingSize | "")}
+                    >
+                      <option value="">Not set</option>
+                      {MANUAL_SIZES.map((size) => (
+                        <option key={size} value={size}>{size}</option>
+                      ))}
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs text-gray-500">
+                    Added to this campaign only — they won&apos;t appear in the influencer directory.
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleAddNonInfluencer}
+                    disabled={adding || !manualName.trim()}
+                  >
+                    {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                    <span className="ml-2">Add to Campaign</span>
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Requires Approval Toggle */}
           <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
             <input
@@ -611,7 +747,11 @@ export function AddInfluencerDialog({
                         )}
                         <div>
                           <p className="font-medium text-sm">{influencer.name}</p>
-                          <p className="text-xs text-gray-500">@{influencer.instagram_handle}</p>
+                          <p className="text-xs text-gray-500">
+                            {influencer.is_non_influencer || !influencer.instagram_handle
+                              ? "Non-influencer"
+                              : `@${influencer.instagram_handle}`}
+                          </p>
                         </div>
                       </div>
                       <Button
