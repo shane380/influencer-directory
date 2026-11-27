@@ -605,7 +605,7 @@ export function AddInfluencerDialog({
               className="text-sm font-medium text-blue-600 hover:underline"
               onClick={() => setShowManual((v) => !v)}
             >
-              {showManual ? "Cancel manual add" : "No Instagram? Add a non-influencer manually"}
+              {showManual ? "Cancel manual add" : "Add a non-influencer"}
             </button>
             {showManual && (
               <div className="border rounded-lg p-4 bg-gray-50 space-y-3">
