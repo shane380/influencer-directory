@@ -75,6 +75,8 @@ export interface Influencer {
   order_status_updated_at: string | null;
   shopify_real_order_id: string | null;
   google_drive_folder_id: string | null;
+  // Gift recipient with no Instagram presence (instagram_handle is '').
+  is_non_influencer: boolean;
 }
 
 export interface InfluencerInsert {
@@ -108,6 +110,7 @@ export interface InfluencerInsert {
   order_status_updated_at?: string | null;
   shopify_real_order_id?: string | null;
   google_drive_folder_id?: string | null;
+  is_non_influencer?: boolean;
 }
 
 export interface InfluencerUpdate extends Partial<InfluencerInsert> {
