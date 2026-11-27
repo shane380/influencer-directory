@@ -60,6 +60,8 @@ export function AddInfluencerDialog({
   const [showManual, setShowManual] = useState(false);
   const [manualName, setManualName] = useState("");
   const [manualEmail, setManualEmail] = useState("");
+  const [manualPhone, setManualPhone] = useState("");
+  const [manualAddress, setManualAddress] = useState("");
   const [manualTopSize, setManualTopSize] = useState<ClothingSize | "">("");
   const [manualBottomsSize, setManualBottomsSize] = useState<ClothingSize | "">("");
 
@@ -84,6 +86,8 @@ export function AddInfluencerDialog({
   const resetManualForm = () => {
     setManualName("");
     setManualEmail("");
+    setManualPhone("");
+    setManualAddress("");
     setManualTopSize("");
     setManualBottomsSize("");
   };
@@ -101,6 +105,8 @@ export function AddInfluencerDialog({
         instagram_handle: "",
         follower_count: 0,
         email: manualEmail.trim() || null,
+        phone: manualPhone.trim() || null,
+        mailing_address: manualAddress.trim() || null,
         top_size: manualTopSize || null,
         bottoms_size: manualBottomsSize || null,
         tier: "C",
@@ -626,34 +632,55 @@ export function AddInfluencerDialog({
                       type="email"
                       value={manualEmail}
                       onChange={(e) => setManualEmail(e.target.value)}
-                      placeholder="Optional"
+                      placeholder="Needed to create an order"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="manual-top-size" className="text-xs">Top size</Label>
-                    <Select
-                      id="manual-top-size"
-                      value={manualTopSize}
-                      onChange={(e) => setManualTopSize(e.target.value as ClothingSize | "")}
-                    >
-                      <option value="">Not set</option>
-                      {MANUAL_SIZES.map((size) => (
-                        <option key={size} value={size}>{size}</option>
-                      ))}
-                    </Select>
+                    <Label htmlFor="manual-phone" className="text-xs">Phone</Label>
+                    <Input
+                      id="manual-phone"
+                      type="tel"
+                      value={manualPhone}
+                      onChange={(e) => setManualPhone(e.target.value)}
+                      placeholder="Needed to create an order"
+                    />
                   </div>
-                  <div>
-                    <Label htmlFor="manual-bottoms-size" className="text-xs">Bottoms size</Label>
-                    <Select
-                      id="manual-bottoms-size"
-                      value={manualBottomsSize}
-                      onChange={(e) => setManualBottomsSize(e.target.value as ClothingSize | "")}
-                    >
-                      <option value="">Not set</option>
-                      {MANUAL_SIZES.map((size) => (
-                        <option key={size} value={size}>{size}</option>
-                      ))}
-                    </Select>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="manual-top-size" className="text-xs">Top size</Label>
+                      <Select
+                        id="manual-top-size"
+                        value={manualTopSize}
+                        onChange={(e) => setManualTopSize(e.target.value as ClothingSize | "")}
+                      >
+                        <option value="">Not set</option>
+                        {MANUAL_SIZES.map((size) => (
+                          <option key={size} value={size}>{size}</option>
+                        ))}
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="manual-bottoms-size" className="text-xs">Bottoms size</Label>
+                      <Select
+                        id="manual-bottoms-size"
+                        value={manualBottomsSize}
+                        onChange={(e) => setManualBottomsSize(e.target.value as ClothingSize | "")}
+                      >
+                        <option value="">Not set</option>
+                        {MANUAL_SIZES.map((size) => (
+                          <option key={size} value={size}>{size}</option>
+                        ))}
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="col-span-2">
+                    <Label htmlFor="manual-address" className="text-xs">Shipping address</Label>
+                    <Input
+                      id="manual-address"
+                      value={manualAddress}
+                      onChange={(e) => setManualAddress(e.target.value)}
+                      placeholder="Street, city, state, zip"
+                    />
                   </div>
                 </div>
                 <div className="flex items-center justify-between gap-3">
